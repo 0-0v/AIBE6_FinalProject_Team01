@@ -8,9 +8,10 @@ import {
     ChevronRightIcon,
     CopyIcon,
     CreditCardIcon,
+    LayoutGridIcon,
+    ListIcon,
     MapPinIcon,
     MessageCircleIcon,
-    PipetteIcon,
     PlusIcon,
     SparklesIcon,
     ThumbsUpIcon,
@@ -20,8 +21,8 @@ import {
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { Avatar } from '../components/common/Avatar'
-import { ColorEditableCard } from '../components/dashboard/ColorEditableCard'
 import { members } from '../data/mockData'
+import { TravelRooms } from './TravelRooms'
 
 type SurfaceId =
     | 'travel'
@@ -60,6 +61,30 @@ const initialTasks = [
         label: '예약금 정산 완료',
         meta: '민수님 입금 대기',
         urgent: false,
+    },
+]
+
+const trips = [
+    {
+        title: '제주도 가족여행',
+        sub: '👨‍👩‍👧 4명 · D-12',
+        image: photo.beach,
+        progress: '68%',
+        status: '진행 중',
+    },
+    {
+        title: '부산 친구 여행',
+        sub: '🧑‍🤝‍🧑 3명 · D-38',
+        image: photo.food,
+        progress: '24%',
+        status: '준비 중',
+    },
+    {
+        title: '강릉 주말 여행',
+        sub: '☕ 2명 · D-51',
+        image: photo.cafe,
+        progress: '12%',
+        status: '준비 중',
     },
 ]
 
@@ -199,9 +224,7 @@ export function Home() {
     const navigate = useNavigate()
     const [tasks, setTasks] = useState(initialTasks)
     const [readNotifications, setReadNotifications] = useState<string[]>([])
-    const [editingColors, setEditingColors] = useState(false)
-    const [activeSurface, setActiveSurface] = useState<SurfaceId | null>(null)
-    const [surfaceColors, setSurfaceColors] = useState(initialColors)
+    const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
 
     function toggleTask(id: string) {
         setTasks((current) => current.filter((task) => task.id !== id))
@@ -213,37 +236,21 @@ export function Home() {
         )
     }
 
-    function toggleColorEditing() {
-        setEditingColors((current) => !current)
-        setActiveSurface(null)
-    }
-
-    function updateSurfaceColor(id: string, color: string) {
-        setSurfaceColors((current) => ({
-            ...current,
-            [id as SurfaceId]: color,
-        }))
-    }
-
     function editable(
         id: SurfaceId,
         label: string,
         children: React.ReactNode,
         className = '',
     ) {
+        const color = initialColors[id]
         return (
-            <ColorEditableCard
-                id={id}
-                label={label}
-                color={surfaceColors[id]}
-                active={activeSurface === id}
-                editing={editingColors}
-                onActivate={(nextId) => setActiveSurface(nextId as SurfaceId)}
-                onColorChange={updateSurfaceColor}
+            <div
                 className={className}
+                style={{ backgroundColor: color }}
+                aria-label={label}
             >
                 {children}
-            </ColorEditableCard>
+            </div>
         )
     }
 
@@ -266,16 +273,22 @@ export function Home() {
                             placeholder="여행방이나 장소 검색"
                         />
                     </label>
-                    <button
-                        onClick={toggleColorEditing}
-                        aria-pressed={editingColors}
-                        className={`flex h-11 items-center gap-2 rounded-xl border px-3 text-xs font-extrabold transition ${editingColors ? 'border-[#efb7c1] bg-[#fff0f2] text-[#c94c63]' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
-                    >
-                        <PipetteIcon size={16} />{' '}
-                        <span className="hidden sm:inline">
-                            {editingColors ? '컬러 추출 완료' : '컬러 추출'}
-                        </span>
-                    </button>
+                    <div className="flex h-11 items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
+                        <button
+                            onClick={() => setView('dashboard')}
+                            aria-pressed={view === 'dashboard'}
+                            className={`flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${view === 'dashboard' ? 'bg-[#fff0f2] text-[#c94c63]' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <LayoutGridIcon size={15} /> 대시보드
+                        </button>
+                        <button
+                            onClick={() => setView('list')}
+                            aria-pressed={view === 'list'}
+                            className={`flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${view === 'list' ? 'bg-[#fff0f2] text-[#c94c63]' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            <ListIcon size={15} /> 리스트
+                        </button>
+                    </div>
                     <button
                         className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#f4f8f7] text-slate-500 hover:bg-slate-100"
                         aria-label="알림 열기"
@@ -292,19 +305,11 @@ export function Home() {
                 </div>
             </header>
 
-            {editingColors && (
-                <div className="mx-auto mt-4 flex max-w-[1440px] items-center gap-2 rounded-xl border border-[#f5d2d8] bg-[#fff7f8] px-4 py-3 text-xs text-[#9f5362]">
-                    <PipetteIcon
-                        size={15}
-                        className="shrink-0 text-[#d65e74]"
-                    />
-                    <span>
-                        <b>컬러 추출 모드</b> · 카드를 누른 뒤 스포이드로 화면의
-                        색을 찍거나 HEX/RGB 값을 입력하세요.
-                    </span>
+            {view === 'list' ? (
+                <div className="mx-auto mt-6 max-w-[1440px] px-1">
+                    <TravelRooms embedded />
                 </div>
-            )}
-
+            ) : (
             <main className="mx-auto mt-6 grid max-w-[1440px] gap-6 xl:grid-cols-[minmax(0,1fr)_318px]">
                 <div className="min-w-0 space-y-5">
                     {editable(
@@ -402,7 +407,6 @@ export function Home() {
                                     ].map((item) => (
                                         <button
                                             onClick={() =>
-                                                !editingColors &&
                                                 navigate('/app/room')
                                             }
                                             key={item.title}
@@ -424,7 +428,7 @@ export function Home() {
                                 </div>
                             </div>
                         </motion.section>,
-                        'overflow-visible',
+                        'overflow-visible rounded-[28px]',
                     )}
 
                     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -456,7 +460,6 @@ export function Home() {
                                             <button
                                                 key={task.id}
                                                 onClick={() =>
-                                                    !editingColors &&
                                                     toggleTask(task.id)
                                                 }
                                                 className="group flex w-full items-center gap-3 py-3 text-left"
@@ -542,7 +545,6 @@ export function Home() {
                                                 {index === 2 && (
                                                     <button
                                                         onClick={() =>
-                                                            !editingColors &&
                                                             navigate(
                                                                 '/app/room',
                                                             )
@@ -570,29 +572,7 @@ export function Home() {
                             }
                         />
                         <div className="grid gap-4 sm:grid-cols-3">
-                            {[
-                                {
-                                    title: '제주도 가족여행',
-                                    sub: '👨‍👩‍👧 4명 · D-12',
-                                    image: photo.beach,
-                                    progress: '68%',
-                                    status: '진행 중',
-                                },
-                                {
-                                    title: '부산 친구 여행',
-                                    sub: '🧑‍🤝‍🧑 3명 · D-38',
-                                    image: photo.food,
-                                    progress: '24%',
-                                    status: '준비 중',
-                                },
-                                {
-                                    title: '강릉 주말 여행',
-                                    sub: '☕ 2명 · D-51',
-                                    image: photo.cafe,
-                                    progress: '12%',
-                                    status: '준비 중',
-                                },
-                            ].map((trip, index) => (
+                            {trips.map((trip, index) => (
                                 <motion.button
                                     key={trip.title}
                                     whileHover={{
@@ -705,7 +685,6 @@ export function Home() {
                                 {aiFindings.map((finding) => (
                                     <button
                                         onClick={() =>
-                                            !editingColors &&
                                             navigate('/app/room')
                                         }
                                         key={finding.title}
@@ -742,7 +721,6 @@ export function Home() {
                                 action={
                                     <button
                                         onClick={() =>
-                                            !editingColors &&
                                             navigate('/app/room')
                                         }
                                         className="text-xs font-bold text-brand-700"
@@ -881,10 +859,7 @@ export function Home() {
                                             return (
                                                 <button
                                                     key={id}
-                                                    onClick={() =>
-                                                        !editingColors &&
-                                                        markRead(id)
-                                                    }
+                                                    onClick={() => markRead(id)}
                                                     className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-50 ${isRead ? 'opacity-50' : ''}`}
                                                 >
                                                     <span
@@ -913,6 +888,7 @@ export function Home() {
                     </div>
                 </aside>
             </main>
+            )}
         </div>
     )
 }

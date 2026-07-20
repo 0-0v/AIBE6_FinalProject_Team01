@@ -1,4 +1,4 @@
-import { Member, Place, ActivityLog } from './types'
+import { Member, Place, ActivityLog, Room } from './types'
 
 export const currentUserId = 'm1'
 
@@ -140,6 +140,45 @@ export const initialPlaces: Place[] = [
         votes: [],
         comments: [],
         duplicateOf: 'p1',
+    },
+]
+
+export const rooms: Room[] = [
+    {
+        id: 'jeju-family',
+        title: '제주도 가족여행',
+        date: '2026. 08. 12 – 08. 15',
+        location: '제주도',
+        dday: 'D-12',
+        members: 4,
+        progress: 68,
+        cover: IMG.beach,
+        status: '진행 중',
+        color: '#e7657a',
+    },
+    {
+        id: 'busan-friends',
+        title: '부산 친구 여행',
+        date: '2026. 09. 07 – 09. 09',
+        location: '부산광역시',
+        dday: 'D-38',
+        members: 3,
+        progress: 24,
+        cover: IMG.restaurant,
+        status: '준비 중',
+        color: '#f97316',
+    },
+    {
+        id: 'gangneung-weekend',
+        title: '강릉 주말 여행',
+        date: '2026. 09. 20 – 09. 21',
+        location: '강릉시',
+        dday: 'D-51',
+        members: 2,
+        progress: 12,
+        cover: IMG.cafe,
+        status: '준비 중',
+        color: '#0ea5e9',
     },
 ]
 

@@ -60,6 +60,19 @@ export type TravelRecord = {
     images: string[]
 }
 
+export type Room = {
+    id: string
+    title: string
+    date: string
+    location: string
+    dday: string
+    members: number
+    progress: number
+    cover: string
+    status: string
+    color: string
+}
+
 export type Expense = {
     id: string
     title: string
