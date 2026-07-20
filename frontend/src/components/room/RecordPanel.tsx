@@ -1,35 +1,33 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react'
 import {
     ArrowDownUpIcon,
     ImagePlusIcon,
     MapPinIcon,
     PlusIcon,
     XIcon,
-} from 'lucide-react';
-import { Place, TravelRecord } from '../../data/types';
-import { members } from '../../data/mockData';
-import { Avatar } from '../common/Avatar';
+} from 'lucide-react'
+import { Place, TravelRecord } from '../../data/types'
+import { members } from '../../data/mockData'
+import { Avatar } from '../common/Avatar'
 
 type Props = {
-    records: TravelRecord[];
-    places: Place[];
-    canWrite: boolean;
-    onAdd: (
-        record: Omit<TravelRecord, 'id' | 'createdAt' | 'memberId'>,
-    ) => void;
-    onPlaceClick: (placeId: string) => void;
-};
+    records: TravelRecord[]
+    places: Place[]
+    canWrite: boolean
+    onAdd: (record: Omit<TravelRecord, 'id' | 'createdAt' | 'memberId'>) => void
+    onPlaceClick: (placeId: string) => void
+}
 
 const galleryImages = [
     '/\u1109\u1173\u110F\u1173\u1105\u1175\u11AB\u1109\u1163\u11BA_2026-07-19_\u110B\u1169\u110C\u1165\u11AB_1.15.02.png',
     '/\u1109\u1173\u110F\u1173\u1105\u1175\u11AB\u1109\u1163\u11BA_2026-07-19_\u110B\u1169\u110C\u1165\u11AB_1.14.52.png',
-];
+]
 
 const dayDetails: Record<1 | 2 | 3, string> = {
     1: '8월 12일 · 제주 동부',
     2: '8월 13일 · 제주 서부',
     3: '8월 14일 · 제주 시내',
-};
+}
 
 export function RecordPanel({
     records,
@@ -38,35 +36,35 @@ export function RecordPanel({
     onAdd,
     onPlaceClick,
 }: Props) {
-    const [day, setDay] = useState<1 | 2 | 3>(1);
-    const [isNewestFirst, setIsNewestFirst] = useState(true);
-    const [composerOpen, setComposerOpen] = useState(false);
-    const [memo, setMemo] = useState('');
-    const [placeId, setPlaceId] = useState('');
-    const [selectedImages, setSelectedImages] = useState<string[]>([]);
+    const [day, setDay] = useState<1 | 2 | 3>(1)
+    const [isNewestFirst, setIsNewestFirst] = useState(true)
+    const [composerOpen, setComposerOpen] = useState(false)
+    const [memo, setMemo] = useState('')
+    const [placeId, setPlaceId] = useState('')
+    const [selectedImages, setSelectedImages] = useState<string[]>([])
 
     const dayRecords = useMemo(() => {
-        const filtered = records.filter((record) => record.day === day);
+        const filtered = records.filter((record) => record.day === day)
         return [...filtered].sort((a, b) =>
             isNewestFirst
                 ? b.time.localeCompare(a.time)
                 : a.time.localeCompare(b.time),
-        );
-    }, [day, isNewestFirst, records]);
+        )
+    }, [day, isNewestFirst, records])
 
     function addRecord() {
-        if (!memo.trim() && selectedImages.length === 0) return;
+        if (!memo.trim() && selectedImages.length === 0) return
         onAdd({
             day,
             time: '방금',
             memo: memo.trim() || undefined,
             placeId: placeId || undefined,
             images: selectedImages,
-        });
-        setMemo('');
-        setPlaceId('');
-        setSelectedImages([]);
-        setComposerOpen(false);
+        })
+        setMemo('')
+        setPlaceId('')
+        setSelectedImages([])
+        setComposerOpen(false)
     }
 
     return (
@@ -128,10 +126,10 @@ export function RecordPanel({
                         {dayRecords.map((record) => {
                             const author = members.find(
                                 (member) => member.id === record.memberId,
-                            );
+                            )
                             const place = places.find(
                                 (item) => item.id === record.placeId,
-                            );
+                            )
                             return (
                                 <article
                                     key={record.id}
@@ -176,7 +174,7 @@ export function RecordPanel({
                                         )}
                                     </div>
                                 </article>
-                            );
+                            )
                         })}
                     </div>
                 )}
@@ -294,14 +292,13 @@ export function RecordPanel({
                 </div>
             )}
         </div>
-    );
+    )
 }
 
 function PhotoGrid({ images }: { images: string[] }) {
-    const visibleImages = images.slice(0, 4);
-    const extraCount = images.length - visibleImages.length;
-    const gridClass =
-        visibleImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
+    const visibleImages = images.slice(0, 4)
+    const extraCount = images.length - visibleImages.length
+    const gridClass = visibleImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
 
     return (
         <div
@@ -325,5 +322,5 @@ function PhotoGrid({ images }: { images: string[] }) {
                 </div>
             ))}
         </div>
-    );
+    )
 }

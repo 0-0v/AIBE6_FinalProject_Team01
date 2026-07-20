@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
     ArrowRightIcon,
     CalendarDaysIcon,
@@ -10,8 +10,8 @@ import {
     SparklesIcon,
     ThumbsUpIcon,
     UsersRoundIcon,
-} from 'lucide-react';
-import { motion } from 'framer-motion';
+} from 'lucide-react'
+import { motion } from 'framer-motion'
 
 const places = [
     {
@@ -35,10 +35,10 @@ const places = [
         position: 'left-[57%] top-[59%]',
         color: '#dc2626',
     },
-];
+]
 
 export function Landing() {
-    const navigate = useNavigate();
+    const navigate = useNavigate()
 
     return (
         <div className="min-h-full w-full overflow-x-hidden bg-[#f8faf9] text-slate-900">
@@ -656,5 +656,5 @@ export function Landing() {
                 © 2026 Plamingo · 함께 만드는 여행 협업 플랫폼
             </footer>
         </div>
-    );
+    )
 }

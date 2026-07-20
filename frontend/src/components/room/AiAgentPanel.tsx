@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
     SparklesIcon,
     XIcon,
@@ -7,29 +7,29 @@ import {
     AlertTriangleIcon,
     LayersIcon,
     CalendarIcon,
-} from 'lucide-react';
-import { Place } from '../../data/types';
+} from 'lucide-react'
+import { Place } from '../../data/types'
 
 type Suggestion = {
-    id: string;
-    type: 'duplicate' | 'category' | 'schedule';
-    icon: React.ComponentType<{ size?: number; className?: string }>;
-    title: string;
-    detail: string;
-};
+    id: string
+    type: 'duplicate' | 'category' | 'schedule'
+    icon: React.ComponentType<{ size?: number; className?: string }>
+    title: string
+    detail: string
+}
 
 type Props = {
-    places: Place[];
-    onClose: () => void;
-    onApply: (s: Suggestion) => void;
-};
+    places: Place[]
+    onClose: () => void
+    onApply: (s: Suggestion) => void
+}
 
 export function AiAgentPanel({ places, onClose, onApply }: Props) {
-    const [phase, setPhase] = useState<'idle' | 'thinking' | 'done'>('idle');
-    const [applied, setApplied] = useState<string[]>([]);
+    const [phase, setPhase] = useState<'idle' | 'thinking' | 'done'>('idle')
+    const [applied, setApplied] = useState<string[]>([])
 
-    const dup = places.find((p) => p.duplicateOf);
-    const uncategorized = places.filter((p) => p.status === 'candidate').length;
+    const dup = places.find((p) => p.duplicateOf)
+    const uncategorized = places.filter((p) => p.status === 'candidate').length
 
     const suggestions: Suggestion[] = [
         ...(dup
@@ -57,11 +57,11 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
             title: '2박 3일 일정 초안 생성',
             detail: '확정된 장소로 동선을 최적화한 날짜별 일정 초안을 만들어요. (이동시간·영업시간 충돌 확인 포함)',
         },
-    ];
+    ]
 
     function runOrganize() {
-        setPhase('thinking');
-        setTimeout(() => setPhase('done'), 1400);
+        setPhase('thinking')
+        setTimeout(() => setPhase('done'), 1400)
     }
 
     return (
@@ -120,7 +120,7 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
                             제안 {suggestions.length}건 · 승인해야 반영돼요
                         </p>
                         {suggestions.map((s) => {
-                            const isApplied = applied.includes(s.id);
+                            const isApplied = applied.includes(s.id)
                             return (
                                 <div
                                     key={s.id}
@@ -157,11 +157,11 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
                                         <div className="mt-2.5 flex gap-2">
                                             <button
                                                 onClick={() => {
-                                                    onApply(s);
+                                                    onApply(s)
                                                     setApplied((p) => [
                                                         ...p,
                                                         s.id,
-                                                    ]);
+                                                    ])
                                                 }}
                                                 className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-brand py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
                                             >
@@ -173,13 +173,13 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
                                         </div>
                                     )}
                                 </div>
-                            );
+                            )
                         })}
 
                         <button
                             onClick={() => {
-                                setPhase('idle');
-                                setApplied([]);
+                                setPhase('idle')
+                                setApplied([])
                             }}
                             className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium text-slate-400 hover:bg-slate-50"
                         >
@@ -189,5 +189,5 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
                 )}
             </div>
         </div>
-    );
+    )
 }

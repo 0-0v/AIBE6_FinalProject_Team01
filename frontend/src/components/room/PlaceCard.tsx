@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'
 import {
     CheckIcon,
     ClockIcon,
@@ -6,22 +6,22 @@ import {
     ThumbsDownIcon,
     ThumbsUpIcon,
     Trash2Icon,
-} from 'lucide-react';
-import { Place } from '../../data/types';
-import { CATEGORY_META, currentUserId, members } from '../../data/mockData';
-import { Avatar } from '../common/Avatar';
+} from 'lucide-react'
+import { Place } from '../../data/types'
+import { CATEGORY_META, currentUserId, members } from '../../data/mockData'
+import { Avatar } from '../common/Avatar'
 
 type Props = {
-    place: Place;
-    selected: boolean;
-    canWrite: boolean;
-    onSelect: () => void;
-    onVote: (value: 'up' | 'down') => void;
-    onSave: () => void;
-    onHold: () => void;
-    onDelete: () => void;
-    onOpenComments: () => void;
-};
+    place: Place
+    selected: boolean
+    canWrite: boolean
+    onSelect: () => void
+    onVote: (value: 'up' | 'down') => void
+    onSave: () => void
+    onHold: () => void
+    onDelete: () => void
+    onOpenComments: () => void
+}
 
 export function PlaceCard({
     place,
@@ -34,22 +34,20 @@ export function PlaceCard({
     onDelete,
     onOpenComments,
 }: Props) {
-    const meta = CATEGORY_META[place.category];
-    const adder = members.find((member) => member.id === place.addedBy);
+    const meta = CATEGORY_META[place.category]
+    const adder = members.find((member) => member.id === place.addedBy)
     const supporters = place.votes
         .filter((vote) => vote.value === 'up')
         .map((vote) => members.find((member) => member.id === vote.memberId))
         .filter((member): member is NonNullable<typeof member> =>
             Boolean(member),
-        );
-    const upVotes = supporters.length;
-    const downVotes = place.votes.filter(
-        (vote) => vote.value === 'down',
-    ).length;
+        )
+    const upVotes = supporters.length
+    const downVotes = place.votes.filter((vote) => vote.value === 'down').length
     const myVote = place.votes.find(
         (vote) => vote.memberId === currentUserId,
-    )?.value;
-    const isCandidate = place.status === 'candidate';
+    )?.value
+    const isCandidate = place.status === 'candidate'
 
     return (
         <article
@@ -123,8 +121,8 @@ export function PlaceCard({
                     </div>
                     <button
                         onClick={(event) => {
-                            event.stopPropagation();
-                            onOpenComments();
+                            event.stopPropagation()
+                            onOpenComments()
                         }}
                         className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-500 hover:bg-white"
                     >
@@ -139,8 +137,8 @@ export function PlaceCard({
                         <button
                             disabled={!canWrite}
                             onClick={(event) => {
-                                event.stopPropagation();
-                                onVote('up');
+                                event.stopPropagation()
+                                onVote('up')
                             }}
                             className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold transition disabled:opacity-40 ${myVote === 'up' ? 'bg-[#f4f1ff] text-[#5b32ea]' : 'bg-slate-100 text-slate-500 hover:bg-[#f4f1ff] hover:text-[#5b32ea]'}`}
                         >
@@ -149,8 +147,8 @@ export function PlaceCard({
                         <button
                             disabled={!canWrite}
                             onClick={(event) => {
-                                event.stopPropagation();
-                                onVote('down');
+                                event.stopPropagation()
+                                onVote('down')
                             }}
                             className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold transition disabled:opacity-40 ${myVote === 'down' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600'}`}
                         >
@@ -176,8 +174,8 @@ export function PlaceCard({
                         {isCandidate && (
                             <button
                                 onClick={(event) => {
-                                    event.stopPropagation();
-                                    onSave();
+                                    event.stopPropagation()
+                                    onSave()
                                 }}
                                 className="flex items-center gap-1 rounded-lg bg-[#5b32ea] px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-[#4825c7]"
                             >
@@ -187,8 +185,8 @@ export function PlaceCard({
                         {isCandidate && (
                             <button
                                 onClick={(event) => {
-                                    event.stopPropagation();
-                                    onHold();
+                                    event.stopPropagation()
+                                    onHold()
                                 }}
                                 className="rounded-lg p-1.5 text-slate-400 hover:bg-amber-50 hover:text-amber-600"
                                 aria-label="후보 장소 보류"
@@ -198,8 +196,8 @@ export function PlaceCard({
                         )}
                         <button
                             onClick={(event) => {
-                                event.stopPropagation();
-                                onDelete();
+                                event.stopPropagation()
+                                onDelete()
                             }}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
                             aria-label="장소 삭제"
@@ -210,5 +208,5 @@ export function PlaceCard({
                 )}
             </div>
         </article>
-    );
+    )
 }

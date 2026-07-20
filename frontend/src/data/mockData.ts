@@ -1,13 +1,13 @@
-import { Member, Place, ActivityLog } from './types';
+import { Member, Place, ActivityLog } from './types'
 
-export const currentUserId = 'm1';
+export const currentUserId = 'm1'
 
 export const members: Member[] = [
     { id: 'm1', name: '지현', avatarColor: '#0f766e', role: 'OWNER' },
     { id: 'm2', name: '민수', avatarColor: '#ea580c', role: 'EDITOR' },
     { id: 'm3', name: '서연', avatarColor: '#7c3aed', role: 'EDITOR' },
     { id: 'm4', name: '준호', avatarColor: '#2563eb', role: 'VIEWER' },
-];
+]
 
 export const CATEGORY_META: Record<
     string,
@@ -18,7 +18,7 @@ export const CATEGORY_META: Record<
     attraction: { label: '명소', color: '#7c3aed', emoji: '🏛️' },
     nature: { label: '자연', color: '#0f766e', emoji: '🌿' },
     shopping: { label: '쇼핑', color: '#2563eb', emoji: '🛍️' },
-};
+}
 
 const IMG = {
     cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
@@ -26,7 +26,7 @@ const IMG = {
     restaurant: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
     viewpoint: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     market: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
-};
+}
 
 export const initialPlaces: Place[] = [
     {
@@ -141,7 +141,7 @@ export const initialPlaces: Place[] = [
         comments: [],
         duplicateOf: 'p1',
     },
-];
+]
 
 export const initialLogs: ActivityLog[] = [
     {
@@ -168,4 +168,4 @@ export const initialLogs: ActivityLog[] = [
         createdAt: '1시간 전',
         undoable: true,
     },
-];
+]

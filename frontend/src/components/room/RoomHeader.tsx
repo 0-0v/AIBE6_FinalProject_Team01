@@ -1,23 +1,23 @@
-import React from 'react';
+import React from 'react'
 import {
     ArrowLeftIcon,
     EyeIcon,
     LockIcon,
     UnlockIcon,
     UserPlusIcon,
-} from 'lucide-react';
-import { members } from '../../data/mockData';
-import { Avatar } from '../common/Avatar';
+} from 'lucide-react'
+import { members } from '../../data/mockData'
+import { Avatar } from '../common/Avatar'
 
 type Props = {
-    isPublic: boolean;
-    isOwner: boolean;
-    viewerMode: boolean;
-    onTogglePublic: () => void;
-    onToggleViewer: () => void;
-    onInvite: () => void;
-    onBack: () => void;
-};
+    isPublic: boolean
+    isOwner: boolean
+    viewerMode: boolean
+    onTogglePublic: () => void
+    onToggleViewer: () => void
+    onInvite: () => void
+    onBack: () => void
+}
 
 export function RoomHeader({
     isPublic,
@@ -110,5 +110,5 @@ export function RoomHeader({
                 </button>
             </div>
         </header>
-    );
+    )
 }

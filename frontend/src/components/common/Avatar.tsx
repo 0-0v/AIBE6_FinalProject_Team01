@@ -1,14 +1,12 @@
-import React from 'react';
-
 type Props = {
-    name: string;
-    color: string;
-    size?: number;
-    className?: string;
-};
+    name: string
+    color: string
+    size?: number
+    className?: string
+}
 
 export function Avatar({ name, color, size = 32, className = '' }: Props) {
-    const initial = name.trim().charAt(0).toUpperCase();
+    const initial = name.trim().charAt(0).toUpperCase()
     return (
         <span
             className={`inline-flex items-center justify-center rounded-full font-semibold text-white shrink-0 ${className}`}
@@ -22,5 +20,5 @@ export function Avatar({ name, color, size = 32, className = '' }: Props) {
         >
             {initial}
         </span>
-    );
+    )
 }

@@ -1,48 +1,45 @@
-import React, { useMemo, useState } from 'react';
-import { PlusIcon, ReceiptTextIcon, XIcon } from 'lucide-react';
-import { Expense } from '../../data/types';
-import { members } from '../../data/mockData';
-import { Avatar } from '../common/Avatar';
+import React, { useMemo, useState } from 'react'
+import { PlusIcon, ReceiptTextIcon, XIcon } from 'lucide-react'
+import { Expense } from '../../data/types'
+import { members } from '../../data/mockData'
+import { Avatar } from '../common/Avatar'
 
 type Props = {
-    expenses: Expense[];
-    canWrite: boolean;
-    onAdd: (expense: Omit<Expense, 'id'>) => void;
-};
+    expenses: Expense[]
+    canWrite: boolean
+    onAdd: (expense: Omit<Expense, 'id'>) => void
+}
 
 export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
-    const [composerOpen, setComposerOpen] = useState(false);
-    const [title, setTitle] = useState('');
-    const [amount, setAmount] = useState('');
-    const [isSplit, setIsSplit] = useState(true);
+    const [composerOpen, setComposerOpen] = useState(false)
+    const [title, setTitle] = useState('')
+    const [amount, setAmount] = useState('')
+    const [isSplit, setIsSplit] = useState(true)
 
     const summary = useMemo(() => {
-        const total = expenses.reduce(
-            (sum, expense) => sum + expense.amount,
-            0,
-        );
-        return { total, myShare: Math.round(total / 4), balance: 24000 };
-    }, [expenses]);
+        const total = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+        return { total, myShare: Math.round(total / 4), balance: 24000 }
+    }, [expenses])
 
     function addExpense() {
-        const numericAmount = Number(amount.replace(/,/g, ''));
+        const numericAmount = Number(amount.replace(/,/g, ''))
         if (
             !title.trim() ||
             !Number.isFinite(numericAmount) ||
             numericAmount <= 0
         )
-            return;
+            return
         onAdd({
             title: title.trim(),
             amount: numericAmount,
             date: '8월 12일',
             paidBy: 'm1',
             participantCount: isSplit ? 4 : 1,
-        });
-        setTitle('');
-        setAmount('');
-        setIsSplit(true);
-        setComposerOpen(false);
+        })
+        setTitle('')
+        setAmount('')
+        setIsSplit(true)
+        setComposerOpen(false)
     }
 
     return (
@@ -87,7 +84,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                         {expenses.map((expense) => {
                             const payer = members.find(
                                 (member) => member.id === expense.paidBy,
-                            );
+                            )
                             return (
                                 <article
                                     key={expense.id}
@@ -116,7 +113,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                                         {formatCurrency(expense.amount)}
                                     </b>
                                 </article>
-                            );
+                            )
                         })}
                     </div>
                 </section>
@@ -216,7 +213,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                 </div>
             )}
         </div>
-    );
+    )
 }
 
 function Summary({
@@ -224,9 +221,9 @@ function Summary({
     value,
     tone = 'text-slate-900',
 }: {
-    label: string;
-    value: number;
-    tone?: string;
+    label: string
+    value: number
+    tone?: string
 }) {
     return (
         <div className="px-1">
@@ -235,9 +232,9 @@ function Summary({
                 {formatCurrency(value)}
             </b>
         </div>
-    );
+    )
 }
 
 function formatCurrency(value: number) {
-    return `${value.toLocaleString('ko-KR')}원`;
+    return `${value.toLocaleString('ko-KR')}원`
 }

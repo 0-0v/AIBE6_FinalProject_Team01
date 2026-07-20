@@ -1,25 +1,25 @@
-'use client';
+'use client'
 
-import React from 'react';
+import React from 'react'
 import {
     BrowserRouter,
     Navigate,
     Route,
     Routes,
     useLocation,
-} from 'react-router-dom';
-import { Sidebar } from './components/layout/Sidebar';
-import { Home } from './screens/Home';
-import { Explore, Saved, Updates } from './screens/StubPages';
-import { MyPage } from './screens/MyPage';
-import { Login } from './screens/Login';
-import { TripRoom } from './screens/TripRoom';
-import { TravelRooms } from './screens/TravelRooms';
-import { Landing } from './screens/Landing';
+} from 'react-router-dom'
+import { Sidebar } from './components/layout/Sidebar'
+import { Home } from './screens/Home'
+import { Explore, Saved, Updates } from './screens/StubPages'
+import { MyPage } from './screens/MyPage'
+import { Login } from './screens/Login'
+import { TripRoom } from './screens/TripRoom'
+import { TravelRooms } from './screens/TravelRooms'
+import { Landing } from './screens/Landing'
 
 function AppShell() {
-    const location = useLocation();
-    const isRoom = location.pathname.startsWith('/app/room/');
+    const location = useLocation()
+    const isRoom = location.pathname.startsWith('/app/room/')
 
     return (
         <div className="flex h-full w-full overflow-hidden bg-white">
@@ -38,7 +38,7 @@ function AppShell() {
                 </Routes>
             </main>
         </div>
-    );
+    )
 }
 
 export function App() {
@@ -51,5 +51,5 @@ export function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </BrowserRouter>
-    );
+    )
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react'
 import {
     CalendarDaysIcon,
     Clock3Icon,
@@ -6,36 +6,36 @@ import {
     PlusIcon,
     RouteIcon,
     SparklesIcon,
-} from 'lucide-react';
-import { Place } from '../../data/types';
+} from 'lucide-react'
+import { Place } from '../../data/types'
 
-type Props = { places: Place[] };
+type Props = { places: Place[] }
 
-type ScheduleItem = { id: string; time: string; place: Place };
+type ScheduleItem = { id: string; time: string; place: Place }
 
 export function ItineraryPanel({ places }: Props) {
     const saved = useMemo(
         () => places.filter((place) => place.status === 'saved'),
         [places],
-    );
+    )
     const [items, setItems] = useState<ScheduleItem[]>(() =>
         saved.slice(0, 2).map((place, index) => ({
             id: `${place.id}-${index}`,
             time: index === 0 ? '09:00' : '13:30',
             place,
         })),
-    );
-    const [draftId, setDraftId] = useState('');
-    const [route, setRoute] = useState<'none' | 'first' | 'second'>('none');
+    )
+    const [draftId, setDraftId] = useState('')
+    const [route, setRoute] = useState<'none' | 'first' | 'second'>('none')
 
     function addPlace() {
-        const place = saved.find((item) => item.id === draftId);
-        if (!place || items.some((item) => item.place.id === place.id)) return;
+        const place = saved.find((item) => item.id === draftId)
+        if (!place || items.some((item) => item.place.id === place.id)) return
         setItems((current) => [
             ...current,
             { id: `${place.id}-${Date.now()}`, time: '16:00', place },
-        ]);
-        setDraftId('');
+        ])
+        setDraftId('')
     }
 
     return (
@@ -158,5 +158,5 @@ export function ItineraryPanel({ places }: Props) {
                 )}
             </div>
         </div>
-    );
+    )
 }

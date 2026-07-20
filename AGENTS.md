@@ -305,7 +305,16 @@ Do not introduce Kafka only because real-time communication exists. Consider it 
 
 ## 12. Git and Collaboration Rules
 
-- Follow the branch, commit, pull request, and review rules in `docs/GIT_CONVENTION.md`.
+- Keep `main` deployable and never push to it directly.
+- Use `dev` as the integration branch and update it before starting work.
+- Name new feature branches `feature/{domainName}-{detail}` and bug-fix branches `fix/{domainName}-{detail}`.
+- Work in this order: update `dev`, create a work branch, implement one feature unit, commit and push, open a PR, receive review, and merge into `dev` after approval.
+- Format commit messages as `type: 작업 내용` using `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `design`, `comment`, `rename`, `remove`, or `!HOTFIX`.
+- Keep one purpose per commit and make the Korean commit subject explain the change clearly.
+- Target PRs to `dev` and title them `[타입] #이슈번호 제목`.
+- Include the related issue, work summary, screenshots or test results, review points, and checklist in every PR description.
+- Require at least one approval, passing builds and tests, no conflicts, and a completed checklist before merge.
+- Apply review feedback and request review again; the author resolves merge conflicts.
 - Do not create branches, commits, pushes, pull requests, or merges unless explicitly requested.
 - Follow the team's existing branching strategy and commit convention.
 - Keep each change focused on one purpose whenever possible.

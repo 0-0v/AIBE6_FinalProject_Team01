@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React from 'react'
+import { NavLink } from 'react-router-dom'
 import {
     BellIcon,
     BookmarkIcon,
@@ -9,9 +9,9 @@ import {
     PlusIcon,
     Settings2Icon,
     SparklesIcon,
-} from 'lucide-react';
-import { Avatar } from '../common/Avatar';
-import { members, currentUserId } from '../../data/mockData';
+} from 'lucide-react'
+import { Avatar } from '../common/Avatar'
+import { members, currentUserId } from '../../data/mockData'
 
 const nav = [
     { to: '/app', label: '대시보드', icon: HomeIcon, end: true },
@@ -19,10 +19,10 @@ const nav = [
     { to: '/app/explore', label: '둘러보기', icon: CompassIcon },
     { to: '/app/saved', label: '저장됨', icon: BookmarkIcon },
     { to: '/app/updates', label: '알림', icon: BellIcon, badge: 3 },
-];
+]
 
 export function Sidebar() {
-    const me = members.find((member) => member.id === currentUserId)!;
+    const me = members.find((member) => member.id === currentUserId)!
 
     return (
         <aside className="z-30 flex w-[86px] shrink-0 flex-col items-center border-r border-slate-100 bg-white py-7">
@@ -88,5 +88,5 @@ export function Sidebar() {
                 </NavLink>
             </div>
         </aside>
-    );
+    )
 }

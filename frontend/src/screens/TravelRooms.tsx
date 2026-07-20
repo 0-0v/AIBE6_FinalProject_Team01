@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
     CalendarDaysIcon,
     ChevronRightIcon,
@@ -7,9 +7,9 @@ import {
     MapPinIcon,
     PlusIcon,
     UsersIcon,
-} from 'lucide-react';
-import { Avatar } from '../components/common/Avatar';
-import { members } from '../data/mockData';
+} from 'lucide-react'
+import { Avatar } from '../components/common/Avatar'
+import { members } from '../data/mockData'
 
 const rooms = [
     {
@@ -48,18 +48,18 @@ const rooms = [
         status: '준비 중',
         color: '#0ea5e9',
     },
-];
+]
 
 export function TravelRooms() {
-    const navigate = useNavigate();
-    const [creating, setCreating] = useState(false);
-    const [title, setTitle] = useState('');
-    const [customRooms, setCustomRooms] = useState<typeof rooms>([]);
-    const allRooms = [...rooms, ...customRooms];
+    const navigate = useNavigate()
+    const [creating, setCreating] = useState(false)
+    const [title, setTitle] = useState('')
+    const [customRooms, setCustomRooms] = useState<typeof rooms>([])
+    const allRooms = [...rooms, ...customRooms]
 
     function createRoom() {
-        const trimmed = title.trim();
-        if (!trimmed) return;
+        const trimmed = title.trim()
+        if (!trimmed) return
         const newRoom = {
             id: `room-${Date.now()}`,
             title: trimmed,
@@ -71,10 +71,10 @@ export function TravelRooms() {
             cover: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
             status: '새 여행',
             color: '#5b32ea',
-        };
-        setCustomRooms((current) => [newRoom, ...current]);
-        setTitle('');
-        setCreating(false);
+        }
+        setCustomRooms((current) => [newRoom, ...current])
+        setTitle('')
+        setCreating(false)
     }
 
     return (
@@ -234,5 +234,5 @@ export function TravelRooms() {
                 </section>
             </div>
         </div>
-    );
+    )
 }

@@ -38,12 +38,12 @@ npm run dev
 브라우저 `alert` 대신 전역 모달을 사용합니다. React 컴포넌트 밖에서도 호출할 수 있습니다.
 
 ```tsx
-import { globalModal } from '@/stores/global-modal-store';
+import { globalModal } from '@/stores/global-modal-store'
 
 globalModal.open({
     title: '저장 완료',
     description: '여행 정보가 저장되었습니다.',
-});
+})
 ```
 
 확인과 취소가 모두 필요한 경우 `showCancel: true`와 `onConfirm`을 전달합니다.

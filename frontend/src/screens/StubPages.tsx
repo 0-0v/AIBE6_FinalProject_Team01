@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
     BellIcon,
     BookmarkCheckIcon,
@@ -6,8 +6,8 @@ import {
     HeartIcon,
     MapPinIcon,
     SparklesIcon,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 const cards = [
     {
@@ -31,16 +31,16 @@ const cards = [
         author: '서연',
         rating: '4.7',
     },
-];
+]
 
 function PageHeader({
     eyebrow,
     title,
     description,
 }: {
-    eyebrow: string;
-    title: string;
-    description: string;
+    eyebrow: string
+    title: string
+    description: string
 }) {
     return (
         <header>
@@ -52,11 +52,11 @@ function PageHeader({
             </h1>
             <p className="mt-2 text-sm text-slate-500">{description}</p>
         </header>
-    );
+    )
 }
 
 export function Explore() {
-    const [copied, setCopied] = useState<string[]>([]);
+    const [copied, setCopied] = useState<string[]>([])
     return (
         <div className="min-h-full bg-[#f8fafb] px-5 py-7 sm:px-9">
             <div className="mx-auto max-w-[1240px]">
@@ -115,11 +115,11 @@ export function Explore() {
                 </div>
             </div>
         </div>
-    );
+    )
 }
 
 export function Saved() {
-    const [saved, setSaved] = useState(cards);
+    const [saved, setSaved] = useState(cards)
     return (
         <div className="min-h-full bg-[#f8fafb] px-5 py-7 sm:px-9">
             <div className="mx-auto max-w-[1240px]">
@@ -186,11 +186,11 @@ export function Saved() {
                 </div>
             </div>
         </div>
-    );
+    )
 }
 
 export function Updates() {
-    const [read, setRead] = useState<string[]>([]);
+    const [read, setRead] = useState<string[]>([])
     const updates: Array<[string, LucideIcon, string, string, string]> = [
         [
             'a',
@@ -213,7 +213,7 @@ export function Updates() {
             '서연님이 카페 델문도를 후보 목록에 추가했어요.',
             '40분 전',
         ],
-    ];
+    ]
     return (
         <div className="min-h-full bg-[#f8fafb] px-5 py-7 sm:px-9">
             <div className="mx-auto max-w-[860px]">
@@ -255,5 +255,5 @@ export function Updates() {
                 </div>
             </div>
         </div>
-    );
+    )
 }

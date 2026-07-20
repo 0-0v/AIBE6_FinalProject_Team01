@@ -1,33 +1,33 @@
-import React, { useState } from 'react';
-import { PipetteIcon, RefreshCcwIcon, XIcon } from 'lucide-react';
+import React, { useState } from 'react'
+import { PipetteIcon, RefreshCcwIcon, XIcon } from 'lucide-react'
 
 type Props = {
-    id: string;
-    label: string;
-    color: string;
-    active: boolean;
-    editing: boolean;
-    children: React.ReactNode;
-    className?: string;
-    onActivate: (id: string) => void;
-    onColorChange: (id: string, color: string) => void;
-};
+    id: string
+    label: string
+    color: string
+    active: boolean
+    editing: boolean
+    children: React.ReactNode
+    className?: string
+    onActivate: (id: string) => void
+    onColorChange: (id: string, color: string) => void
+}
 
 type BrowserEyeDropper = {
-    open: () => Promise<{ sRGBHex: string }>;
-};
+    open: () => Promise<{ sRGBHex: string }>
+}
 
 function isHexColor(value: string) {
-    return /^#[0-9A-Fa-f]{6}$/.test(value);
+    return /^#[0-9A-Fa-f]{6}$/.test(value)
 }
 
 function hexToRgb(value: string) {
-    const normalized = value.replace('#', '');
-    const red = Number.parseInt(normalized.slice(0, 2), 16);
-    const green = Number.parseInt(normalized.slice(2, 4), 16);
-    const blue = Number.parseInt(normalized.slice(4, 6), 16);
+    const normalized = value.replace('#', '')
+    const red = Number.parseInt(normalized.slice(0, 2), 16)
+    const green = Number.parseInt(normalized.slice(2, 4), 16)
+    const blue = Number.parseInt(normalized.slice(4, 6), 16)
 
-    return { red, green, blue };
+    return { red, green, blue }
 }
 
 export function ColorEditableCard({
@@ -41,58 +41,58 @@ export function ColorEditableCard({
     onActivate,
     onColorChange,
 }: Props) {
-    const [hexValue, setHexValue] = useState(color.toUpperCase());
-    const [isExtracting, setIsExtracting] = useState(false);
+    const [hexValue, setHexValue] = useState(color.toUpperCase())
+    const [isExtracting, setIsExtracting] = useState(false)
 
     function handleCardClick(event: React.MouseEvent<HTMLDivElement>) {
         if (
             !editing ||
             (event.target as HTMLElement).closest('[data-color-extractor]')
         )
-            return;
-        event.preventDefault();
-        event.stopPropagation();
-        onActivate(id);
+            return
+        event.preventDefault()
+        event.stopPropagation()
+        onActivate(id)
     }
 
     function applyColor(value: string) {
         const normalized = value.startsWith('#')
             ? value.toUpperCase()
-            : `#${value.toUpperCase()}`;
-        setHexValue(normalized);
+            : `#${value.toUpperCase()}`
+        setHexValue(normalized)
 
         if (isHexColor(normalized)) {
-            onColorChange(id, normalized);
+            onColorChange(id, normalized)
         }
     }
 
     async function extractScreenColor() {
         const EyeDropper = (
             window as unknown as { EyeDropper?: new () => BrowserEyeDropper }
-        ).EyeDropper;
+        ).EyeDropper
 
-        if (!EyeDropper) return;
+        if (!EyeDropper) return
 
-        setIsExtracting(true);
+        setIsExtracting(true)
         try {
-            const result = await new EyeDropper().open();
-            applyColor(result.sRGBHex);
+            const result = await new EyeDropper().open()
+            applyColor(result.sRGBHex)
         } catch {
             // The user cancelled the native screen color picker.
         } finally {
-            setIsExtracting(false);
+            setIsExtracting(false)
         }
     }
 
     const rgb = isHexColor(color)
         ? hexToRgb(color)
-        : { red: 255, green: 255, blue: 255 };
+        : { red: 255, green: 255, blue: 255 }
     const eyeDropperAvailable =
         typeof window !== 'undefined' &&
         Boolean(
             (window as unknown as { EyeDropper?: new () => BrowserEyeDropper })
                 .EyeDropper,
-        );
+        )
 
     return (
         <div
@@ -216,5 +216,5 @@ export function ColorEditableCard({
                 </div>
             )}
         </div>
-    );
+    )
 }

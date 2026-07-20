@@ -1,11 +1,11 @@
-import { create } from 'zustand';
+import { create } from 'zustand'
 
 type RealtimeState = {
-    connected: boolean;
-    setConnected: (connected: boolean) => void;
-};
+    connected: boolean
+    setConnected: (connected: boolean) => void
+}
 
 export const useRealtimeStore = create<RealtimeState>((set) => ({
     connected: false,
     setConnected: (connected) => set({ connected }),
-}));
+}))

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { SearchIcon, PlusIcon, XIcon } from 'lucide-react';
-import { PlaceCategory } from '../../data/types';
-import { CATEGORY_META } from '../../data/mockData';
+import React, { useState } from 'react'
+import { SearchIcon, PlusIcon, XIcon } from 'lucide-react'
+import { PlaceCategory } from '../../data/types'
+import { CATEGORY_META } from '../../data/mockData'
 
-type Result = { name: string; address: string; category: PlaceCategory };
+type Result = { name: string; address: string; category: PlaceCategory }
 
 const MOCK_RESULTS: Result[] = [
     {
@@ -22,20 +22,20 @@ const MOCK_RESULTS: Result[] = [
         address: '제주 제주시 조천읍 조함해안로 519-10',
         category: 'cafe',
     },
-];
+]
 
 type Props = {
-    onAdd: (r: Result) => void;
-};
+    onAdd: (r: Result) => void
+}
 
 export function PlaceSearch({ onAdd }: Props) {
-    const [q, setQ] = useState('');
-    const [added, setAdded] = useState<string[]>([]);
+    const [q, setQ] = useState('')
+    const [added, setAdded] = useState<string[]>([])
     const results = q.trim()
         ? MOCK_RESULTS.filter(
               (r) => r.name.includes(q) || r.address.includes(q),
           )
-        : MOCK_RESULTS;
+        : MOCK_RESULTS
 
     return (
         <div className="border-b border-slate-200 p-3">
@@ -75,8 +75,8 @@ export function PlaceSearch({ onAdd }: Props) {
                         </p>
                     )}
                     {results.map((r) => {
-                        const isAdded = added.includes(r.name);
-                        const meta = CATEGORY_META[r.category];
+                        const isAdded = added.includes(r.name)
+                        const meta = CATEGORY_META[r.category]
                         return (
                             <div
                                 key={r.name}
@@ -94,8 +94,8 @@ export function PlaceSearch({ onAdd }: Props) {
                                 <button
                                     disabled={isAdded}
                                     onClick={() => {
-                                        onAdd(r);
-                                        setAdded((p) => [...p, r.name]);
+                                        onAdd(r)
+                                        setAdded((p) => [...p, r.name])
                                     }}
                                     className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                                         isAdded
@@ -112,10 +112,10 @@ export function PlaceSearch({ onAdd }: Props) {
                                     )}
                                 </button>
                             </div>
-                        );
+                        )
                     })}
                 </div>
             )}
         </div>
-    );
+    )
 }

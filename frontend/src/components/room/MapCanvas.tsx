@@ -1,43 +1,43 @@
-import React, { useMemo, useState } from 'react';
-import { Place } from '../../data/types';
-import { CATEGORY_META } from '../../data/mockData';
+import React, { useMemo, useState } from 'react'
+import { Place } from '../../data/types'
+import { CATEGORY_META } from '../../data/mockData'
 
 type Props = {
-    places: Place[];
-    selectedId: string | null;
-    onSelect: (id: string) => void;
-};
+    places: Place[]
+    selectedId: string | null
+    onSelect: (id: string) => void
+}
 
 type MarkerGroup = {
-    id: string;
-    places: Place[];
-    lat: number;
-    lng: number;
-};
+    id: string
+    places: Place[]
+    lat: number
+    lng: number
+}
 
 export function MapCanvas({ places, selectedId, onSelect }: Props) {
-    const [zoom, setZoom] = useState(1);
-    const [focus, setFocus] = useState({ lat: 50, lng: 50 });
+    const [zoom, setZoom] = useState(1)
+    const [focus, setFocus] = useState({ lat: 50, lng: 50 })
     const markerGroups = useMemo(
         () => buildMarkerGroups(places, zoom),
         [places, zoom],
-    );
+    )
 
     function zoomIn() {
-        setZoom((current) => Math.min(1.6, Number((current + 0.2).toFixed(1))));
+        setZoom((current) => Math.min(1.6, Number((current + 0.2).toFixed(1))))
     }
 
     function zoomOut() {
         setZoom((current) => {
-            const next = Math.max(1, Number((current - 0.2).toFixed(1)));
-            if (next === 1) setFocus({ lat: 50, lng: 50 });
-            return next;
-        });
+            const next = Math.max(1, Number((current - 0.2).toFixed(1)))
+            if (next === 1) setFocus({ lat: 50, lng: 50 })
+            return next
+        })
     }
 
     function expandCluster(group: MarkerGroup) {
-        setFocus({ lat: group.lat, lng: group.lng });
-        setZoom(1.5);
+        setFocus({ lat: group.lat, lng: group.lng })
+        setZoom(1.5)
     }
 
     return (
@@ -69,12 +69,12 @@ export function MapCanvas({ places, selectedId, onSelect }: Props) {
                 </svg>
 
                 {markerGroups.map((group) => {
-                    const isCluster = group.places.length > 1;
-                    const place = group.places[0];
-                    const meta = CATEGORY_META[place.category];
+                    const isCluster = group.places.length > 1
+                    const place = group.places[0]
+                    const meta = CATEGORY_META[place.category]
                     const active = group.places.some(
                         (item) => item.id === selectedId,
-                    );
+                    )
 
                     if (isCluster) {
                         return (
@@ -96,7 +96,7 @@ export function MapCanvas({ places, selectedId, onSelect }: Props) {
                                     가까운 장소
                                 </span>
                             </button>
-                        );
+                        )
                     }
 
                     return (
@@ -129,7 +129,7 @@ export function MapCanvas({ places, selectedId, onSelect }: Props) {
                                 )}
                             </span>
                         </button>
-                    );
+                    )
                 })}
             </div>
 
@@ -157,7 +157,7 @@ export function MapCanvas({ places, selectedId, onSelect }: Props) {
                 Google Maps · 데모 지도
             </div>
         </div>
-    );
+    )
 }
 
 function buildMarkerGroups(places: Place[], zoom: number): MarkerGroup[] {
@@ -167,32 +167,32 @@ function buildMarkerGroups(places: Place[], zoom: number): MarkerGroup[] {
             places: [place],
             lat: place.lat,
             lng: place.lng,
-        }));
+        }))
 
-    const threshold = 6;
+    const threshold = 6
     return places.reduce<MarkerGroup[]>((groups, place) => {
         const nearbyGroup = groups.find(
             (group) =>
                 Math.hypot(group.lat - place.lat, group.lng - place.lng) <=
                 threshold,
-        );
+        )
         if (!nearbyGroup) {
             groups.push({
                 id: place.id,
                 places: [place],
                 lat: place.lat,
                 lng: place.lng,
-            });
-            return groups;
+            })
+            return groups
         }
 
-        nearbyGroup.places.push(place);
+        nearbyGroup.places.push(place)
         nearbyGroup.lat =
             nearbyGroup.places.reduce((total, item) => total + item.lat, 0) /
-            nearbyGroup.places.length;
+            nearbyGroup.places.length
         nearbyGroup.lng =
             nearbyGroup.places.reduce((total, item) => total + item.lng, 0) /
-            nearbyGroup.places.length;
-        return groups;
-    }, []);
+            nearbyGroup.places.length
+        return groups
+    }, [])
 }

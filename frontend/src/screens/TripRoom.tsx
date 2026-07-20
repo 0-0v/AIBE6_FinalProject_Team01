@@ -1,12 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
     ListIcon,
     ReceiptTextIcon,
     SparklesIcon,
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import {
     ActivityLog,
     Expense,
@@ -14,30 +14,30 @@ import {
     PlaceCategory,
     PlaceStatus,
     TravelRecord,
-} from '../data/types';
-import { currentUserId, initialLogs, initialPlaces } from '../data/mockData';
-import { ActivityLogPanel } from '../components/room/ActivityLog';
-import { AiAgentPanel } from '../components/room/AiAgentPanel';
-import { CommentSheet } from '../components/room/CommentSheet';
-import { ExpensePanel } from '../components/room/ExpensePanel';
-import { InviteModal } from '../components/room/InviteModal';
-import { ItineraryPanel } from '../components/room/ItineraryPanel';
-import { MapCanvas } from '../components/room/MapCanvas';
-import { PlaceCard } from '../components/room/PlaceCard';
-import { PlaceSearch } from '../components/room/PlaceSearch';
-import { RecordPanel } from '../components/room/RecordPanel';
-import { RoomHeader } from '../components/room/RoomHeader';
+} from '../data/types'
+import { currentUserId, initialLogs, initialPlaces } from '../data/mockData'
+import { ActivityLogPanel } from '../components/room/ActivityLog'
+import { AiAgentPanel } from '../components/room/AiAgentPanel'
+import { CommentSheet } from '../components/room/CommentSheet'
+import { ExpensePanel } from '../components/room/ExpensePanel'
+import { InviteModal } from '../components/room/InviteModal'
+import { ItineraryPanel } from '../components/room/ItineraryPanel'
+import { MapCanvas } from '../components/room/MapCanvas'
+import { PlaceCard } from '../components/room/PlaceCard'
+import { PlaceSearch } from '../components/room/PlaceSearch'
+import { RecordPanel } from '../components/room/RecordPanel'
+import { RoomHeader } from '../components/room/RoomHeader'
 
-type Mode = 'plan' | 'record';
-type PlanTab = 'places' | 'itinerary';
-type RecordTab = 'records' | 'expenses';
+type Mode = 'plan' | 'record'
+type PlanTab = 'places' | 'itinerary'
+type RecordTab = 'records' | 'expenses'
 
 const STATUS_TABS: { key: PlaceStatus | 'all'; label: string }[] = [
     { key: 'all', label: '전체' },
     { key: 'candidate', label: '후보' },
     { key: 'saved', label: '확정' },
     { key: 'hold', label: '보류' },
-];
+]
 
 const initialRecords: TravelRecord[] = [
     {
@@ -63,7 +63,7 @@ const initialRecords: TravelRecord[] = [
         placeId: 'p3',
         images: ['/67984159-ee93-4d51-aadd-43522138b92a.jpg'],
     },
-];
+]
 
 const initialExpenses: Expense[] = [
     {
@@ -90,42 +90,40 @@ const initialExpenses: Expense[] = [
         paidBy: 'm3',
         participantCount: 4,
     },
-];
+]
 
 export function TripRoom() {
-    const navigate = useNavigate();
+    const navigate = useNavigate()
     // Replace this UI hook with the room's start-date calculation when trip metadata is connected.
-    const tripHasStarted = false;
-    const [places, setPlaces] = useState<Place[]>(initialPlaces);
-    const [logs, setLogs] = useState<ActivityLog[]>(initialLogs);
-    const [records, setRecords] = useState<TravelRecord[]>(initialRecords);
-    const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const tripHasStarted = false
+    const [places, setPlaces] = useState<Place[]>(initialPlaces)
+    const [logs, setLogs] = useState<ActivityLog[]>(initialLogs)
+    const [records, setRecords] = useState<TravelRecord[]>(initialRecords)
+    const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
+    const [selectedId, setSelectedId] = useState<string | null>(null)
     const [mode, setMode] = useState<Mode>(() =>
         tripHasStarted ? 'record' : 'plan',
-    );
-    const [planTab, setPlanTab] = useState<PlanTab>('places');
-    const [recordTab, setRecordTab] = useState<RecordTab>('records');
-    const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>(
-        'all',
-    );
-    const [aiOpen, setAiOpen] = useState(false);
-    const [activityOpen, setActivityOpen] = useState(false);
-    const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null);
-    const [inviteOpen, setInviteOpen] = useState(false);
-    const [isPublic, setIsPublic] = useState(true);
-    const [viewerMode, setViewerMode] = useState(false);
+    )
+    const [planTab, setPlanTab] = useState<PlanTab>('places')
+    const [recordTab, setRecordTab] = useState<RecordTab>('records')
+    const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>('all')
+    const [aiOpen, setAiOpen] = useState(false)
+    const [activityOpen, setActivityOpen] = useState(false)
+    const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
+    const [inviteOpen, setInviteOpen] = useState(false)
+    const [isPublic, setIsPublic] = useState(true)
+    const [viewerMode, setViewerMode] = useState(false)
 
-    const canWrite = !viewerMode;
+    const canWrite = !viewerMode
     const commentPlace =
-        places.find((place) => place.id === commentPlaceId) || null;
+        places.find((place) => place.id === commentPlaceId) || null
     const filtered = useMemo(
         () =>
             statusFilter === 'all'
                 ? places
                 : places.filter((place) => place.status === statusFilter),
         [places, statusFilter],
-    );
+    )
 
     function addLog(action: string, target: string, undoable = true) {
         setLogs((current) => [
@@ -138,38 +136,38 @@ export function TripRoom() {
                 undoable,
             },
             ...current,
-        ]);
+        ])
     }
 
     function updatePlace(id: string, update: (place: Place) => Place) {
         setPlaces((current) =>
             current.map((place) => (place.id === id ? update(place) : place)),
-        );
+        )
     }
 
     function switchMode(nextMode: Mode) {
-        setMode(nextMode);
-        if (nextMode === 'plan') setPlanTab('places');
-        else setRecordTab('records');
+        setMode(nextMode)
+        if (nextMode === 'plan') setPlanTab('places')
+        else setRecordTab('records')
     }
 
     function handleVote(id: string, value: 'up' | 'down') {
-        const target = places.find((place) => place.id === id);
+        const target = places.find((place) => place.id === id)
         updatePlace(id, (place) => {
             const existing = place.votes.find(
                 (vote) => vote.memberId === currentUserId,
-            );
+            )
             const withoutMine = place.votes.filter(
                 (vote) => vote.memberId !== currentUserId,
-            );
+            )
             return {
                 ...place,
                 votes:
                     existing?.value === value
                         ? withoutMine
                         : [...withoutMine, { memberId: currentUserId, value }],
-            };
-        });
+            }
+        })
         if (target)
             addLog(
                 value === 'up'
@@ -177,13 +175,13 @@ export function TripRoom() {
                     : '후보 장소에 반대했어요',
                 target.name,
                 false,
-            );
+            )
     }
 
     function handleAdd(result: {
-        name: string;
-        address: string;
-        category: PlaceCategory;
+        name: string
+        address: string
+        category: PlaceCategory
     }) {
         const images: Record<PlaceCategory, string> = {
             cafe: initialPlaces[0].image,
@@ -191,7 +189,7 @@ export function TripRoom() {
             food: initialPlaces[2].image,
             attraction: initialPlaces[3].image,
             shopping: initialPlaces[4].image,
-        };
+        }
         const place: Place = {
             id: `p${Date.now()}`,
             name: result.name,
@@ -204,16 +202,16 @@ export function TripRoom() {
             addedBy: currentUserId,
             votes: [],
             comments: [],
-        };
-        setPlaces((current) => [place, ...current]);
-        addLog('후보 장소를 등록했어요', result.name);
+        }
+        setPlaces((current) => [place, ...current])
+        addLog('후보 장소를 등록했어요', result.name)
     }
 
     function focusPlace(placeId: string) {
-        setMode('plan');
-        setPlanTab('places');
-        setStatusFilter('all');
-        setSelectedId(placeId);
+        setMode('plan')
+        setPlanTab('places')
+        setStatusFilter('all')
+        setSelectedId(placeId)
     }
 
     return (
@@ -299,7 +297,7 @@ export function TripRoom() {
                                 const active =
                                     mode === 'plan'
                                         ? planTab === (item.key as PlanTab)
-                                        : recordTab === (item.key as RecordTab);
+                                        : recordTab === (item.key as RecordTab)
                                 return (
                                     <button
                                         key={item.key}
@@ -318,7 +316,7 @@ export function TripRoom() {
                                     >
                                         <item.icon size={14} /> {item.label}
                                     </button>
-                                );
+                                )
                             })}
                         </div>
                         <button
@@ -346,7 +344,7 @@ export function TripRoom() {
                                                       (place) =>
                                                           place.status ===
                                                           status.key,
-                                                  ).length;
+                                                  ).length
                                         return (
                                             <button
                                                 key={status.key}
@@ -357,7 +355,7 @@ export function TripRoom() {
                                             >
                                                 {status.label} {count}
                                             </button>
-                                        );
+                                        )
                                     })}
                                 </div>
                             </div>
@@ -386,11 +384,11 @@ export function TripRoom() {
                                                         ...item,
                                                         status: 'saved',
                                                     }),
-                                                );
+                                                )
                                                 addLog(
                                                     '투표를 마치고 장소를 확정했어요',
                                                     place.name,
-                                                );
+                                                )
                                             }}
                                             onHold={() => {
                                                 updatePlace(
@@ -399,11 +397,11 @@ export function TripRoom() {
                                                         ...item,
                                                         status: 'hold',
                                                     }),
-                                                );
+                                                )
                                                 addLog(
                                                     '후보 장소를 보류했어요',
                                                     place.name,
-                                                );
+                                                )
                                             }}
                                             onDelete={() => {
                                                 setPlaces((current) =>
@@ -412,11 +410,11 @@ export function TripRoom() {
                                                             item.id !==
                                                             place.id,
                                                     ),
-                                                );
+                                                )
                                                 addLog(
                                                     '장소를 삭제했어요',
                                                     place.name,
-                                                );
+                                                )
                                             }}
                                             onOpenComments={() =>
                                                 setCommentPlaceId(place.id)
@@ -444,7 +442,7 @@ export function TripRoom() {
                                         createdAt: new Date().toISOString(),
                                     },
                                     ...current,
-                                ]);
+                                ])
                                 addLog(
                                     '여행 기록을 남겼어요',
                                     record.placeId
@@ -453,7 +451,7 @@ export function TripRoom() {
                                                   place.id === record.placeId,
                                           )?.name || '여행 기록'
                                         : '여행 기록',
-                                );
+                                )
                             }}
                             onPlaceClick={focusPlace}
                         />
@@ -466,8 +464,8 @@ export function TripRoom() {
                                 setExpenses((current) => [
                                     { ...expense, id: `e${Date.now()}` },
                                     ...current,
-                                ]);
-                                addLog('지출을 추가했어요', expense.title);
+                                ])
+                                addLog('지출을 추가했어요', expense.title)
                             }}
                         />
                     )}
@@ -535,12 +533,12 @@ export function TripRoom() {
                                     current.filter(
                                         (place) => !place.duplicateOf,
                                     ),
-                                );
-                                addLog('중복 장소를 합쳤어요', 'AI 제안');
+                                )
+                                addLog('중복 장소를 합쳤어요', 'AI 제안')
                             } else if (suggestion.type === 'category') {
-                                addLog('미분류 장소를 정리했어요', 'AI 제안');
+                                addLog('미분류 장소를 정리했어요', 'AI 제안')
                             } else {
-                                addLog('일정 초안을 생성했어요', 'AI 제안');
+                                addLog('일정 초안을 생성했어요', 'AI 제안')
                             }
                         }}
                     />
@@ -548,5 +546,5 @@ export function TripRoom() {
             </div>
             {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
         </div>
-    );
+    )
 }

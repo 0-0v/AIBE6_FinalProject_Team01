@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
     AlertTriangleIcon,
     BellIcon,
@@ -16,12 +16,12 @@ import {
     ThumbsUpIcon,
     UserRoundPlusIcon,
     WandSparklesIcon,
-} from 'lucide-react';
-import { motion } from 'framer-motion';
-import type { LucideIcon } from 'lucide-react';
-import { Avatar } from '../components/common/Avatar';
-import { ColorEditableCard } from '../components/dashboard/ColorEditableCard';
-import { members } from '../data/mockData';
+} from 'lucide-react'
+import { motion } from 'framer-motion'
+import type { LucideIcon } from 'lucide-react'
+import { Avatar } from '../components/common/Avatar'
+import { ColorEditableCard } from '../components/dashboard/ColorEditableCard'
+import { members } from '../data/mockData'
 
 type SurfaceId =
     | 'travel'
@@ -31,7 +31,7 @@ type SurfaceId =
     | 'insights'
     | 'schedule'
     | 'expenses'
-    | 'notifications';
+    | 'notifications'
 
 const photo = {
     beach: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
@@ -39,7 +39,7 @@ const photo = {
     food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
     view: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     market: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
-};
+}
 
 const initialTasks = [
     {
@@ -61,7 +61,7 @@ const initialTasks = [
         meta: '민수님 입금 대기',
         urgent: false,
     },
-];
+]
 
 const initialColors: Record<SurfaceId, string> = {
     travel: '#fff3f5',
@@ -72,7 +72,7 @@ const initialColors: Record<SurfaceId, string> = {
     schedule: '#ffffff',
     expenses: '#ffffff',
     notifications: '#ffffff',
-};
+}
 
 const aiFindings = [
     {
@@ -99,7 +99,7 @@ const aiFindings = [
         description: '멤버 취향에 맞는 흑돼지 맛집 3곳을 찾았어요.',
         tone: 'bg-brand-50 text-brand-700',
     },
-];
+]
 
 const notificationItems: Array<[string, LucideIcon, string, string, string]> = [
     [
@@ -130,7 +130,7 @@ const notificationItems: Array<[string, LucideIcon, string, string, string]> = [
         '부산 친구 여행에 초대되었어요.',
         'bg-violet-50 text-violet-600',
     ],
-];
+]
 
 const calendarDays = [
     '26',
@@ -176,14 +176,14 @@ const calendarDays = [
     '4',
     '5',
     '6',
-];
+]
 
 function SectionTitle({
     title,
     action,
 }: {
-    title: string;
-    action?: React.ReactNode;
+    title: string
+    action?: React.ReactNode
 }) {
     return (
         <div className="mb-3 flex items-center justify-between">
@@ -192,37 +192,37 @@ function SectionTitle({
             </h2>
             {action}
         </div>
-    );
+    )
 }
 
 export function Home() {
-    const navigate = useNavigate();
-    const [tasks, setTasks] = useState(initialTasks);
-    const [readNotifications, setReadNotifications] = useState<string[]>([]);
-    const [editingColors, setEditingColors] = useState(false);
-    const [activeSurface, setActiveSurface] = useState<SurfaceId | null>(null);
-    const [surfaceColors, setSurfaceColors] = useState(initialColors);
+    const navigate = useNavigate()
+    const [tasks, setTasks] = useState(initialTasks)
+    const [readNotifications, setReadNotifications] = useState<string[]>([])
+    const [editingColors, setEditingColors] = useState(false)
+    const [activeSurface, setActiveSurface] = useState<SurfaceId | null>(null)
+    const [surfaceColors, setSurfaceColors] = useState(initialColors)
 
     function toggleTask(id: string) {
-        setTasks((current) => current.filter((task) => task.id !== id));
+        setTasks((current) => current.filter((task) => task.id !== id))
     }
 
     function markRead(id: string) {
         setReadNotifications((current) =>
             current.includes(id) ? current : [...current, id],
-        );
+        )
     }
 
     function toggleColorEditing() {
-        setEditingColors((current) => !current);
-        setActiveSurface(null);
+        setEditingColors((current) => !current)
+        setActiveSurface(null)
     }
 
     function updateSurfaceColor(id: string, color: string) {
         setSurfaceColors((current) => ({
             ...current,
             [id as SurfaceId]: color,
-        }));
+        }))
     }
 
     function editable(
@@ -244,7 +244,7 @@ export function Home() {
             >
                 {children}
             </ColorEditableCard>
-        );
+        )
     }
 
     return (
@@ -877,7 +877,7 @@ export function Home() {
                                     {notificationItems.map(
                                         ([id, Icon, label, text, tone]) => {
                                             const isRead =
-                                                readNotifications.includes(id);
+                                                readNotifications.includes(id)
                                             return (
                                                 <button
                                                     key={id}
@@ -904,7 +904,7 @@ export function Home() {
                                                         <span className="h-1.5 w-1.5 rounded-full bg-brand" />
                                                     )}
                                                 </button>
-                                            );
+                                            )
                                         },
                                     )}
                                 </div>
@@ -914,5 +914,5 @@ export function Home() {
                 </aside>
             </main>
         </div>
-    );
+    )
 }

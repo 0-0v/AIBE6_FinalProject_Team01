@@ -1,13 +1,13 @@
-import React from 'react';
-import { RotateCcwIcon, HistoryIcon } from 'lucide-react';
-import { ActivityLog as Log } from '../../data/types';
-import { members } from '../../data/mockData';
-import { Avatar } from '../common/Avatar';
+import React from 'react'
+import { RotateCcwIcon, HistoryIcon } from 'lucide-react'
+import { ActivityLog as Log } from '../../data/types'
+import { members } from '../../data/mockData'
+import { Avatar } from '../common/Avatar'
 
 type Props = {
-    logs: Log[];
-    onUndo: (id: string) => void;
-};
+    logs: Log[]
+    onUndo: (id: string) => void
+}
 
 export function ActivityLogPanel({ logs, onUndo }: Props) {
     return (
@@ -17,7 +17,7 @@ export function ActivityLogPanel({ logs, onUndo }: Props) {
             </div>
             <div className="space-y-1">
                 {logs.map((log) => {
-                    const who = members.find((m) => m.id === log.memberId);
+                    const who = members.find((m) => m.id === log.memberId)
                     return (
                         <div
                             key={log.id}
@@ -54,9 +54,9 @@ export function ActivityLogPanel({ logs, onUndo }: Props) {
                                 </button>
                             )}
                         </div>
-                    );
+                    )
                 })}
             </div>
         </div>
-    );
+    )
 }

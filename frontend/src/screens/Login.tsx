@@ -1,6 +1,6 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { SparklesIcon } from 'lucide-react';
+import React from 'react'
+import { useNavigate } from 'react-router-dom'
+import { SparklesIcon } from 'lucide-react'
 
 const socials = [
     {
@@ -32,10 +32,10 @@ const socials = [
         color: '#ffffff',
         mark: '',
     },
-];
+]
 
 export function Login() {
-    const navigate = useNavigate();
+    const navigate = useNavigate()
     return (
         <div className="flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
             <div className="w-full max-w-sm">
@@ -82,5 +82,5 @@ export function Login() {
                 </p>
             </div>
         </div>
-    );
+    )
 }

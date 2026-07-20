@@ -1,29 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
     XIcon,
     CopyIcon,
     CheckIcon,
     LinkIcon,
     UserPlusIcon,
-} from 'lucide-react';
+} from 'lucide-react'
 
 type Props = {
-    onClose: () => void;
-};
+    onClose: () => void
+}
 
 function randomCode() {
-    return Math.random().toString(36).slice(2, 8).toUpperCase();
+    return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
 
 export function InviteModal({ onClose }: Props) {
-    const [code] = useState(randomCode());
-    const [copied, setCopied] = useState<'code' | 'link' | null>(null);
-    const link = `https://yeojido.app/join/${code}`;
+    const [code] = useState(randomCode())
+    const [copied, setCopied] = useState<'code' | 'link' | null>(null)
+    const link = `https://yeojido.app/join/${code}`
 
     function copy(kind: 'code' | 'link', value: string) {
-        navigator.clipboard?.writeText(value);
-        setCopied(kind);
-        setTimeout(() => setCopied(null), 1500);
+        navigator.clipboard?.writeText(value)
+        setCopied(kind)
+        setTimeout(() => setCopied(null), 1500)
     }
 
     return (
@@ -97,5 +97,5 @@ export function InviteModal({ onClose }: Props) {
                 </div>
             </div>
         </div>
-    );
+    )
 }

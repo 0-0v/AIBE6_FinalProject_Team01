@@ -1,40 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
     LockIcon,
     UnlockIcon,
     PencilIcon,
     AlertTriangleIcon,
-} from 'lucide-react';
-import { Avatar } from '../components/common/Avatar';
-import { members, currentUserId } from '../data/mockData';
+} from 'lucide-react'
+import { Avatar } from '../components/common/Avatar'
+import { members, currentUserId } from '../data/mockData'
 
 const myTrips = [
     { id: 't1', title: '제주도 우정여행 🌊', role: 'OWNER', isPublic: true },
     { id: 't2', title: '부산 먹방 투어', role: 'EDITOR', isPublic: false },
     { id: 't3', title: '강릉 카페 여행', role: 'VIEWER', isPublic: false },
-];
+]
 
 export function MyPage() {
-    const me = members.find((m) => m.id === currentUserId)!;
-    const [nickname, setNickname] = useState(me.name);
-    const [draft, setDraft] = useState(me.name);
-    const [editing, setEditing] = useState(false);
-    const [error, setError] = useState('');
-    const [trips, setTrips] = useState(myTrips);
+    const me = members.find((m) => m.id === currentUserId)!
+    const [nickname, setNickname] = useState(me.name)
+    const [draft, setDraft] = useState(me.name)
+    const [editing, setEditing] = useState(false)
+    const [error, setError] = useState('')
+    const [trips, setTrips] = useState(myTrips)
 
     function saveNickname() {
-        const v = draft.trim();
+        const v = draft.trim()
         if (v.length < 2 || v.length > 12) {
-            setError('닉네임은 2~12자로 입력해주세요');
-            return;
+            setError('닉네임은 2~12자로 입력해주세요')
+            return
         }
         if (!/^[가-힣a-zA-Z0-9_]+$/.test(v)) {
-            setError('한글, 영문, 숫자, _만 사용할 수 있어요');
-            return;
+            setError('한글, 영문, 숫자, _만 사용할 수 있어요')
+            return
         }
-        setError('');
-        setNickname(v);
-        setEditing(false);
+        setError('')
+        setNickname(v)
+        setEditing(false)
     }
 
     return (
@@ -80,9 +80,9 @@ export function MyPage() {
                                         </button>
                                         <button
                                             onClick={() => {
-                                                setEditing(false);
-                                                setDraft(nickname);
-                                                setError('');
+                                                setEditing(false)
+                                                setDraft(nickname)
+                                                setError('')
                                             }}
                                             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
                                         >
@@ -194,5 +194,5 @@ export function MyPage() {
                 </section>
             </div>
         </div>
-    );
+    )
 }

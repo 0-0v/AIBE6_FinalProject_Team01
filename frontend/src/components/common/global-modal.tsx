@@ -1,40 +1,40 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { XIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useGlobalModalStore } from '@/stores/global-modal-store';
+import { useEffect, useState } from 'react'
+import { XIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useGlobalModalStore } from '@/stores/global-modal-store'
 
 export function GlobalModal() {
-    const modal = useGlobalModalStore();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const modal = useGlobalModalStore()
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     useEffect(() => {
         if (!modal.isOpen) {
-            return;
+            return
         }
 
         function closeOnEscape(event: KeyboardEvent) {
             if (event.key === 'Escape' && !isSubmitting) {
-                modal.closeModal();
+                modal.closeModal()
             }
         }
 
-        document.addEventListener('keydown', closeOnEscape);
-        return () => document.removeEventListener('keydown', closeOnEscape);
-    }, [isSubmitting, modal]);
+        document.addEventListener('keydown', closeOnEscape)
+        return () => document.removeEventListener('keydown', closeOnEscape)
+    }, [isSubmitting, modal])
 
     if (!modal.isOpen) {
-        return null;
+        return null
     }
 
     async function handleConfirm() {
         try {
-            setIsSubmitting(true);
-            await modal.onConfirm?.();
-            modal.closeModal();
+            setIsSubmitting(true)
+            await modal.onConfirm?.()
+            modal.closeModal()
         } finally {
-            setIsSubmitting(false);
+            setIsSubmitting(false)
         }
     }
 
@@ -43,7 +43,7 @@ export function GlobalModal() {
             className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget && !isSubmitting) {
-                    modal.closeModal();
+                    modal.closeModal()
                 }
             }}
         >
@@ -105,5 +105,5 @@ export function GlobalModal() {
                 </div>
             </section>
         </div>
-    );
+    )
 }

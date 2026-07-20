@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { XIcon, SendIcon } from 'lucide-react';
-import { Place } from '../../data/types';
-import { members } from '../../data/mockData';
-import { Avatar } from '../common/Avatar';
+import React, { useState } from 'react'
+import { XIcon, SendIcon } from 'lucide-react'
+import { Place } from '../../data/types'
+import { members } from '../../data/mockData'
+import { Avatar } from '../common/Avatar'
 
 type Props = {
-    place: Place;
-    canWrite: boolean;
-    onClose: () => void;
-    onAddComment: (text: string) => void;
-};
+    place: Place
+    canWrite: boolean
+    onClose: () => void
+    onAddComment: (text: string) => void
+}
 
 export function CommentSheet({
     place,
@@ -17,12 +17,12 @@ export function CommentSheet({
     onClose,
     onAddComment,
 }: Props) {
-    const [text, setText] = useState('');
+    const [text, setText] = useState('')
 
     function submit() {
-        if (!text.trim()) return;
-        onAddComment(text.trim());
-        setText('');
+        if (!text.trim()) return
+        onAddComment(text.trim())
+        setText('')
     }
 
     return (
@@ -47,7 +47,7 @@ export function CommentSheet({
                     </p>
                 )}
                 {place.comments.map((c) => {
-                    const author = members.find((m) => m.id === c.memberId);
+                    const author = members.find((m) => m.id === c.memberId)
                     return (
                         <div key={c.id} className="flex gap-2.5">
                             {author && (
@@ -71,7 +71,7 @@ export function CommentSheet({
                                 </p>
                             </div>
                         </div>
-                    );
+                    )
                 })}
             </div>
 
@@ -100,5 +100,5 @@ export function CommentSheet({
                 </div>
             )}
         </div>
-    );
+    )
 }
