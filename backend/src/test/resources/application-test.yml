@@ -1,0 +1,40 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:pramingo;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+  data:
+    redis:
+      repositories:
+        enabled: false
+  kafka:
+    listener:
+      auto-startup: false
+  docker:
+    compose:
+      enabled: false
+
+app:
+  auth:
+    jwt:
+      secret: test-only-secret-key-that-is-at-least-32-bytes
+  integrations:
+    google-maps:
+      api-key: test
+    ai:
+      api-key: test
+      base-url: http://localhost
+      model: test
+    aws:
+      access-key-id: test
+      secret-access-key: test
+      s3-bucket: test

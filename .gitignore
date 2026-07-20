@@ -1,0 +1,30 @@
+### Secrets and local configuration ###
+.env
+.env.*
+.local/
+.agents/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+### Build outputs and dependencies ###
+.gradle/
+**/build/
+node_modules/
+.next/
+out/
+coverage/
+
+### IDE and OS files ###
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+### Logs and runtime files ###
+*.log
+logs/
+*.pid
