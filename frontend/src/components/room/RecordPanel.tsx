@@ -18,10 +18,7 @@ type Props = {
     onPlaceClick: (placeId: string) => void
 }
 
-const galleryImages = [
-    '/\u1109\u1173\u110F\u1173\u1105\u1175\u11AB\u1109\u1163\u11BA_2026-07-19_\u110B\u1169\u110C\u1165\u11AB_1.15.02.png',
-    '/\u1109\u1173\u110F\u1173\u1105\u1175\u11AB\u1109\u1163\u11BA_2026-07-19_\u110B\u1169\u110C\u1165\u11AB_1.14.52.png',
-]
+const galleryImages = ['/trip-record-2.png', '/trip-record-1.png']
 
 const dayDetails: Record<1 | 2 | 3, string> = {
     1: '8월 12일 · 제주 동부',
