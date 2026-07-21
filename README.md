@@ -35,14 +35,13 @@ macOS와 Linux에서는 `./gradlew bootRun`을 사용합니다.
 
 - MySQL 8.4 (`plamingo` 데이터베이스)
 - Redis 7.4
-- Kafka 4.1.2
 
-일반 종료는 `docker compose down`을 사용합니다. `docker compose down -v`는 MySQL, Redis, Kafka 볼륨 데이터를 모두 삭제하므로 초기화가 필요한 경우에만 사용합니다.
+일반 종료는 `docker compose down`을 사용합니다. `docker compose down -v`는 MySQL과 Redis 볼륨 데이터를 모두 삭제하므로 초기화가 필요한 경우에만 사용합니다.
 
 ## Spring 프로파일
 
 - `application.yml`: 공통 설정
-- `application-local.yml`: 로컬 MySQL, Redis 및 Kafka 설정
+- `application-local.yml`: 로컬 MySQL 및 Redis 설정
 - `application-oauth.yml`: Google/Kakao OAuth 클라이언트 설정
 - `src/test/resources/application-test.yml`: H2 기반 테스트 설정
 

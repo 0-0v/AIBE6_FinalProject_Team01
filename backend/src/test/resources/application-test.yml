@@ -16,9 +16,6 @@ spring:
     redis:
       repositories:
         enabled: false
-  kafka:
-    listener:
-      auto-startup: false
   docker:
     compose:
       enabled: false

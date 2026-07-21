@@ -37,9 +37,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
-    // Realtime / Asynchronous Messaging
+    // Realtime Messaging
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
-    implementation 'org.springframework.boot:spring-boot-starter-kafka'
 
     // Development
     compileOnly 'org.projectlombok:lombok'

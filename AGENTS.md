@@ -264,7 +264,7 @@ If tests are skipped, explain why.
 
 ## 10. Real-Time Communication Rules
 
-When modifying WebSocket, STOMP, Redis Pub/Sub, or Kafka-related code, review:
+When modifying WebSocket, STOMP, or Redis Pub/Sub-related code, review:
 
 - Connection endpoints
 - Subscription destinations
@@ -276,8 +276,6 @@ When modifying WebSocket, STOMP, Redis Pub/Sub, or Kafka-related code, review:
 - Read status
 - Error message format
 - Session and message delivery strategy for horizontal scaling
-
-Do not introduce Kafka only because real-time communication exists. Consider it only when throughput, durability, decoupling, or scaling requirements justify it.
 
 ---
 
