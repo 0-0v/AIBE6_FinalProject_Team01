@@ -15,9 +15,7 @@ export function TravelRooms({ embedded = false }: Props) {
         <>
             <header className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <p className="text-sm font-bold text-brand-700">
-                        MY TRIPS
-                    </p>
+                    <p className="text-sm font-bold text-brand-700">MY TRIPS</p>
                     <h1 className="mt-1 text-3xl font-extrabold tracking-[-0.05em] text-slate-950">
                         여행방
                     </h1>

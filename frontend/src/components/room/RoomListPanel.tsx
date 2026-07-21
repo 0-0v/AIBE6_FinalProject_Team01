@@ -12,9 +12,7 @@ export function RoomListPanel({ onSelectRoom }: Props) {
         <div className="mp-scroll flex-1 overflow-y-auto px-4 py-5">
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-bold text-brand-700">
-                        MY TRIPS
-                    </p>
+                    <p className="text-xs font-bold text-brand-700">MY TRIPS</p>
                     <h1 className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-950">
                         여행방
                     </h1>

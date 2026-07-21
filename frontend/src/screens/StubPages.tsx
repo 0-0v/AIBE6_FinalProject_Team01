@@ -241,7 +241,10 @@ export function Explore() {
 
                 {pageItems.length === 0 ? (
                     <div className="mt-10 rounded-[22px] bg-white py-24 text-center">
-                        <SearchXIcon className="mx-auto text-slate-300" size={32} />
+                        <SearchXIcon
+                            className="mx-auto text-slate-300"
+                            size={32}
+                        />
                         <p className="mt-3 font-bold text-slate-700">
                             일치하는 여행이 없어요
                         </p>
@@ -283,8 +286,7 @@ export function Explore() {
                                             </span>
                                         </div>
                                         <p className="mt-4 text-xs text-slate-500">
-                                            {card.author}님의 여행방 · 장소
-                                            16곳
+                                            {card.author}님의 여행방 · 장소 16곳
                                         </p>
                                         <button
                                             onClick={() =>
@@ -324,9 +326,7 @@ export function Explore() {
                                     return (
                                         <button
                                             key={pageNumber}
-                                            onClick={() =>
-                                                setPage(pageNumber)
-                                            }
+                                            onClick={() => setPage(pageNumber)}
                                             aria-current={
                                                 currentPage === pageNumber
                                             }

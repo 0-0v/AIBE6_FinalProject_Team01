@@ -25,8 +25,7 @@ export function TripRoom() {
     )
 
     const roomColors = useMemo(
-        () =>
-            Object.fromEntries(rooms.map((item) => [item.id, item.color])),
+        () => Object.fromEntries(rooms.map((item) => [item.id, item.color])),
         [],
     )
 

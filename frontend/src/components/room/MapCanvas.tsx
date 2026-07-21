@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Place } from '../../data/types'
 import { CATEGORY_META } from '../../data/mockData'
 
@@ -19,40 +19,28 @@ type MarkerGroup = {
     lng: number
 }
 
-export function MapCanvas({
+export function MapCanvas({ places, ...props }: Props) {
+    const placesKey = places
+        .map((place) => `${place.id}:${place.lat}:${place.lng}`)
+        .join('|')
+
+    return <InteractiveMapCanvas key={placesKey} places={places} {...props} />
+}
+
+function InteractiveMapCanvas({
     places,
     selectedId,
     onSelect,
     roomColors,
     routeColor,
 }: Props) {
-    const [zoom, setZoom] = useState(1)
-    const [focus, setFocus] = useState({ lat: 50, lng: 50 })
+    const initialView = calculateMapView(places)
+    const [zoom, setZoom] = useState(initialView.zoom)
+    const [focus, setFocus] = useState(initialView.focus)
     const markerGroups = useMemo(
         () => buildMarkerGroups(places, zoom),
         [places, zoom],
     )
-
-    useEffect(() => {
-        if (places.length === 0) return
-
-        const lats = places.map((place) => place.lat)
-        const lngs = places.map((place) => place.lng)
-        const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length
-        const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length
-        const span = Math.max(
-            Math.max(...lats) - Math.min(...lats),
-            Math.max(...lngs) - Math.min(...lngs),
-        )
-        const nextZoom =
-            places.length === 1
-                ? 1.4
-                : Math.min(1.6, Math.max(1, Number((1.6 - span / 60).toFixed(1))))
-
-        setFocus({ lat: centerLat, lng: centerLng })
-        setZoom(nextZoom)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [places])
 
     function zoomIn() {
         setZoom((current) => Math.min(1.6, Number((current + 0.2).toFixed(1))))
@@ -113,8 +101,7 @@ export function MapCanvas({
                     )
                     const markerColor =
                         groupRoomIds.size === 1
-                            ? (roomColors[place.roomId] ??
-                              DEFAULT_MARKER_COLOR)
+                            ? (roomColors[place.roomId] ?? DEFAULT_MARKER_COLOR)
                             : DEFAULT_MARKER_COLOR
 
                     if (isCluster) {
@@ -202,6 +189,27 @@ export function MapCanvas({
             </div>
         </div>
     )
+}
+
+function calculateMapView(places: Place[]) {
+    if (places.length === 0) {
+        return { zoom: 1, focus: { lat: 50, lng: 50 } }
+    }
+
+    const lats = places.map((place) => place.lat)
+    const lngs = places.map((place) => place.lng)
+    const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length
+    const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length
+    const span = Math.max(
+        Math.max(...lats) - Math.min(...lats),
+        Math.max(...lngs) - Math.min(...lngs),
+    )
+    const zoom =
+        places.length === 1
+            ? 1.4
+            : Math.min(1.6, Math.max(1, Number((1.6 - span / 60).toFixed(1))))
+
+    return { zoom, focus: { lat: centerLat, lng: centerLng } }
 }
 
 function buildMarkerGroups(places: Place[], zoom: number): MarkerGroup[] {
