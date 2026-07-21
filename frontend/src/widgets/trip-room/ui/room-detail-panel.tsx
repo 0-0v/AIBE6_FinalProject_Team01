@@ -20,6 +20,7 @@ import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
+import type { PlaceSearchResult } from '@/features/search-place'
 import { ActivityLogPanel } from './activity-log'
 import { ItineraryPanel } from './itinerary-panel'
 import { PlaceCard } from './place-card'
@@ -185,12 +186,22 @@ export function RoomDetailPanel({
             )
     }
 
-    function handleAdd(result: {
-        name: string
-        address: string
-        category: PlaceCategory
-    }) {
-        const images: Record<PlaceCategory, string> = {
+    function mapPlaceTypeToCategory(placeType: string | null): PlaceCategory {
+        if (!placeType) return 'attraction'
+        if (placeType.includes('restaurant') || placeType.includes('food'))
+            return 'food'
+        if (placeType.includes('cafe') || placeType.includes('coffee'))
+            return 'cafe'
+        if (placeType.includes('shopping') || placeType.includes('store'))
+            return 'shopping'
+        if (placeType.includes('park') || placeType.includes('garden'))
+            return 'nature'
+        return 'attraction'
+    }
+
+    function handleAdd(result: PlaceSearchResult) {
+        const category = mapPlaceTypeToCategory(result.placeType)
+        const fallbackImages: Record<PlaceCategory, string> = {
             cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
             nature: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
             food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
@@ -202,11 +213,11 @@ export function RoomDetailPanel({
             roomId: room.id,
             name: result.name,
             address: result.address,
-            category: result.category,
+            category,
             status: 'candidate',
-            image: images[result.category],
-            lat: 30 + Math.random() * 50,
-            lng: 25 + Math.random() * 55,
+            image: result.imageUrl ?? fallbackImages[category],
+            lat: result.latitude,
+            lng: result.longitude,
             addedBy: currentUserId,
             votes: [],
             comments: [],

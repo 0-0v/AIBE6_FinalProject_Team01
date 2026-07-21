@@ -21,11 +21,6 @@ export function TripRoom() {
         [places, room],
     )
 
-    const roomColors = useMemo(
-        () => Object.fromEntries(rooms.map((item) => [item.id, item.color])),
-        [],
-    )
-
     function updatePlace(id: string, update: (place: Place) => Place) {
         setPlaces((current) =>
             current.map((place) => (place.id === id ? update(place) : place)),
@@ -48,8 +43,6 @@ export function TripRoom() {
                         places={displayedPlaces}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
-                        roomColors={roomColors}
-                        routeColor={room?.color}
                     />
                     {!aiOpen && (
                         <button
