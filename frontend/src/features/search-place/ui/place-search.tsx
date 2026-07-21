@@ -28,7 +28,7 @@ function getPlaceEmoji(placeType: string | null): string {
 }
 
 type Props = {
-    onAdd: (r: PlaceSearchResult) => void
+    onAdd: (r: PlaceSearchResult) => Promise<void>
 }
 
 export function PlaceSearch({ onAdd }: Props) {
@@ -147,12 +147,16 @@ export function PlaceSearch({ onAdd }: Props) {
                                     </div>
                                     <button
                                         disabled={isAdded}
-                                        onClick={() => {
-                                            onAdd(r)
-                                            setAdded((prev) => [
-                                                ...prev,
-                                                r.googlePlaceId,
-                                            ])
+                                        onClick={async () => {
+                                            try {
+                                                await onAdd(r)
+                                                setAdded((prev) => [
+                                                    ...prev,
+                                                    r.googlePlaceId,
+                                                ])
+                                            } catch {
+                                                // 호출부에서 사용자 오류 UI를 처리한다.
+                                            }
                                         }}
                                         className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                                             isAdded

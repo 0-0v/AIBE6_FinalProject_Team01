@@ -1,9 +1,5 @@
 import { apiClient } from '@/shared/api/client'
 import type { Place, PlaceCategory, PlaceStatus } from '../model/types'
-import type { PlaceSearchResult } from '@/features/search-place'
-
-// TODO: A 도메인(trips) 완성 후 실제 tripId로 교체
-export const TEMP_TRIP_ID = 1
 
 type ApiResponse<T> = {
     success: boolean
@@ -22,6 +18,7 @@ type TripPlaceResponse = {
     imageUrl: string | null
     status: 'CANDIDATE' | 'SAVED' | 'HOLD'
     userNote: string | null
+    priority: number | null
     addedBy: number
 }
 
@@ -36,6 +33,8 @@ type AddTripPlaceBody = {
     userNote?: string | null
 }
 
+type AddTripPlaceInput = Omit<AddTripPlaceBody, 'userNote'>
+
 const FALLBACK_IMAGES: Record<PlaceCategory, string> = {
     cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
     nature: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
@@ -44,12 +43,18 @@ const FALLBACK_IMAGES: Record<PlaceCategory, string> = {
     shopping: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
 }
 
-export function mapPlaceTypeToCategory(placeType: string | null): PlaceCategory {
+export function mapPlaceTypeToCategory(
+    placeType: string | null,
+): PlaceCategory {
     if (!placeType) return 'attraction'
-    if (placeType.includes('restaurant') || placeType.includes('food')) return 'food'
-    if (placeType.includes('cafe') || placeType.includes('coffee')) return 'cafe'
-    if (placeType.includes('shopping') || placeType.includes('store')) return 'shopping'
-    if (placeType.includes('park') || placeType.includes('garden')) return 'nature'
+    if (placeType.includes('restaurant') || placeType.includes('food'))
+        return 'food'
+    if (placeType.includes('cafe') || placeType.includes('coffee'))
+        return 'cafe'
+    if (placeType.includes('shopping') || placeType.includes('store'))
+        return 'shopping'
+    if (placeType.includes('park') || placeType.includes('garden'))
+        return 'nature'
     return 'attraction'
 }
 
@@ -67,6 +72,7 @@ export function fromApiToPlace(tp: TripPlaceResponse, roomId: string): Place {
         lng: tp.longitude,
         addedBy: String(tp.addedBy),
         note: tp.userNote ?? undefined,
+        priority: tp.priority ?? undefined,
         votes: [],
         comments: [],
     }
@@ -74,7 +80,7 @@ export function fromApiToPlace(tp: TripPlaceResponse, roomId: string): Place {
 
 export async function addTripPlace(
     tripId: number,
-    result: PlaceSearchResult,
+    result: AddTripPlaceInput,
     userNote?: string,
 ): Promise<TripPlaceResponse> {
     const body: AddTripPlaceBody = {
@@ -94,14 +100,32 @@ export async function addTripPlace(
     return res.data
 }
 
-export async function getTripPlaces(tripId: number): Promise<TripPlaceResponse[]> {
+export async function getTripPlaces(
+    tripId: number,
+    signal?: AbortSignal,
+): Promise<TripPlaceResponse[]> {
     const res = await apiClient.get<ApiResponse<TripPlaceResponse[]>>(
         `/api/trips/${tripId}/places`,
+        { signal },
     )
     return res.data
 }
 
-export async function deleteTripPlace(tripId: number, tripPlaceId: number): Promise<void> {
+export async function getTripPlaceAccess(
+    tripId: number,
+    signal?: AbortSignal,
+): Promise<{ canEdit: boolean }> {
+    const res = await apiClient.get<ApiResponse<{ canEdit: boolean }>>(
+        `/api/trips/${tripId}/places/access`,
+        { signal },
+    )
+    return res.data
+}
+
+export async function deleteTripPlace(
+    tripId: number,
+    tripPlaceId: number,
+): Promise<void> {
     await apiClient.delete(`/api/trips/${tripId}/places/${tripPlaceId}`)
 }
 
@@ -125,6 +149,18 @@ export async function updateTripPlaceNote(
     const res = await apiClient.patch<ApiResponse<TripPlaceResponse>>(
         `/api/trips/${tripId}/places/${tripPlaceId}/note`,
         { userNote },
+    )
+    return res.data
+}
+
+export async function updateTripPlacePriority(
+    tripId: number,
+    tripPlaceId: number,
+    priority: number,
+): Promise<TripPlaceResponse> {
+    const res = await apiClient.patch<ApiResponse<TripPlaceResponse>>(
+        `/api/trips/${tripId}/places/${tripPlaceId}/priority`,
+        { priority },
     )
     return res.data
 }

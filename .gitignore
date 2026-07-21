@@ -24,6 +24,9 @@ coverage/
 .DS_Store
 Thumbs.db
 
+### AI tools ###
+.claude/
+
 ### Logs and runtime files ###
 *.log
 logs/

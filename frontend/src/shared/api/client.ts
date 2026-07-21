@@ -71,6 +71,15 @@ function withAccessToken(
     return { ...headers, Authorization: `Bearer ${token}` }
 }
 
+export function getApiErrorMessage(
+    error: unknown,
+    fallbackMessage: string,
+): string {
+    return error instanceof Error && error.message
+        ? error.message
+        : fallbackMessage
+}
+
 async function request<T>(
     path: string,
     init?: RequestInit,
@@ -81,6 +90,7 @@ async function request<T>(
         credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             ...init?.headers,
         },
     })
@@ -112,6 +122,7 @@ async function request<T>(
         throw error
     }
 
+    if (res.status === 204) return undefined as T
     return res.json() as Promise<T>
 }
 
@@ -130,6 +141,6 @@ export const apiClient = {
             method: 'PATCH',
             body: body === undefined ? undefined : JSON.stringify(body),
         }),
-    delete: <T>(path: string, options?: RequestOptions) =>
+    delete: <T = void>(path: string, options?: RequestOptions) =>
         request<T>(path, { ...options, method: 'DELETE' }),
 }

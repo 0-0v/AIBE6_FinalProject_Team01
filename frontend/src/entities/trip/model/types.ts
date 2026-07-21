@@ -36,6 +36,7 @@ export type Place = {
     lng: number
     addedBy: string
     note?: string
+    priority?: number
     votes: Vote[]
     comments: Comment[]
     duplicateOf?: string

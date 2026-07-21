@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Place, getTripPlaces, fromApiToPlace, TEMP_TRIP_ID } from '@/entities/trip'
+import { Place, getTripPlaces, getTripPlaceAccess, fromApiToPlace, TEMP_TRIP_ID } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
 import { ManageTripModal, useTripStore } from '@/features/manage-trip'
+import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 
@@ -37,12 +38,15 @@ export function TripRoom() {
           ? undefined
           : rooms.find((item) => item.id === effectiveRoomId)
     const trip = trips.find((item) => String(item.id) === effectiveRoomId)
+    const activeRoomId = room?.id
 
     const [places, setPlaces] = useState<Place[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [collapsed, setCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
     const [manageOpen, setManageOpen] = useState(false)
+    const [placesError, setPlacesError] = useState<string | null>(null)
+    const [canEditPlaces, setCanEditPlaces] = useState(false)
 
     useEffect(() => {
         if (inviteCode) void loadInvitedTrip(inviteCode)
@@ -63,15 +67,32 @@ export function TripRoom() {
     }, [roomId, selectTrip])
 
     useEffect(() => {
-        if (!room) return
-        getTripPlaces(TEMP_TRIP_ID)
-            .then((tripPlaces) =>
-                setPlaces(tripPlaces.map((tp) => fromApiToPlace(tp, room.id))),
-            )
-            .catch(() => {
-                // 백엔드 미연결 시 빈 목록 유지
+        if (!activeRoomId) return
+        const controller = new AbortController()
+        Promise.all([
+            getTripPlaces(TEMP_TRIP_ID, controller.signal),
+            getTripPlaceAccess(TEMP_TRIP_ID, controller.signal),
+        ])
+            .then(([tripPlaces, access]) => {
+                setPlacesError(null)
+                setCanEditPlaces(access.canEdit)
+                setPlaces(
+                    tripPlaces.map((tp) => fromApiToPlace(tp, activeRoomId)),
+                )
             })
-    }, [room?.id])
+            .catch((error: unknown) => {
+                if (controller.signal.aborted) return
+                setPlaces([])
+                setCanEditPlaces(false)
+                setPlacesError(
+                    getApiErrorMessage(
+                        error,
+                        '여행 장소를 불러오지 못했습니다.',
+                    ),
+                )
+            })
+        return () => controller.abort()
+    }, [activeRoomId])
 
     const displayedPlaces = useMemo(
         () =>
@@ -143,6 +164,8 @@ export function TripRoom() {
                                 onUpdatePlace={updatePlace}
                                 onAddPlace={addPlace}
                                 onDeletePlace={deletePlace}
+                                loadError={placesError}
+                                canEdit={canEditPlaces}
                             />
                         ) : (
                             <RoomListPanel

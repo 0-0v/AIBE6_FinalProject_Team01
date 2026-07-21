@@ -10,3 +10,6 @@ export const CATEGORY_META: Record<
     nature: { label: '자연', color: '#0f766e', emoji: '🌿' },
     shopping: { label: '쇼핑', color: '#2563eb', emoji: '🛍️' },
 }
+
+// TODO: 실제 Trip API 연동 시 라우트의 여행 ID로 교체한다.
+export const TEMP_TRIP_ID = 1

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
     CheckIcon,
     ClockIcon,
@@ -19,6 +19,8 @@ type Props = {
     onSave: () => void
     onHold: () => void
     onDelete: () => void
+    onUpdateNote: (note: string) => Promise<void>
+    onUpdatePriority: (priority: number) => Promise<void>
     onOpenComments: () => void
 }
 
@@ -31,6 +33,8 @@ export function PlaceCard({
     onSave,
     onHold,
     onDelete,
+    onUpdateNote,
+    onUpdatePriority,
     onOpenComments,
 }: Props) {
     const currentUserId = String(
@@ -44,6 +48,36 @@ export function PlaceCard({
         (vote) => vote.memberId === currentUserId,
     )?.value
     const isCandidate = place.status === 'candidate'
+    const [noteDraft, setNoteDraft] = useState(place.note ?? '')
+    const [priorityDraft, setPriorityDraft] = useState(
+        place.priority?.toString() ?? '',
+    )
+    const [savingNote, setSavingNote] = useState(false)
+    const [savingPriority, setSavingPriority] = useState(false)
+
+    async function saveNote() {
+        setSavingNote(true)
+        try {
+            await onUpdateNote(noteDraft.trim())
+        } catch {
+            // 상위 패널의 공통 오류 영역에서 안내한다.
+        } finally {
+            setSavingNote(false)
+        }
+    }
+
+    async function savePriority() {
+        const priority = Number(priorityDraft)
+        if (!Number.isInteger(priority) || priority < 1) return
+        setSavingPriority(true)
+        try {
+            await onUpdatePriority(priority)
+        } catch {
+            // 상위 패널의 공통 오류 영역에서 안내한다.
+        } finally {
+            setSavingPriority(false)
+        }
+    }
 
     return (
         <article
@@ -84,6 +118,76 @@ export function PlaceCard({
                     ) : (
                         <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
                             보류 중
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div
+                className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-2.5"
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className="flex items-center gap-2">
+                    <label className="w-14 shrink-0 text-[11px] font-bold text-slate-500">
+                        우선순위
+                    </label>
+                    {canWrite ? (
+                        <>
+                            <input
+                                type="number"
+                                min={1}
+                                value={priorityDraft}
+                                onChange={(event) =>
+                                    setPriorityDraft(event.target.value)
+                                }
+                                placeholder="1 이상"
+                                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-brand"
+                            />
+                            <button
+                                type="button"
+                                disabled={
+                                    savingPriority ||
+                                    !priorityDraft ||
+                                    Number(priorityDraft) < 1
+                                }
+                                onClick={savePriority}
+                                className="rounded-lg bg-slate-200 px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-300 disabled:opacity-40"
+                            >
+                                {savingPriority ? '저장 중' : '저장'}
+                            </button>
+                        </>
+                    ) : (
+                        <span className="text-xs text-slate-600">
+                            {place.priority ?? '미지정'}
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="w-14 shrink-0 text-[11px] font-bold text-slate-500">
+                        메모
+                    </label>
+                    {canWrite ? (
+                        <>
+                            <input
+                                value={noteDraft}
+                                onChange={(event) =>
+                                    setNoteDraft(event.target.value)
+                                }
+                                placeholder="장소 메모"
+                                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-brand"
+                            />
+                            <button
+                                type="button"
+                                disabled={savingNote}
+                                onClick={saveNote}
+                                className="rounded-lg bg-slate-200 px-2 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-300 disabled:opacity-40"
+                            >
+                                {savingNote ? '저장 중' : '저장'}
+                            </button>
+                        </>
+                    ) : (
+                        <span className="truncate text-xs text-slate-600">
+                            {place.note || '메모 없음'}
                         </span>
                     )}
                 </div>
