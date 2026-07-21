@@ -1,5 +1,6 @@
 package back.backend.domain.place.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,7 +56,7 @@ class PlaceControllerTest {
                 .andExpect(jsonPath("$.data[0].googlePlaceId").value("ChIJxxx"))
                 .andExpect(jsonPath("$.data[0].name").value("카멜리아힐"))
                 .andExpect(jsonPath("$.data[0].placeType").value("tourist_attraction"))
-                .andExpect(jsonPath("$.data[0].imageUrl").doesNotExist());
+                .andExpect(jsonPath("$.data[0].imageUrl", nullValue()));
     }
 
     @Test

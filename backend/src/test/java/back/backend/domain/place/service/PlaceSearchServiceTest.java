@@ -82,8 +82,17 @@ class PlaceSearchServiceTest {
     }
 
     @Test
-    @DisplayName("t3 Google Places API 호출이 실패하면 외부 API 오류로 변환한다")
-    void t3_외부API호출실패시비즈니스예외발생() {
+    @DisplayName("t3 검색어가 null이면 PLACE_SEARCH_QUERY_REQUIRED 예외가 발생한다")
+    void t3_null검색어일때예외발생() {
+        assertThatThrownBy(() -> service.search(null))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED));
+    }
+
+    @Test
+    @DisplayName("t4 Google Places API 호출이 실패하면 외부 API 오류로 변환한다")
+    void t4_외부API호출실패시비즈니스예외발생() {
         server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
