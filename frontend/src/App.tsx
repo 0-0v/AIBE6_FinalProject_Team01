@@ -10,16 +10,15 @@ import {
 } from 'react-router-dom'
 import { Sidebar } from './components/layout/Sidebar'
 import { Home } from './screens/Home'
-import { Explore, Saved, Updates } from './screens/StubPages'
+import { Explore, Updates } from './screens/StubPages'
 import { MyPage } from './screens/MyPage'
 import { Login } from './screens/Login'
 import { TripRoom } from './screens/TripRoom'
-import { TravelRooms } from './screens/TravelRooms'
 import { Landing } from './screens/Landing'
 
 function AppShell() {
     const location = useLocation()
-    const isRoom = location.pathname.startsWith('/app/room/')
+    const isRoom = location.pathname.startsWith('/app/room')
 
     return (
         <div className="flex h-full w-full overflow-hidden bg-white">
@@ -30,9 +29,7 @@ function AppShell() {
                 <Routes>
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
-                    <Route path="saved" element={<Saved />} />
-                    <Route path="room" element={<TravelRooms />} />
-                    <Route path="room/:roomId" element={<TripRoom />} />
+                    <Route path="room/:roomId?" element={<TripRoom />} />
                     <Route path="updates" element={<Updates />} />
                     <Route path="mypage" element={<MyPage />} />
                 </Routes>

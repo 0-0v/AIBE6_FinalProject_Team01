@@ -5,15 +5,12 @@
     --color-brand: #e7657a;
     --color-brand-50: #fff0f2;
     --color-brand-100: #fddde2;
+    --color-brand-200: #f7cfd5;
     --color-brand-600: #e7657a;
     --color-brand-700: #c94c63;
 }
 
 :root {
-    --brand: #e7657a;
-    --brand-deep: #c94c63;
-    --brand-soft: #fff0f2;
-    --brand-border: #f7cfd5;
     --flamingo-gradient: linear-gradient(
         135deg,
         #f3b8b1 0%,
@@ -41,52 +38,6 @@ body {
 button,
 [role='button'] {
     cursor: pointer;
-}
-
-[class~='bg-[#5b32ea]'] {
-    background-color: var(--brand) !important;
-}
-[class~='bg-brand-50'],
-[class~='bg-[#f4f1ff]'] {
-    background-color: var(--brand-soft) !important;
-}
-[class~='bg-brand-100'],
-[class~='bg-[#e8e0ff]'] {
-    background-color: #fddde2 !important;
-}
-[class~='text-brand'],
-[class~='text-brand-700'],
-[class~='text-[#5b32ea]'] {
-    color: var(--brand-deep) !important;
-}
-[class~='border-brand'],
-[class~='border-brand-100'],
-[class~='border-[#d9d0ff]'],
-[class~='border-[#cfc4ff]'] {
-    border-color: var(--brand-border) !important;
-}
-[class~='ring-brand-100'],
-[class~='ring-[#e8e0ff]'],
-[class~='ring-[#d9d0ff]'] {
-    --tw-ring-color: #f8d6dc !important;
-}
-[class~='focus:border-brand']:focus,
-[class~='focus:border-[#5b32ea]']:focus {
-    border-color: var(--brand) !important;
-}
-[class~='focus:ring-brand-100']:focus,
-[class~='focus:ring-[#e8e0ff]']:focus {
-    --tw-ring-color: #f8d6dc !important;
-}
-[class~='hover:bg-brand-700']:hover,
-[class~='hover:bg-[#4825c7]']:hover {
-    background: #c94c63 !important;
-}
-[class~='hover:bg-[#f4f1ff]']:hover {
-    background-color: #fff0f2 !important;
-}
-[class~='hover:bg-[#e8e0ff]']:hover {
-    background-color: #fddde2 !important;
 }
 
 .flamingo-gradient {

@@ -2,7 +2,6 @@ import React from 'react'
 import { NavLink } from 'react-router-dom'
 import {
     BellIcon,
-    BookmarkIcon,
     CompassIcon,
     HomeIcon,
     MapIcon,
@@ -17,7 +16,6 @@ const nav = [
     { to: '/app', label: '대시보드', icon: HomeIcon, end: true },
     { to: '/app/room', label: '여행방', icon: MapIcon },
     { to: '/app/explore', label: '둘러보기', icon: CompassIcon },
-    { to: '/app/saved', label: '저장됨', icon: BookmarkIcon },
     { to: '/app/updates', label: '알림', icon: BellIcon, badge: 3 },
 ]
 
@@ -28,7 +26,7 @@ export function Sidebar() {
         <aside className="z-30 flex w-[86px] shrink-0 flex-col items-center border-r border-slate-100 bg-white py-7">
             <NavLink
                 to="/app"
-                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#5b32ea] text-white shadow-[0_10px_22px_rgba(91,50,234,0.26)]"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]"
                 aria-label="여지도 대시보드"
                 title="여지도"
             >
@@ -47,7 +45,7 @@ export function Sidebar() {
                         title={item.label}
                         aria-label={item.label}
                         className={({ isActive }) =>
-                            `relative flex h-12 w-12 items-center justify-center rounded-xl transition ${isActive ? 'bg-[#5b32ea] text-white shadow-[0_10px_22px_rgba(91,50,234,0.26)]' : 'text-slate-500 hover:bg-[#f4f1ff] hover:text-[#5b32ea]'}`
+                            `relative flex h-12 w-12 items-center justify-center rounded-xl transition ${isActive ? 'bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]' : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`
                         }
                     >
                         <item.icon size={21} strokeWidth={2.2} />
@@ -63,7 +61,7 @@ export function Sidebar() {
                     to="/app/room"
                     title="새 여행방"
                     aria-label="새 여행방"
-                    className="mt-2 flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400 transition hover:border-[#5b32ea] hover:bg-[#f4f1ff] hover:text-[#5b32ea]"
+                    className="mt-2 flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400 transition hover:border-brand hover:bg-brand-50 hover:text-brand-700"
                 >
                     <PlusIcon size={20} />
                 </NavLink>
@@ -82,7 +80,7 @@ export function Sidebar() {
                     to="/app/mypage"
                     title="내 프로필"
                     aria-label="내 프로필"
-                    className="rounded-full ring-2 ring-slate-100 transition hover:ring-[#5b32ea]"
+                    className="rounded-full ring-2 ring-slate-100 transition hover:ring-brand"
                 >
                     <Avatar name={me.name} color={me.avatarColor} size={40} />
                 </NavLink>

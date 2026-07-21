@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import {
     AlertTriangleIcon,
     BellIcon,
+    BookmarkCheckIcon,
     CalendarDaysIcon,
     CheckCircle2Icon,
     ChevronRightIcon,
     CopyIcon,
     CreditCardIcon,
+    HeartIcon,
     LayoutGridIcon,
     ListIcon,
     MapPinIcon,
@@ -21,7 +23,8 @@ import {
 import { motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { Avatar } from '../components/common/Avatar'
-import { members } from '../data/mockData'
+import { members, rooms } from '../data/mockData'
+import { exploreCards } from './StubPages'
 import { TravelRooms } from './TravelRooms'
 
 type SurfaceId =
@@ -33,13 +36,12 @@ type SurfaceId =
     | 'schedule'
     | 'expenses'
     | 'notifications'
+    | 'saved'
 
 const photo = {
     beach: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
     cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
-    food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
     view: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
-    market: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
 }
 
 const initialTasks = [
@@ -64,30 +66,6 @@ const initialTasks = [
     },
 ]
 
-const trips = [
-    {
-        title: '제주도 가족여행',
-        sub: '👨‍👩‍👧 4명 · D-12',
-        image: photo.beach,
-        progress: '68%',
-        status: '진행 중',
-    },
-    {
-        title: '부산 친구 여행',
-        sub: '🧑‍🤝‍🧑 3명 · D-38',
-        image: photo.food,
-        progress: '24%',
-        status: '준비 중',
-    },
-    {
-        title: '강릉 주말 여행',
-        sub: '☕ 2명 · D-51',
-        image: photo.cafe,
-        progress: '12%',
-        status: '준비 중',
-    },
-]
-
 const initialColors: Record<SurfaceId, string> = {
     travel: '#fff3f5',
     tasks: '#ffffff',
@@ -97,6 +75,7 @@ const initialColors: Record<SurfaceId, string> = {
     schedule: '#ffffff',
     expenses: '#ffffff',
     notifications: '#ffffff',
+    saved: '#ffffff',
 }
 
 const aiFindings = [
@@ -225,6 +204,8 @@ export function Home() {
     const [tasks, setTasks] = useState(initialTasks)
     const [readNotifications, setReadNotifications] = useState<string[]>([])
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
+    const [saved, setSaved] = useState(exploreCards.slice(0, 3))
+    const activeTrip = rooms.find((room) => room.status === '진행 중') ?? rooms[0]
 
     function toggleTask(id: string) {
         setTasks((current) => current.filter((task) => task.id !== id))
@@ -319,13 +300,14 @@ export function Home() {
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.32 }}
-                            className="overflow-hidden rounded-[28px] border border-[#fbe1e5] p-5 sm:p-6"
+                            className="overflow-hidden rounded-[28px] border p-5 sm:p-6"
+                            style={{ borderColor: `${activeTrip.color}33` }}
                         >
                             <div className="grid gap-5 lg:grid-cols-[1.06fr_0.94fr]">
                                 <div className="relative min-h-[250px] overflow-hidden rounded-[22px] bg-slate-950 p-6 text-white">
                                     <img
-                                        src={photo.beach}
-                                        alt="제주 바다"
+                                        src={activeTrip.cover}
+                                        alt={activeTrip.title}
                                         className="absolute inset-0 h-full w-full object-cover opacity-55"
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/10" />
@@ -337,14 +319,21 @@ export function Home() {
                                             </span>
                                             <div className="mt-4 flex items-center gap-2">
                                                 <h2 className="text-2xl font-extrabold tracking-[-0.04em]">
-                                                    제주도 가족여행
+                                                    {activeTrip.title}
                                                 </h2>
-                                                <span className="rounded-full bg-[#ffe5e9] px-2.5 py-1 text-[11px] font-extrabold text-[#b93f58]">
-                                                    D-12
+                                                <span
+                                                    className="rounded-full px-2.5 py-1 text-[11px] font-extrabold"
+                                                    style={{
+                                                        backgroundColor: `${activeTrip.color}22`,
+                                                        color: activeTrip.color,
+                                                    }}
+                                                >
+                                                    {activeTrip.dday}
                                                 </span>
                                             </div>
                                             <p className="mt-1.5 text-xs font-medium text-white/75">
-                                                2026. 08. 12 – 08. 15 · 제주도
+                                                {activeTrip.date} ·{' '}
+                                                {activeTrip.location}
                                             </p>
                                         </div>
                                         <div className="flex items-end gap-4">
@@ -363,16 +352,26 @@ export function Home() {
                                                     ))}
                                                 </div>
                                                 <span className="mt-1.5 block text-[11px] font-medium text-white/75">
-                                                    4명 함께 준비 중
+                                                    {activeTrip.members}명 함께
+                                                    준비 중
                                                 </span>
                                             </div>
                                             <div className="flex-1">
                                                 <div className="mb-1.5 flex justify-between text-[11px] font-bold">
                                                     <span>여행 준비도</span>
-                                                    <span>68%</span>
+                                                    <span>
+                                                        {activeTrip.progress}%
+                                                    </span>
                                                 </div>
                                                 <div className="h-2 overflow-hidden rounded-full bg-white/25">
-                                                    <div className="h-full w-[68%] rounded-full bg-[#e7657a]" />
+                                                    <div
+                                                        className="h-full rounded-full"
+                                                        style={{
+                                                            width: `${activeTrip.progress}%`,
+                                                            backgroundColor:
+                                                                activeTrip.color,
+                                                        }}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
@@ -572,38 +571,44 @@ export function Home() {
                             }
                         />
                         <div className="grid gap-4 sm:grid-cols-3">
-                            {trips.map((trip, index) => (
+                            {rooms.map((room, index) => (
                                 <motion.button
-                                    key={trip.title}
+                                    key={room.id}
                                     whileHover={{
                                         y: -3,
                                         rotate: index === 1 ? 0.4 : -0.4,
                                     }}
-                                    onClick={() => navigate('/app/room')}
+                                    onClick={() =>
+                                        navigate(`/app/room/${room.id}`)
+                                    }
                                     className="group relative min-h-[205px] overflow-hidden rounded-sm border border-slate-200 bg-white p-3 text-left shadow-[0_7px_14px_rgba(15,23,42,0.08)] transition hover:shadow-md"
                                 >
                                     <div className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 rounded-b bg-[#d9d4c6]/90" />
                                     <img
-                                        src={trip.image}
+                                        src={room.cover}
                                         alt=""
                                         className="h-[116px] w-full rounded-sm object-cover"
                                     />
                                     <div className="px-1 pt-3">
                                         <div className="flex items-start justify-between gap-2">
                                             <h3 className="truncate text-sm font-extrabold">
-                                                {trip.title}
+                                                {room.title}
                                             </h3>
                                             <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
-                                                {trip.status}
+                                                {room.status}
                                             </span>
                                         </div>
                                         <p className="mt-1 text-[11px] text-slate-500">
-                                            {trip.sub}
+                                            {room.members}명 · {room.dday}
                                         </p>
                                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
                                             <div
-                                                className="h-full rounded-full bg-brand"
-                                                style={{ width: trip.progress }}
+                                                className="h-full rounded-full"
+                                                style={{
+                                                    width: `${room.progress}%`,
+                                                    backgroundColor:
+                                                        room.color,
+                                                }}
                                             />
                                         </div>
                                     </div>
@@ -611,6 +616,76 @@ export function Home() {
                             ))}
                         </div>
                     </section>
+
+                    {editable(
+                        'saved',
+                        '저장됨',
+                        <section className="rounded-2xl border border-slate-200 p-5 shadow-sm">
+                            <SectionTitle
+                                title="저장됨"
+                                action={
+                                    <button
+                                        onClick={() => navigate('/app/explore')}
+                                        className="flex items-center gap-0.5 text-xs font-bold text-slate-400 hover:text-slate-700"
+                                    >
+                                        전체 보기 <ChevronRightIcon size={14} />
+                                    </button>
+                                }
+                            />
+                            {saved.length === 0 ? (
+                                <div className="py-10 text-center">
+                                    <BookmarkCheckIcon
+                                        className="mx-auto text-slate-300"
+                                        size={28}
+                                    />
+                                    <p className="mt-2 text-sm font-semibold text-slate-700">
+                                        저장한 여행이 없어요
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4 sm:grid-cols-3">
+                                    {saved.map((card) => (
+                                        <div
+                                            key={card.title}
+                                            className="group relative overflow-hidden rounded-xl border border-slate-100"
+                                        >
+                                            <img
+                                                src={card.image}
+                                                alt=""
+                                                className="h-24 w-full object-cover"
+                                            />
+                                            <div className="p-2.5">
+                                                <h3 className="truncate text-xs font-extrabold text-slate-800">
+                                                    {card.title}
+                                                </h3>
+                                                <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                                                    {card.tag}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() =>
+                                                    setSaved((current) =>
+                                                        current.filter(
+                                                            (item) =>
+                                                                item.title !==
+                                                                card.title,
+                                                        ),
+                                                    )
+                                                }
+                                                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-rose-500 shadow-sm hover:bg-white"
+                                                aria-label="저장 해제"
+                                            >
+                                                <HeartIcon
+                                                    className="fill-current"
+                                                    size={13}
+                                                />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>,
+                    )}
                 </div>
 
                 <aside className="min-w-0 space-y-5 border-l border-slate-100 pl-0 xl:pl-6">

@@ -122,7 +122,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
             {canWrite && (
                 <button
                     onClick={() => setComposerOpen(true)}
-                    className="absolute bottom-4 left-4 right-4 flex items-center justify-center gap-2 rounded-xl bg-[#5b32ea] py-3 text-sm font-extrabold text-white shadow-[0_10px_22px_rgba(91,50,234,0.26)] hover:bg-[#4825c7]"
+                    className="absolute bottom-4 left-4 right-4 flex items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)] hover:bg-brand-700"
                 >
                     <PlusIcon size={17} /> 지출 추가
                 </button>
@@ -142,7 +142,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                     >
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-bold text-[#5b32ea]">
+                                <p className="text-xs font-bold text-brand-700">
                                     SPLIT EXPENSE
                                 </p>
                                 <h3
@@ -167,7 +167,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                             value={title}
                             onChange={(event) => setTitle(event.target.value)}
                             placeholder="예: 렌터카 비용"
-                            className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#5b32ea] focus:bg-white focus:ring-2 focus:ring-[#e8e0ff]"
+                            className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-100"
                         />
                         <label className="mt-4 block text-xs font-bold text-slate-600">
                             금액
@@ -185,7 +185,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                                     )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-9 text-sm outline-none focus:border-[#5b32ea] focus:bg-white focus:ring-2 focus:ring-[#e8e0ff]"
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-9 text-sm outline-none focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-100"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
                                 원
@@ -193,11 +193,11 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                         </div>
                         <button
                             onClick={() => setIsSplit((value) => !value)}
-                            className={`mt-4 flex w-full items-center justify-between rounded-xl border p-3 text-left text-xs font-bold ${isSplit ? 'border-[#cfc4ff] bg-[#f4f1ff] text-[#5b32ea]' : 'border-slate-200 text-slate-500'}`}
+                            className={`mt-4 flex w-full items-center justify-between rounded-xl border p-3 text-left text-xs font-bold ${isSplit ? 'border-brand-200 bg-brand-50 text-brand-700' : 'border-slate-200 text-slate-500'}`}
                         >
                             <span>멤버 4명과 더치페이</span>
                             <span
-                                className={`flex h-5 w-9 items-center rounded-full p-0.5 ${isSplit ? 'justify-end bg-[#5b32ea]' : 'bg-slate-300'}`}
+                                className={`flex h-5 w-9 items-center rounded-full p-0.5 ${isSplit ? 'justify-end bg-brand' : 'bg-slate-300'}`}
                             >
                                 <span className="h-4 w-4 rounded-full bg-white" />
                             </span>
@@ -205,7 +205,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                         <button
                             disabled={!title.trim() || !amount}
                             onClick={addExpense}
-                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#5b32ea] py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-slate-200"
+                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-slate-200"
                         >
                             <ReceiptTextIcon size={16} /> 지출 저장
                         </button>

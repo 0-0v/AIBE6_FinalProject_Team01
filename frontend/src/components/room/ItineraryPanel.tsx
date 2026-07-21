@@ -42,12 +42,12 @@ export function ItineraryPanel({ places }: Props) {
         <div className="mp-scroll flex-1 overflow-y-auto p-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <p className="text-xs font-bold text-[#5b32ea]">DAY 1</p>
+                    <p className="text-xs font-bold text-brand-700">DAY 1</p>
                     <h3 className="mt-0.5 text-sm font-extrabold">
                         8월 12일 · 제주 동부
                     </h3>
                 </div>
-                <button className="rounded-lg bg-[#f4f1ff] px-2.5 py-1.5 text-xs font-bold text-[#5b32ea]">
+                <button className="rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-bold text-brand-700">
                     <CalendarDaysIcon className="mr-1 inline" size={13} /> 날짜
                     선택
                 </button>
@@ -59,13 +59,13 @@ export function ItineraryPanel({ places }: Props) {
                         key={item.id}
                         className="relative flex gap-3 pb-5 last:pb-0"
                     >
-                        <div className="w-11 pt-3 text-xs font-extrabold text-[#5b32ea]">
+                        <div className="w-11 pt-3 text-xs font-extrabold text-brand-700">
                             {item.time}
                         </div>
                         <div className="relative">
-                            <span className="mt-4 block h-3 w-3 rounded-full bg-[#5b32ea] ring-4 ring-[#f4f1ff]" />
+                            <span className="mt-4 block h-3 w-3 rounded-full bg-brand ring-4 ring-brand-50" />
                             {index < items.length - 1 && (
-                                <span className="absolute left-[5px] top-7 h-14 border-l-2 border-dashed border-[#d9d0ff]" />
+                                <span className="absolute left-[5px] top-7 h-14 border-l-2 border-dashed border-brand-200" />
                             )}
                         </div>
                         <div className="flex flex-1 items-center gap-2.5 rounded-xl border border-slate-100 bg-white p-2.5 shadow-sm">
@@ -91,7 +91,7 @@ export function ItineraryPanel({ places }: Props) {
                 ))}
             </div>
 
-            <div className="mt-5 rounded-xl border border-dashed border-[#d9d0ff] bg-[#fbfaff] p-3">
+            <div className="mt-5 rounded-xl border border-dashed border-brand-200 bg-brand-50 p-3">
                 <label className="mb-2 block text-xs font-bold text-slate-600">
                     확정 장소 일정에 배치
                 </label>
@@ -99,7 +99,7 @@ export function ItineraryPanel({ places }: Props) {
                     <select
                         value={draftId}
                         onChange={(event) => setDraftId(event.target.value)}
-                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium outline-none focus:border-[#5b32ea]"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-medium outline-none focus:border-brand"
                     >
                         <option value="">장소 선택</option>
                         {saved.map((place) => (
@@ -110,7 +110,7 @@ export function ItineraryPanel({ places }: Props) {
                     </select>
                     <button
                         onClick={addPlace}
-                        className="flex items-center gap-1 rounded-lg bg-[#5b32ea] px-3 py-2 text-xs font-bold text-white"
+                        className="flex items-center gap-1 rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white"
                     >
                         <PlusIcon size={13} /> 배치
                     </button>

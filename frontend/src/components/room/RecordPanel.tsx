@@ -78,7 +78,7 @@ export function RecordPanel({
                             onClick={() => setDay(item)}
                             role="tab"
                             aria-selected={day === item}
-                            className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold transition ${day === item ? 'bg-[#5b32ea] text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold transition ${day === item ? 'bg-brand text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                         >
                             DAY {item}
                         </button>
@@ -101,7 +101,7 @@ export function RecordPanel({
                 {dayRecords.length === 0 ? (
                     <div className="flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
                         <div
-                            className="relative flex h-20 w-20 items-center justify-center rounded-[28px] bg-[#f4f1ff] text-3xl"
+                            className="relative flex h-20 w-20 items-center justify-center rounded-[28px] bg-brand-50 text-3xl"
                             aria-hidden="true"
                         >
                             📷
@@ -163,7 +163,7 @@ export function RecordPanel({
                                                 onClick={() =>
                                                     onPlaceClick(place.id)
                                                 }
-                                                className="inline-flex items-center gap-1.5 rounded-full bg-[#f4f1ff] px-2.5 py-1.5 text-[11px] font-bold text-[#5b32ea] hover:bg-[#e8e0ff]"
+                                                className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1.5 text-[11px] font-bold text-brand-700 hover:bg-brand-100"
                                             >
                                                 <MapPinIcon size={12} />{' '}
                                                 {place.name}
@@ -181,7 +181,7 @@ export function RecordPanel({
                 <div className="border-t border-slate-100 bg-white px-4 pb-4 pt-5">
                     <button
                         onClick={() => setComposerOpen(true)}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#5b32ea] py-3 text-sm font-extrabold text-white shadow-[0_10px_22px_rgba(91,50,234,0.26)] hover:bg-[#4825c7]"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)] hover:bg-brand-700"
                     >
                         <PlusIcon size={17} /> 기록 추가
                     </button>
@@ -202,7 +202,7 @@ export function RecordPanel({
                     >
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-bold text-[#5b32ea]">
+                                <p className="text-xs font-bold text-brand-700">
                                     DAY {day}
                                 </p>
                                 <h3
@@ -224,7 +224,7 @@ export function RecordPanel({
                             value={memo}
                             onChange={(event) => setMemo(event.target.value)}
                             placeholder="오늘의 순간을 남겨보세요"
-                            className="mt-5 min-h-[88px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-[#5b32ea] focus:bg-white focus:ring-2 focus:ring-[#e8e0ff]"
+                            className="mt-5 min-h-[88px] w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-100"
                         />
                         <label className="mt-3 block text-xs font-bold text-slate-600">
                             연결할 장소
@@ -232,7 +232,7 @@ export function RecordPanel({
                         <select
                             value={placeId}
                             onChange={(event) => setPlaceId(event.target.value)}
-                            className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-[#5b32ea]"
+                            className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-brand"
                         >
                             <option value="">장소 선택 안 함</option>
                             {places
@@ -261,7 +261,7 @@ export function RecordPanel({
                                                     : [...current, image],
                                             )
                                         }
-                                        className={`relative h-20 overflow-hidden rounded-xl border-2 ${selectedImages.includes(image) ? 'border-[#5b32ea]' : 'border-transparent'}`}
+                                        className={`relative h-20 overflow-hidden rounded-xl border-2 ${selectedImages.includes(image) ? 'border-brand' : 'border-transparent'}`}
                                         aria-label="사진 선택"
                                     >
                                         <img
@@ -270,7 +270,7 @@ export function RecordPanel({
                                             className="h-full w-full object-cover"
                                         />
                                         {selectedImages.includes(image) && (
-                                            <span className="absolute inset-0 bg-[#5b32ea]/20" />
+                                            <span className="absolute inset-0 bg-brand/20" />
                                         )}
                                     </button>
                                 ))}
@@ -281,7 +281,7 @@ export function RecordPanel({
                                 !memo.trim() && selectedImages.length === 0
                             }
                             onClick={addRecord}
-                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#5b32ea] py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-slate-200"
+                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-slate-200"
                         >
                             <ImagePlusIcon size={16} /> 기록 남기기
                         </button>

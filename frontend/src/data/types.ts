@@ -26,6 +26,7 @@ export type Comment = {
 
 export type Place = {
     id: string
+    roomId: string
     name: string
     address: string
     category: PlaceCategory

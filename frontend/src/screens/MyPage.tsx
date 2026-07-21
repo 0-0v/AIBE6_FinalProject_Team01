@@ -40,7 +40,7 @@ export function MyPage() {
     return (
         <div className="min-h-full bg-[#f8fafb] px-5 py-7 sm:px-9">
             <div className="mx-auto max-w-3xl">
-                <p className="text-xs font-extrabold tracking-[0.12em] text-[#5b32ea]">
+                <p className="text-xs font-extrabold tracking-[0.12em] text-brand-700">
                     ACCOUNT
                 </p>
                 <h1 className="mb-8 mt-1 text-3xl font-extrabold tracking-[-0.05em] text-slate-950">
@@ -74,7 +74,7 @@ export function MyPage() {
 
                                         <button
                                             onClick={saveNickname}
-                                            className="rounded-xl bg-[#5b32ea] px-3 py-2 text-sm font-semibold text-white hover:bg-[#4825c7]"
+                                            className="rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
                                         >
                                             저장
                                         </button>
@@ -149,7 +149,7 @@ export function MyPage() {
                                         }
                                         className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                                             t.isPublic
-                                                ? 'bg-[#f4f1ff] text-[#5b32ea]'
+                                                ? 'bg-brand-50 text-brand-700'
                                                 : 'bg-slate-100 text-slate-500'
                                         }`}
                                     >

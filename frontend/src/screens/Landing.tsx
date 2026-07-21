@@ -362,7 +362,7 @@ export function Landing() {
                                     여행을 완성해 보세요.
                                 </p>
                             </div>
-                            <div className="rounded-[28px] bg-[#f4f1ff] p-5">
+                            <div className="rounded-[28px] bg-brand-50 p-5">
                                 <div className="rounded-[22px] bg-white p-4 shadow-sm">
                                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                                         <span className="font-bold">
@@ -644,7 +644,7 @@ export function Landing() {
                         </div>
                         <button
                             onClick={() => navigate('/login')}
-                            className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-[#25213f] hover:bg-[#f4f1ff]"
+                            className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-[#25213f] hover:bg-brand-50"
                         >
                             새 여행 시작하기 <ArrowRightIcon size={17} />
                         </button>

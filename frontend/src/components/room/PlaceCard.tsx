@@ -52,7 +52,7 @@ export function PlaceCard({
     return (
         <article
             onClick={onSelect}
-            className={`cursor-pointer rounded-2xl border bg-white p-3 transition ${selected ? 'border-[#5b32ea] ring-2 ring-[#e8e0ff]' : 'border-slate-100 hover:border-slate-300'}`}
+            className={`cursor-pointer rounded-2xl border bg-white p-3 transition ${selected ? 'border-brand ring-2 ring-brand-100' : 'border-slate-100 hover:border-slate-300'}`}
         >
             <div className="flex gap-3">
                 <img
@@ -82,7 +82,7 @@ export function PlaceCard({
                             투표 진행 중
                         </span>
                     ) : place.status === 'saved' ? (
-                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#f4f1ff] px-2 py-1 text-[10px] font-extrabold text-[#5b32ea]">
+                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
                             <CheckIcon size={10} /> 지도에 저장됨
                         </span>
                     ) : (
@@ -140,7 +140,7 @@ export function PlaceCard({
                                 event.stopPropagation()
                                 onVote('up')
                             }}
-                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold transition disabled:opacity-40 ${myVote === 'up' ? 'bg-[#f4f1ff] text-[#5b32ea]' : 'bg-slate-100 text-slate-500 hover:bg-[#f4f1ff] hover:text-[#5b32ea]'}`}
+                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold transition disabled:opacity-40 ${myVote === 'up' ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`}
                         >
                             <ThumbsUpIcon size={13} /> 찬성 {upVotes}
                         </button>
@@ -177,7 +177,7 @@ export function PlaceCard({
                                     event.stopPropagation()
                                     onSave()
                                 }}
-                                className="flex items-center gap-1 rounded-lg bg-[#5b32ea] px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-[#4825c7]"
+                                className="flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-brand-700"
                             >
                                 <CheckIcon size={13} /> 후보 확정
                             </button>
