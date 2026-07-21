@@ -15,14 +15,14 @@ class SecurityConfigTest {
     @DisplayName("t1 설정한 Origin의 CORS 요청은 자격 증명과 주요 HTTP 메서드를 허용한다")
     void t1_configuredOriginAllowsCredentialsAndHttpMethods() {
         CorsProperties properties = new CorsProperties();
-        properties.setAllowedOrigins(List.of("https://pramingo.example"));
+        properties.setAllowedOrigins(List.of("https://plamingo.example"));
         CorsConfigurationSource source = new SecurityConfig().corsConfigurationSource(properties);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/trips");
 
         CorsConfiguration configuration = source.getCorsConfiguration(request);
 
         assertThat(configuration).isNotNull();
-        assertThat(configuration.getAllowedOrigins()).containsExactly("https://pramingo.example");
+        assertThat(configuration.getAllowedOrigins()).containsExactly("https://plamingo.example");
         assertThat(configuration.getAllowedMethods()).contains("GET", "POST", "PATCH", "DELETE");
         assertThat(configuration.getAllowCredentials()).isTrue();
     }

@@ -1,4 +1,4 @@
-# Pramingo Frontend
+# Plamingo Frontend
 
 기존 Vite SPA 화면을 보존하면서 Next.js App Router로 마이그레이션한 프론트엔드입니다.
 

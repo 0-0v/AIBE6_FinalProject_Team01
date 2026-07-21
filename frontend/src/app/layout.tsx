@@ -4,7 +4,7 @@ import { GlobalModal } from '@/components/common/global-modal'
 import './globals.css'
 
 export const metadata: Metadata = {
-    title: 'Pramingo',
+    title: 'Plamingo',
     description: '함께 만드는 AI 공동 여행지도',
 }
 

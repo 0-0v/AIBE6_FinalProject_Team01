@@ -14,7 +14,7 @@ public class OpenApiConfig {
     private static final String SECURITY_SCHEME_NAME = "bearerAuth";
 
     @Bean
-    public OpenAPI pramingoOpenApi() {
+    public OpenAPI plamingoOpenApi() {
         SecurityScheme securityScheme = new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP)
                 .scheme("bearer")
@@ -22,8 +22,8 @@ public class OpenApiConfig {
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("Pramingo API")
-                        .description("Pramingo 공동 여행지도 서비스 API")
+                        .title("Plamingo API")
+                        .description("Plamingo 공동 여행지도 서비스 API")
                         .version("v1"))
                 .components(new Components().addSecuritySchemes(SECURITY_SCHEME_NAME, securityScheme))
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME));

@@ -1,4 +1,4 @@
-# Pramingo
+# Plamingo
 
 여행 멤버가 공유한 장소를 AI가 분류하고 일정 초안으로 정리해 주는 공동 여행지도 서비스입니다.
 
@@ -33,7 +33,7 @@ macOS와 Linux에서는 `./gradlew bootRun`을 사용합니다.
 
 로컬 Compose 구성:
 
-- MySQL 8.4 (`pramingo` 데이터베이스)
+- MySQL 8.4 (`plamingo` 데이터베이스)
 - Redis 7.4
 - Kafka 4.1.2
 
@@ -42,10 +42,12 @@ macOS와 Linux에서는 `./gradlew bootRun`을 사용합니다.
 ## Spring 프로파일
 
 - `application.yml`: 공통 설정
-- `application-local.yml`: 로컬 MySQL, Redis, Kafka 및 OAuth 설정
+- `application-local.yml`: 로컬 MySQL, Redis 및 Kafka 설정
+- `application-oauth.yml`: Google/Kakao OAuth 클라이언트 설정
 - `src/test/resources/application-test.yml`: H2 기반 테스트 설정
 
 실제 비밀번호와 API 키는 YAML에 작성하지 않고 `backend/.env` 또는 운영 환경변수로 주입합니다.
+기본 로컬 실행은 `local` 프로파일만 사용하며 OAuth 키 없이도 실행됩니다. 소셜 로그인 개발 시 OAuth 키를 입력하고 `--spring.profiles.active=local,oauth`를 추가합니다.
 
 ## API 문서
 
