@@ -62,6 +62,9 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trip-invitations/*/preview").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/search").permitAll()
+                        // TODO: A 도메인 인증 완성 후 제거
+                        .requestMatchers("/api/trips/*/places").permitAll()
+                        .requestMatchers("/api/trips/*/places/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

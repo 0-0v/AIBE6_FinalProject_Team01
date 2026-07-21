@@ -12,6 +12,9 @@ import {
     PlaceStatus,
     Room,
     TravelRecord,
+    addTripPlace,
+    fromApiToPlace,
+    TEMP_TRIP_ID,
 } from '@/entities/trip'
 import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -112,43 +115,15 @@ export function RoomDetailPanel({
         })
     }
 
-    function mapPlaceTypeToCategory(placeType: string | null): PlaceCategory {
-        if (!placeType) return 'attraction'
-        if (placeType.includes('restaurant') || placeType.includes('food'))
-            return 'food'
-        if (placeType.includes('cafe') || placeType.includes('coffee'))
-            return 'cafe'
-        if (placeType.includes('shopping') || placeType.includes('store'))
-            return 'shopping'
-        if (placeType.includes('park') || placeType.includes('garden'))
-            return 'nature'
-        return 'attraction'
-    }
-
-    function handleAdd(result: PlaceSearchResult) {
-        const category = mapPlaceTypeToCategory(result.placeType)
-        const fallbackImages: Record<PlaceCategory, string> = {
-            cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
-            nature: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
-            food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
-            attraction: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
-            shopping: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
+    async function handleAdd(result: PlaceSearchResult) {
+        try {
+            const tripPlace = await addTripPlace(TEMP_TRIP_ID, result)
+            onAddPlace(fromApiToPlace(tripPlace, room.id))
+            addLog('후보 장소를 등록했어요', result.name)
+        } catch {
+            // TODO: 에러 토스트 추가
+            console.error('장소 추가에 실패했습니다.')
         }
-        const place: Place = {
-            id: `p${Date.now()}`,
-            roomId: room.id,
-            name: result.name,
-            address: result.address,
-            category,
-            status: 'candidate',
-            image: result.imageUrl ?? fallbackImages[category],
-            lat: result.latitude,
-            lng: result.longitude,
-            addedBy: currentUserId,
-            votes: [],
-            comments: [],
-        }
-        onAddPlace(place)
     }
 
     function focusPlace(placeId: string) {

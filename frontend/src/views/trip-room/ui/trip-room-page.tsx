@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Place } from '@/entities/trip'
+import { Place, getTripPlaces, fromApiToPlace, TEMP_TRIP_ID } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
 import { ManageTripModal, useTripStore } from '@/features/manage-trip'
 import { useCurrentUserStore } from '@/shared/model'
@@ -61,6 +61,17 @@ export function TripRoom() {
     useEffect(() => {
         if (roomId) selectTrip(roomId)
     }, [roomId, selectTrip])
+
+    useEffect(() => {
+        if (!room) return
+        getTripPlaces(TEMP_TRIP_ID)
+            .then((tripPlaces) =>
+                setPlaces(tripPlaces.map((tp) => fromApiToPlace(tp, room.id))),
+            )
+            .catch(() => {
+                // 백엔드 미연결 시 빈 목록 유지
+            })
+    }, [room?.id])
 
     const displayedPlaces = useMemo(
         () =>
