@@ -47,9 +47,9 @@ export function PlaceSearch({ onAdd }: Props) {
 
         if (debounceTimer.current) clearTimeout(debounceTimer.current)
 
-        // 빈 쿼리는 debounce 콜백 안에서 상태 초기화 (동기 setState 방지)
+        // 빈 쿼리 또는 2자 미만은 debounce 콜백 안에서 상태 초기화 (동기 setState 방지)
         debounceTimer.current = setTimeout(async () => {
-            if (!trimmed) {
+            if (trimmed.length < 2) {
                 setResults([])
                 setError(null)
                 setLoading(false)

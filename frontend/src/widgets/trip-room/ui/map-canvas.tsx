@@ -66,6 +66,7 @@ function GoogleMapCanvas({
             defaultZoom={DEFAULT_ZOOM}
             mapId={mapId}
             gestureHandling="greedy"
+            streetViewControl={false}
             style={{ width: '100%', height: '100%' }}
         >
             <MapController places={places} selectedId={selectedId} />
