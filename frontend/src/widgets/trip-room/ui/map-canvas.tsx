@@ -16,8 +16,6 @@ type Props = {
     places: Place[]
     selectedId: string | null
     onSelect: (id: string) => void
-    roomColors: Record<string, string>
-    routeColor?: string
 }
 
 export function MapCanvas({ places, selectedId, onSelect }: Props) {

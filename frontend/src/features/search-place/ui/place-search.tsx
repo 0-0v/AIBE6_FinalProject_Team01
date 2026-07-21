@@ -89,6 +89,7 @@ export function PlaceSearch({ onAdd }: Props) {
                 />
                 <input
                     value={q}
+                    aria-label="장소 검색"
                     onChange={(e) => {
                         setResults([])
                         setQ(e.target.value)
@@ -99,6 +100,7 @@ export function PlaceSearch({ onAdd }: Props) {
                 {q && (
                     <button
                         onClick={() => setQ('')}
+                        aria-label="검색어 지우기"
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
                         <XIcon size={15} />
@@ -106,7 +108,7 @@ export function PlaceSearch({ onAdd }: Props) {
                 )}
             </div>
 
-            {q.trim() && (
+            {q.trim().length >= 2 && (
                 <div className="mt-2 overflow-hidden rounded-xl border border-slate-100">
                     {loading && (
                         <p className="px-3 py-4 text-center text-sm text-slate-400">
