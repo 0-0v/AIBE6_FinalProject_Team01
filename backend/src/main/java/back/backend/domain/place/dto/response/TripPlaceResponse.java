@@ -14,6 +14,7 @@ public record TripPlaceResponse(
         String imageUrl,
         TripPlaceStatus status,
         String userNote,
+        Integer priority,
         Long addedBy
 ) {
     public static TripPlaceResponse from(TripPlace tripPlace) {
@@ -28,6 +29,7 @@ public record TripPlaceResponse(
                 tripPlace.getPlace().getImageUrl(),
                 tripPlace.getStatus(),
                 tripPlace.getUserNote(),
+                tripPlace.getPriority(),
                 tripPlace.getAddedBy()
         );
     }

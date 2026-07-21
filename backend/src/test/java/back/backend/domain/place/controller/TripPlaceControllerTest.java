@@ -2,8 +2,10 @@ package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.place.dto.request.UpdateNoteRequest;
+import back.backend.domain.place.dto.request.UpdatePriorityRequest;
 import back.backend.domain.place.dto.request.UpdateStatusRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
+import back.backend.domain.place.dto.response.TripPlaceAccessResponse;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.service.TripPlaceService;
@@ -51,7 +53,7 @@ class TripPlaceControllerTest {
         sampleResponse = new TripPlaceResponse(
                 10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null,
-                TripPlaceStatus.CANDIDATE, null, 1L);
+                TripPlaceStatus.CANDIDATE, null, null, 1L);
     }
 
     @Test
@@ -147,7 +149,7 @@ class TripPlaceControllerTest {
         TripPlaceResponse savedResponse = new TripPlaceResponse(
                 10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null,
-                TripPlaceStatus.SAVED, null, 1L);
+                TripPlaceStatus.SAVED, null, null, 1L);
 
         given(tripPlaceService.updateStatus(eq(1L), eq(10L), any())).willReturn(savedResponse);
 
@@ -164,7 +166,7 @@ class TripPlaceControllerTest {
         TripPlaceResponse noteResponse = new TripPlaceResponse(
                 10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null,
-                TripPlaceStatus.CANDIDATE, "오전에 방문 추천!", 1L);
+                TripPlaceStatus.CANDIDATE, "오전에 방문 추천!", null, 1L);
 
         given(tripPlaceService.updateNote(eq(1L), eq(10L), any())).willReturn(noteResponse);
 
@@ -173,5 +175,49 @@ class TripPlaceControllerTest {
                         .content(objectMapper.writeValueAsString(new UpdateNoteRequest("오전에 방문 추천!"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userNote").value("오전에 방문 추천!"));
+    }
+
+    @Test
+    @DisplayName("t10 지원하지 않는 status 값으로 조회하면 400 Bad Request를 반환한다")
+    void t10_잘못된상태값조회시400반환() throws Exception {
+        mockMvc.perform(get("/api/trips/1/places").param("status", "INVALID"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    @DisplayName("t11 장소 우선순위 변경 요청이 성공하면 200 OK와 변경된 우선순위를 반환한다")
+    void t11_우선순위변경성공() throws Exception {
+        TripPlaceResponse priorityResponse = new TripPlaceResponse(
+                10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
+                33.3065, 126.2897, "tourist_attraction", null,
+                TripPlaceStatus.CANDIDATE, null, 2, 1L);
+
+        given(tripPlaceService.updatePriority(eq(1L), eq(10L), any())).willReturn(priorityResponse);
+
+        mockMvc.perform(patch("/api/trips/1/places/10/priority")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdatePriorityRequest(2))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.priority").value(2));
+    }
+
+    @Test
+    @DisplayName("t12 우선순위가 1 미만이면 400 Bad Request를 반환한다")
+    void t12_잘못된우선순위변경시400반환() throws Exception {
+        mockMvc.perform(patch("/api/trips/1/places/10/priority")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new UpdatePriorityRequest(0))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("t13 여행 장소 편집 권한을 조회하면 200 OK와 canEdit을 반환한다")
+    void t13_여행장소편집권한조회성공() throws Exception {
+        given(tripPlaceService.getAccess(1L)).willReturn(new TripPlaceAccessResponse(true));
+
+        mockMvc.perform(get("/api/trips/1/places/access"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.canEdit").value(true));
     }
 }

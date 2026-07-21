@@ -2,15 +2,20 @@ package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.place.dto.request.UpdateNoteRequest;
+import back.backend.domain.place.dto.request.UpdatePriorityRequest;
 import back.backend.domain.place.dto.request.UpdateStatusRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
+import back.backend.domain.place.dto.response.TripPlaceAccessResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceRepository;
+import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.security.SecurityContextAccessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class TripPlaceServiceTest {
@@ -38,6 +45,12 @@ class TripPlaceServiceTest {
     @Mock
     private TripPlaceRepository tripPlaceRepository;
 
+    @Mock
+    private TripAccessRepository tripAccessRepository;
+
+    @Mock
+    private SecurityContextAccessor securityContextAccessor;
+
     @InjectMocks
     private TripPlaceService tripPlaceService;
 
@@ -46,6 +59,10 @@ class TripPlaceServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        lenient().when(tripAccessRepository.canView(1L, 1L)).thenReturn(true);
+        lenient().when(tripAccessRepository.canEdit(1L, 1L)).thenReturn(true);
+
         savedPlace = Place.builder()
                 .googlePlaceId("ChIJxxx")
                 .name("오설록 티 뮤지엄")
@@ -54,6 +71,7 @@ class TripPlaceServiceTest {
                 .longitude(126.2897)
                 .placeType("tourist_attraction")
                 .build();
+        ReflectionTestUtils.setField(savedPlace, "id", 20L);
 
         savedTripPlace = TripPlace.builder()
                 .tripId(1L)
@@ -61,6 +79,7 @@ class TripPlaceServiceTest {
                 .addedBy(1L)
                 .status(TripPlaceStatus.CANDIDATE)
                 .build();
+        ReflectionTestUtils.setField(savedTripPlace, "id", 10L);
     }
 
     @Test
@@ -121,7 +140,7 @@ class TripPlaceServiceTest {
     @Test
     @DisplayName("t4 여행방 장소 전체 목록을 조회한다")
     void t4_전체장소목록조회() {
-        given(tripPlaceRepository.findByTripId(1L)).willReturn(List.of(savedTripPlace));
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of(savedTripPlace));
 
         List<TripPlaceResponse> result = tripPlaceService.getPlaces(1L, null);
 
@@ -132,7 +151,7 @@ class TripPlaceServiceTest {
     @Test
     @DisplayName("t5 status 파라미터로 필터링된 장소 목록을 조회한다")
     void t5_status필터조회() {
-        given(tripPlaceRepository.findByTripIdAndStatus(1L, TripPlaceStatus.CANDIDATE))
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(1L, TripPlaceStatus.CANDIDATE))
                 .willReturn(List.of(savedTripPlace));
 
         List<TripPlaceResponse> result = tripPlaceService.getPlaces(1L, TripPlaceStatus.CANDIDATE);
@@ -182,5 +201,63 @@ class TripPlaceServiceTest {
                 new UpdateNoteRequest("오전에 방문 추천!"));
 
         assertThat(result.userNote()).isEqualTo("오전에 방문 추천!");
+    }
+
+    @Test
+    @DisplayName("t10 조회 권한이 없는 회원이 장소 목록을 조회하면 FORBIDDEN 예외가 발생한다")
+    void t10_조회권한없는회원조회거부() {
+        given(tripAccessRepository.canView(1L, 1L)).willReturn(false);
+
+        assertThatThrownBy(() -> tripPlaceService.getPlaces(1L, null))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(CommonErrorCode.FORBIDDEN));
+    }
+
+    @Test
+    @DisplayName("t11 편집 권한이 없는 회원이 장소를 추가하면 FORBIDDEN 예외가 발생한다")
+    void t11_편집권한없는회원장소추가거부() {
+        given(tripAccessRepository.canEdit(1L, 1L)).willReturn(false);
+        AddTripPlaceRequest request = new AddTripPlaceRequest(
+                "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
+                33.3065, 126.2897, "tourist_attraction", null, null);
+
+        assertThatThrownBy(() -> tripPlaceService.addPlace(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(CommonErrorCode.FORBIDDEN));
+        then(placeRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("t12 장소 우선순위를 변경한다")
+    void t12_장소우선순위변경성공() {
+        given(tripPlaceRepository.findByIdAndTripId(10L, 1L)).willReturn(Optional.of(savedTripPlace));
+
+        TripPlaceResponse result = tripPlaceService.updatePriority(1L, 10L,
+                new UpdatePriorityRequest(2));
+
+        assertThat(result.priority()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("t13 편집 권한이 없는 회원이 우선순위를 변경하면 FORBIDDEN 예외가 발생한다")
+    void t13_편집권한없는회원우선순위변경거부() {
+        given(tripAccessRepository.canEdit(1L, 1L)).willReturn(false);
+
+        assertThatThrownBy(() -> tripPlaceService.updatePriority(1L, 10L,
+                new UpdatePriorityRequest(2)))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(CommonErrorCode.FORBIDDEN));
+        then(tripPlaceRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("t14 조회 가능한 회원의 여행 장소 편집 권한을 반환한다")
+    void t14_여행장소편집권한조회() {
+        TripPlaceAccessResponse result = tripPlaceService.getAccess(1L);
+
+        assertThat(result.canEdit()).isTrue();
     }
 }

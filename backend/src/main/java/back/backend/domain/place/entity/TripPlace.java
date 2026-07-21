@@ -40,6 +40,9 @@ public class TripPlace {
     @Column(nullable = false, length = 20)
     private TripPlaceStatus status;
 
+    @Column
+    private Integer priority;
+
     @Column(name = "user_note", columnDefinition = "TEXT")
     private String userNote;
 
@@ -57,5 +60,9 @@ public class TripPlace {
 
     public void updateNote(String userNote) {
         this.userNote = userNote;
+    }
+
+    public void updatePriority(Integer priority) {
+        this.priority = priority;
     }
 }

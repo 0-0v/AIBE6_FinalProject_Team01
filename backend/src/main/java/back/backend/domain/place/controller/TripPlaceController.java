@@ -2,8 +2,10 @@ package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.place.dto.request.UpdateNoteRequest;
+import back.backend.domain.place.dto.request.UpdatePriorityRequest;
 import back.backend.domain.place.dto.request.UpdateStatusRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
+import back.backend.domain.place.dto.response.TripPlaceAccessResponse;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.service.TripPlaceService;
 import back.backend.global.response.ApiResponse;
@@ -38,6 +40,11 @@ public class TripPlaceController {
         return ApiResponse.success(tripPlaceService.getPlaces(tripId, status));
     }
 
+    @GetMapping("/access")
+    public ApiResponse<TripPlaceAccessResponse> getAccess(@PathVariable Long tripId) {
+        return ApiResponse.success(tripPlaceService.getAccess(tripId));
+    }
+
     @DeleteMapping("/{tripPlaceId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePlace(
@@ -63,5 +70,14 @@ public class TripPlaceController {
             @RequestBody @Valid UpdateNoteRequest request
     ) {
         return ApiResponse.success(tripPlaceService.updateNote(tripId, tripPlaceId, request));
+    }
+
+    @PatchMapping("/{tripPlaceId}/priority")
+    public ApiResponse<TripPlaceResponse> updatePriority(
+            @PathVariable Long tripId,
+            @PathVariable Long tripPlaceId,
+            @RequestBody @Valid UpdatePriorityRequest request
+    ) {
+        return ApiResponse.success(tripPlaceService.updatePriority(tripId, tripPlaceId, request));
     }
 }
