@@ -57,6 +57,7 @@ class PlaceSearchServiceTest {
                         "X-Goog-FieldMask",
                         "places.id,places.displayName,places.formattedAddress,places.location,places.types"
                 ))
+                .andExpect(header("X-Goog-Api-Key", "test-api-key"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
 
         List<PlaceSearchResponse> result = service.search("카멜리아힐");
@@ -101,6 +102,32 @@ class PlaceSearchServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR));
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t5 위치 정보가 없는 장소는 검색 결과에서 제외한다")
+    void t5_위치정보가없는장소제외() {
+        String responseJson = """
+                {
+                  "places": [
+                    {
+                      "id": "ChIJnoLocation",
+                      "displayName": {"text": "좌표 없는 장소", "languageCode": "ko"},
+                      "formattedAddress": "주소 미상",
+                      "types": ["point_of_interest"]
+                    }
+                  ]
+                }
+                """;
+
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        List<PlaceSearchResponse> result = service.search("좌표 없는 장소");
+
+        assertThat(result).isEmpty();
         server.verify();
     }
 }

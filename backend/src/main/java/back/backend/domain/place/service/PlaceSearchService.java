@@ -81,14 +81,15 @@ public class PlaceSearchService {
             return List.of();
         }
         return response.places().stream()
+                .filter(place -> place.location() != null)
                 .map(this::mapToResponse)
                 .toList();
     }
 
     private PlaceSearchResponse mapToResponse(GooglePlacesApiResponse.Place place) {
         String name = place.displayName() != null ? place.displayName().text() : null;
-        double latitude = place.location() != null ? place.location().latitude() : 0.0;
-        double longitude = place.location() != null ? place.location().longitude() : 0.0;
+        double latitude = place.location().latitude();
+        double longitude = place.location().longitude();
         String placeType = (place.types() != null && !place.types().isEmpty())
                 ? place.types().get(0)
                 : null;
