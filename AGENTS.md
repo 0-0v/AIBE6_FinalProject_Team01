@@ -98,6 +98,11 @@ If the relevant implementation cannot be found, inspect the following before cre
 
 ### Implementation Rules
 
+- Follow the frontend FSD layers in this dependency direction: `app → views → widgets → features → entities → shared`.
+- Use `views` as the FSD page layer because Next.js App Router already uses `app` for routing.
+- A lower FSD layer must never import from a higher layer, and slices in the same layer must not import each other's internals.
+- Import another slice through its public `index.ts` API instead of a deep internal path.
+- Group slice code by purpose with segments such as `ui`, `model`, `api`, and `lib`.
 - Prefer TypeScript over JavaScript.
 - Minimize the use of `any` and define request and response types.
 - Separate responsibilities between Server Components and Client Components.
