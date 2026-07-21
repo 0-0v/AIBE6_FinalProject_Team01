@@ -1,3 +1,5 @@
 export { globalModal, useGlobalModalStore } from './global-modal-store'
 export type { GlobalModalOptions } from './global-modal-store'
 export { useRealtimeStore } from './realtime-store'
+export { useCurrentUserStore } from './current-user-store'
+export type { CurrentUser } from './current-user-store'

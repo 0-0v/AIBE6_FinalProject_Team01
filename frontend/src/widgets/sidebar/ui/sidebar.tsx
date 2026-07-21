@@ -11,6 +11,9 @@ import {
 } from 'lucide-react'
 import { currentUserId, members } from '@/entities/trip'
 import { Avatar } from '@/shared/ui'
+import { useCurrentUserStore } from '@/shared/model'
+
+const DEFAULT_AVATAR_COLOR = '#0f766e'
 
 const nav = [
     { to: '/app', label: '대시보드', icon: HomeIcon, end: true },
@@ -20,7 +23,11 @@ const nav = [
 ]
 
 export function Sidebar() {
-    const me = members.find((member) => member.id === currentUserId)!
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const mockMe = members.find((member) => member.id === currentUserId)!
+    const me = currentUser
+        ? { name: currentUser.nickname, avatarColor: DEFAULT_AVATAR_COLOR }
+        : mockMe
 
     return (
         <aside className="z-30 flex w-[86px] shrink-0 flex-col items-center border-r border-slate-100 bg-white py-7">

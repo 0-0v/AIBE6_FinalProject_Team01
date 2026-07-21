@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import {
     BrowserRouter,
     Navigate,
@@ -13,8 +13,11 @@ import { Home } from '@/views/home'
 import { Explore, Updates } from '@/views/discovery'
 import { MyPage } from '@/views/my-page'
 import { Login } from '@/views/login'
+import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
+import { fetchCurrentUser } from '@/shared/api/current-user'
+import { useCurrentUserStore } from '@/shared/model'
 
 function AppShell() {
     const location = useLocation()
@@ -39,11 +42,30 @@ function AppShell() {
 }
 
 export function App() {
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const setCurrentUser = useCurrentUserStore((state) => state.setCurrentUser)
+
+    useEffect(() => {
+        if (currentUser || window.location.pathname === '/oauth/callback') {
+            return
+        }
+        const accessToken = localStorage.getItem('accessToken')
+        if (!accessToken) {
+            return
+        }
+        fetchCurrentUser(accessToken).then((user) => {
+            if (user) {
+                setCurrentUser(user)
+            }
+        })
+    }, [currentUser, setCurrentUser])
+
     return (
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/oauth/callback" element={<OAuthCallback />} />
                 <Route path="/app/*" element={<AppShell />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
