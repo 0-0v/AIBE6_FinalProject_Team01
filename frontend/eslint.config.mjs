@@ -11,7 +11,101 @@ export default defineConfig([
         rules: {
             semi: ['error', 'never'],
             quotes: ['error', 'single', { avoidEscape: true }],
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: [
+                                '@/entities/*/**',
+                                '@/features/*/**',
+                                '@/widgets/*/**',
+                                '@/views/*/**',
+                            ],
+                            message:
+                                'FSD slice는 공개 API(index.ts)를 통해 import하세요.',
+                        },
+                    ],
+                },
+            ],
             '@next/next/no-img-element': 'off',
+        },
+    },
+    {
+        files: ['src/shared/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: [
+                                '@/entities/**',
+                                '@/features/**',
+                                '@/widgets/**',
+                                '@/views/**',
+                            ],
+                            message:
+                                'shared 레이어는 상위 FSD 레이어를 참조할 수 없습니다.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ['src/entities/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: [
+                                '@/features/**',
+                                '@/widgets/**',
+                                '@/views/**',
+                            ],
+                            message:
+                                'entities 레이어는 상위 FSD 레이어를 참조할 수 없습니다.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ['src/features/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: ['@/widgets/**', '@/views/**'],
+                            message:
+                                'features 레이어는 상위 FSD 레이어를 참조할 수 없습니다.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ['src/widgets/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: ['@/views/**'],
+                            message:
+                                'widgets 레이어는 views 레이어를 참조할 수 없습니다.',
+                        },
+                    ],
+                },
+            ],
         },
     },
     globalIgnores(['.next/**', 'out/**', 'coverage/**', 'next-env.d.ts']),

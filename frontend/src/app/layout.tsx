@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import { GlobalModal } from '@/components/common/global-modal'
+import { GlobalModal } from '@/shared/ui'
 import './globals.css'
 
 export const metadata: Metadata = {

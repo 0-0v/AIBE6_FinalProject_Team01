@@ -38,7 +38,7 @@ npm run dev
 브라우저 `alert` 대신 전역 모달을 사용합니다. React 컴포넌트 밖에서도 호출할 수 있습니다.
 
 ```tsx
-import { globalModal } from '@/stores/global-modal-store'
+import { globalModal } from '@/shared/model'
 
 globalModal.open({
     title: '저장 완료',
@@ -48,15 +48,25 @@ globalModal.open({
 
 확인과 취소가 모두 필요한 경우 `showCancel: true`와 `onConfirm`을 전달합니다.
 
-## Migration Structure
+## FSD Architecture
 
-- `src/app`: Next.js App Router 진입점과 전역 스타일
-- `src/screens`: 기존 Vite 화면 컴포넌트
-- `src/components/ui`: shadcn/ui 컴포넌트
-- `src/stores`: Zustand 상태
-- `src/lib/realtime`: WebSocket 및 WebRTC 공통 진입점
+Next.js App Router와 FSD의 `app`, `pages` 명칭 충돌을 피하기 위해 라우팅은 `src/app`, FSD 페이지 레이어는 `src/views`를 사용합니다.
 
-현재는 기존 React Router 화면을 optional catch-all App Router 경로에서 실행합니다. 기능 개발 시 화면별로 `src/app` 라우트와 Server/Client Component로 점진 전환합니다.
+```text
+src/
+├─ app/       # Next.js 라우트, provider, 전역 초기화
+├─ views/     # URL 단위 화면 조합
+├─ widgets/   # 여러 기능과 엔티티를 조합한 독립 UI 블록
+├─ features/  # 사용자 행동과 비즈니스 기능
+├─ entities/  # 비즈니스 엔티티의 model과 UI
+└─ shared/    # 범용 UI, 상태, 유틸리티, 실시간 통신
+```
+
+의존 방향은 `app → views → widgets → features → entities → shared`입니다. 상위 레이어는 하위 레이어만 import할 수 있으며, slice 외부에서는 각 폴더의 `index.ts` 공개 API를 사용합니다. ESLint가 상위 레이어 참조와 공개 API 우회 import를 검사합니다.
+
+현재 기존 React Router 화면은 `src/app/_bootstrap/spa-app.tsx`에서 optional catch-all App Router 경로로 실행합니다. 화면을 Next.js 라우트로 전환할 때도 UI와 비즈니스 코드는 해당 FSD 레이어에 유지합니다.
+
+참고: [NextJS에서 FSD 아키텍처 적용하기](https://velog.io/@byeongjun25/NextJS-NextJS%EC%97%90%EC%84%9C-FSD-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EC%A0%81%EC%9A%A9%ED%95%98%EA%B8%B0)
 
 ## Validation
 

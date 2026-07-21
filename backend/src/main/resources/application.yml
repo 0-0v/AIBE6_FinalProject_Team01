@@ -40,6 +40,8 @@ app:
   integrations:
     google-maps:
       api-key: ${GOOGLE_MAPS_API_KEY}
+      connect-timeout: ${GOOGLE_MAPS_CONNECT_TIMEOUT:3s}
+      read-timeout: ${GOOGLE_MAPS_READ_TIMEOUT:5s}
     ai:
       api-key: ${AI_API_KEY}
       base-url: ${AI_API_BASE_URL}
