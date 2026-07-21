@@ -34,8 +34,19 @@ const socials = [
     },
 ]
 
+const KAKAO_LOGIN_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authorization/kakao`
+
 export function Login() {
     const navigate = useNavigate()
+
+    function handleSocialLogin(id: string) {
+        if (id === 'kakao') {
+            window.location.assign(KAKAO_LOGIN_URL)
+            return
+        }
+        navigate('/app')
+    }
+
     return (
         <div className="flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
             <div className="w-full max-w-sm">
@@ -57,7 +68,7 @@ export function Login() {
                     {socials.map((s) => (
                         <button
                             key={s.id}
-                            onClick={() => navigate('/app')}
+                            onClick={() => handleSocialLogin(s.id)}
                             className={`flex w-full items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition hover:opacity-90 ${
                                 s.border ? 'border border-slate-300' : ''
                             }`}

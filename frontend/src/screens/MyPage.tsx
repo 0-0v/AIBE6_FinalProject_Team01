@@ -7,6 +7,16 @@ import {
 } from 'lucide-react'
 import { Avatar } from '../components/common/Avatar'
 import { members, currentUserId } from '../data/mockData'
+import { useCurrentUserStore } from '../stores/current-user-store'
+
+const DEFAULT_AVATAR_COLOR = '#0f766e'
+
+const PROVIDER_LABEL: Record<string, string> = {
+    GOOGLE: 'Google',
+    KAKAO: '카카오',
+    NAVER: '네이버',
+    APPLE: 'Apple',
+}
 
 const myTrips = [
     { id: 't1', title: '제주도 우정여행 🌊', role: 'OWNER', isPublic: true },
@@ -15,7 +25,14 @@ const myTrips = [
 ]
 
 export function MyPage() {
-    const me = members.find((m) => m.id === currentUserId)!
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const mockMe = members.find((m) => m.id === currentUserId)!
+    const me = currentUser
+        ? { name: currentUser.nickname, avatarColor: DEFAULT_AVATAR_COLOR }
+        : mockMe
+    const loginProviderLabel = currentUser
+        ? PROVIDER_LABEL[currentUser.provider]
+        : 'Google'
     const [nickname, setNickname] = useState(me.name)
     const [draft, setDraft] = useState(me.name)
     const [editing, setEditing] = useState(false)
@@ -109,7 +126,7 @@ export function MyPage() {
                                 </div>
                             )}
                             <p className="mt-0.5 text-sm text-slate-500">
-                                Google 계정으로 로그인됨
+                                {loginProviderLabel} 계정으로 로그인됨
                             </p>
                         </div>
                     </div>
