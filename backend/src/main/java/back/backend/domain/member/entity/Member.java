@@ -125,4 +125,10 @@ public class Member {
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
+
+    public void recordLogin(String nickname, String profileImageUrl) {
+        this.nickname = Objects.requireNonNull(nickname, "nickname must not be null");
+        this.profileImageUrl = profileImageUrl;
+        this.lastLoginAt = LocalDateTime.now();
+    }
 }
