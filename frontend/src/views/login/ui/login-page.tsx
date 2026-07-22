@@ -35,6 +35,7 @@ const socials = [
 ]
 
 const KAKAO_LOGIN_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authorization/kakao`
+const GOOGLE_LOGIN_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authorization/google`
 
 export function Login() {
     const navigate = useNavigate()
@@ -42,6 +43,10 @@ export function Login() {
     function handleSocialLogin(id: string) {
         if (id === 'kakao') {
             window.location.assign(KAKAO_LOGIN_URL)
+            return
+        }
+        if (id === 'google') {
+            window.location.assign(GOOGLE_LOGIN_URL)
             return
         }
         navigate('/app')
