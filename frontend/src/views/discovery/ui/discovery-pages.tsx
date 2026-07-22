@@ -1,16 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import {
-    BellIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     CopyIcon,
-    MapPinIcon,
     SearchIcon,
     SearchXIcon,
-    SparklesIcon,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { exploreCards } from '@/entities/trip'
+import { NotificationList } from '@/features/manage-notification'
 
 const PAGE_SIZE = 6
 
@@ -236,30 +233,6 @@ export function Explore() {
 }
 
 export function Updates() {
-    const [read, setRead] = useState<string[]>([])
-    const updates: Array<[string, LucideIcon, string, string, string]> = [
-        [
-            'a',
-            SparklesIcon,
-            'AI 일정 추천이 완성되었어요',
-            '제주도 가족여행 · 2개의 동선 제안을 비교해 보세요.',
-            '방금',
-        ],
-        [
-            'b',
-            BellIcon,
-            '새 장소 투표가 시작됐어요',
-            '민수님이 자매국수 후보 장소에 투표를 요청했어요.',
-            '12분 전',
-        ],
-        [
-            'c',
-            MapPinIcon,
-            '새 장소가 등록됐어요',
-            '서연님이 카페 델문도를 후보 목록에 추가했어요.',
-            '40분 전',
-        ],
-    ]
     return (
         <div className="min-h-full bg-[#f8fafb] px-5 py-7 sm:px-9">
             <div className="mx-auto max-w-[860px]">
@@ -268,37 +241,7 @@ export function Updates() {
                     title="알림"
                     description="여행방의 새 활동과 AI 결과를 확인하세요."
                 />
-                <div className="mt-7 overflow-hidden rounded-[22px] bg-white shadow-sm">
-                    {updates.map(([id, Icon, title, detail, time]) => (
-                        <button
-                            key={id}
-                            onClick={() =>
-                                setRead((current) => [...current, id])
-                            }
-                            className={`flex w-full items-start gap-4 border-b border-slate-100 p-5 text-left last:border-0 hover:bg-slate-50 ${read.includes(id) ? 'opacity-50' : ''}`}
-                        >
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                                <Icon size={18} />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                                <span className="flex justify-between gap-3">
-                                    <b className="text-sm text-slate-800">
-                                        {title}
-                                    </b>
-                                    <small className="shrink-0 text-[11px] text-slate-400">
-                                        {time}
-                                    </small>
-                                </span>
-                                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                                    {detail}
-                                </span>
-                            </span>
-                            {!read.includes(id) && (
-                                <span className="mt-1.5 h-2 w-2 rounded-full bg-brand" />
-                            )}
-                        </button>
-                    ))}
-                </div>
+                <NotificationList />
             </div>
         </div>
     )
