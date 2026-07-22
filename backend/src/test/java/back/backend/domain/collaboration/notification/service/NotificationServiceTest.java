@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import back.backend.domain.collaboration.notification.dto.NotificationCreateCommand;
 import back.backend.domain.collaboration.notification.dto.NotificationResponse;
+import back.backend.domain.collaboration.notification.dto.ReadNotificationCountResponse;
 import back.backend.domain.collaboration.notification.dto.UnreadNotificationCountResponse;
 import back.backend.domain.collaboration.notification.entity.Notification;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
@@ -19,6 +20,7 @@ import back.backend.global.exception.BusinessException;
 import back.backend.global.response.PageResponse;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -99,6 +101,40 @@ class NotificationServiceTest {
         UnreadNotificationCountResponse response = notificationService.getUnreadCount(1L);
 
         assertThat(response.count()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("t5 본인의 읽지 않은 알림을 읽음 처리한다")
+    void t5_markAsReadUpdatesOwnedUnreadNotification() {
+        Notification notification = createNotification(1L);
+        when(notificationRepository.findByIdAndMemberId(10L, 1L)).thenReturn(Optional.of(notification));
+
+        notificationService.markAsRead(1L, 10L);
+
+        assertThat(notification.isRead()).isTrue();
+        assertThat(notification.getReadAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("t6 본인 소유가 아닌 알림을 읽음 처리하면 알림 없음 예외가 발생한다")
+    void t6_markAsReadThrowsWhenNotificationIsNotOwned() {
+        when(notificationRepository.findByIdAndMemberId(10L, 2L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> notificationService.markAsRead(2L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("t7 회원의 모든 읽지 않은 알림을 읽음 처리하고 변경 개수를 반환한다")
+    void t7_markAllAsReadReturnsUpdatedNotificationCount() {
+        when(notificationRepository.markAllAsReadByMemberId(any(Long.class), any(LocalDateTime.class)))
+                .thenReturn(3);
+
+        ReadNotificationCountResponse response = notificationService.markAllAsRead(1L);
+
+        assertThat(response.count()).isEqualTo(3);
     }
 
     private NotificationCreateCommand createCommand(Long memberId) {

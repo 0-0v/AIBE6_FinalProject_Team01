@@ -132,4 +132,12 @@ public class Notification {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public void markAsRead(LocalDateTime readAt) {
+        if (read) {
+            return;
+        }
+        this.read = true;
+        this.readAt = Objects.requireNonNull(readAt, "readAt must not be null");
+    }
 }
