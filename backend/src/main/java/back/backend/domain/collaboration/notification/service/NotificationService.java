@@ -1,11 +1,15 @@
 package back.backend.domain.collaboration.notification.service;
 
 import back.backend.domain.collaboration.notification.dto.NotificationCreateCommand;
+import back.backend.domain.collaboration.notification.dto.NotificationResponse;
+import back.backend.domain.collaboration.notification.dto.UnreadNotificationCountResponse;
 import back.backend.domain.collaboration.notification.entity.Notification;
 import back.backend.domain.collaboration.notification.exception.NotificationErrorCode;
 import back.backend.domain.collaboration.notification.repository.NotificationRepository;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.response.PageResponse;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,5 +44,14 @@ public class NotificationService {
                 command.targetId()
         );
         return notificationRepository.save(notification).getId();
+    }
+
+    public PageResponse<NotificationResponse> getNotifications(Long memberId, Pageable pageable) {
+        return PageResponse.from(notificationRepository.findAllByMemberIdOrderByCreatedAtDescIdDesc(memberId, pageable)
+                .map(NotificationResponse::from));
+    }
+
+    public UnreadNotificationCountResponse getUnreadCount(Long memberId) {
+        return new UnreadNotificationCountResponse(notificationRepository.countByMemberIdAndReadFalse(memberId));
     }
 }

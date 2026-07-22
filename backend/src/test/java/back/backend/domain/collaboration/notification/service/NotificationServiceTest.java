@@ -8,18 +8,25 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import back.backend.domain.collaboration.notification.dto.NotificationCreateCommand;
+import back.backend.domain.collaboration.notification.dto.NotificationResponse;
+import back.backend.domain.collaboration.notification.dto.UnreadNotificationCountResponse;
 import back.backend.domain.collaboration.notification.entity.Notification;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.notification.exception.NotificationErrorCode;
 import back.backend.domain.collaboration.notification.repository.NotificationRepository;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.response.PageResponse;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +75,32 @@ class NotificationServiceTest {
         verify(notificationRepository, never()).save(any(Notification.class));
     }
 
+    @Test
+    @DisplayName("t3 회원의 알림 목록을 조회하면 페이지 응답으로 반환한다")
+    void t3_getNotificationsReturnsPagedNotificationResponses() {
+        PageRequest pageable = PageRequest.of(0, 10);
+        Notification notification = createNotification(1L);
+        when(notificationRepository.findAllByMemberIdOrderByCreatedAtDescIdDesc(1L, pageable))
+                .thenReturn(new PageImpl<>(List.of(notification), pageable, 1));
+
+        PageResponse<NotificationResponse> response = notificationService.getNotifications(1L, pageable);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().getFirst().id()).isEqualTo(10L);
+        assertThat(response.content().getFirst().notificationType()).isEqualTo(NotificationType.VOTE);
+        assertThat(response.totalElements()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("t4 회원의 읽지 않은 알림 개수를 조회한다")
+    void t4_getUnreadCountReturnsUnreadNotificationCount() {
+        when(notificationRepository.countByMemberIdAndReadFalse(1L)).thenReturn(3L);
+
+        UnreadNotificationCountResponse response = notificationService.getUnreadCount(1L);
+
+        assertThat(response.count()).isEqualTo(3L);
+    }
+
     private NotificationCreateCommand createCommand(Long memberId) {
         return new NotificationCreateCommand(
                 memberId,
@@ -78,5 +111,20 @@ class NotificationServiceTest {
                 "TRIP_PLACE",
                 20L
         );
+    }
+
+    private Notification createNotification(Long memberId) {
+        Notification notification = Notification.create(
+                memberId,
+                1L,
+                NotificationType.VOTE,
+                "장소 투표 알림",
+                "새로운 장소 투표가 시작되었습니다.",
+                "TRIP_PLACE",
+                20L
+        );
+        ReflectionTestUtils.setField(notification, "id", 10L);
+        ReflectionTestUtils.setField(notification, "createdAt", LocalDateTime.of(2026, 7, 22, 12, 0));
+        return notification;
     }
 }
