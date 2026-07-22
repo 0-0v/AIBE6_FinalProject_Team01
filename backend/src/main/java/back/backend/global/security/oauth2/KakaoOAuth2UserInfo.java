@@ -3,7 +3,8 @@ package back.backend.global.security.oauth2;
 import java.util.Map;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 
-public record KakaoOAuth2UserInfo(String providerId, String email, String nickname, String profileImageUrl) {
+public record KakaoOAuth2UserInfo(String providerId, String email, String nickname, String profileImageUrl)
+        implements OAuth2UserInfo {
 
     @SuppressWarnings("unchecked")
     public static KakaoOAuth2UserInfo from(Map<String, Object> attributes) {
