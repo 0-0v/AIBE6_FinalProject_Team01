@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
     BellIcon,
@@ -10,6 +10,7 @@ import {
     SparklesIcon,
 } from 'lucide-react'
 import { currentUserId, members } from '@/entities/trip'
+import { useNotificationStore } from '@/features/manage-notification'
 import { Avatar } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 
@@ -19,15 +20,30 @@ const nav = [
     { to: '/app', label: '대시보드', icon: HomeIcon, end: true },
     { to: '/app/room', label: '여행방', icon: MapIcon },
     { to: '/app/explore', label: '둘러보기', icon: CompassIcon },
-    { to: '/app/updates', label: '알림', icon: BellIcon, badge: 3 },
+    { to: '/app/updates', label: '알림', icon: BellIcon },
 ]
 
 export function Sidebar() {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const unreadCount = useNotificationStore((state) => state.unreadCount)
+    const loadUnreadCount = useNotificationStore(
+        (state) => state.loadUnreadCount,
+    )
+    const resetNotifications = useNotificationStore(
+        (state) => state.resetNotifications,
+    )
     const mockMe = members.find((member) => member.id === currentUserId)!
     const me = currentUser
         ? { name: currentUser.nickname, avatarColor: DEFAULT_AVATAR_COLOR }
         : mockMe
+
+    useEffect(() => {
+        if (currentUser) {
+            void loadUnreadCount()
+            return
+        }
+        resetNotifications()
+    }, [currentUser, loadUnreadCount, resetNotifications])
 
     return (
         <aside className="z-30 flex w-[86px] shrink-0 flex-col items-center border-r border-slate-100 bg-white py-7">
@@ -44,25 +60,33 @@ export function Sidebar() {
                 className="mt-16 flex flex-1 flex-col items-center gap-4"
                 aria-label="주요 메뉴"
             >
-                {nav.map((item) => (
-                    <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={item.end}
-                        title={item.label}
-                        aria-label={item.label}
-                        className={({ isActive }) =>
-                            `relative flex h-12 w-12 items-center justify-center rounded-xl transition ${isActive ? 'bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]' : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`
-                        }
-                    >
-                        <item.icon size={21} strokeWidth={2.2} />
-                        {item.badge ? (
-                            <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-extrabold text-white ring-2 ring-white">
-                                {item.badge}
-                            </span>
-                        ) : null}
-                    </NavLink>
-                ))}
+                {nav.map((item) => {
+                    const badge =
+                        item.to === '/app/updates' ? unreadCount : 0
+                    return (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end={item.end}
+                            title={item.label}
+                            aria-label={
+                                badge > 0
+                                    ? `${item.label}, 읽지 않은 알림 ${badge}개`
+                                    : item.label
+                            }
+                            className={({ isActive }) =>
+                                `relative flex h-12 w-12 items-center justify-center rounded-xl transition ${isActive ? 'bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]' : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`
+                            }
+                        >
+                            <item.icon size={21} strokeWidth={2.2} />
+                            {badge > 0 ? (
+                                <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-extrabold text-white ring-2 ring-white">
+                                    {badge > 99 ? '99+' : badge}
+                                </span>
+                            ) : null}
+                        </NavLink>
+                    )
+                })}
 
                 <NavLink
                     to="/app/room"
