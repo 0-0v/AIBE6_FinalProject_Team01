@@ -13,16 +13,14 @@ import {
     LayoutGridIcon,
     ListIcon,
     MapPinIcon,
-    MessageCircleIcon,
     PlusIcon,
     SparklesIcon,
     ThumbsUpIcon,
-    UserRoundPlusIcon,
     WandSparklesIcon,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import type { LucideIcon } from 'lucide-react'
 import { exploreCards, members, rooms } from '@/entities/trip'
+import { NotificationPanel } from '@/features/manage-notification'
 import { Avatar } from '@/shared/ui'
 import { TravelRooms } from '@/widgets/travel-rooms'
 
@@ -104,37 +102,6 @@ const aiFindings = [
     },
 ]
 
-const notificationItems: Array<[string, LucideIcon, string, string, string]> = [
-    [
-        'comment',
-        MessageCircleIcon,
-        '새 댓글',
-        '민수님이 자매국수에 댓글을 남겼어요.',
-        'bg-sky-50 text-sky-600',
-    ],
-    [
-        'vote',
-        ThumbsUpIcon,
-        '새 투표',
-        '협재 해수욕장에 찬성표가 추가됐어요.',
-        'bg-amber-50 text-amber-600',
-    ],
-    [
-        'ai',
-        SparklesIcon,
-        'AI 완료',
-        '일정 추천이 준비되었어요.',
-        'bg-brand-50 text-brand-700',
-    ],
-    [
-        'invite',
-        UserRoundPlusIcon,
-        '초대 도착',
-        '부산 친구 여행에 초대되었어요.',
-        'bg-violet-50 text-violet-600',
-    ],
-]
-
 const calendarDays = [
     '26',
     '27',
@@ -201,7 +168,6 @@ function SectionTitle({
 export function Home() {
     const navigate = useNavigate()
     const [tasks, setTasks] = useState(initialTasks)
-    const [readNotifications, setReadNotifications] = useState<string[]>([])
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
     const [saved, setSaved] = useState(exploreCards.slice(0, 3))
     const activeTrip =
@@ -209,12 +175,6 @@ export function Home() {
 
     function toggleTask(id: string) {
         setTasks((current) => current.filter((task) => task.id !== id))
-    }
-
-    function markRead(id: string) {
-        setReadNotifications((current) =>
-            current.includes(id) ? current : [...current, id],
-        )
     }
 
     function editable(
@@ -939,57 +899,7 @@ export function Home() {
                             {editable(
                                 'notifications',
                                 '알림',
-                                <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
-                                    <SectionTitle
-                                        title="알림"
-                                        action={
-                                            <button
-                                                onClick={() =>
-                                                    setReadNotifications([])
-                                                }
-                                                className="text-[11px] font-bold text-slate-400 hover:text-slate-700"
-                                            >
-                                                모두 읽음
-                                            </button>
-                                        }
-                                    />
-                                    <div className="space-y-2">
-                                        {notificationItems.map(
-                                            ([id, Icon, label, text, tone]) => {
-                                                const isRead =
-                                                    readNotifications.includes(
-                                                        id,
-                                                    )
-                                                return (
-                                                    <button
-                                                        key={id}
-                                                        onClick={() =>
-                                                            markRead(id)
-                                                        }
-                                                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-50 ${isRead ? 'opacity-50' : ''}`}
-                                                    >
-                                                        <span
-                                                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone}`}
-                                                        >
-                                                            <Icon size={13} />
-                                                        </span>
-                                                        <span className="min-w-0 flex-1">
-                                                            <b className="block text-[11px] text-slate-700">
-                                                                {label}
-                                                            </b>
-                                                            <span className="block truncate text-[10px] text-slate-400">
-                                                                {text}
-                                                            </span>
-                                                        </span>
-                                                        {!isRead && (
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-                                                        )}
-                                                    </button>
-                                                )
-                                            },
-                                        )}
-                                    </div>
-                                </section>,
+                                <NotificationPanel />,
                             )}
                         </div>
                     </aside>
