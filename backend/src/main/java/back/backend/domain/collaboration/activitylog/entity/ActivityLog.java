@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -132,7 +133,9 @@ public class ActivityLog {
     }
 
     public Map<String, Object> getMetadata() {
-        return metadata == null ? null : Map.copyOf(metadata);
+        return metadata == null
+                ? null
+                : Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
     }
 
     public LocalDateTime getCreatedAt() {

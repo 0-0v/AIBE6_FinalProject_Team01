@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import back.backend.domain.collaboration.activitylog.entity.ActivityLog;
 import back.backend.global.config.JpaConfig;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,27 @@ class ActivityLogRepositoryTest {
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getMetadata()).containsEntry("placeName", "자매국수");
         assertThat(saved.getCreatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("t3 활동 로그 메타데이터에 null 값이 있어도 저장하고 조회한다")
+    void t3_savePersistsMetadataContainingNullValue() {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("beforeValue", null);
+        ActivityLog activityLog = ActivityLog.create(
+                1L,
+                1L,
+                null,
+                "PLACE_UPDATED",
+                "TRIP_PLACE",
+                10L,
+                "후보 장소가 수정되었습니다.",
+                metadata
+        );
+
+        ActivityLog saved = activityLogRepository.saveAndFlush(activityLog);
+
+        assertThat(saved.getMetadata()).containsEntry("beforeValue", null);
     }
 
     private ActivityLog saveActivityLog(Long tripId, String actionType, Long targetId) {
