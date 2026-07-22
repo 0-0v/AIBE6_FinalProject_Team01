@@ -6,7 +6,6 @@ import {
     ReceiptTextIcon,
 } from 'lucide-react'
 import {
-    ActivityLog,
     Expense,
     Place,
     PlaceCategory,
@@ -14,7 +13,6 @@ import {
     Room,
     TravelRecord,
     currentUserId,
-    initialLogs,
 } from '@/entities/trip'
 import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -113,7 +111,6 @@ export function RoomDetailPanel({
     onDeletePlace,
 }: Props) {
     const tripHasStarted = false
-    const [logs, setLogs] = useState<ActivityLog[]>(initialLogs)
     const [records, setRecords] = useState<TravelRecord[]>(initialRecords)
     const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
     const [mode, setMode] = useState<Mode>(() =>
@@ -139,20 +136,6 @@ export function RoomDetailPanel({
         [places, statusFilter],
     )
 
-    function addLog(action: string, target: string, undoable = true) {
-        setLogs((current) => [
-            {
-                id: `l${Date.now()}`,
-                memberId: currentUserId,
-                action,
-                target,
-                createdAt: '방금',
-                undoable,
-            },
-            ...current,
-        ])
-    }
-
     function switchMode(nextMode: Mode) {
         setMode(nextMode)
         if (nextMode === 'plan') setPlanTab('places')
@@ -160,7 +143,6 @@ export function RoomDetailPanel({
     }
 
     function handleVote(id: string, value: 'up' | 'down') {
-        const target = places.find((place) => place.id === id)
         onUpdatePlace(id, (place) => {
             const existing = place.votes.find(
                 (vote) => vote.memberId === currentUserId,
@@ -176,14 +158,6 @@ export function RoomDetailPanel({
                         : [...withoutMine, { memberId: currentUserId, value }],
             }
         })
-        if (target)
-            addLog(
-                value === 'up'
-                    ? '후보 장소에 찬성했어요'
-                    : '후보 장소에 반대했어요',
-                target.name,
-                false,
-            )
     }
 
     function mapPlaceTypeToCategory(placeType: string | null): PlaceCategory {
@@ -223,7 +197,6 @@ export function RoomDetailPanel({
             comments: [],
         }
         onAddPlace(place)
-        addLog('후보 장소를 등록했어요', result.name)
     }
 
     function focusPlace(placeId: string) {
@@ -324,9 +297,6 @@ export function RoomDetailPanel({
                     aria-label="전체 활동 로그 열기"
                 >
                     <HistoryIcon size={17} />
-                    {logs.length > 0 && (
-                        <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-orange-400" />
-                    )}
                 </button>
             </div>
 
@@ -378,24 +348,15 @@ export function RoomDetailPanel({
                                             ...item,
                                             status: 'saved',
                                         }))
-                                        addLog(
-                                            '투표를 마치고 장소를 확정했어요',
-                                            place.name,
-                                        )
                                     }}
                                     onHold={() => {
                                         onUpdatePlace(place.id, (item) => ({
                                             ...item,
                                             status: 'hold',
                                         }))
-                                        addLog(
-                                            '후보 장소를 보류했어요',
-                                            place.name,
-                                        )
                                     }}
                                     onDelete={() => {
                                         onDeletePlace(place.id)
-                                        addLog('장소를 삭제했어요', place.name)
                                     }}
                                     onOpenComments={() =>
                                         setCommentPlaceId(place.id)
@@ -424,14 +385,6 @@ export function RoomDetailPanel({
                             },
                             ...current,
                         ])
-                        addLog(
-                            '여행 기록을 남겼어요',
-                            record.placeId
-                                ? places.find(
-                                      (place) => place.id === record.placeId,
-                                  )?.name || '여행 기록'
-                                : '여행 기록',
-                        )
                     }}
                     onPlaceClick={focusPlace}
                 />
@@ -445,7 +398,6 @@ export function RoomDetailPanel({
                             { ...expense, id: `e${Date.now()}` },
                             ...current,
                         ])
-                        addLog('지출을 추가했어요', expense.title)
                     }}
                 />
             )}
@@ -468,14 +420,7 @@ export function RoomDetailPanel({
                         </button>
                     </div>
                     <div className="mp-scroll flex-1 overflow-y-auto">
-                        <ActivityLogPanel
-                            logs={logs}
-                            onUndo={(id) =>
-                                setLogs((current) =>
-                                    current.filter((log) => log.id !== id),
-                                )
-                            }
-                        />
+                        <ActivityLogPanel tripId={room.backendId} />
                     </div>
                 </div>
             )}
