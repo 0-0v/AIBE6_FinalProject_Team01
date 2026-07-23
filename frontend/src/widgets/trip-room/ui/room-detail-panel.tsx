@@ -12,7 +12,6 @@ import {
     PlaceStatus,
     Room,
     TravelRecord,
-    currentUserId,
 } from '@/entities/trip'
 import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -20,6 +19,7 @@ import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { ActivityLogPanel } from './activity-log'
+import { useCurrentUserStore } from '@/shared/model'
 import { ItineraryPanel } from './itinerary-panel'
 import { PlaceCard } from './place-card'
 import { RecordPanel } from './record-panel'
@@ -36,65 +36,14 @@ const STATUS_TABS: { key: PlaceStatus | 'all'; label: string }[] = [
     { key: 'hold', label: '보류' },
 ]
 
-const initialRecords: TravelRecord[] = [
-    {
-        id: 'r1',
-        memberId: 'm3',
-        day: 1,
-        time: '15:42',
-        createdAt: '2026-08-12T15:42:00',
-        memo: '협재에서 본 바다색이 정말 예뻤어요. 다음에는 노을 시간에 다시 오고 싶다 🌊',
-        placeId: 'p2',
-        images: [
-            '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
-            '/trip-record-2.png',
-        ],
-    },
-    {
-        id: 'r2',
-        memberId: 'm2',
-        day: 1,
-        time: '12:18',
-        createdAt: '2026-08-12T12:18:00',
-        memo: '드디어 고기국수! 웨이팅은 있었지만 만족.',
-        placeId: 'p3',
-        images: ['/67984159-ee93-4d51-aadd-43522138b92a.jpg'],
-    },
-]
-
-const initialExpenses: Expense[] = [
-    {
-        id: 'e1',
-        title: '렌터카 비용',
-        amount: 180000,
-        date: '8월 12일',
-        paidBy: 'm1',
-        participantCount: 4,
-    },
-    {
-        id: 'e2',
-        title: '숙소 예약금',
-        amount: 100000,
-        date: '8월 10일',
-        paidBy: 'm2',
-        participantCount: 4,
-    },
-    {
-        id: 'e3',
-        title: '점심 식사',
-        amount: 40000,
-        date: '8월 12일',
-        paidBy: 'm3',
-        participantCount: 4,
-    },
-]
-
 type Props = {
     room: Room
     places: Place[]
     selectedId: string | null
     onSelectPlace: (id: string) => void
     onBack: () => void
+    onManage: () => void
+    isGuest: boolean
     onUpdatePlace: (id: string, update: (place: Place) => Place) => void
     onAddPlace: (place: Place) => void
     onDeletePlace: (id: string) => void
@@ -106,13 +55,18 @@ export function RoomDetailPanel({
     selectedId,
     onSelectPlace,
     onBack,
+    onManage,
+    isGuest,
     onUpdatePlace,
     onAddPlace,
     onDeletePlace,
 }: Props) {
+    const currentUserId = String(
+        useCurrentUserStore((state) => state.currentUser?.id) ?? '',
+    )
     const tripHasStarted = false
-    const [records, setRecords] = useState<TravelRecord[]>(initialRecords)
-    const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
+    const [records, setRecords] = useState<TravelRecord[]>([])
+    const [expenses, setExpenses] = useState<Expense[]>([])
     const [mode, setMode] = useState<Mode>(() =>
         tripHasStarted ? 'record' : 'plan',
     )
@@ -123,9 +77,7 @@ export function RoomDetailPanel({
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [isPublic, setIsPublic] = useState(true)
-    const [viewerMode, setViewerMode] = useState(false)
-
-    const canWrite = !viewerMode
+    const canWrite = !isGuest && Boolean(currentUserId)
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const filtered = useMemo(
@@ -212,12 +164,12 @@ export function RoomDetailPanel({
                 title={room.title}
                 subtitle={`#${room.location} · ${room.date}`}
                 isPublic={isPublic}
-                isOwner
-                viewerMode={viewerMode}
+                isOwner={canWrite}
+                canWrite={canWrite}
                 onTogglePublic={() => setIsPublic((value) => !value)}
-                onToggleViewer={() => setViewerMode((value) => !value)}
                 onInvite={() => setInviteOpen(true)}
                 onBack={onBack}
+                onManage={onManage}
             />
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
                 <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold">
@@ -445,7 +397,12 @@ export function RoomDetailPanel({
                     }
                 />
             )}
-            {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
+            {inviteOpen && room.backendId && (
+                <InviteModal
+                    tripId={room.backendId}
+                    onClose={() => setInviteOpen(false)}
+                />
+            )}
         </div>
     )
 }

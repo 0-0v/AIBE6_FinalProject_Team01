@@ -5,8 +5,6 @@ import {
     MapPinIcon,
     UsersIcon,
 } from 'lucide-react'
-import { Avatar } from '@/shared/ui'
-import { members } from '../model/mock-data'
 import type { Room } from '../model/types'
 
 type Props = {
@@ -50,17 +48,9 @@ export function RoomCard({ room, onOpen }: Props) {
                 </div>
                 <div className="mt-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex -space-x-2">
-                            {members.slice(0, room.members).map((member) => (
-                                <Avatar
-                                    key={member.id}
-                                    name={member.name}
-                                    color={member.avatarColor}
-                                    size={25}
-                                    className="ring-2 ring-white"
-                                />
-                            ))}
-                        </div>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                            <UsersIcon size={14} />
+                        </span>
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
                             <span>여행 준비도</span>
                             <span>{room.progress}%</span>

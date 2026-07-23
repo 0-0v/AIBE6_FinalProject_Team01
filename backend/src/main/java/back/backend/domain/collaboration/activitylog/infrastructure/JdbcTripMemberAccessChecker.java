@@ -20,6 +20,10 @@ public class JdbcTripMemberAccessChecker implements TripMemberAccessChecker {
                             select 1
                             from trip_members
                             where trip_id = :tripId and member_id = :memberId
+                            union all
+                            select 1
+                            from trips
+                            where id = :tripId and owner_id = :memberId
                         )
                         """)
                 .param("tripId", tripId)

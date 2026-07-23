@@ -50,15 +50,14 @@ export function App() {
         if (currentUser || window.location.pathname === '/oauth/callback') {
             return
         }
-        restoreSession().then((accessToken) => {
-            if (!accessToken) {
-                return
+        const accessToken = localStorage.getItem('accessToken')
+        if (!accessToken) {
+            return
+        }
+        fetchCurrentUser(accessToken).then((user) => {
+            if (user) {
+                setCurrentUser(user)
             }
-            return fetchCurrentUser(accessToken).then((user) => {
-                if (user) {
-                    setCurrentUser(user)
-                }
-            })
         })
     }, [currentUser, setCurrentUser])
 

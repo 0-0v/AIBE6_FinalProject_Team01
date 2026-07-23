@@ -1,0 +1,131 @@
+import { FormEvent, useState } from 'react'
+import { XIcon } from 'lucide-react'
+import { createTrip, type CompanionType, type TravelStyle } from '../api/trip-api'
+
+const COMPANIONS: { value: CompanionType; label: string }[] = [
+    { value: 'ALONE', label: '혼자' },
+    { value: 'FRIENDS', label: '친구와' },
+    { value: 'COUPLE', label: '연인과' },
+    { value: 'SPOUSE', label: '배우자와' },
+    { value: 'CHILDREN', label: '아이와' },
+    { value: 'PARENTS', label: '부모님과' },
+]
+
+const STYLES: { value: TravelStyle; label: string }[] = [
+    { value: 'ACTIVITY', label: '액티비티' },
+    { value: 'SNS_HOT_PLACE', label: 'SNS 핫플레이스' },
+    { value: 'NATURE', label: '자연과 함께' },
+    { value: 'FAMOUS_ATTRACTIONS', label: '유명관광지 필수' },
+    { value: 'RELAXATION', label: '여유롭게 힐링' },
+    { value: 'CULTURE_ART_HISTORY', label: '문화/예술/역사' },
+    { value: 'SHOPPING', label: '쇼핑' },
+    { value: 'FOOD', label: '맛집 먹거리' },
+]
+
+type Props = { onClose: () => void; onCreated: () => void }
+
+export function CreateTripModal({ onClose, onCreated }: Props) {
+    const [title, setTitle] = useState('')
+    const [companionType, setCompanionType] = useState<CompanionType | ''>('')
+    const [travelStyles, setTravelStyles] = useState<TravelStyle[]>([])
+    const [destination, setDestination] = useState('')
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
+    const [error, setError] = useState<string | null>(null)
+    const [isSubmitting, setIsSubmitting] = useState(false)
+
+    function toggleStyle(style: TravelStyle) {
+        setTravelStyles((current) =>
+            current.includes(style)
+                ? current.filter((item) => item !== style)
+                : [...current, style],
+        )
+    }
+
+    async function submit(event: FormEvent) {
+        event.preventDefault()
+        const normalizedTitle = title.trim()
+        if (!normalizedTitle) {
+            setError('여행방 이름을 입력해 주세요.')
+            return
+        }
+        if ((startDate && !endDate) || (!startDate && endDate)) {
+            setError('여행 시작일과 종료일을 함께 입력해 주세요.')
+            return
+        }
+        if (startDate && endDate < startDate) {
+            setError('종료일은 시작일보다 빠를 수 없습니다.')
+            return
+        }
+
+        setIsSubmitting(true)
+        setError(null)
+        try {
+            await createTrip({
+                title: normalizedTitle,
+                companionType: companionType || null,
+                travelStyles,
+                destination: destination.trim() || null,
+                startDate: startDate || null,
+                endDate: endDate || null,
+            })
+            onCreated()
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : '여행방을 생성하지 못했습니다.')
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4">
+            <form onSubmit={submit} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-extrabold">새 여행방</h2>
+                    <button type="button" onClick={onClose} aria-label="닫기" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
+                        <XIcon size={18} />
+                    </button>
+                </div>
+
+                <label className="mt-5 block text-sm font-bold">
+                    여행방 이름 <span className="text-brand">*</span>
+                    <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-brand" placeholder="예: 제주 가족 여행" />
+                </label>
+
+                <label className="mt-4 block text-sm font-bold">
+                    누구와
+                    <select value={companionType} onChange={(event) => setCompanionType(event.target.value as CompanionType | '')} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal">
+                        <option value="">선택 안 함</option>
+                        {COMPANIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    </select>
+                </label>
+
+                <fieldset className="mt-4">
+                    <legend className="text-sm font-bold">여행 스타일</legend>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {STYLES.map((style) => (
+                            <button key={style.value} type="button" onClick={() => toggleStyle(style.value)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                {style.label}
+                            </button>
+                        ))}
+                    </div>
+                </fieldset>
+
+                <label className="mt-4 block text-sm font-bold">
+                    여행 장소
+                    <input value={destination} onChange={(event) => setDestination(event.target.value)} maxLength={100} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" placeholder="미정이면 비워두세요" />
+                </label>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                    <label className="text-sm font-bold">시작일<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+                    <label className="text-sm font-bold">종료일<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+                </div>
+
+                {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
+                <button disabled={isSubmitting} className="mt-6 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-60">
+                    {isSubmitting ? '생성 중...' : '여행방 만들기'}
+                </button>
+            </form>
+        </div>
+    )
+}

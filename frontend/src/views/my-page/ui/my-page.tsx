@@ -5,7 +5,6 @@ import {
     PencilIcon,
     AlertTriangleIcon,
 } from 'lucide-react'
-import { currentUserId, members } from '@/entities/trip'
 import { Avatar } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 
@@ -18,26 +17,22 @@ const PROVIDER_LABEL: Record<string, string> = {
     APPLE: 'Apple',
 }
 
-const myTrips = [
-    { id: 't1', title: '제주도 우정여행 🌊', role: 'OWNER', isPublic: true },
-    { id: 't2', title: '부산 먹방 투어', role: 'EDITOR', isPublic: false },
-    { id: 't3', title: '강릉 카페 여행', role: 'VIEWER', isPublic: false },
-]
-
 export function MyPage() {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const mockMe = members.find((m) => m.id === currentUserId)!
-    const me = currentUser
-        ? { name: currentUser.nickname, avatarColor: DEFAULT_AVATAR_COLOR }
-        : mockMe
+    const me = {
+        name: currentUser?.nickname ?? '게스트',
+        avatarColor: DEFAULT_AVATAR_COLOR,
+    }
     const loginProviderLabel = currentUser
         ? PROVIDER_LABEL[currentUser.provider]
-        : 'Google'
+        : '로그인 필요'
     const [nickname, setNickname] = useState(me.name)
     const [draft, setDraft] = useState(me.name)
     const [editing, setEditing] = useState(false)
     const [error, setError] = useState('')
-    const [trips, setTrips] = useState(myTrips)
+    const [trips, setTrips] = useState<
+        { id: string; title: string; role: string; isPublic: boolean }[]
+    >([])
 
     function saveNickname() {
         const v = draft.trim()
