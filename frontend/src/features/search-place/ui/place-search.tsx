@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { SearchIcon, PlusIcon, XIcon } from 'lucide-react'
 import { resolvePlacePresentation } from '@/entities/trip'
 import { searchPlaces } from '../api/placeApi'
@@ -60,6 +61,7 @@ export function PlaceSearch({ onAdd }: Props) {
     }, [q])
 
     return (
+        <Tooltip.Provider delayDuration={400}>
         <div className="border-b border-slate-200 p-3">
             <div className="relative">
                 <SearchIcon
@@ -108,27 +110,67 @@ export function PlaceSearch({ onAdd }: Props) {
                         !error &&
                         results.map((r) => {
                             const isAdded = added.includes(r.googlePlaceId)
+                            const presentation = resolvePlacePresentation(
+                                r.name,
+                                r.placeType,
+                            )
                             return (
                                 <div
                                     key={r.googlePlaceId}
                                     className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50"
                                 >
-                                    <span className="text-lg">
-                                        {
-                                            resolvePlacePresentation(
-                                                r.name,
-                                                r.placeType,
-                                            ).emoji
-                                        }
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="truncate text-sm font-medium">
-                                            {r.name}
-                                        </div>
-                                        <div className="truncate text-xs text-slate-400">
-                                            {r.address}
-                                        </div>
-                                    </div>
+                                    <Tooltip.Root>
+                                        <Tooltip.Trigger asChild>
+                                            <div className="flex min-w-0 flex-1 cursor-default items-center gap-3">
+                                                <span className="text-lg">
+                                                    {presentation.emoji}
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-sm font-medium">
+                                                        {r.name}
+                                                    </div>
+                                                    <div className="truncate text-xs text-slate-400">
+                                                        {r.address}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Tooltip.Trigger>
+                                        <Tooltip.Portal>
+                                            <Tooltip.Content
+                                                side="right"
+                                                sideOffset={8}
+                                                className="z-50 w-56 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-lg"
+                                            >
+                                                {r.imageUrl && (
+                                                    <img
+                                                        src={r.imageUrl}
+                                                        alt={r.name}
+                                                        className="h-32 w-full object-cover"
+                                                    />
+                                                )}
+                                                <div className="p-3">
+                                                    <p className="text-sm font-semibold text-slate-800">
+                                                        {r.name}
+                                                    </p>
+                                                    <span
+                                                        className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
+                                                        style={{
+                                                            backgroundColor:
+                                                                presentation.color +
+                                                                '20',
+                                                            color: presentation.color,
+                                                        }}
+                                                    >
+                                                        {presentation.label}
+                                                    </span>
+                                                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                                                        {r.address}
+                                                    </p>
+                                                </div>
+                                                <Tooltip.Arrow className="fill-white" />
+                                            </Tooltip.Content>
+                                        </Tooltip.Portal>
+                                    </Tooltip.Root>
                                     <button
                                         disabled={isAdded}
                                         onClick={async () => {
@@ -142,7 +184,7 @@ export function PlaceSearch({ onAdd }: Props) {
                                                 // 호출부에서 사용자 오류 UI를 처리한다.
                                             }
                                         }}
-                                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                                        className={`shrink-0 flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                                             isAdded
                                                 ? 'bg-slate-100 text-slate-400'
                                                 : 'bg-brand text-white hover:bg-brand-700'
@@ -163,5 +205,6 @@ export function PlaceSearch({ onAdd }: Props) {
                 </div>
             )}
         </div>
+        </Tooltip.Provider>
     )
 }
