@@ -9,6 +9,7 @@ import {
     fromApiToPlace,
 } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
+import { useCommentStore } from '@/features/comment-place'
 import { ManageTripModal, useTripStore } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
@@ -88,14 +89,21 @@ export function TripRoom() {
                 const votesByPlaceId = new Map(
                     voteSummaries.map((vote) => [vote.tripPlaceId, vote]),
                 )
+                const cachedComments =
+                    useCommentStore.getState().commentsByPlaceId
                 setPlaces(
-                    tripPlaces.map((tp) =>
-                        fromApiToPlace(
+                    tripPlaces.map((tp) => {
+                        const place = fromApiToPlace(
                             tp,
                             activeRoomId,
                             votesByPlaceId.get(tp.tripPlaceId),
-                        ),
-                    ),
+                        )
+                        return {
+                            ...place,
+                            comments:
+                                cachedComments[place.id] ?? place.comments,
+                        }
+                    }),
                 )
             })
             .catch((error: unknown) => {

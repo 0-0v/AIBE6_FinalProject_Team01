@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
@@ -21,7 +21,7 @@ import {
     addPlaceComment,
     deletePlaceComment,
 } from '@/entities/trip'
-import { CommentSheet } from '@/features/comment-place'
+import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
@@ -100,6 +100,30 @@ export function RoomDetailPanel({
     const canWrite = canManage
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
+    const { setComments, addComment, removeComment } = useCommentStore()
+
+    useEffect(() => {
+        if (!commentPlaceId) return
+        const controller = new AbortController()
+        getPlaceComments(tripId, Number(commentPlaceId), controller.signal)
+            .then((fetched) => {
+                const comments = fetched.map((c) => ({
+                    id: String(c.id),
+                    memberId: String(c.memberId),
+                    text: c.content,
+                    createdAt: c.createdAt,
+                }))
+                setComments(commentPlaceId, comments)
+                onUpdatePlace(commentPlaceId, (place) => ({
+                    ...place,
+                    comments,
+                }))
+            })
+            .catch(() => {
+                // 시트 닫힘 등으로 abort된 경우 무시
+            })
+        return () => controller.abort()
+    }, [commentPlaceId, tripId])
 
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
@@ -163,17 +187,16 @@ export function RoomDetailPanel({
         setCommentError(null)
         try {
             const comment = await addPlaceComment(tripId, Number(placeId), text)
+            const newComment = {
+                id: String(comment.id),
+                memberId: String(comment.memberId),
+                text: comment.content,
+                createdAt: comment.createdAt,
+            }
+            addComment(placeId, newComment)
             onUpdatePlace(placeId, (place) => ({
                 ...place,
-                comments: [
-                    ...place.comments,
-                    {
-                        id: String(comment.id),
-                        memberId: String(comment.memberId),
-                        text: comment.content,
-                        createdAt: comment.createdAt,
-                    },
-                ],
+                comments: [...place.comments, newComment],
             }))
             refreshCollaborationData()
         } catch (error) {
@@ -188,6 +211,7 @@ export function RoomDetailPanel({
         setCommentError(null)
         try {
             await deletePlaceComment(tripId, Number(placeId), Number(commentId))
+            removeComment(placeId, commentId)
             onUpdatePlace(placeId, (place) => ({
                 ...place,
                 comments: place.comments.filter((c) => c.id !== commentId),
