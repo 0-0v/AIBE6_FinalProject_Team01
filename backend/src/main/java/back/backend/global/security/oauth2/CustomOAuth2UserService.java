@@ -16,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
-    private static final String KAKAO_REGISTRATION_ID = "kakao";
-
     private final MemberRepository memberRepository;
 
     public CustomOAuth2UserService(MemberRepository memberRepository) {
@@ -32,12 +30,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     OAuth2User mapToPrincipal(String registrationId, OAuth2User oAuth2User) {
-        if (!KAKAO_REGISTRATION_ID.equals(registrationId)) {
-            throw new OAuth2AuthenticationException("지원하지 않는 로그인 제공자입니다: " + registrationId);
-        }
+        OAuth2UserInfo userInfo = OAuth2UserInfoFactory.of(registrationId, oAuth2User.getAttributes());
+        AuthProvider provider = AuthProvider.valueOf(registrationId.toUpperCase());
 
-        KakaoOAuth2UserInfo userInfo = KakaoOAuth2UserInfo.from(oAuth2User.getAttributes());
-        Member member = memberRepository.findByProviderAndProviderId(AuthProvider.KAKAO, userInfo.providerId())
+        Member member = memberRepository.findByProviderAndProviderId(provider, userInfo.providerId())
                 .map(existing -> {
                     existing.recordLogin(userInfo.nickname(), userInfo.profileImageUrl());
                     return existing;
@@ -46,7 +42,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                         userInfo.email(),
                         userInfo.nickname(),
                         userInfo.profileImageUrl(),
-                        AuthProvider.KAKAO,
+                        provider,
                         userInfo.providerId()
                 )));
 

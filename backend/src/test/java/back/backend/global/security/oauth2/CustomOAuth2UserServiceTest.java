@@ -41,6 +41,12 @@ class CustomOAuth2UserServiceTest {
             )
     );
 
+    private static final Map<String, Object> GOOGLE_ATTRIBUTES = Map.of(
+            "sub", "67890",
+            "email", "user@gmail.com",
+            "name", "구글유저"
+    );
+
     @BeforeEach
     void setUp() {
         service = new CustomOAuth2UserService(memberRepository);
@@ -52,12 +58,18 @@ class CustomOAuth2UserServiceTest {
         return oAuth2User;
     }
 
+    private OAuth2User googleOAuth2User() {
+        OAuth2User oAuth2User = mock(OAuth2User.class);
+        when(oAuth2User.getAttributes()).thenReturn(GOOGLE_ATTRIBUTES);
+        return oAuth2User;
+    }
+
     @Test
-    @DisplayName("t1 카카오가 아닌 제공자면 인증 예외가 발생한다")
-    void t1_nonKakaoRegistrationThrowsAuthenticationException() {
+    @DisplayName("t1 지원하지 않는 제공자면 인증 예외가 발생한다")
+    void t1_unsupportedRegistrationThrowsAuthenticationException() {
         OAuth2User oAuth2User = mock(OAuth2User.class);
 
-        assertThatThrownBy(() -> service.mapToPrincipal("google", oAuth2User))
+        assertThatThrownBy(() -> service.mapToPrincipal("facebook", oAuth2User))
                 .isInstanceOf(OAuth2AuthenticationException.class);
     }
 
@@ -87,6 +99,36 @@ class CustomOAuth2UserServiceTest {
 
         assertThat(principal.getMemberId()).isEqualTo(20L);
         assertThat(existing.getNickname()).isEqualTo("닉네임");
+        assertThat(existing.getLastLoginAt()).isNotNull();
+        verify(memberRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("t4 신규 구글 회원이면 회원을 새로 등록하고 principal을 반환한다")
+    void t4_newGoogleMemberIsRegistered() {
+        when(memberRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "67890")).thenReturn(Optional.empty());
+        Member saved = Member.create("user@gmail.com", "구글유저", null, AuthProvider.GOOGLE, "67890");
+        ReflectionTestUtils.setField(saved, "id", 30L);
+        when(memberRepository.save(org.mockito.ArgumentMatchers.any(Member.class))).thenReturn(saved);
+
+        MemberPrincipal principal = (MemberPrincipal) service.mapToPrincipal("google", googleOAuth2User());
+
+        assertThat(principal.getMemberId()).isEqualTo(30L);
+        assertThat(principal.getUsername()).isEqualTo("user@gmail.com");
+        assertThat(principal.getAttributes()).isEqualTo(GOOGLE_ATTRIBUTES);
+    }
+
+    @Test
+    @DisplayName("t5 기존 구글 회원이면 로그인 정보를 갱신하고 저장하지 않은 채 principal을 반환한다")
+    void t5_existingGoogleMemberRecordsLoginWithoutInsert() {
+        Member existing = Member.create("old@gmail.com", "예전이름", null, AuthProvider.GOOGLE, "67890");
+        ReflectionTestUtils.setField(existing, "id", 40L);
+        when(memberRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "67890")).thenReturn(Optional.of(existing));
+
+        MemberPrincipal principal = (MemberPrincipal) service.mapToPrincipal("google", googleOAuth2User());
+
+        assertThat(principal.getMemberId()).isEqualTo(40L);
+        assertThat(existing.getNickname()).isEqualTo("구글유저");
         assertThat(existing.getLastLoginAt()).isNotNull();
         verify(memberRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
