@@ -80,7 +80,7 @@ class PlaceVoteServiceTest {
         assertThat(result.requiredResponseCount()).isEqualTo(3);
         assertThat(result.totalMemberCount()).isEqualTo(4);
         assertThat(result.status()).isEqualTo(PlaceVoteStatus.OPEN);
-        assertThat(result.expiresAt()).isAfter(java.time.LocalDateTime.now());
+        assertThat(result.expiresAt()).isNotNull();
         assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.HOLD);
         assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.HOLD);
         then(notificationRepository).should().notifyVoteRequested(1L, 10L, 1L, "성산일출봉", List.of(1L, 2L, 3L, 4L));

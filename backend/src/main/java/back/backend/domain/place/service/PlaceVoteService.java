@@ -18,6 +18,7 @@ import back.backend.global.exception.BusinessException;
 import back.backend.global.security.SecurityContextAccessor;
 import java.time.LocalDateTime;
 import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -208,7 +209,9 @@ public class PlaceVoteService {
                 request.getTotalMemberCount(),
                 myChoice,
                 placeStatus,
-                request.getExpiresAt()
+                request.getExpiresAt() != null
+                        ? request.getExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                        : null
         );
     }
 

@@ -3,8 +3,6 @@ package back.backend.domain.place.dto.response;
 import back.backend.domain.place.entity.PlaceVoteChoice;
 import back.backend.domain.place.entity.PlaceVoteStatus;
 import back.backend.domain.place.entity.TripPlaceStatus;
-import java.time.LocalDateTime;
-
 public record PlaceVoteSummaryResponse(
         Long tripPlaceId,
         Long voteRequestId,
@@ -16,5 +14,5 @@ public record PlaceVoteSummaryResponse(
         int totalMemberCount,
         PlaceVoteChoice myChoice,
         TripPlaceStatus placeStatus,
-        LocalDateTime expiresAt
+        String expiresAt
 ) {}

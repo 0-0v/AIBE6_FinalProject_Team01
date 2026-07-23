@@ -8,6 +8,7 @@ import back.backend.domain.place.repository.PlaceCommentRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -64,7 +65,7 @@ public class PlaceCommentService {
                 comment.getTripPlaceId(),
                 comment.getMemberId(),
                 comment.getContent(),
-                comment.getCreatedAt()
+                comment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
     }
 

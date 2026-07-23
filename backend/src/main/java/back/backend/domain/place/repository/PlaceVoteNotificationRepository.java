@@ -1,6 +1,7 @@
 package back.backend.domain.place.repository;
 
 import back.backend.domain.place.dto.response.PlaceVoteNotificationResponse;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -80,6 +81,7 @@ public class PlaceVoteNotificationRepository {
                         resultSet.getString("content"),
                         resultSet.getBoolean("is_read"),
                         resultSet.getTimestamp("created_at").toLocalDateTime()
+                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 ))
                 .list();
     }

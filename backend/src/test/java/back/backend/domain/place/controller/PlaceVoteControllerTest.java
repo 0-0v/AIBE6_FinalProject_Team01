@@ -46,7 +46,7 @@ class PlaceVoteControllerTest {
         summary = new PlaceVoteSummaryResponse(
                 10L, 100L, PlaceVoteStatus.OPEN,
                 1, 0, 1, 3, 4, PlaceVoteChoice.AGREE, TripPlaceStatus.HOLD,
-                java.time.LocalDateTime.now().plusHours(24));
+                "2026-07-24T11:00:00");
     }
 
     @Test

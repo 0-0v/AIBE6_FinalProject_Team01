@@ -17,7 +17,6 @@ import back.backend.domain.place.service.PlaceCommentService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,8 +50,8 @@ class PlaceCommentControllerTest {
     @DisplayName("t1 GET /comments 요청 시 200과 댓글 목록을 반환한다")
     void t1_getComments() throws Exception {
         given(commentService.getComments(1L, 10L)).willReturn(List.of(
-                new PlaceCommentResponse(1L, 10L, 2L, "좋아요!", LocalDateTime.now()),
-                new PlaceCommentResponse(2L, 10L, 3L, "저도요", LocalDateTime.now())
+                new PlaceCommentResponse(1L, 10L, 2L, "좋아요!", "2026-07-23T11:00:00"),
+                new PlaceCommentResponse(2L, 10L, 3L, "저도요", "2026-07-23T11:00:00")
         ));
 
         mockMvc.perform(get("/api/trips/1/places/10/comments"))
@@ -66,7 +65,7 @@ class PlaceCommentControllerTest {
     @DisplayName("t2 POST /comments 요청 시 201과 저장된 댓글을 반환한다")
     void t2_addComment() throws Exception {
         given(commentService.addComment(eq(1L), eq(10L), any()))
-                .willReturn(new PlaceCommentResponse(3L, 10L, 1L, "새 댓글", LocalDateTime.now()));
+                .willReturn(new PlaceCommentResponse(3L, 10L, 1L, "새 댓글", "2026-07-23T11:00:00"));
 
         mockMvc.perform(post("/api/trips/1/places/10/comments")
                         .contentType(MediaType.APPLICATION_JSON)

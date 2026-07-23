@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.place.dto.response.PlaceVoteNotificationResponse;
 import back.backend.domain.place.service.PlaceVoteService;
-import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +38,7 @@ class PlaceVoteNotificationControllerTest {
     void t1_getNotifications() throws Exception {
         given(placeVoteService.getNotifications()).willReturn(List.of(
                 new PlaceVoteNotificationResponse(
-                        1L, 100L, 10L, "투표가 시작됐습니다.", false, LocalDateTime.now())));
+                        1L, 100L, 10L, "투표가 시작됐습니다.", false, "2026-07-23T11:00:00")));
 
         mockMvc.perform(get("/api/notifications/place-votes"))
                 .andExpect(status().isOk())
