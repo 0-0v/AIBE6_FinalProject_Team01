@@ -1,19 +1,18 @@
 import React, { useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
     BellIcon,
     CompassIcon,
     HomeIcon,
+    LogOutIcon,
     MapIcon,
     PlusIcon,
-    Settings2Icon,
     SparklesIcon,
+    UserRoundIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
-import { Avatar } from '@/shared/ui'
+import { logout } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
-
-const DEFAULT_AVATAR_COLOR = '#0f766e'
 
 const nav = [
     { to: '/app', label: '대시보드', icon: HomeIcon, end: true },
@@ -23,6 +22,7 @@ const nav = [
 ]
 
 export function Sidebar() {
+    const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
     const loadUnreadCount = useNotificationStore(
@@ -31,10 +31,8 @@ export function Sidebar() {
     const resetNotifications = useNotificationStore(
         (state) => state.resetNotifications,
     )
-    const me = {
-        name: currentUser?.nickname ?? '게스트',
-        avatarColor: DEFAULT_AVATAR_COLOR,
-    }
+    const displayName = currentUser?.nickname ?? '게스트'
+    const profileImageUrl = currentUser?.profileImageUrl ?? null
 
     useEffect(() => {
         if (currentUser) {
@@ -43,6 +41,11 @@ export function Sidebar() {
         }
         resetNotifications()
     }, [currentUser, loadUnreadCount, resetNotifications])
+
+    async function handleLogout() {
+        await logout()
+        navigate('/login')
+    }
 
     return (
         <aside className="z-30 flex w-[86px] shrink-0 flex-col items-center border-r border-slate-100 bg-white py-7">
@@ -98,21 +101,32 @@ export function Sidebar() {
             </nav>
 
             <div className="flex flex-col items-center gap-4">
-                <NavLink
-                    to="/app/mypage"
-                    title="설정"
-                    aria-label="설정"
+                <button
+                    type="button"
+                    onClick={handleLogout}
+                    title="로그아웃"
+                    aria-label="로그아웃"
                     className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
                 >
-                    <Settings2Icon size={20} />
-                </NavLink>
+                    <LogOutIcon size={20} />
+                </button>
                 <NavLink
                     to="/app/mypage"
                     title="내 프로필"
                     aria-label="내 프로필"
                     className="rounded-full ring-2 ring-slate-100 transition hover:ring-brand"
                 >
-                    <Avatar name={me.name} color={me.avatarColor} size={40} />
+                    {profileImageUrl ? (
+                        <img
+                            src={profileImageUrl}
+                            alt={displayName}
+                            className="h-10 w-10 rounded-full object-cover"
+                        />
+                    ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                            <UserRoundIcon size={20} />
+                        </span>
+                    )}
                 </NavLink>
             </div>
         </aside>

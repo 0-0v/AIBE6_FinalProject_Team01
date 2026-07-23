@@ -64,6 +64,21 @@ export async function restoreSession(): Promise<string | null> {
     }
 }
 
+export async function logout(): Promise<void> {
+    if (accessToken) {
+        try {
+            await fetch(`${BASE_URL}/api/auth/logout`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { Authorization: `Bearer ${accessToken}` },
+            })
+        } catch {
+            // 네트워크 오류가 나도 클라이언트 쪽 로그아웃은 계속 진행한다.
+        }
+    }
+    clearSession()
+}
+
 function withAccessToken(
     headers: HeadersInit | undefined,
     token: string,
