@@ -1,5 +1,5 @@
 import type { ActivityLog } from '@/entities/activity-log'
-import { apiClient } from '@/shared/api/client'
+import { apiClient, getAccessToken } from '@/shared/api/client'
 
 type ApiResponse<T> = {
     success: boolean
@@ -19,7 +19,7 @@ export type ActivityLogPage = {
 }
 
 function authorizationHeaders(): HeadersInit {
-    const accessToken = window.localStorage.getItem('accessToken')
+    const accessToken = getAccessToken()
     if (!accessToken) {
         throw new Error('로그인이 필요합니다.')
     }
