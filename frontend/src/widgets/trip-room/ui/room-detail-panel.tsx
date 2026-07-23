@@ -12,7 +12,6 @@ import {
     PlaceStatus,
     Room,
     TravelRecord,
-    currentUserId,
 } from '@/entities/trip'
 import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -20,6 +19,7 @@ import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { ActivityLogPanel } from './activity-log'
+import { useCurrentUserStore } from '@/shared/model'
 import { ItineraryPanel } from './itinerary-panel'
 import { PlaceCard } from './place-card'
 import { RecordPanel } from './record-panel'
@@ -110,6 +110,9 @@ export function RoomDetailPanel({
     onAddPlace,
     onDeletePlace,
 }: Props) {
+    const currentUserId = String(
+        useCurrentUserStore((state) => state.currentUser?.id) ?? '',
+    )
     const tripHasStarted = false
     const [records, setRecords] = useState<TravelRecord[]>(initialRecords)
     const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)

@@ -9,7 +9,6 @@ import {
     Settings2Icon,
     SparklesIcon,
 } from 'lucide-react'
-import { currentUserId, members } from '@/entities/trip'
 import { useNotificationStore } from '@/features/manage-notification'
 import { Avatar } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
@@ -32,10 +31,10 @@ export function Sidebar() {
     const resetNotifications = useNotificationStore(
         (state) => state.resetNotifications,
     )
-    const mockMe = members.find((member) => member.id === currentUserId)!
-    const me = currentUser
-        ? { name: currentUser.nickname, avatarColor: DEFAULT_AVATAR_COLOR }
-        : mockMe
+    const me = {
+        name: currentUser?.nickname ?? '게스트',
+        avatarColor: DEFAULT_AVATAR_COLOR,
+    }
 
     useEffect(() => {
         if (currentUser) {

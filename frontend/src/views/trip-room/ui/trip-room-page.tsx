@@ -1,19 +1,28 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { initialPlaces, Place, rooms } from '@/entities/trip'
+import { Place } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
+import { useTripStore } from '@/features/manage-trip'
+import { useCurrentUserStore } from '@/shared/model'
 import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 
 export function TripRoom() {
     const navigate = useNavigate()
     const { roomId } = useParams<{ roomId?: string }>()
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const { rooms, isLoading, error, loadTrips, resetTrips } = useTripStore()
     const room = rooms.find((item) => item.id === roomId)
 
-    const [places, setPlaces] = useState<Place[]>(initialPlaces)
+    const [places, setPlaces] = useState<Place[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [collapsed, setCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
+
+    useEffect(() => {
+        if (currentUser) void loadTrips()
+        else resetTrips()
+    }, [currentUser, loadTrips, resetTrips])
 
     const displayedPlaces = useMemo(
         () =>
@@ -86,6 +95,10 @@ export function TripRoom() {
                             />
                         ) : (
                             <RoomListPanel
+                                rooms={rooms}
+                                isLoading={isLoading}
+                                error={error}
+                                onRetry={() => void loadTrips()}
                                 onSelectRoom={(id) =>
                                     navigate(`/app/room/${id}`)
                                 }

@@ -6,8 +6,7 @@ import {
     PlusIcon,
     XIcon,
 } from 'lucide-react'
-import { members, Place, TravelRecord } from '@/entities/trip'
-import { Avatar } from '@/shared/ui'
+import { Place, TravelRecord } from '@/entities/trip'
 
 type Props = {
     records: TravelRecord[]
@@ -120,9 +119,6 @@ export function RecordPanel({
                 ) : (
                     <div className="space-y-4 pb-3">
                         {dayRecords.map((record) => {
-                            const author = members.find(
-                                (member) => member.id === record.memberId,
-                            )
                             const place = places.find(
                                 (item) => item.id === record.placeId,
                             )
@@ -133,16 +129,9 @@ export function RecordPanel({
                                 >
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2.5">
-                                            {author && (
-                                                <Avatar
-                                                    name={author.name}
-                                                    color={author.avatarColor}
-                                                    size={29}
-                                                />
-                                            )}
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-xs font-extrabold text-slate-800">
-                                                    {author?.name}
+                                                    멤버 #{record.memberId}
                                                 </p>
                                                 <p className="mt-0.5 text-[10px] text-slate-400">
                                                     {record.time}

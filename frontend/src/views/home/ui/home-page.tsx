@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     AlertTriangleIcon,
@@ -19,8 +19,10 @@ import {
     WandSparklesIcon,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { exploreCards, members, rooms } from '@/entities/trip'
+import { exploreCards } from '@/entities/trip'
+import { useTripStore } from '@/features/manage-trip'
 import { NotificationPanel } from '@/features/manage-notification'
+import { useCurrentUserStore } from '@/shared/model'
 import { Avatar } from '@/shared/ui'
 import { TravelRooms } from '@/widgets/travel-rooms'
 
@@ -167,11 +169,29 @@ function SectionTitle({
 
 export function Home() {
     const navigate = useNavigate()
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const { rooms, loadTrips, resetTrips } = useTripStore()
     const [tasks, setTasks] = useState(initialTasks)
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
     const [saved, setSaved] = useState(exploreCards.slice(0, 3))
-    const activeTrip =
-        rooms.find((room) => room.status === '진행 중') ?? rooms[0]
+    const activeTrip = rooms.find((room) => room.status === '진행 중') ??
+        rooms[0] ?? {
+            id: '',
+            title: '아직 여행방이 없습니다',
+            date: '날짜 미정',
+            location: '장소 미정',
+            dday: '일정 미정',
+            members: 0,
+            progress: 0,
+            cover: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
+            status: '준비 전',
+            color: '#e7657a',
+        }
+
+    useEffect(() => {
+        if (currentUser) void loadTrips()
+        else resetTrips()
+    }, [currentUser, loadTrips, resetTrips])
 
     function toggleTask(id: string) {
         setTasks((current) => current.filter((task) => task.id !== id))
@@ -298,25 +318,6 @@ export function Home() {
                                             </div>
                                             <div className="flex items-end gap-4">
                                                 <div>
-                                                    <div className="flex -space-x-2">
-                                                        {members.map(
-                                                            (member) => (
-                                                                <Avatar
-                                                                    key={
-                                                                        member.id
-                                                                    }
-                                                                    name={
-                                                                        member.name
-                                                                    }
-                                                                    color={
-                                                                        member.avatarColor
-                                                                    }
-                                                                    size={27}
-                                                                    className="ring-2 ring-slate-900"
-                                                                />
-                                                            ),
-                                                        )}
-                                                    </div>
                                                     <span className="mt-1.5 block text-[11px] font-medium text-white/75">
                                                         {activeTrip.members}명
                                                         함께 준비 중

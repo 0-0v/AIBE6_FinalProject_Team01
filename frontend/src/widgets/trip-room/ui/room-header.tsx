@@ -6,8 +6,6 @@ import {
     UnlockIcon,
     UserPlusIcon,
 } from 'lucide-react'
-import { members } from '@/entities/trip'
-import { Avatar } from '@/shared/ui'
 
 type Props = {
     title: string
@@ -92,27 +90,9 @@ export function RoomHeader({
                     {viewerMode ? '조회 전용' : '편집 모드'}
                 </button>
 
-                <div className="flex -space-x-2">
-                    {members.map((m) => (
-                        <span
-                            key={m.id}
-                            className="relative"
-                            title={`${m.name} · ${m.role}`}
-                        >
-                            <Avatar
-                                name={m.name}
-                                color={m.avatarColor}
-                                size={26}
-                                className="ring-2 ring-white"
-                            />
-                            {m.role === 'OWNER' && (
-                                <span className="absolute -right-0.5 -top-0.5 text-[10px]">
-                                    👑
-                                </span>
-                            )}
-                        </span>
-                    ))}
-                </div>
+                <span className="text-xs font-semibold text-slate-400">
+                    멤버 정보 준비 중
+                </span>
             </div>
         </header>
     )

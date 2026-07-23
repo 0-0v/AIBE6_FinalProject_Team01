@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { PlusIcon, ReceiptTextIcon, XIcon } from 'lucide-react'
-import { Expense, members } from '@/entities/trip'
-import { Avatar } from '@/shared/ui'
+import { Expense } from '@/entities/trip'
 
 type Props = {
     expenses: Expense[]
@@ -81,27 +80,17 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                     </div>
                     <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
                         {expenses.map((expense) => {
-                            const payer = members.find(
-                                (member) => member.id === expense.paidBy,
-                            )
                             return (
                                 <article
                                     key={expense.id}
                                     className="flex items-center gap-3 border-b border-slate-100 p-3.5 last:border-0"
                                 >
-                                    {payer && (
-                                        <Avatar
-                                            name={payer.name}
-                                            color={payer.avatarColor}
-                                            size={31}
-                                        />
-                                    )}
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-xs font-extrabold text-slate-800">
                                             {expense.title}
                                         </p>
                                         <p className="mt-1 text-[10px] text-slate-400">
-                                            {payer?.name} 결제 · {expense.date}{' '}
+                                            멤버 #{expense.paidBy} 결제 · {expense.date}{' '}
                                             ·{' '}
                                             {expense.participantCount > 1
                                                 ? `${expense.participantCount}명 더치`
