@@ -45,10 +45,6 @@ function AppShell() {
 export function App() {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const setCurrentUser = useCurrentUserStore((state) => state.setCurrentUser)
-    const clearCurrentUser = useCurrentUserStore((state) => state.clearCurrentUser)
-    const finishInitialization = useCurrentUserStore(
-        (state) => state.finishInitialization,
-    )
 
     useEffect(() => {
         if (currentUser || window.location.pathname === '/oauth/callback') {
@@ -56,19 +52,14 @@ export function App() {
         }
         const accessToken = localStorage.getItem('accessToken')
         if (!accessToken) {
-            finishInitialization()
             return
         }
         fetchCurrentUser(accessToken).then((user) => {
             if (user) {
                 setCurrentUser(user)
-                return
             }
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('refreshToken')
-            clearCurrentUser()
         })
-    }, [clearCurrentUser, currentUser, finishInitialization, setCurrentUser])
+    }, [currentUser, setCurrentUser])
 
     return (
         <BrowserRouter>

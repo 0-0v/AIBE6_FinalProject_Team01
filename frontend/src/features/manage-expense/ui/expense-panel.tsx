@@ -16,7 +16,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
 
     const summary = useMemo(() => {
         const total = expenses.reduce((sum, expense) => sum + expense.amount, 0)
-        return { total, myShare: 0, balance: 0 }
+        return { total, myShare: Math.round(total / 4), balance: 24000 }
     }, [expenses])
 
     function addExpense() {
@@ -47,7 +47,7 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                     <div className="rounded-[18px] bg-white p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-2">
                             <h3 className="text-sm font-extrabold text-slate-900">
-                                여행 지출 · 정산
+                                제주도 우정여행 · 정산
                             </h3>
                             <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-extrabold text-emerald-600">
                                 진행 중
@@ -62,11 +62,10 @@ export function ExpensePanel({ expenses, canWrite, onAdd }: Props) {
                                 tone="text-emerald-600"
                             />
                         </div>
-                        {expenses.length === 0 && (
-                            <div className="mt-5 rounded-xl bg-emerald-50 p-3 text-xs font-bold leading-5 text-emerald-700">
-                                등록된 지출 내역이 없습니다.
-                            </div>
-                        )}
+                        <div className="mt-5 rounded-xl bg-emerald-50 p-3 text-xs font-bold leading-5 text-emerald-700">
+                            민수님에게 {formatCurrency(summary.balance)}을 받을
+                            예정이에요.
+                        </div>
                     </div>
                 </section>
 
