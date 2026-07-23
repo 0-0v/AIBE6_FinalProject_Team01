@@ -95,6 +95,7 @@ type Props = {
     selectedId: string | null
     onSelectPlace: (id: string) => void
     onBack: () => void
+    onManage: () => void
     onUpdatePlace: (id: string, update: (place: Place) => Place) => void
     onAddPlace: (place: Place) => void
     onDeletePlace: (id: string) => void
@@ -106,6 +107,7 @@ export function RoomDetailPanel({
     selectedId,
     onSelectPlace,
     onBack,
+    onManage,
     onUpdatePlace,
     onAddPlace,
     onDeletePlace,
@@ -221,6 +223,7 @@ export function RoomDetailPanel({
                 onToggleViewer={() => setViewerMode((value) => !value)}
                 onInvite={() => setInviteOpen(true)}
                 onBack={onBack}
+                onManage={onManage}
             />
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
                 <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold">

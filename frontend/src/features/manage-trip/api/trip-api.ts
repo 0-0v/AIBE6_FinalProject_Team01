@@ -80,3 +80,23 @@ export async function deleteTrip(id: number) {
         headers: authHeaders(),
     })
 }
+
+export async function completeTrip(
+    id: number,
+    visibility: 'PRIVATE' | 'PUBLIC',
+    tags: string[],
+) {
+    const response = await apiClient.post<
+        ApiResponse<{
+            tripId: number
+            cardId: number
+            visibility: 'PRIVATE' | 'PUBLIC'
+            tags: string[]
+        }>
+    >(
+        `/api/trips/${id}/complete`,
+        { visibility, tags },
+        { headers: authHeaders() },
+    )
+    return response.data
+}

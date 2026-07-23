@@ -5,6 +5,7 @@ import {
     LockIcon,
     UnlockIcon,
     UserPlusIcon,
+    Settings2Icon,
 } from 'lucide-react'
 
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
     onToggleViewer: () => void
     onInvite: () => void
     onBack: () => void
+    onManage: () => void
 }
 
 export function RoomHeader({
@@ -29,6 +31,7 @@ export function RoomHeader({
     onToggleViewer,
     onInvite,
     onBack,
+    onManage,
 }: Props) {
     return (
         <header className="border-b border-slate-100 bg-white px-4 py-3 shadow-sm">
@@ -67,6 +70,13 @@ export function RoomHeader({
                         {subtitle}
                     </p>
                 </div>
+                <button
+                    onClick={onManage}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
+                    aria-label="여행방 관리"
+                >
+                    <Settings2Icon size={16} />
+                </button>
                 <button
                     onClick={onInvite}
                     className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"

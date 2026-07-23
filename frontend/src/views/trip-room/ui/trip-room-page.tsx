@@ -3,7 +3,7 @@ import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Place } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
-import { useTripStore } from '@/features/manage-trip'
+import { ManageTripModal, useTripStore } from '@/features/manage-trip'
 import { useCurrentUserStore } from '@/shared/model'
 import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 
@@ -11,13 +11,15 @@ export function TripRoom() {
     const navigate = useNavigate()
     const { roomId } = useParams<{ roomId?: string }>()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const { rooms, isLoading, error, loadTrips, resetTrips } = useTripStore()
+    const { trips, rooms, isLoading, error, loadTrips, resetTrips } = useTripStore()
     const room = rooms.find((item) => item.id === roomId)
+    const trip = trips.find((item) => String(item.id) === roomId)
 
     const [places, setPlaces] = useState<Place[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [collapsed, setCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
+    const [manageOpen, setManageOpen] = useState(false)
 
     useEffect(() => {
         if (currentUser) void loadTrips()
@@ -89,6 +91,7 @@ export function TripRoom() {
                                 selectedId={selectedId}
                                 onSelectPlace={setSelectedId}
                                 onBack={() => navigate('/app/room')}
+                                onManage={() => setManageOpen(true)}
                                 onUpdatePlace={updatePlace}
                                 onAddPlace={addPlace}
                                 onDeletePlace={deletePlace}
@@ -119,6 +122,17 @@ export function TripRoom() {
                                     ),
                                 )
                             }
+                        }}
+                    />
+                )}
+                {manageOpen && trip && (
+                    <ManageTripModal
+                        trip={trip}
+                        onClose={() => setManageOpen(false)}
+                        onChanged={() => {
+                            setManageOpen(false)
+                            navigate('/app/room')
+                            void loadTrips()
                         }}
                     />
                 )}
