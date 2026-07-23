@@ -13,4 +13,7 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
 
     @EntityGraph(attributePaths = "travelStyles")
     Optional<Trip> findByIdAndOwnerIdAndStatusNot(Long id, Long ownerId, back.backend.domain.trip.entity.TripStatus status);
+
+    @EntityGraph(attributePaths = "travelStyles")
+    Optional<Trip> findByIdAndStatusNot(Long id, back.backend.domain.trip.entity.TripStatus status);
 }
