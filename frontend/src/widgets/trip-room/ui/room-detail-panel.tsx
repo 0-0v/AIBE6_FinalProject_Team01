@@ -16,6 +16,9 @@ import {
     startTripPlaceVote,
     respondTripPlaceVote,
     fromApiToPlace,
+    getPlaceComments,
+    addPlaceComment,
+    deletePlaceComment,
 } from '@/entities/trip'
 import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -86,6 +89,7 @@ export function RoomDetailPanel({
     const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>('all')
     const [activityOpen, setActivityOpen] = useState(false)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
+    const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [isPublic, setIsPublic] = useState(true)
     const [viewerMode, setViewerMode] = useState(false)
@@ -133,6 +137,61 @@ export function RoomDetailPanel({
             voteSummary,
         }))
         if (target) addLog('갈래말래 투표를 신청했어요', target.name, false)
+    }
+
+    async function openCommentSheet(placeId: string) {
+        setCommentError(null)
+        setCommentPlaceId(placeId)
+        try {
+            const comments = await getPlaceComments(tripId, Number(placeId))
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                comments: comments.map((c) => ({
+                    id: String(c.id),
+                    memberId: String(c.memberId),
+                    text: c.content,
+                    createdAt: c.createdAt,
+                })),
+            }))
+        } catch (error) {
+            setCommentError(getApiErrorMessage(error, '댓글을 불러오지 못했습니다.'))
+        }
+    }
+
+    async function handleAddComment(placeId: string, text: string) {
+        setCommentError(null)
+        try {
+            const comment = await addPlaceComment(tripId, Number(placeId), text)
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                comments: [
+                    ...place.comments,
+                    {
+                        id: String(comment.id),
+                        memberId: String(comment.memberId),
+                        text: comment.content,
+                        createdAt: comment.createdAt,
+                    },
+                ],
+            }))
+        } catch (error) {
+            setCommentError(getApiErrorMessage(error, '댓글 등록에 실패했습니다.'))
+            throw error
+        }
+    }
+
+    async function handleDeleteComment(placeId: string, commentId: string) {
+        setCommentError(null)
+        try {
+            await deletePlaceComment(tripId, Number(placeId), Number(commentId))
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                comments: place.comments.filter((c) => c.id !== commentId),
+            }))
+        } catch (error) {
+            setCommentError(getApiErrorMessage(error, '댓글 삭제에 실패했습니다.'))
+            throw error
+        }
     }
 
     async function handleVote(id: string, value: 'up' | 'down') {
@@ -352,7 +411,7 @@ export function RoomDetailPanel({
                                         }
                                     }}
                                     onOpenComments={() =>
-                                        setCommentPlaceId(place.id)
+                                        void openCommentSheet(place.id)
                                     }
                                 />
                             ))
@@ -421,20 +480,17 @@ export function RoomDetailPanel({
                 <CommentSheet
                     place={commentPlace}
                     canWrite={canWrite}
-                    onClose={() => setCommentPlaceId(null)}
+                    currentUserId={currentUserId}
+                    error={commentError}
+                    onClose={() => {
+                        setCommentPlaceId(null)
+                        setCommentError(null)
+                    }}
                     onAddComment={(text) =>
-                        onUpdatePlace(commentPlace.id, (place) => ({
-                            ...place,
-                            comments: [
-                                ...place.comments,
-                                {
-                                    id: `c${Date.now()}`,
-                                    memberId: currentUserId,
-                                    text,
-                                    createdAt: '방금',
-                                },
-                            ],
-                        }))
+                        handleAddComment(commentPlace.id, text)
+                    }
+                    onDeleteComment={(commentId) =>
+                        handleDeleteComment(commentPlace.id, commentId)
                     }
                 />
             )}

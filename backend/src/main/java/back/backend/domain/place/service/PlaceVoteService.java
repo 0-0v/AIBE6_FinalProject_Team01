@@ -13,10 +13,8 @@ import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceVoteNotificationRepository;
 import back.backend.domain.place.repository.PlaceVoteRequestRepository;
 import back.backend.domain.place.repository.PlaceVoteResponseRepository;
-import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
-import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityContextAccessor;
 import java.time.LocalDateTime;
 import java.time.Duration;
@@ -38,12 +36,12 @@ public class PlaceVoteService {
     private final PlaceVoteRequestRepository voteRequestRepository;
     private final PlaceVoteResponseRepository voteResponseRepository;
     private final PlaceVoteNotificationRepository notificationRepository;
-    private final TripAccessRepository tripAccessRepository;
     private final SecurityContextAccessor securityContextAccessor;
+    private final TripAccessChecker accessChecker;
 
     @Transactional
     public PlaceVoteSummaryResponse startVote(Long tripId, Long tripPlaceId) {
-        Long memberId = requireEditAccess(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripIdForUpdate(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         LocalDateTime now = LocalDateTime.now();
@@ -83,7 +81,7 @@ public class PlaceVoteService {
             Long tripPlaceId,
             RespondPlaceVoteRequest request
     ) {
-        Long memberId = requireViewAccess(tripId);
+        Long memberId = accessChecker.requireView(tripId);
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripIdForUpdate(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         Long voteRequestId = voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(tripPlaceId)
@@ -132,7 +130,7 @@ public class PlaceVoteService {
 
     @Transactional
     public List<PlaceVoteSummaryResponse> getVotes(Long tripId) {
-        Long memberId = requireViewAccess(tripId);
+        Long memberId = accessChecker.requireView(tripId);
         List<TripPlace> tripPlaces = tripPlaceRepository.findAllOrderedByTripId(tripId);
         List<Long> tripPlaceIds = tripPlaces.stream().map(TripPlace::getId).toList();
         if (tripPlaceIds.isEmpty()) {
@@ -218,19 +216,4 @@ public class PlaceVoteService {
         return request.getExpiresAt() != null && !request.getExpiresAt().isAfter(now);
     }
 
-    private Long requireViewAccess(Long tripId) {
-        Long memberId = securityContextAccessor.getCurrentMemberId();
-        if (!tripAccessRepository.canView(tripId, memberId)) {
-            throw new BusinessException(CommonErrorCode.FORBIDDEN);
-        }
-        return memberId;
-    }
-
-    private Long requireEditAccess(Long tripId) {
-        Long memberId = securityContextAccessor.getCurrentMemberId();
-        if (!tripAccessRepository.canEdit(tripId, memberId)) {
-            throw new BusinessException(CommonErrorCode.FORBIDDEN);
-        }
-        return memberId;
-    }
 }

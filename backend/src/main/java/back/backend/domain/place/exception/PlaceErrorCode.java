@@ -12,7 +12,8 @@ public enum PlaceErrorCode implements ErrorCode {
     PLACE_VOTE_ALREADY_REQUESTED(HttpStatus.CONFLICT, "PLACE_VOTE_ALREADY_REQUESTED", "이미 갈래말래 투표가 신청된 장소입니다."),
     PLACE_VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_VOTE_NOT_FOUND", "진행 중인 갈래말래 투표를 찾을 수 없습니다."),
     PLACE_VOTE_CLOSED(HttpStatus.CONFLICT, "PLACE_VOTE_CLOSED", "이미 종료된 갈래말래 투표입니다."),
-    PLACE_VOTE_NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_VOTE_NOTIFICATION_NOT_FOUND", "투표 알림을 찾을 수 없습니다.");
+    PLACE_VOTE_NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_VOTE_NOTIFICATION_NOT_FOUND", "투표 알림을 찾을 수 없습니다."),
+    PLACE_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

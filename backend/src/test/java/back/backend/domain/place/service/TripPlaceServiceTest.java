@@ -48,6 +48,9 @@ class TripPlaceServiceTest {
     @Mock
     private SecurityContextAccessor securityContextAccessor;
 
+    @Mock
+    private back.backend.domain.place.service.TripAccessChecker accessChecker;
+
     @InjectMocks
     private TripPlaceService tripPlaceService;
 
@@ -59,6 +62,8 @@ class TripPlaceServiceTest {
         lenient().when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
         lenient().when(tripAccessRepository.canView(1L, 1L)).thenReturn(true);
         lenient().when(tripAccessRepository.canEdit(1L, 1L)).thenReturn(true);
+        lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
+        lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
 
         savedPlace = Place.builder()
                 .googlePlaceId("ChIJxxx")
@@ -181,7 +186,8 @@ class TripPlaceServiceTest {
     @Test
     @DisplayName("t8 조회 권한이 없는 회원이 장소 목록을 조회하면 FORBIDDEN 예외가 발생한다")
     void t8_조회권한없는회원조회거부() {
-        given(tripAccessRepository.canView(1L, 1L)).willReturn(false);
+        given(accessChecker.requireView(1L))
+                .willThrow(new BusinessException(CommonErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> tripPlaceService.getPlaces(1L, null))
                 .isInstanceOf(BusinessException.class)
@@ -192,7 +198,8 @@ class TripPlaceServiceTest {
     @Test
     @DisplayName("t9 여행방 멤버가 아닌 회원이 장소를 추가하면 FORBIDDEN 예외가 발생한다")
     void t9_여행방멤버아닌회원장소추가거부() {
-        given(tripAccessRepository.canEdit(1L, 1L)).willReturn(false);
+        given(accessChecker.requireEdit(1L))
+                .willThrow(new BusinessException(CommonErrorCode.FORBIDDEN));
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null);

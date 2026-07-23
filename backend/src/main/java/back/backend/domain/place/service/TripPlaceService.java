@@ -10,7 +10,6 @@ import back.backend.domain.place.repository.PlaceRepository;
 import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
-import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityContextAccessor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,10 +27,11 @@ public class TripPlaceService {
     private final TripPlaceRepository tripPlaceRepository;
     private final TripAccessRepository tripAccessRepository;
     private final SecurityContextAccessor securityContextAccessor;
+    private final TripAccessChecker accessChecker;
 
     @Transactional
     public TripPlaceResponse addPlace(Long tripId, AddTripPlaceRequest request) {
-        Long memberId = requireEditAccess(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         Place place = placeRepository.findByGooglePlaceId(request.googlePlaceId())
                 .orElseGet(() -> placeRepository.save(Place.builder()
                         .googlePlaceId(request.googlePlaceId())
@@ -58,7 +58,7 @@ public class TripPlaceService {
     }
 
     public List<TripPlaceResponse> getPlaces(Long tripId, TripPlaceStatus status) {
-        requireViewAccess(tripId);
+        accessChecker.requireView(tripId);
         List<TripPlace> tripPlaces = (status == null)
                 ? tripPlaceRepository.findAllOrderedByTripId(tripId)
                 : tripPlaceRepository.findAllOrderedByTripIdAndStatus(tripId, status);
@@ -67,7 +67,7 @@ public class TripPlaceService {
 
     @Transactional
     public void deletePlace(Long tripId, Long tripPlaceId) {
-        requireEditAccess(tripId);
+        accessChecker.requireEdit(tripId);
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         tripPlaceRepository.delete(tripPlace);
@@ -76,20 +76,5 @@ public class TripPlaceService {
     public boolean canEdit(Long tripId) {
         Long memberId = securityContextAccessor.getCurrentMemberId();
         return tripAccessRepository.canEdit(tripId, memberId);
-    }
-
-    private void requireViewAccess(Long tripId) {
-        Long memberId = securityContextAccessor.getCurrentMemberId();
-        if (!tripAccessRepository.canView(tripId, memberId)) {
-            throw new BusinessException(CommonErrorCode.FORBIDDEN);
-        }
-    }
-
-    private Long requireEditAccess(Long tripId) {
-        Long memberId = securityContextAccessor.getCurrentMemberId();
-        if (!tripAccessRepository.canEdit(tripId, memberId)) {
-            throw new BusinessException(CommonErrorCode.FORBIDDEN);
-        }
-        return memberId;
     }
 }

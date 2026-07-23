@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared/api/client'
+import type { ApiResponse } from '@/shared/api/client'
 import type {
     Place,
     PlaceCategory,
@@ -6,12 +7,6 @@ import type {
     PlaceVoteSummary,
 } from '../model/types'
 import { resolvePlacePresentation } from '../model/place-presentation'
-
-type ApiResponse<T> = {
-    success: boolean
-    message: string
-    data: T
-}
 
 type TripPlaceResponse = {
     tripPlaceId: number

@@ -21,7 +21,6 @@ import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceVoteNotificationRepository;
 import back.backend.domain.place.repository.PlaceVoteRequestRepository;
 import back.backend.domain.place.repository.PlaceVoteResponseRepository;
-import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.security.SecurityContextAccessor;
@@ -43,8 +42,8 @@ class PlaceVoteServiceTest {
     @Mock private PlaceVoteRequestRepository voteRequestRepository;
     @Mock private PlaceVoteResponseRepository voteResponseRepository;
     @Mock private PlaceVoteNotificationRepository notificationRepository;
-    @Mock private TripAccessRepository tripAccessRepository;
     @Mock private SecurityContextAccessor securityContextAccessor;
+    @Mock private TripAccessChecker accessChecker;
 
     @InjectMocks private PlaceVoteService placeVoteService;
 
@@ -53,8 +52,8 @@ class PlaceVoteServiceTest {
     @BeforeEach
     void setUp() {
         given(securityContextAccessor.getCurrentMemberId()).willReturn(1L);
-        lenient().when(tripAccessRepository.canView(1L, 1L)).thenReturn(true);
-        lenient().when(tripAccessRepository.canEdit(1L, 1L)).thenReturn(true);
+        lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
+        lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
         candidate = TripPlace.builder()
                 .tripId(1L)
                 .place(Place.builder().name("성산일출봉").build())

@@ -19,3 +19,9 @@ export type {
     PlaceVoteSummaryResponse,
     PlaceVoteNotificationResponse,
 } from './api/tripPlaceApi'
+export {
+    getPlaceComments,
+    addPlaceComment,
+    deletePlaceComment,
+} from './api/commentApi'
+export type { PlaceCommentResponse } from './api/commentApi'
