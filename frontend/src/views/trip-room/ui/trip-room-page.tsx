@@ -107,7 +107,7 @@ export function TripRoom() {
                                 onSelectPlace={setSelectedId}
                                 onBack={() => navigate('/app/room')}
                                 onManage={() => setManageOpen(true)}
-                                isGuest={Boolean(inviteCode && !currentUser)}
+                                isGuest={Boolean(inviteCode)}
                                 onUpdatePlace={updatePlace}
                                 onAddPlace={addPlace}
                                 onDeletePlace={deletePlace}
