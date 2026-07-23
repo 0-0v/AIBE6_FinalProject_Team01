@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import back.backend.global.config.FrontendProperties;
 import back.backend.global.security.MemberPrincipal;
 import back.backend.global.security.jwt.JwtProvider;
+import back.backend.global.security.jwt.RefreshTokenCookieProvider;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseCookie;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,22 +33,28 @@ class OAuth2LoginSuccessHandlerTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Mock
+    private RefreshTokenCookieProvider refreshTokenCookieProvider;
+
     private OAuth2LoginSuccessHandler handler;
 
     @BeforeEach
     void setUp() {
         FrontendProperties frontendProperties = new FrontendProperties();
         frontendProperties.setFrontendBaseUrl("https://plamingo.example");
-        handler = new OAuth2LoginSuccessHandler(jwtProvider, refreshTokenRepository, frontendProperties);
+        handler = new OAuth2LoginSuccessHandler(
+                jwtProvider, refreshTokenRepository, refreshTokenCookieProvider, frontendProperties);
     }
 
     @Test
-    @DisplayName("t1 로그인에 성공하면 토큰을 발급해 프론트 콜백 URL로 리다이렉트한다")
-    void t1_onAuthenticationSuccessRedirectsWithTokens() throws Exception {
+    @DisplayName("t1 로그인에 성공하면 액세스 토큰을 담아 프론트 콜백 URL로 리다이렉트하고 리프레시 토큰은 쿠키로 내려준다")
+    void t1_onAuthenticationSuccessRedirectsWithAccessTokenAndSetsRefreshTokenCookie() throws Exception {
         MemberPrincipal principal = new MemberPrincipal(1L, "user@example.com", List.of(new SimpleGrantedAuthority("ROLE_USER")));
         Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         when(jwtProvider.createAccessToken(1L, "user@example.com")).thenReturn("access-token");
         when(jwtProvider.createRefreshToken(1L)).thenReturn("refresh-token");
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "refresh-token").build();
+        when(refreshTokenCookieProvider.create("refresh-token")).thenReturn(cookie);
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -54,11 +62,12 @@ class OAuth2LoginSuccessHandlerTest {
         handler.onAuthenticationSuccess(request, response, authentication);
 
         verify(refreshTokenRepository).save(1L, "refresh-token");
+        assertThat(response.getHeader("Set-Cookie")).isEqualTo(cookie.toString());
         assertThat(response.getStatus()).isEqualTo(302);
         String redirectedUrl = response.getRedirectedUrl();
         assertThat(redirectedUrl).startsWith("https://plamingo.example/oauth/callback");
         var params = UriComponentsBuilder.fromUriString(redirectedUrl).build().getQueryParams();
         assertThat(params.getFirst("accessToken")).isEqualTo("access-token");
-        assertThat(params.getFirst("refreshToken")).isEqualTo("refresh-token");
+        assertThat(params.containsKey("refreshToken")).isFalse();
     }
 }
