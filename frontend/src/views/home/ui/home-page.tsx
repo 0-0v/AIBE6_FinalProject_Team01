@@ -1,7 +1,6 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-    AlertTriangleIcon,
     BellIcon,
     BookmarkCheckIcon,
     CalendarDaysIcon,
@@ -19,8 +18,11 @@ import {
     WandSparklesIcon,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { exploreCards, members, rooms } from '@/entities/trip'
+import { exploreCards } from '@/entities/trip'
+import { useTripStore } from '@/features/manage-trip'
 import { NotificationPanel } from '@/features/manage-notification'
+import { useActivityLogStore } from '@/features/view-activity-log'
+import { useCurrentUserStore } from '@/shared/model'
 import { Avatar } from '@/shared/ui'
 import { TravelRooms } from '@/widgets/travel-rooms'
 
@@ -35,33 +37,12 @@ type SurfaceId =
     | 'notifications'
     | 'saved'
 
-const photo = {
-    beach: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
-    cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
-    view: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
-}
-
-const initialTasks = [
-    {
-        id: 'vote',
-        label: '후보 장소 투표하기',
-        meta: '자매국수 외 3곳',
-        urgent: true,
-    },
-    {
-        id: 'schedule',
-        label: '1일차 일정 확정하기',
-        meta: '제주 동부 · 3개 장소',
-        urgent: false,
-    },
-    { id: 'stay', label: '숙소 선택하기', meta: '후보 2곳', urgent: false },
-    {
-        id: 'settle',
-        label: '예약금 정산 완료',
-        meta: '민수님 입금 대기',
-        urgent: false,
-    },
-]
+const initialTasks: {
+    id: string
+    label: string
+    meta: string
+    urgent: boolean
+}[] = []
 
 const initialColors: Record<SurfaceId, string> = {
     travel: '#fff3f5',
@@ -75,32 +56,12 @@ const initialColors: Record<SurfaceId, string> = {
     saved: '#ffffff',
 }
 
-const aiFindings = [
-    {
-        icon: CopyIcon,
-        title: '중복 장소',
-        description: '오설록 티 뮤지엄과 오설록 카페가 같은 장소로 보여요.',
-        tone: 'bg-amber-50 text-amber-600',
-    },
-    {
-        icon: AlertTriangleIcon,
-        title: '동선 충돌',
-        description: '1일차 동부·서부 이동 시간이 2시간 40분이에요.',
-        tone: 'bg-rose-50 text-rose-600',
-    },
-    {
-        icon: CalendarDaysIcon,
-        title: '비어있는 일정',
-        description: '둘째 날 저녁 6시 이후 계획이 비어 있어요.',
-        tone: 'bg-sky-50 text-sky-600',
-    },
-    {
-        icon: SparklesIcon,
-        title: '추천 맛집',
-        description: '멤버 취향에 맞는 흑돼지 맛집 3곳을 찾았어요.',
-        tone: 'bg-brand-50 text-brand-700',
-    },
-]
+const aiFindings: {
+    icon: typeof CopyIcon
+    title: string
+    description: string
+    tone: string
+}[] = []
 
 const calendarDays = [
     '26',
@@ -167,11 +128,52 @@ function SectionTitle({
 
 export function Home() {
     const navigate = useNavigate()
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const isUserInitialized = useCurrentUserStore(
+        (state) => state.isInitialized,
+    )
+    const { rooms, activeTripId, selectTrip, loadTrips, resetTrips } =
+        useTripStore()
+    const { logs, loadActivityLogs, resetActivityLogs } = useActivityLogStore()
     const [tasks, setTasks] = useState(initialTasks)
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
-    const [saved, setSaved] = useState(exploreCards.slice(0, 3))
-    const activeTrip =
-        rooms.find((room) => room.status === '진행 중') ?? rooms[0]
+    const [saved, setSaved] = useState<typeof exploreCards>([])
+    const activeTrip = rooms.find((room) => room.id === activeTripId) ??
+        rooms[0] ?? {
+            id: '',
+            title: '아직 여행방이 없습니다',
+            date: '날짜 미정',
+            location: '장소 미정',
+            dday: '일정 미정',
+            members: 0,
+            progress: 0,
+            cover: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
+            status: '준비 전',
+            color: '#e7657a',
+        }
+
+    useEffect(() => {
+        if (!isUserInitialized) return
+        if (currentUser) void loadTrips()
+        else {
+            resetTrips()
+            resetActivityLogs()
+        }
+    }, [
+        currentUser,
+        isUserInitialized,
+        loadTrips,
+        resetActivityLogs,
+        resetTrips,
+    ])
+
+    useEffect(() => {
+        if (currentUser && activeTrip.backendId) {
+            void loadActivityLogs(activeTrip.backendId)
+        } else {
+            resetActivityLogs()
+        }
+    }, [activeTrip.backendId, currentUser, loadActivityLogs, resetActivityLogs])
 
     function toggleTask(id: string) {
         setTasks((current) => current.filter((task) => task.id !== id))
@@ -200,7 +202,8 @@ export function Home() {
             <header className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-1">
                 <div>
                     <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
-                        안녕하세요, 지현님 <span aria-hidden="true">👋</span>
+                        안녕하세요, {currentUser?.nickname ?? '여행자'}님{' '}
+                        <span aria-hidden="true">👋</span>
                     </h1>
                     <p className="mt-1 text-xs font-semibold text-slate-500">
                         오늘의 여행 준비 현황을 확인해 보세요
@@ -298,25 +301,6 @@ export function Home() {
                                             </div>
                                             <div className="flex items-end gap-4">
                                                 <div>
-                                                    <div className="flex -space-x-2">
-                                                        {members.map(
-                                                            (member) => (
-                                                                <Avatar
-                                                                    key={
-                                                                        member.id
-                                                                    }
-                                                                    name={
-                                                                        member.name
-                                                                    }
-                                                                    color={
-                                                                        member.avatarColor
-                                                                    }
-                                                                    size={27}
-                                                                    className="ring-2 ring-slate-900"
-                                                                />
-                                                            ),
-                                                        )}
-                                                    </div>
                                                     <span className="mt-1.5 block text-[11px] font-medium text-white/75">
                                                         {activeTrip.members}명
                                                         함께 준비 중
@@ -350,25 +334,25 @@ export function Home() {
                                         {[
                                             {
                                                 title: '투표 대기',
-                                                text: '후보 장소 4곳',
+                                                text: '연결된 데이터 없음',
                                                 icon: ThumbsUpIcon,
                                                 tone: 'bg-amber-100 text-amber-600',
                                             },
                                             {
                                                 title: 'AI 정리안',
-                                                text: '확인할 제안 4개',
+                                                text: '연결된 데이터 없음',
                                                 icon: SparklesIcon,
                                                 tone: 'bg-emerald-100 text-emerald-600',
                                             },
                                             {
                                                 title: '오늘 일정',
-                                                text: '3개 장소 방문',
+                                                text: '연결된 데이터 없음',
                                                 icon: CalendarDaysIcon,
                                                 tone: 'bg-sky-100 text-sky-600',
                                             },
                                             {
                                                 title: '예산 현황',
-                                                text: '180,000원 남음',
+                                                text: '연결된 데이터 없음',
                                                 icon: CreditCardIcon,
                                                 tone: 'bg-violet-100 text-violet-600',
                                             },
@@ -420,8 +404,8 @@ export function Home() {
                                                     size={28}
                                                 />
                                                 <p className="mt-2 text-sm font-semibold text-slate-700">
-                                                    오늘 할 일을 모두
-                                                    완료했어요!
+                                                    연결된 할 일 데이터가
+                                                    없습니다.
                                                 </p>
                                             </div>
                                         ) : (
@@ -471,64 +455,37 @@ export function Home() {
                                         }
                                     />
                                     <div className="relative ml-2 border-l border-slate-200 pl-5">
-                                        {[
-                                            [
-                                                '10분 전',
-                                                '예린',
-                                                '카페 델문도를 후보 장소에 등록했어요.',
-                                                '#ea580c',
-                                            ],
-                                            [
-                                                '20분 전',
-                                                '태호',
-                                                '자매국수에 댓글을 남겼어요.',
-                                                '#2563eb',
-                                            ],
-                                            [
-                                                '32분 전',
-                                                'AI',
-                                                '이동 시간을 반영한 일정 추천을 생성했어요.',
-                                                '#0f766e',
-                                            ],
-                                        ].map(
-                                            (
-                                                [time, who, action, color],
-                                                index,
-                                            ) => (
+                                        {logs.length === 0 ? (
+                                            <p className="py-6 text-sm text-slate-400">
+                                                아직 기록된 활동이 없습니다.
+                                            </p>
+                                        ) : (
+                                            logs.slice(0, 3).map((log) => (
                                                 <div
                                                     className="relative pb-4 last:pb-0"
-                                                    key={time}
+                                                    key={log.id}
                                                 >
-                                                    <span
-                                                        className="absolute -left-[25px] top-1 flex h-3 w-3 rounded-full border-2 border-white"
-                                                        style={{
-                                                            backgroundColor:
-                                                                color,
-                                                        }}
-                                                    />
+                                                    <span className="absolute -left-[25px] top-1 flex h-3 w-3 rounded-full border-2 border-white bg-brand" />
                                                     <p className="text-xs text-slate-400">
-                                                        {time}
+                                                        {new Intl.DateTimeFormat(
+                                                            'ko-KR',
+                                                            {
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit',
+                                                            },
+                                                        ).format(
+                                                            new Date(
+                                                                log.createdAt,
+                                                            ),
+                                                        )}
                                                     </p>
                                                     <p className="mt-0.5 text-sm leading-5 text-slate-600">
-                                                        <b className="font-bold text-slate-800">
-                                                            {who}
-                                                        </b>
-                                                        님이 {action}
+                                                        {log.description}
                                                     </p>
-                                                    {index === 2 && (
-                                                        <button
-                                                            onClick={() =>
-                                                                navigate(
-                                                                    '/app/room',
-                                                                )
-                                                            }
-                                                            className="mt-2 rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700 hover:bg-brand-100"
-                                                        >
-                                                            추천 보기
-                                                        </button>
-                                                    )}
                                                 </div>
-                                            ),
+                                            ))
                                         )}
                                     </div>
                                 </section>,
@@ -545,6 +502,23 @@ export function Home() {
                                 }
                             />
                             <div className="grid gap-4 sm:grid-cols-3">
+                                {rooms.length === 0 && (
+                                    <button
+                                        onClick={() => navigate('/app/room')}
+                                        className="col-span-full rounded-2xl border border-dashed border-brand-200 bg-brand-50 px-5 py-12 text-center"
+                                    >
+                                        <PlusIcon
+                                            className="mx-auto text-brand"
+                                            size={24}
+                                        />
+                                        <b className="mt-3 block text-sm text-slate-800">
+                                            첫 여행방을 만들어 보세요
+                                        </b>
+                                        <span className="mt-1 block text-xs text-slate-500">
+                                            여행방 생성 화면으로 이동합니다.
+                                        </span>
+                                    </button>
+                                )}
                                 {rooms.map((room, index) => (
                                     <motion.button
                                         key={room.id}
@@ -552,10 +526,9 @@ export function Home() {
                                             y: -3,
                                             rotate: index === 1 ? 0.4 : -0.4,
                                         }}
-                                        onClick={() =>
-                                            navigate(`/app/room/${room.id}`)
-                                        }
-                                        className="group relative min-h-[205px] overflow-hidden rounded-sm border border-slate-200 bg-white p-3 text-left shadow-[0_7px_14px_rgba(15,23,42,0.08)] transition hover:shadow-md"
+                                        onClick={() => selectTrip(room.id)}
+                                        aria-pressed={room.id === activeTrip.id}
+                                        className={`group relative min-h-[205px] overflow-hidden rounded-sm border bg-white p-3 text-left shadow-[0_7px_14px_rgba(15,23,42,0.08)] transition hover:shadow-md ${room.id === activeTrip.id ? 'border-brand ring-2 ring-brand/20' : 'border-slate-200'}`}
                                     >
                                         <div className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 rounded-b bg-[#d9d4c6]/90" />
                                         <img
@@ -672,13 +645,14 @@ export function Home() {
                             <section className="rounded-[24px] p-1">
                                 <div className="flex items-center gap-3 px-3 pb-5 pt-2">
                                     <Avatar
-                                        name="지현"
+                                        name={currentUser?.nickname ?? '여행자'}
                                         color="#e7657a"
                                         size={44}
                                     />
                                     <div className="min-w-0 flex-1">
                                         <p className="font-extrabold text-slate-900">
-                                            지현님
+                                            {currentUser?.nickname ?? '여행자'}
+                                            님
                                         </p>
                                         <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
                                             여행 플래너
@@ -739,6 +713,11 @@ export function Home() {
                                     모았어요.
                                 </p>
                                 <div className="space-y-2.5">
+                                    {aiFindings.length === 0 && (
+                                        <p className="py-5 text-center text-xs text-slate-400">
+                                            연결된 AI 분석 결과가 없습니다.
+                                        </p>
+                                    )}
                                     {aiFindings.map((finding) => (
                                         <button
                                             onClick={() =>
@@ -786,66 +765,9 @@ export function Home() {
                                         </button>
                                     }
                                 />
-                                <p className="-mt-1 mb-4 text-xs font-semibold text-slate-400">
-                                    8월 12일 · 여행 1일차
+                                <p className="py-6 text-center text-xs text-slate-400">
+                                    연결된 일정 데이터가 없습니다.
                                 </p>
-                                <div className="space-y-0">
-                                    {[
-                                        [
-                                            '09:00',
-                                            '함덕 해수욕장',
-                                            '바다 산책 · 1시간 30분',
-                                            photo.beach,
-                                        ],
-                                        [
-                                            '11:30',
-                                            '카페 델문도',
-                                            '브런치 · 1시간 20분',
-                                            photo.cafe,
-                                        ],
-                                        [
-                                            '14:00',
-                                            '우도',
-                                            '섬 투어 · 4시간',
-                                            photo.view,
-                                        ],
-                                    ].map(
-                                        (
-                                            [time, name, detail, image],
-                                            index,
-                                        ) => (
-                                            <div
-                                                className="relative flex gap-3 pb-4 last:pb-0"
-                                                key={time}
-                                            >
-                                                <div className="w-10 pt-1 text-xs font-extrabold text-brand-700">
-                                                    {time}
-                                                </div>
-                                                <div className="relative">
-                                                    <span className="mt-1.5 block h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand-50" />
-                                                    {index < 2 && (
-                                                        <span className="absolute left-[4px] top-5 h-10 border-l border-dashed border-slate-300" />
-                                                    )}
-                                                </div>
-                                                <div className="flex min-w-0 flex-1 items-center gap-2">
-                                                    <img
-                                                        src={image}
-                                                        alt=""
-                                                        className="h-9 w-9 rounded-lg object-cover"
-                                                    />
-                                                    <span className="min-w-0">
-                                                        <b className="block truncate text-xs text-slate-800">
-                                                            {name}
-                                                        </b>
-                                                        <span className="block truncate text-[11px] text-slate-400">
-                                                            {detail}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ),
-                                    )}
-                                </div>
                             </section>,
                         )}
                         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
@@ -862,37 +784,8 @@ export function Home() {
                                             />
                                         }
                                     />
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-slate-400">
-                                                총 예산
-                                            </p>
-                                            <b className="mt-1 block text-sm tracking-tight">
-                                                500,000
-                                            </b>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-slate-400">
-                                                사용
-                                            </p>
-                                            <b className="mt-1 block text-sm tracking-tight text-orange-500">
-                                                320,000
-                                            </b>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-slate-400">
-                                                남음
-                                            </p>
-                                            <b className="mt-1 block text-sm tracking-tight text-brand-700">
-                                                180,000
-                                            </b>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                                        <div className="h-full w-[64%] rounded-full bg-orange-400" />
-                                    </div>
-                                    <p className="mt-2 text-right text-[10px] text-slate-400">
-                                        예산의 64% 사용
+                                    <p className="py-6 text-center text-xs text-slate-400">
+                                        연결된 지출 데이터가 없습니다.
                                     </p>
                                 </section>,
                             )}

@@ -1,0 +1,76 @@
+package back.backend.domain.trip.controller;
+
+import back.backend.domain.trip.dto.TripRequest;
+import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripCompleteRequest;
+import back.backend.domain.trip.dto.TripCompleteResponse;
+import back.backend.domain.trip.service.TripService;
+import back.backend.global.response.ApiResponse;
+import back.backend.global.security.SecurityContextAccessor;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/trips")
+public class TripController {
+    private final TripService tripService;
+    private final SecurityContextAccessor securityContextAccessor;
+
+    public TripController(TripService tripService, SecurityContextAccessor securityContextAccessor) {
+        this.tripService = tripService;
+        this.securityContextAccessor = securityContextAccessor;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "여행방 생성")
+    public ApiResponse<TripResponse> create(@Valid @RequestBody TripRequest request) {
+        return ApiResponse.success(tripService.create(securityContextAccessor.getCurrentMemberId(), request));
+    }
+
+    @GetMapping
+    @Operation(summary = "내 여행방 목록 조회")
+    public ApiResponse<List<TripResponse>> getMyTrips() {
+        return ApiResponse.success(tripService.getMyTrips(securityContextAccessor.getCurrentMemberId()));
+    }
+
+    @GetMapping("/{tripId}")
+    @Operation(summary = "여행방 상세 조회")
+    public ApiResponse<TripResponse> get(@PathVariable Long tripId) {
+        return ApiResponse.success(tripService.get(securityContextAccessor.getCurrentMemberId(), tripId));
+    }
+
+    @PatchMapping("/{tripId}")
+    @Operation(summary = "여행방 수정")
+    public ApiResponse<TripResponse> update(@PathVariable Long tripId, @Valid @RequestBody TripRequest request) {
+        return ApiResponse.success(tripService.update(securityContextAccessor.getCurrentMemberId(), tripId, request));
+    }
+
+    @DeleteMapping("/{tripId}")
+    @Operation(summary = "여행방 삭제")
+    public ApiResponse<Void> delete(@PathVariable Long tripId) {
+        tripService.delete(securityContextAccessor.getCurrentMemberId(), tripId);
+        return ApiResponse.ok();
+    }
+
+    @PostMapping("/{tripId}/complete")
+    @Operation(summary = "여행방 완료 및 여행 카드 생성")
+    public ApiResponse<TripCompleteResponse> complete(
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripCompleteRequest request
+    ) {
+        return ApiResponse.success(tripService.complete(
+                securityContextAccessor.getCurrentMemberId(), tripId, request));
+    }
+}

@@ -4,21 +4,33 @@ import {
     CopyIcon,
     CheckIcon,
     LinkIcon,
-    UserPlusIcon,
 } from 'lucide-react'
+import { createTripInvitation } from '@/features/manage-trip'
 
 type Props = {
+    tripId: number
     onClose: () => void
 }
 
-function randomCode() {
-    return Math.random().toString(36).slice(2, 8).toUpperCase()
-}
-
-export function InviteModal({ onClose }: Props) {
-    const [code] = useState(randomCode())
+export function InviteModal({ tripId, onClose }: Props) {
+    const [code, setCode] = useState('')
+    const [error, setError] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
     const [copied, setCopied] = useState<'code' | 'link' | null>(null)
-    const link = `https://yeojido.app/join/${code}`
+    const link = code ? `${window.location.origin}/app/room/invite/${code}` : ''
+
+    async function issueInvitation() {
+        setIsLoading(true)
+        setError(null)
+        try {
+            const invitation = await createTripInvitation(tripId)
+            setCode(invitation.inviteCode)
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : '초대 링크를 만들지 못했습니다.')
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     function copy(kind: 'code' | 'link', value: string) {
         navigator.clipboard?.writeText(value)
@@ -48,6 +60,13 @@ export function InviteModal({ onClose }: Props) {
                 <label className="mb-1.5 block text-sm font-semibold">
                     초대 코드
                 </label>
+                {!code && (
+                    <button onClick={() => void issueInvitation()} disabled={isLoading} className="mb-4 w-full rounded-xl bg-brand py-3 text-sm font-bold text-white disabled:opacity-60">
+                        {isLoading ? '생성 중...' : '조회 전용 초대 링크 만들기'}
+                    </button>
+                )}
+                {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+                {code && <>
                 <div className="mb-4 flex items-center gap-2">
                     <div className="flex-1 rounded-xl border border-dashed border-slate-300 bg-slate-50 py-3 text-center text-xl font-bold tracking-[0.3em] text-slate-700">
                         {code}
@@ -79,22 +98,8 @@ export function InviteModal({ onClose }: Props) {
                         {copied === 'link' ? '복사됨' : '복사'}
                     </button>
                 </div>
+                </>}
 
-                <div className="border-t border-slate-100 pt-4">
-                    <label className="mb-1.5 block text-sm font-semibold">
-                        이메일로 직접 추가
-                    </label>
-                    <div className="flex gap-2">
-                        <input
-                            placeholder="friend@email.com"
-                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
-                        />
-
-                        <button className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
-                            <UserPlusIcon size={15} /> 추가
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     )

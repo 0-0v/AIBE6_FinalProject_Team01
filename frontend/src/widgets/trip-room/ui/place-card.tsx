@@ -7,8 +7,8 @@ import {
     ThumbsUpIcon,
     Trash2Icon,
 } from 'lucide-react'
-import { CATEGORY_META, currentUserId, members, Place } from '@/entities/trip'
-import { Avatar } from '@/shared/ui'
+import { CATEGORY_META, Place } from '@/entities/trip'
+import { useCurrentUserStore } from '@/shared/model'
 
 type Props = {
     place: Place
@@ -33,14 +33,11 @@ export function PlaceCard({
     onDelete,
     onOpenComments,
 }: Props) {
+    const currentUserId = String(
+        useCurrentUserStore((state) => state.currentUser?.id) ?? '',
+    )
     const meta = CATEGORY_META[place.category]
-    const adder = members.find((member) => member.id === place.addedBy)
-    const supporters = place.votes
-        .filter((vote) => vote.value === 'up')
-        .map((vote) => members.find((member) => member.id === vote.memberId))
-        .filter((member): member is NonNullable<typeof member> =>
-            Boolean(member),
-        )
+    const supporters = place.votes.filter((vote) => vote.value === 'up')
     const upVotes = supporters.length
     const downVotes = place.votes.filter((vote) => vote.value === 'down').length
     const myVote = place.votes.find(
@@ -97,17 +94,14 @@ export function PlaceCard({
                     <div className="flex items-center gap-2">
                         <div className="flex -space-x-1.5">
                             {supporters.length > 0 ? (
-                                supporters
-                                    .slice(0, 3)
-                                    .map((member) => (
-                                        <Avatar
-                                            key={member.id}
-                                            name={member.name}
-                                            color={member.avatarColor}
-                                            size={22}
-                                            className="ring-2 ring-[#fffaf0]"
-                                        />
-                                    ))
+                                supporters.slice(0, 3).map((vote) => (
+                                    <span
+                                        key={vote.memberId}
+                                        className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-brand-100 text-[9px] font-bold text-brand-700 ring-2 ring-[#fffaf0]"
+                                    >
+                                        {vote.memberId}
+                                    </span>
+                                ))
                             ) : (
                                 <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-slate-200 text-[10px]">
                                     ?
@@ -156,15 +150,8 @@ export function PlaceCard({
                     </div>
                 ) : (
                     <div className="flex items-center gap-1.5">
-                        {adder && (
-                            <Avatar
-                                name={adder.name}
-                                color={adder.avatarColor}
-                                size={20}
-                            />
-                        )}
                         <span className="text-[11px] text-slate-400">
-                            {adder?.name} 등록
+                            멤버 #{place.addedBy} 등록
                         </span>
                     </div>
                 )}

@@ -1,19 +1,66 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { initialPlaces, Place, rooms } from '@/entities/trip'
+import { Place } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
+import { ManageTripModal, useTripStore } from '@/features/manage-trip'
+import { useCurrentUserStore } from '@/shared/model'
 import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 
 export function TripRoom() {
     const navigate = useNavigate()
-    const { roomId } = useParams<{ roomId?: string }>()
-    const room = rooms.find((item) => item.id === roomId)
+    const { roomId, inviteCode } = useParams<{
+        roomId?: string
+        inviteCode?: string
+    }>()
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const isUserInitialized = useCurrentUserStore(
+        (state) => state.isInitialized,
+    )
+    const {
+        trips,
+        rooms,
+        guestRoom,
+        activeTripId,
+        isLoading,
+        error,
+        loadTrips,
+        loadInvitedTrip,
+        selectTrip,
+        resetTrips,
+    } = useTripStore()
+    const [showRoomList, setShowRoomList] = useState(false)
+    const effectiveRoomId = roomId ?? activeTripId
+    const room = inviteCode
+        ? guestRoom
+        : showRoomList
+          ? undefined
+          : rooms.find((item) => item.id === effectiveRoomId)
+    const trip = trips.find((item) => String(item.id) === effectiveRoomId)
 
-    const [places, setPlaces] = useState<Place[]>(initialPlaces)
+    const [places, setPlaces] = useState<Place[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [collapsed, setCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
+    const [manageOpen, setManageOpen] = useState(false)
+
+    useEffect(() => {
+        if (inviteCode) void loadInvitedTrip(inviteCode)
+        else if (!isUserInitialized) return
+        else if (currentUser) void loadTrips()
+        else resetTrips()
+    }, [
+        currentUser,
+        inviteCode,
+        isUserInitialized,
+        loadInvitedTrip,
+        loadTrips,
+        resetTrips,
+    ])
+
+    useEffect(() => {
+        if (roomId) selectTrip(roomId)
+    }, [roomId, selectTrip])
 
     const displayedPlaces = useMemo(
         () =>
@@ -79,16 +126,24 @@ export function TripRoom() {
                                 places={displayedPlaces}
                                 selectedId={selectedId}
                                 onSelectPlace={setSelectedId}
-                                onBack={() => navigate('/app/room')}
+                                onBack={() => setShowRoomList(true)}
+                                onManage={() => setManageOpen(true)}
+                                isGuest={Boolean(inviteCode)}
                                 onUpdatePlace={updatePlace}
                                 onAddPlace={addPlace}
                                 onDeletePlace={deletePlace}
                             />
                         ) : (
                             <RoomListPanel
-                                onSelectRoom={(id) =>
+                                rooms={rooms}
+                                isLoading={isLoading}
+                                error={error}
+                                onRetry={() => void loadTrips()}
+                                onSelectRoom={(id) => {
+                                    selectTrip(id)
+                                    setShowRoomList(false)
                                     navigate(`/app/room/${id}`)
-                                }
+                                }}
                             />
                         )}
                     </aside>
@@ -106,6 +161,17 @@ export function TripRoom() {
                                     ),
                                 )
                             }
+                        }}
+                    />
+                )}
+                {manageOpen && trip && (
+                    <ManageTripModal
+                        trip={trip}
+                        onClose={() => setManageOpen(false)}
+                        onChanged={() => {
+                            setManageOpen(false)
+                            navigate('/app/room')
+                            void loadTrips()
                         }}
                     />
                 )}

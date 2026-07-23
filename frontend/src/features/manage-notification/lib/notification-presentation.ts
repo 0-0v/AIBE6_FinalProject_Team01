@@ -3,6 +3,7 @@ import {
     CircleDollarSignIcon,
     SparklesIcon,
     ThumbsUpIcon,
+    MapIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { NotificationType } from '@/entities/notification'
@@ -30,6 +31,11 @@ export const notificationStyle: Record<
         icon: CircleDollarSignIcon,
         tone: 'bg-violet-50 text-violet-600',
         fallbackTitle: '정산 알림',
+    },
+    TRIP: {
+        icon: MapIcon,
+        tone: 'bg-emerald-50 text-emerald-600',
+        fallbackTitle: '여행방 알림',
     },
 }
 

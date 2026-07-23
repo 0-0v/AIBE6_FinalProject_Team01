@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { XIcon, SendIcon } from 'lucide-react'
-import { Place, members } from '@/entities/trip'
-import { Avatar } from '@/shared/ui'
+import { Place } from '@/entities/trip'
 
 type Props = {
     place: Place
@@ -46,20 +45,12 @@ export function CommentSheet({
                     </p>
                 )}
                 {place.comments.map((c) => {
-                    const author = members.find((m) => m.id === c.memberId)
                     return (
                         <div key={c.id} className="flex gap-2.5">
-                            {author && (
-                                <Avatar
-                                    name={author.name}
-                                    color={author.avatarColor}
-                                    size={30}
-                                />
-                            )}
                             <div className="flex-1">
                                 <div className="flex items-baseline gap-2">
                                     <span className="text-sm font-semibold">
-                                        {author?.name}
+                                        멤버 #{c.memberId}
                                     </span>
                                     <span className="text-[11px] text-slate-400">
                                         {c.createdAt}
