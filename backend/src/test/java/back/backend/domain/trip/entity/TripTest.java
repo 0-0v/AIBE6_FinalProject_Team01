@@ -72,4 +72,36 @@ class TripTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("여행 시작일과 종료일은 함께 입력해야 합니다.");
     }
+
+    @Test
+    @DisplayName("t5 계획 중인 여행방을 완료하면 완료 상태와 카드 공개 범위를 반영한다")
+    void t5_completeTripUpdatesStatusAndVisibility() {
+        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
+
+        trip.complete(TripVisibility.PUBLIC);
+
+        assertThat(trip.getStatus()).isEqualTo(TripStatus.COMPLETED);
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
+    }
+
+    @Test
+    @DisplayName("t6 완료된 여행방을 다시 완료하면 유효성 예외가 발생한다")
+    void t6_completeTripRejectsAlreadyCompletedTrip() {
+        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
+        trip.complete(TripVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> trip.complete(TripVisibility.PUBLIC))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("이미 완료되었거나 취소된 여행방입니다.");
+    }
+
+    @Test
+    @DisplayName("t7 여행방을 삭제하면 취소 상태로 전환해 활동 이력을 보존한다")
+    void t7_cancelTripChangesStatusToCancelled() {
+        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
+
+        trip.cancel();
+
+        assertThat(trip.getStatus()).isEqualTo(TripStatus.CANCELLED);
+    }
 }

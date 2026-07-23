@@ -9,8 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface TripRepository extends JpaRepository<Trip, Long> {
 
     @EntityGraph(attributePaths = "travelStyles")
-    List<Trip> findAllByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+    List<Trip> findAllByOwnerIdAndStatusNotOrderByCreatedAtDesc(Long ownerId, back.backend.domain.trip.entity.TripStatus status);
 
     @EntityGraph(attributePaths = "travelStyles")
-    Optional<Trip> findByIdAndOwnerId(Long id, Long ownerId);
+    Optional<Trip> findByIdAndOwnerIdAndStatusNot(Long id, Long ownerId, back.backend.domain.trip.entity.TripStatus status);
 }

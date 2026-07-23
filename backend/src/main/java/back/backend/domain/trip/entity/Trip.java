@@ -145,6 +145,7 @@ public class Trip {
             LocalDate startDate,
             LocalDate endDate
     ) {
+        ensureMutable();
         this.title = validateTitle(title);
         validateDateRange(startDate, endDate);
         this.companionType = companionType;
@@ -153,6 +154,23 @@ public class Trip {
         this.destination = normalizeNullable(destination);
         this.startDate = startDate;
         this.endDate = endDate;
+    }
+
+    public void complete(TripVisibility visibility) {
+        ensureMutable();
+        this.status = TripStatus.COMPLETED;
+        this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
+    }
+
+    public void cancel() {
+        ensureMutable();
+        this.status = TripStatus.CANCELLED;
+    }
+
+    private void ensureMutable() {
+        if (status == TripStatus.COMPLETED || status == TripStatus.CANCELLED) {
+            throw new IllegalStateException("이미 완료되었거나 취소된 여행방입니다.");
+        }
     }
 
     private static String validateTitle(String title) {

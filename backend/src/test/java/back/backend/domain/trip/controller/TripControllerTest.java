@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripCompleteResponse;
+import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TripStatus;
@@ -66,6 +68,23 @@ class TripControllerTest {
         mockMvc.perform(get("/api/trips"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value(10));
+    }
+
+    @Test
+    @DisplayName("t4 소유자가 여행방 완료 정보와 태그를 요청하면 여행 카드 결과를 반환한다")
+    void t4_completeTripReturnsCreatedCard() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripService.complete(any(), any(), any()))
+                .thenReturn(new TripCompleteResponse(10L, 20L, TripVisibility.PUBLIC, List.of("친구와")));
+
+        mockMvc.perform(post("/api/trips/{tripId}/complete", 10L)
+                        .contentType("application/json")
+                        .content("""
+                                {"visibility":"PUBLIC","tags":["친구와"]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cardId").value(20))
+                .andExpect(jsonPath("$.data.tags[0]").value("친구와"));
     }
 
     private TripResponse response() {

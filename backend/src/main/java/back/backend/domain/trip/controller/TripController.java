@@ -2,6 +2,8 @@ package back.backend.domain.trip.controller;
 
 import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripCompleteRequest;
+import back.backend.domain.trip.dto.TripCompleteResponse;
 import back.backend.domain.trip.service.TripService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
@@ -60,5 +62,15 @@ public class TripController {
     public ApiResponse<Void> delete(@PathVariable Long tripId) {
         tripService.delete(securityContextAccessor.getCurrentMemberId(), tripId);
         return ApiResponse.ok();
+    }
+
+    @PostMapping("/{tripId}/complete")
+    @Operation(summary = "여행방 완료 및 여행 카드 생성")
+    public ApiResponse<TripCompleteResponse> complete(
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripCompleteRequest request
+    ) {
+        return ApiResponse.success(tripService.complete(
+                securityContextAccessor.getCurrentMemberId(), tripId, request));
     }
 }
