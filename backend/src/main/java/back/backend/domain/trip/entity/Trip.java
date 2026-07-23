@@ -137,6 +137,24 @@ public class Trip {
         return new Trip(ownerId, title, companionType, travelStyles, destination, startDate, endDate);
     }
 
+    public void update(
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        this.title = validateTitle(title);
+        validateDateRange(startDate, endDate);
+        this.companionType = companionType;
+        this.travelStyles.clear();
+        this.travelStyles.addAll(copyStyles(travelStyles));
+        this.destination = normalizeNullable(destination);
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
     private static String validateTitle(String title) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("여행방 이름은 비어 있을 수 없습니다.");
