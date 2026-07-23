@@ -5,10 +5,8 @@ import {
     PencilIcon,
     AlertTriangleIcon,
 } from 'lucide-react'
-import { Avatar } from '@/shared/ui'
+import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
-
-const DEFAULT_AVATAR_COLOR = '#0f766e'
 
 const PROVIDER_LABEL: Record<string, string> = {
     GOOGLE: 'Google',

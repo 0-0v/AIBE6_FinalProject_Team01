@@ -12,9 +12,9 @@ import {
     exploreCards,
     getPlaceVoteNotifications,
     markPlaceVoteNotificationRead,
-    rooms,
 } from '@/entities/trip'
 import type { PlaceVoteNotificationResponse } from '@/entities/trip'
+import { useTripStore } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 
 const PAGE_SIZE = 6
@@ -242,6 +242,7 @@ export function Explore() {
 
 export function Updates() {
     const navigate = useNavigate()
+    const rooms = useTripStore((state) => state.rooms)
     const [updates, setUpdates] = useState<PlaceVoteNotificationResponse[]>([])
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)

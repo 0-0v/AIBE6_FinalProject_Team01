@@ -51,7 +51,7 @@ class PlaceVoteServiceTest {
 
     @BeforeEach
     void setUp() {
-        given(securityContextAccessor.getCurrentMemberId()).willReturn(1L);
+        lenient().when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
         lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
         lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
         candidate = TripPlace.builder()
@@ -109,8 +109,8 @@ class PlaceVoteServiceTest {
     }
 
     @Test
-    @DisplayName("t3 전원이 응답해도 찬성이 과반수가 아니면 장소를 후보로 변경한다")
-    void t3_allMembersRespondThenVoteCloses() {
+    @DisplayName("t3 전원이 응답했는데 찬성과 반대가 동률이면 투표를 종료하고 HOLD 상태를 유지해 재투표를 허용한다")
+    void t3_tieKeepsHoldStatusForRevote() {
         PlaceVoteRequest voteRequest = openRequest(2, 2);
         given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
         given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.of(voteRequest));
@@ -125,7 +125,29 @@ class PlaceVoteServiceTest {
                 1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.DISAGREE));
 
         assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
-        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.CANDIDATE);
+        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.HOLD);
+        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.HOLD);
+    }
+
+    @Test
+    @DisplayName("t9 반대가 과반수에 도달하면 장소를 탈락 상태로 변경하고 투표를 종료한다")
+    void t9_majorityDisagreeRejectsPlace() {
+        PlaceVoteRequest voteRequest = openRequest(2, 3);
+        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
+        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.of(voteRequest));
+        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(voteRequest));
+        given(voteResponseRepository.findByVoteRequestIdAndMemberId(100L, 1L)).willReturn(Optional.empty());
+        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of(
+                response(1L, PlaceVoteChoice.DISAGREE),
+                response(2L, PlaceVoteChoice.DISAGREE)
+        ));
+
+        PlaceVoteSummaryResponse result = placeVoteService.respond(
+                1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.DISAGREE));
+
+        assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
+        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
+        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
     }
 
     @Test
@@ -223,8 +245,8 @@ class PlaceVoteServiceTest {
     }
 
     @Test
-    @DisplayName("t8 만료된 투표에 응답하면 응답을 저장하지 않고 장소를 후보로 변경한다")
-    void t8_expiredVoteClosesAsCandidateWithoutSavingResponse() {
+    @DisplayName("t8 만료된 투표에 응답하면 응답을 저장하지 않고 장소를 탈락 상태로 변경한다")
+    void t8_expiredVoteClosesAsRejectedWithoutSavingResponse() {
         PlaceVoteRequest voteRequest = openRequest(2, 3);
         ReflectionTestUtils.setField(
                 voteRequest, "expiresAt", java.time.LocalDateTime.now().minusMinutes(1));
@@ -239,7 +261,8 @@ class PlaceVoteServiceTest {
                 1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.AGREE));
 
         assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
-        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.CANDIDATE);
+        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
+        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
         then(voteResponseRepository).should(never()).saveAndFlush(any());
     }
 

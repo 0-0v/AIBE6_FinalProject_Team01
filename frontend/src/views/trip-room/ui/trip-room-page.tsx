@@ -117,6 +117,11 @@ export function TripRoom() {
         [places, room],
     )
 
+    const mapPlaces = useMemo(
+        () => displayedPlaces.filter((place) => place.status === 'saved'),
+        [displayedPlaces],
+    )
+
     function updatePlace(id: string, update: (place: Place) => Place) {
         setPlaces((current) =>
             current.map((place) => (place.id === id ? update(place) : place)),
@@ -136,9 +141,7 @@ export function TripRoom() {
             <div className="relative flex min-h-0 flex-1 flex-row">
                 <div className="relative min-w-0 flex-1">
                     <MapCanvas
-                        places={displayedPlaces.filter(
-                            (place) => place.status === 'saved',
-                        )}
+                        places={mapPlaces}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                     />

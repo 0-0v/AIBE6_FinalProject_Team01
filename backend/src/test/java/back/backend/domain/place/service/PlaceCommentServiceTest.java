@@ -48,7 +48,7 @@ class PlaceCommentServiceTest {
                 .tripId(1L)
                 .place(Place.builder().name("성산일출봉").build())
                 .addedBy(1L)
-                .status(TripPlaceStatus.CANDIDATE)
+                .status(TripPlaceStatus.SAVED)
                 .build();
         ReflectionTestUtils.setField(tripPlace, "id", 10L);
         lenient().when(tripPlaceRepository.findByIdAndTripId(10L, 1L)).thenReturn(Optional.of(tripPlace));

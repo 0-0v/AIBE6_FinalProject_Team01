@@ -16,6 +16,7 @@ import {
     startTripPlaceVote,
     respondTripPlaceVote,
     fromApiToPlace,
+    apiStatusToPlaceStatus,
     getPlaceComments,
     addPlaceComment,
     deletePlaceComment,
@@ -39,9 +40,9 @@ type RecordTab = 'records' | 'expenses'
 
 const STATUS_TABS: { key: PlaceStatus | 'all'; label: string }[] = [
     { key: 'all', label: '전체' },
-    { key: 'candidate', label: '후보' },
     { key: 'saved', label: '확정' },
-    { key: 'hold', label: '보류' },
+    { key: 'hold', label: '투표중' },
+    { key: 'rejected', label: '탈락' },
 ]
 
 type Props = {
@@ -133,10 +134,9 @@ export function RoomDetailPanel({
         )
         onUpdatePlace(id, (place) => ({
             ...place,
-            status: voteSummary.placeStatus.toLowerCase() as PlaceStatus,
+            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
             voteSummary,
         }))
-        if (target) addLog('갈래말래 투표를 신청했어요', target.name, false)
     }
 
     async function openCommentSheet(placeId: string) {
@@ -207,17 +207,9 @@ export function RoomDetailPanel({
         )
         onUpdatePlace(id, (place) => ({
             ...place,
-            status: voteSummary.placeStatus.toLowerCase() as PlaceStatus,
+            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
             voteSummary,
         }))
-        if (target)
-            addLog(
-                value === 'up'
-                    ? '후보 장소에 찬성했어요'
-                    : '후보 장소에 반대했어요',
-                target.name,
-                false,
-            )
     }
 
     async function handleAdd(result: PlaceSearchResult) {
@@ -225,7 +217,6 @@ export function RoomDetailPanel({
         try {
             const tripPlace = await addTripPlace(tripId, result)
             onAddPlace(fromApiToPlace(tripPlace, room.id))
-            addLog('장소를 지도에 저장했어요', result.name)
         } catch (error) {
             setPlaceError(
                 getApiErrorMessage(error, '장소 추가에 실패했습니다.'),
@@ -397,10 +388,6 @@ export function RoomDetailPanel({
                                                 Number(place.id),
                                             )
                                             onDeletePlace(place.id)
-                                            addLog(
-                                                '장소를 삭제했어요',
-                                                place.name,
-                                            )
                                         } catch (error) {
                                             setPlaceError(
                                                 getApiErrorMessage(
@@ -472,7 +459,7 @@ export function RoomDetailPanel({
                         </button>
                     </div>
                     <div className="mp-scroll flex-1 overflow-y-auto">
-                        <ActivityLogPanel tripId={room.backendId} />
+                        <ActivityLogPanel tripId={room.apiTripId} />
                     </div>
                 </div>
             )}
@@ -480,7 +467,6 @@ export function RoomDetailPanel({
                 <CommentSheet
                     place={commentPlace}
                     canWrite={canWrite}
-                    currentUserId={currentUserId}
                     error={commentError}
                     onClose={() => {
                         setCommentPlaceId(null)
@@ -494,9 +480,9 @@ export function RoomDetailPanel({
                     }
                 />
             )}
-            {inviteOpen && room.backendId && (
+            {inviteOpen && room.apiTripId && (
                 <InviteModal
-                    tripId={room.backendId}
+                    tripId={room.apiTripId}
                     onClose={() => setInviteOpen(false)}
                 />
             )}

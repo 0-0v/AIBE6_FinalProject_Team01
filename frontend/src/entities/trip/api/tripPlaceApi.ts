@@ -17,7 +17,7 @@ type TripPlaceResponse = {
     longitude: number
     placeType: string | null
     imageUrl: string | null
-    status: 'CANDIDATE' | 'SAVED' | 'HOLD'
+    status: 'SAVED' | 'HOLD' | 'REJECTED'
     addedBy: number
 }
 
@@ -31,8 +31,6 @@ type AddTripPlaceBody = {
     imageUrl: string | null
 }
 
-type AddTripPlaceInput = AddTripPlaceBody
-
 export type PlaceVoteSummaryResponse = PlaceVoteSummary & {
     tripPlaceId: number
 }
@@ -44,6 +42,18 @@ export type PlaceVoteNotificationResponse = {
     content: string
     read: boolean
     createdAt: string
+}
+
+const API_STATUS_MAP: Record<'SAVED' | 'HOLD' | 'REJECTED', PlaceStatus> = {
+    SAVED: 'saved',
+    HOLD: 'hold',
+    REJECTED: 'rejected',
+}
+
+export function apiStatusToPlaceStatus(
+    apiStatus: 'SAVED' | 'HOLD' | 'REJECTED',
+): PlaceStatus {
+    return API_STATUS_MAP[apiStatus] ?? 'hold'
 }
 
 const FALLBACK_IMAGES: Record<PlaceCategory, string> = {
@@ -69,7 +79,7 @@ export function fromApiToPlace(
         address: tp.address ?? '',
         category,
         markerEmoji: presentation.emoji,
-        status: tp.status.toLowerCase() as PlaceStatus,
+        status: apiStatusToPlaceStatus(tp.status),
         image: tp.imageUrl ?? FALLBACK_IMAGES[category],
         lat: tp.latitude,
         lng: tp.longitude,
@@ -133,17 +143,8 @@ export async function markPlaceVoteNotificationRead(
 
 export async function addTripPlace(
     tripId: number,
-    result: AddTripPlaceInput,
+    body: AddTripPlaceBody,
 ): Promise<TripPlaceResponse> {
-    const body: AddTripPlaceBody = {
-        googlePlaceId: result.googlePlaceId,
-        name: result.name,
-        address: result.address ?? null,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        placeType: result.placeType ?? null,
-        imageUrl: result.imageUrl ?? null,
-    }
     const res = await apiClient.post<ApiResponse<TripPlaceResponse>>(
         `/api/trips/${tripId}/places`,
         body,

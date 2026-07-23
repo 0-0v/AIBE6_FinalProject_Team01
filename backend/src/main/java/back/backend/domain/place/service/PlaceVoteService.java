@@ -54,7 +54,7 @@ public class PlaceVoteService {
                 throw new BusinessException(PlaceErrorCode.PLACE_VOTE_ALREADY_REQUESTED);
             }
             latestRequest.close(now);
-            tripPlace.updateStatus(TripPlaceStatus.CANDIDATE);
+            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
         }
 
         List<Long> memberIds = notificationRepository.findTripMemberIds(tripId);
@@ -97,7 +97,7 @@ public class PlaceVoteService {
         LocalDateTime now = LocalDateTime.now();
         if (isExpired(voteRequest, now)) {
             voteRequest.close(now);
-            tripPlace.updateStatus(TripPlaceStatus.CANDIDATE);
+            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
             List<PlaceVoteResponse> responses = voteResponseRepository
                     .findAllByVoteRequestId(voteRequestId);
             return summarize(voteRequest, memberId, responses, tripPlace.getStatus());
@@ -119,11 +119,16 @@ public class PlaceVoteService {
         int disagreeCount = responses.size() - agreeCount;
         int majorityCount = voteRequest.getRequiredResponseCount();
         if (agreeCount >= majorityCount) {
+            // 과반수 찬성 → 확정
             tripPlace.updateStatus(TripPlaceStatus.SAVED);
             voteRequest.close(now);
-        } else if (disagreeCount >= majorityCount
-                || responses.size() >= voteRequest.getTotalMemberCount()) {
-            tripPlace.updateStatus(TripPlaceStatus.CANDIDATE);
+        } else if (disagreeCount >= majorityCount) {
+            // 과반수 반대 → 탈락
+            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
+            voteRequest.close(now);
+        } else if (responses.size() >= voteRequest.getTotalMemberCount()) {
+            // 전원 투표 완료이지만 동률 → 투표 종료 후 HOLD 유지 (재투표 가능)
+            tripPlace.updateStatus(TripPlaceStatus.HOLD);
             voteRequest.close(now);
         }
         return summarize(voteRequest, memberId, responses, tripPlace.getStatus());
@@ -149,7 +154,7 @@ public class PlaceVoteService {
                     request.close(now);
                     TripPlace tripPlace = tripPlacesById.get(request.getTripPlaceId());
                     if (tripPlace != null) {
-                        tripPlace.updateStatus(TripPlaceStatus.CANDIDATE);
+                        tripPlace.updateStatus(TripPlaceStatus.REJECTED);
                     }
                 });
         List<Long> voteRequestIds = latestRequests.stream()

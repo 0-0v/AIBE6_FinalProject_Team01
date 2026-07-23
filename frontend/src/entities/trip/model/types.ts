@@ -10,7 +10,7 @@ export type Member = {
 export type PlaceCategory =
     'cafe' | 'food' | 'attraction' | 'nature' | 'shopping' | 'other'
 
-export type PlaceStatus = 'candidate' | 'saved' | 'hold'
+export type PlaceStatus = 'saved' | 'hold' | 'rejected'
 
 export type PlaceVoteSummary = {
     voteRequestId: number
@@ -21,7 +21,7 @@ export type PlaceVoteSummary = {
     requiredResponseCount: number
     totalMemberCount: number
     myChoice: 'AGREE' | 'DISAGREE' | null
-    placeStatus: 'CANDIDATE' | 'SAVED' | 'HOLD'
+    placeStatus: 'SAVED' | 'HOLD' | 'REJECTED'
     expiresAt: string
 }
 

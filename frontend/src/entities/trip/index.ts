@@ -1,5 +1,4 @@
 export * from './model/types'
-export * from './model/mock-data'
 export * from './model/place-presentation'
 export { exploreCards } from './model/explore-cards'
 export { RoomCard } from './ui/room-card'
@@ -14,6 +13,7 @@ export {
     getPlaceVoteNotifications,
     markPlaceVoteNotificationRead,
     fromApiToPlace,
+    apiStatusToPlaceStatus,
 } from './api/tripPlaceApi'
 export type {
     PlaceVoteSummaryResponse,

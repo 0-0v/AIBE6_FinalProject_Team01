@@ -6,8 +6,9 @@ import {
     ThumbsUpIcon,
     Trash2Icon,
 } from 'lucide-react'
-import { CATEGORY_META, members, Place } from '@/entities/trip'
-import { Avatar } from '@/shared/ui'
+import { CATEGORY_META, Place } from '@/entities/trip'
+import { useCurrentUserStore } from '@/shared/model'
+import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 
 type Props = {
     place: Place
@@ -31,7 +32,10 @@ export function PlaceCard({
     onOpenComments,
 }: Props) {
     const meta = CATEGORY_META[place.category]
-    const adder = members.find((member) => member.id === place.addedBy)
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const isMe = place.addedBy === String(currentUser?.id)
+    const adderName = isMe ? (currentUser?.nickname ?? '나') : '멤버'
+    const adderColor = isMe ? DEFAULT_AVATAR_COLOR : '#94a3b8'
     const vote = place.voteSummary
     const upVotes = vote?.agreeCount ?? 0
     const downVotes = vote?.disagreeCount ?? 0
@@ -95,13 +99,13 @@ export function PlaceCard({
                         <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
                             <CheckIcon size={10} /> 지도에 저장됨
                         </span>
-                    ) : place.status === 'candidate' ? (
-                        <span className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-1 text-[10px] font-extrabold text-amber-700">
-                            후보 장소
+                    ) : place.status === 'rejected' ? (
+                        <span className="mt-2 inline-flex rounded-full bg-rose-50 px-2 py-1 text-[10px] font-extrabold text-rose-600">
+                            탈락
                         </span>
                     ) : (
                         <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
-                            보류 중
+                            투표중
                         </span>
                     )}
                 </div>
@@ -169,15 +173,13 @@ export function PlaceCard({
                     )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                    {adder && (
-                        <Avatar
-                            name={adder.name}
-                            color={adder.avatarColor}
-                            size={20}
-                        />
-                    )}
+                    <Avatar
+                        name={adderName}
+                        color={adderColor}
+                        size={20}
+                    />
                     <span className="text-[11px] text-slate-400">
-                        {adder ? `${adder.name} 등록` : '멤버가 등록'}
+                        {adderName} 등록
                     </span>
                 </div>
                 {canWrite && (

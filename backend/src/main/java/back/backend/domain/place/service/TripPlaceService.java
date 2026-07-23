@@ -51,7 +51,7 @@ public class TripPlaceService {
                 .tripId(tripId)
                 .place(place)
                 .addedBy(memberId)
-                .status(TripPlaceStatus.CANDIDATE)
+                .status(TripPlaceStatus.SAVED)
                 .build());
 
         return TripPlaceResponse.from(tripPlace);

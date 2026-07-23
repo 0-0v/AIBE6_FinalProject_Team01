@@ -1,12 +1,12 @@
 import React, { useState } from 'react'
 import { SendIcon, Trash2Icon, XIcon } from 'lucide-react'
-import { Place, members } from '@/entities/trip'
+import { Place } from '@/entities/trip'
+import { useCurrentUserStore } from '@/shared/model'
 import { Avatar } from '@/shared/ui'
 
 type Props = {
     place: Place
     canWrite: boolean
-    currentUserId: string
     onClose: () => void
     onAddComment: (text: string) => Promise<void>
     onDeleteComment: (commentId: string) => Promise<void>
@@ -16,12 +16,13 @@ type Props = {
 export function CommentSheet({
     place,
     canWrite,
-    currentUserId,
     onClose,
     onAddComment,
     onDeleteComment,
     error,
 }: Props) {
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = String(currentUser?.id ?? '')
     const [text, setText] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -78,15 +79,17 @@ export function CommentSheet({
                     </p>
                 )}
                 {place.comments.map((c) => {
-                    const author = members.find((m) => m.id === c.memberId)
                     const isOwn = c.memberId === currentUserId
+                    const authorName = isOwn
+                        ? (currentUser?.nickname ?? '나')
+                        : '멤버'
                     return (
                         <div key={c.id} className="flex gap-2.5">
                             <div className="flex-1">
                                 <div className="flex items-baseline justify-between gap-2">
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-sm font-semibold">
-                                            {author?.name ?? '멤버'}
+                                            {authorName}
                                         </span>
                                         <span className="text-[11px] text-slate-400">
                                             {c.createdAt}

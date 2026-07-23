@@ -10,10 +10,8 @@ import {
     SparklesIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
-import { Avatar } from '@/shared/ui'
+import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
-
-const DEFAULT_AVATAR_COLOR = '#0f766e'
 
 const nav = [
     { to: '/app', label: '대시보드', icon: HomeIcon, end: true },
