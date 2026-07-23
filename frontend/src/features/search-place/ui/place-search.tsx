@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { SearchIcon, PlusIcon, XIcon } from 'lucide-react'
+import { SearchIcon, PlusIcon, XIcon, StarIcon, PhoneIcon, GlobeIcon, ClockIcon } from 'lucide-react'
 import { resolvePlacePresentation } from '@/entities/trip'
 import { searchPlaces } from '../api/placeApi'
 import type { PlaceSearchResult } from '../model/types'
@@ -139,33 +139,70 @@ export function PlaceSearch({ onAdd }: Props) {
                                             <Tooltip.Content
                                                 side="right"
                                                 sideOffset={8}
-                                                className="z-50 w-56 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-lg"
+                                                className="z-50 w-64 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-lg"
                                             >
                                                 {r.imageUrl && (
                                                     <img
                                                         src={r.imageUrl}
                                                         alt={r.name}
-                                                        className="h-32 w-full object-cover"
+                                                        className="h-36 w-full object-cover"
                                                     />
                                                 )}
-                                                <div className="p-3">
-                                                    <p className="text-sm font-semibold text-slate-800">
-                                                        {r.name}
-                                                    </p>
-                                                    <span
-                                                        className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
-                                                        style={{
-                                                            backgroundColor:
-                                                                presentation.color +
-                                                                '20',
-                                                            color: presentation.color,
-                                                        }}
-                                                    >
-                                                        {presentation.label}
-                                                    </span>
-                                                    <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                                                <div className="p-3 space-y-2">
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-800">
+                                                            {r.name}
+                                                        </p>
+                                                        <span
+                                                            className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
+                                                            style={{
+                                                                backgroundColor: presentation.color + '20',
+                                                                color: presentation.color,
+                                                            }}
+                                                        >
+                                                            {presentation.label}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {r.rating != null && (
+                                                            <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
+                                                                <StarIcon size={11} className="fill-amber-400 text-amber-400" />
+                                                                {r.rating.toFixed(1)}
+                                                                {r.userRatingCount != null && (
+                                                                    <span className="font-normal text-slate-400">
+                                                                        ({r.userRatingCount.toLocaleString()})
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                        {r.openNow != null && (
+                                                            <span className={`flex items-center gap-1 text-xs font-bold ${r.openNow ? 'text-emerald-500' : 'text-red-400'}`}>
+                                                                <ClockIcon size={11} />
+                                                                {r.openNow ? '영업 중' : '영업 종료'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs leading-relaxed text-slate-500">
                                                         {r.address}
                                                     </p>
+                                                    {r.phoneNumber && (
+                                                        <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                                                            <PhoneIcon size={11} className="shrink-0" />
+                                                            {r.phoneNumber}
+                                                        </p>
+                                                    )}
+                                                    {r.websiteUri && (
+                                                        <a
+                                                            href={r.websiteUri}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 text-xs text-brand hover:underline"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <GlobeIcon size={11} className="shrink-0" />
+                                                            <span className="truncate">{r.websiteUri.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+                                                        </a>
+                                                    )}
                                                 </div>
                                                 <Tooltip.Arrow className="fill-white" />
                                             </Tooltip.Content>

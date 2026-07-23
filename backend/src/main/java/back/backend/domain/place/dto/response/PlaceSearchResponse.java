@@ -7,5 +7,10 @@ public record PlaceSearchResponse(
         double latitude,
         double longitude,
         String placeType,
-        String imageUrl
+        String imageUrl,
+        Double rating,
+        Integer userRatingCount,
+        Boolean openNow,
+        String phoneNumber,
+        String websiteUri
 ) {}

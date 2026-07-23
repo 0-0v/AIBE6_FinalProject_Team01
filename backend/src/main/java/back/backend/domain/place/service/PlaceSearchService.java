@@ -21,9 +21,14 @@ public class PlaceSearchService {
 
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
     private static final String FIELD_MASK =
-            "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types";
+            "places.id,places.displayName,places.formattedAddress,places.location," +
+            "places.primaryType,places.types,places.photos," +
+            "places.rating,places.userRatingCount," +
+            "places.currentOpeningHours.openNow," +
+            "places.nationalPhoneNumber,places.websiteUri";
 
     private final RestClient restClient;
+    private final String apiKey;
 
     @Autowired
     public PlaceSearchService(
@@ -35,6 +40,7 @@ public class PlaceSearchService {
 
     // 테스트용 생성자 (MockRestServiceServer 바인딩)
     PlaceSearchService(RestClient.Builder builder, String apiKey) {
+        this.apiKey = apiKey;
         this.restClient = builder
                 .baseUrl(GOOGLE_PLACES_BASE_URL)
                 .defaultHeader("X-Goog-Api-Key", apiKey)
@@ -93,6 +99,10 @@ public class PlaceSearchService {
         String placeType = StringUtils.hasText(place.primaryType())
                 ? place.primaryType()
                 : firstTypeOrNull(place.types());
+        String imageUrl = resolveImageUrl(place);
+        Boolean openNow = place.currentOpeningHours() != null
+                ? place.currentOpeningHours().openNow()
+                : null;
         return new PlaceSearchResponse(
                 place.id(),
                 name,
@@ -100,8 +110,20 @@ public class PlaceSearchService {
                 latitude,
                 longitude,
                 placeType,
-                null
+                imageUrl,
+                place.rating(),
+                place.userRatingCount(),
+                openNow,
+                place.nationalPhoneNumber(),
+                place.websiteUri()
         );
+    }
+
+    private String resolveImageUrl(GooglePlacesApiResponse.Place place) {
+        if (place.photos() == null || place.photos().isEmpty()) return null;
+        String photoName = place.photos().get(0).name();
+        return GOOGLE_PLACES_BASE_URL + "/" + photoName
+                + "/media?maxWidthPx=400&key=" + apiKey;
     }
 
     private String firstTypeOrNull(List<String> types) {

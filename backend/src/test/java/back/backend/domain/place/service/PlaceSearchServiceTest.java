@@ -56,7 +56,11 @@ class PlaceSearchServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(
                         "X-Goog-FieldMask",
-                        "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types"
+                        "places.id,places.displayName,places.formattedAddress,places.location," +
+                        "places.primaryType,places.types,places.photos," +
+                        "places.rating,places.userRatingCount," +
+                        "places.currentOpeningHours.openNow," +
+                        "places.nationalPhoneNumber,places.websiteUri"
                 ))
                 .andExpect(header("X-Goog-Api-Key", "test-api-key"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));

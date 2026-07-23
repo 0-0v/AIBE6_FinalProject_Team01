@@ -16,7 +16,17 @@ public record GooglePlacesApiResponse(
             Location location,
             String primaryType,
             List<String> types,
-            List<Photo> photos
+            List<Photo> photos,
+            Double rating,
+            Integer userRatingCount,
+            CurrentOpeningHours currentOpeningHours,
+            String nationalPhoneNumber,
+            String websiteUri
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record CurrentOpeningHours(
+            Boolean openNow
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
