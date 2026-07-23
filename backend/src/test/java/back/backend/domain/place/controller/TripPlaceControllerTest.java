@@ -50,7 +50,7 @@ class TripPlaceControllerTest {
         sampleResponse = new TripPlaceResponse(
                 10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 new BigDecimal("33.3065000"), new BigDecimal("126.2897000"),
-                "tourist_attraction", null, TripPlaceStatus.SAVED, 1L);
+                "tourist_attraction", null, TripPlaceStatus.SAVED, 1L, 0);
     }
 
     @Test
