@@ -137,20 +137,6 @@ CREATE TABLE place_preferences (
     CONSTRAINT fk_place_preferences_member FOREIGN KEY (member_id) REFERENCES members (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE place_comments (
-    id BIGINT NOT NULL AUTO_INCREMENT,
-    trip_place_id BIGINT NOT NULL,
-    member_id BIGINT NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
-    PRIMARY KEY (id),
-    INDEX idx_place_comments_trip_place_id (trip_place_id),
-    INDEX idx_place_comments_member_id (member_id),
-    CONSTRAINT fk_place_comments_trip_place FOREIGN KEY (trip_place_id) REFERENCES trip_places (id),
-    CONSTRAINT fk_place_comments_member FOREIGN KEY (member_id) REFERENCES members (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE itinerary_days (
     id BIGINT NOT NULL AUTO_INCREMENT,
     trip_id BIGINT NOT NULL,

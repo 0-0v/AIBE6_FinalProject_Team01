@@ -1,6 +1,8 @@
 package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
+import back.backend.domain.collaboration.notification.entity.NotificationType;
+import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +31,7 @@ public class TripPlaceService {
     private final TripAccessRepository tripAccessRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
+    private final CollaborationEventService collaborationEventService;
 
     @Transactional
     public TripPlaceResponse addPlace(Long tripId, AddTripPlaceRequest request) {
@@ -54,6 +58,17 @@ public class TripPlaceService {
                 .status(TripPlaceStatus.SAVED)
                 .build());
 
+        collaborationEventService.record(
+                tripId,
+                memberId,
+                "PLACE_ADDED",
+                "TRIP_PLACE",
+                tripPlace.getId(),
+                request.name() + " 장소가 등록됐습니다.",
+                Map.of("placeName", request.name()),
+                NotificationType.PLACE,
+                "장소 등록"
+        );
         return TripPlaceResponse.from(tripPlace);
     }
 
@@ -67,10 +82,22 @@ public class TripPlaceService {
 
     @Transactional
     public void deletePlace(Long tripId, Long tripPlaceId) {
-        accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
+        String placeName = tripPlace.getPlace().getName();
         tripPlaceRepository.delete(tripPlace);
+        collaborationEventService.record(
+                tripId,
+                memberId,
+                "PLACE_DELETED",
+                "TRIP_PLACE",
+                tripPlaceId,
+                placeName + " 장소가 삭제됐습니다.",
+                Map.of("placeName", placeName),
+                NotificationType.PLACE,
+                "장소 삭제"
+        );
     }
 
     public boolean canEdit(Long tripId) {

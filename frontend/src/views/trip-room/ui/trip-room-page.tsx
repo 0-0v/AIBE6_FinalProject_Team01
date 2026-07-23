@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
     Place,
     getTripPlaces,
@@ -16,6 +16,7 @@ import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 
 export function TripRoom() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const { roomId, inviteCode } = useParams<{
         roomId?: string
         inviteCode?: string
@@ -182,7 +183,6 @@ export function TripRoom() {
                                 onSelectPlace={setSelectedId}
                                 onBack={() => setShowRoomList(true)}
                                 onManage={() => setManageOpen(true)}
-                                isGuest={Boolean(inviteCode)}
                                 onUpdatePlace={updatePlace}
                                 onAddPlace={addPlace}
                                 onDeletePlace={deletePlace}
@@ -193,6 +193,9 @@ export function TripRoom() {
                                 }
                                 canManage={canManagePlaces}
                                 tripId={tripId!}
+                                initialActivityOpen={
+                                    searchParams.get('activity') === 'open'
+                                }
                             />
                         ) : (
                             <RoomListPanel

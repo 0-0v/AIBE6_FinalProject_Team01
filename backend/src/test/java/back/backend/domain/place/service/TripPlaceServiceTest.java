@@ -1,6 +1,7 @@
 package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
+import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
@@ -50,6 +51,9 @@ class TripPlaceServiceTest {
 
     @Mock
     private back.backend.domain.place.service.TripAccessChecker accessChecker;
+
+    @Mock
+    private CollaborationEventService collaborationEventService;
 
     @InjectMocks
     private TripPlaceService tripPlaceService;
@@ -103,6 +107,17 @@ class TripPlaceServiceTest {
         assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
         then(placeRepository).should().save(any(Place.class));
         then(tripPlaceRepository).should().save(any(TripPlace.class));
+        then(collaborationEventService).should().record(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("PLACE_ADDED"),
+                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
+                org.mockito.ArgumentMatchers.eq(10L),
+                any(),
+                any(),
+                any(),
+                any()
+        );
     }
 
     @Test

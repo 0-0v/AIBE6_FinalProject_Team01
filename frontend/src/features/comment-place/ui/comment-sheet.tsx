@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { SendIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { Place } from '@/entities/trip'
 import { useCurrentUserStore } from '@/shared/model'
-import { Avatar } from '@/shared/ui'
 
 type Props = {
     place: Place
@@ -97,7 +96,9 @@ export function CommentSheet({
                                     </div>
                                     {isOwn && (
                                         <button
-                                            onClick={() => void handleDelete(c.id)}
+                                            onClick={() =>
+                                                void handleDelete(c.id)
+                                            }
                                             disabled={deletingId === c.id}
                                             className="shrink-0 rounded p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
                                             aria-label="댓글 삭제"

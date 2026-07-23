@@ -37,6 +37,11 @@ export const notificationStyle: Record<
         tone: 'bg-emerald-50 text-emerald-600',
         fallbackTitle: '여행방 알림',
     },
+    PLACE: {
+        icon: MapIcon,
+        tone: 'bg-rose-50 text-rose-600',
+        fallbackTitle: '장소 알림',
+    },
 }
 
 export function formatNotificationDate(createdAt: string): string {
