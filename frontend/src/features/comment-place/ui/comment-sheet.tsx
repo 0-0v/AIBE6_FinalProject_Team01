@@ -1,12 +1,16 @@
 import React, { useState } from 'react'
-import { XIcon, SendIcon } from 'lucide-react'
+import { SendIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { Place } from '@/entities/trip'
+import { useCurrentUserStore } from '@/shared/model'
+import { Avatar } from '@/shared/ui'
 
 type Props = {
     place: Place
     canWrite: boolean
     onClose: () => void
-    onAddComment: (text: string) => void
+    onAddComment: (text: string) => Promise<void>
+    onDeleteComment: (commentId: string) => Promise<void>
+    error?: string | null
 }
 
 export function CommentSheet({
@@ -14,13 +18,34 @@ export function CommentSheet({
     canWrite,
     onClose,
     onAddComment,
+    onDeleteComment,
+    error,
 }: Props) {
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = String(currentUser?.id ?? '')
     const [text, setText] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
 
-    function submit() {
-        if (!text.trim()) return
-        onAddComment(text.trim())
-        setText('')
+    async function submit() {
+        if (!text.trim() || submitting) return
+        setSubmitting(true)
+        try {
+            await onAddComment(text.trim())
+            setText('')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    async function handleDelete(commentId: string) {
+        if (deletingId) return
+        setDeletingId(commentId)
+        try {
+            await onDeleteComment(commentId)
+        } finally {
+            setDeletingId(null)
+        }
     }
 
     return (
@@ -38,6 +63,15 @@ export function CommentSheet({
                 </button>
             </div>
 
+            {error && (
+                <p
+                    role="alert"
+                    className="mx-4 mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"
+                >
+                    {error}
+                </p>
+            )}
+
             <div className="mp-scroll flex-1 space-y-4 overflow-y-auto p-4">
                 {place.comments.length === 0 && (
                     <p className="py-10 text-center text-sm text-slate-400">
@@ -45,16 +79,32 @@ export function CommentSheet({
                     </p>
                 )}
                 {place.comments.map((c) => {
+                    const isOwn = c.memberId === currentUserId
+                    const authorName = isOwn
+                        ? (currentUser?.nickname ?? '나')
+                        : '멤버'
                     return (
                         <div key={c.id} className="flex gap-2.5">
                             <div className="flex-1">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-sm font-semibold">
-                                        멤버 #{c.memberId}
-                                    </span>
-                                    <span className="text-[11px] text-slate-400">
-                                        {c.createdAt}
-                                    </span>
+                                <div className="flex items-baseline justify-between gap-2">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="text-sm font-semibold">
+                                            {authorName}
+                                        </span>
+                                        <span className="text-[11px] text-slate-400">
+                                            {c.createdAt}
+                                        </span>
+                                    </div>
+                                    {isOwn && (
+                                        <button
+                                            onClick={() => void handleDelete(c.id)}
+                                            disabled={deletingId === c.id}
+                                            className="shrink-0 rounded p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
+                                            aria-label="댓글 삭제"
+                                        >
+                                            <Trash2Icon size={13} />
+                                        </button>
+                                    )}
                                 </div>
                                 <p className="mt-0.5 text-sm text-slate-600">
                                     {c.text}
@@ -71,14 +121,17 @@ export function CommentSheet({
                         <input
                             value={text}
                             onChange={(e) => setText(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && submit()}
+                            onKeyDown={(e) =>
+                                e.key === 'Enter' && void submit()
+                            }
                             placeholder="댓글 입력…"
-                            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-100"
+                            disabled={submitting}
+                            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand-100 disabled:opacity-60"
                         />
-
                         <button
-                            onClick={submit}
-                            className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white hover:bg-brand-700"
+                            onClick={() => void submit()}
+                            disabled={submitting || !text.trim()}
+                            className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white hover:bg-brand-700 disabled:opacity-40"
                         >
                             <SendIcon size={16} />
                         </button>

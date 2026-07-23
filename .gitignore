@@ -17,12 +17,18 @@ node_modules/
 out/
 coverage/
 
+### AI tool local data ###
+.claude/
+
 ### IDE and OS files ###
 .idea/
 .vscode/
 *.iml
 .DS_Store
 Thumbs.db
+
+### AI tools ###
+.claude/
 
 ### Logs and runtime files ###
 *.log

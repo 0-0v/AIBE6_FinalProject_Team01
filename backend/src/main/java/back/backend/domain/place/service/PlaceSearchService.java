@@ -21,7 +21,7 @@ public class PlaceSearchService {
 
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
     private static final String FIELD_MASK =
-            "places.id,places.displayName,places.formattedAddress,places.location,places.types";
+            "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types";
 
     private final RestClient restClient;
 
@@ -90,9 +90,9 @@ public class PlaceSearchService {
         String name = place.displayName() != null ? place.displayName().text() : null;
         double latitude = place.location().latitude();
         double longitude = place.location().longitude();
-        String placeType = (place.types() != null && !place.types().isEmpty())
-                ? place.types().get(0)
-                : null;
+        String placeType = StringUtils.hasText(place.primaryType())
+                ? place.primaryType()
+                : firstTypeOrNull(place.types());
         return new PlaceSearchResponse(
                 place.id(),
                 name,
@@ -102,5 +102,9 @@ public class PlaceSearchService {
                 placeType,
                 null
         );
+    }
+
+    private String firstTypeOrNull(List<String> types) {
+        return types != null && !types.isEmpty() ? types.get(0) : null;
     }
 }

@@ -29,7 +29,7 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
     const [applied, setApplied] = useState<string[]>([])
 
     const dup = places.find((p) => p.duplicateOf)
-    const uncategorized = places.filter((p) => p.status === 'candidate').length
+    const holdCount = places.filter((p) => p.status === 'hold').length
 
     const suggestions: Suggestion[] = [
         ...(dup
@@ -47,8 +47,8 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
             id: 's2',
             type: 'category',
             icon: LayersIcon,
-            title: `미분류 장소 ${uncategorized}곳 정리`,
-            detail: '카테고리와 색상을 자동으로 지정하고 지도를 깔끔하게 정리해요.',
+            title: `투표중인 장소 ${holdCount}곳 정리`,
+            detail: '카테고리와 동선을 분석해 투표중인 장소를 효율적으로 정리해요.',
         },
         {
             id: 's3',

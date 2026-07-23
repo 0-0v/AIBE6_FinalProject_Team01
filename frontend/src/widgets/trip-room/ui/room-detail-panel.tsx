@@ -8,16 +8,25 @@ import {
 import {
     Expense,
     Place,
-    PlaceCategory,
     PlaceStatus,
     Room,
     TravelRecord,
+    addTripPlace,
+    deleteTripPlace,
+    startTripPlaceVote,
+    respondTripPlaceVote,
+    fromApiToPlace,
+    apiStatusToPlaceStatus,
+    getPlaceComments,
+    addPlaceComment,
+    deletePlaceComment,
 } from '@/entities/trip'
 import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
+import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
 import { useCurrentUserStore } from '@/shared/model'
 import { ItineraryPanel } from './itinerary-panel'
@@ -31,9 +40,9 @@ type RecordTab = 'records' | 'expenses'
 
 const STATUS_TABS: { key: PlaceStatus | 'all'; label: string }[] = [
     { key: 'all', label: '전체' },
-    { key: 'candidate', label: '후보' },
     { key: 'saved', label: '확정' },
-    { key: 'hold', label: '보류' },
+    { key: 'hold', label: '투표중' },
+    { key: 'rejected', label: '탈락' },
 ]
 
 type Props = {
@@ -47,6 +56,9 @@ type Props = {
     onUpdatePlace: (id: string, update: (place: Place) => Place) => void
     onAddPlace: (place: Place) => void
     onDeletePlace: (id: string) => void
+    loadError?: string | null
+    canManage: boolean
+    tripId: number
 }
 
 export function RoomDetailPanel({
@@ -60,6 +72,9 @@ export function RoomDetailPanel({
     onUpdatePlace,
     onAddPlace,
     onDeletePlace,
+    loadError,
+    canManage,
+    tripId,
 }: Props) {
     const currentUserId = String(
         useCurrentUserStore((state) => state.currentUser?.id) ?? '',
@@ -75,9 +90,13 @@ export function RoomDetailPanel({
     const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>('all')
     const [activityOpen, setActivityOpen] = useState(false)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
+    const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [isPublic, setIsPublic] = useState(true)
-    const canWrite = !isGuest && Boolean(currentUserId)
+    const [viewerMode, setViewerMode] = useState(false)
+    const [placeError, setPlaceError] = useState<string | null>(null)
+
+    const canWrite = canManage && !viewerMode
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const filtered = useMemo(
@@ -94,61 +113,116 @@ export function RoomDetailPanel({
         else setRecordTab('records')
     }
 
-    function handleVote(id: string, value: 'up' | 'down') {
-        onUpdatePlace(id, (place) => {
-            const existing = place.votes.find(
-                (vote) => vote.memberId === currentUserId,
-            )
-            const withoutMine = place.votes.filter(
-                (vote) => vote.memberId !== currentUserId,
-            )
-            return {
+    async function withVoteError<T>(
+        fn: () => Promise<T>,
+        fallbackMessage: string,
+    ): Promise<T> {
+        setPlaceError(null)
+        try {
+            return await fn()
+        } catch (error) {
+            setPlaceError(getApiErrorMessage(error, fallbackMessage))
+            throw error
+        }
+    }
+
+    async function handleStartVote(id: string) {
+        const target = places.find((place) => place.id === id)
+        const voteSummary = await withVoteError(
+            () => startTripPlaceVote(tripId, Number(id)),
+            '투표 신청에 실패했습니다.',
+        )
+        onUpdatePlace(id, (place) => ({
+            ...place,
+            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
+            voteSummary,
+        }))
+    }
+
+    async function openCommentSheet(placeId: string) {
+        setCommentError(null)
+        setCommentPlaceId(placeId)
+        try {
+            const comments = await getPlaceComments(tripId, Number(placeId))
+            onUpdatePlace(placeId, (place) => ({
                 ...place,
-                votes:
-                    existing?.value === value
-                        ? withoutMine
-                        : [...withoutMine, { memberId: currentUserId, value }],
-            }
-        })
+                comments: comments.map((c) => ({
+                    id: String(c.id),
+                    memberId: String(c.memberId),
+                    text: c.content,
+                    createdAt: c.createdAt,
+                })),
+            }))
+        } catch (error) {
+            setCommentError(getApiErrorMessage(error, '댓글을 불러오지 못했습니다.'))
+        }
     }
 
-    function mapPlaceTypeToCategory(placeType: string | null): PlaceCategory {
-        if (!placeType) return 'attraction'
-        if (placeType.includes('restaurant') || placeType.includes('food'))
-            return 'food'
-        if (placeType.includes('cafe') || placeType.includes('coffee'))
-            return 'cafe'
-        if (placeType.includes('shopping') || placeType.includes('store'))
-            return 'shopping'
-        if (placeType.includes('park') || placeType.includes('garden'))
-            return 'nature'
-        return 'attraction'
+    async function handleAddComment(placeId: string, text: string) {
+        setCommentError(null)
+        try {
+            const comment = await addPlaceComment(tripId, Number(placeId), text)
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                comments: [
+                    ...place.comments,
+                    {
+                        id: String(comment.id),
+                        memberId: String(comment.memberId),
+                        text: comment.content,
+                        createdAt: comment.createdAt,
+                    },
+                ],
+            }))
+        } catch (error) {
+            setCommentError(getApiErrorMessage(error, '댓글 등록에 실패했습니다.'))
+            throw error
+        }
     }
 
-    function handleAdd(result: PlaceSearchResult) {
-        const category = mapPlaceTypeToCategory(result.placeType)
-        const fallbackImages: Record<PlaceCategory, string> = {
-            cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
-            nature: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
-            food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
-            attraction: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
-            shopping: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
+    async function handleDeleteComment(placeId: string, commentId: string) {
+        setCommentError(null)
+        try {
+            await deletePlaceComment(tripId, Number(placeId), Number(commentId))
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                comments: place.comments.filter((c) => c.id !== commentId),
+            }))
+        } catch (error) {
+            setCommentError(getApiErrorMessage(error, '댓글 삭제에 실패했습니다.'))
+            throw error
         }
-        const place: Place = {
-            id: `p${Date.now()}`,
-            roomId: room.id,
-            name: result.name,
-            address: result.address,
-            category,
-            status: 'candidate',
-            image: result.imageUrl ?? fallbackImages[category],
-            lat: result.latitude,
-            lng: result.longitude,
-            addedBy: currentUserId,
-            votes: [],
-            comments: [],
+    }
+
+    async function handleVote(id: string, value: 'up' | 'down') {
+        const target = places.find((place) => place.id === id)
+        const voteSummary = await withVoteError(
+            () =>
+                respondTripPlaceVote(
+                    tripId,
+                    Number(id),
+                    value === 'up' ? 'AGREE' : 'DISAGREE',
+                ),
+            '투표 응답에 실패했습니다.',
+        )
+        onUpdatePlace(id, (place) => ({
+            ...place,
+            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
+            voteSummary,
+        }))
+    }
+
+    async function handleAdd(result: PlaceSearchResult) {
+        setPlaceError(null)
+        try {
+            const tripPlace = await addTripPlace(tripId, result)
+            onAddPlace(fromApiToPlace(tripPlace, room.id))
+        } catch (error) {
+            setPlaceError(
+                getApiErrorMessage(error, '장소 추가에 실패했습니다.'),
+            )
+            throw error
         }
-        onAddPlace(place)
     }
 
     function focusPlace(placeId: string) {
@@ -256,6 +330,14 @@ export function RoomDetailPanel({
                 <>
                     <div className="border-b border-slate-100">
                         {canWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {(loadError || placeError) && (
+                            <p
+                                role="alert"
+                                className="mx-3 mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"
+                            >
+                                {placeError ?? loadError}
+                            </p>
+                        )}
                         <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5">
                             {STATUS_TABS.map((status) => {
                                 const count =
@@ -295,23 +377,28 @@ export function RoomDetailPanel({
                                     onVote={(value) =>
                                         handleVote(place.id, value)
                                     }
-                                    onSave={() => {
-                                        onUpdatePlace(place.id, (item) => ({
-                                            ...item,
-                                            status: 'saved',
-                                        }))
-                                    }}
-                                    onHold={() => {
-                                        onUpdatePlace(place.id, (item) => ({
-                                            ...item,
-                                            status: 'hold',
-                                        }))
-                                    }}
-                                    onDelete={() => {
-                                        onDeletePlace(place.id)
+                                    onStartVote={() =>
+                                        handleStartVote(place.id)
+                                    }
+                                    onDelete={async () => {
+                                        setPlaceError(null)
+                                        try {
+                                            await deleteTripPlace(
+                                                tripId,
+                                                Number(place.id),
+                                            )
+                                            onDeletePlace(place.id)
+                                        } catch (error) {
+                                            setPlaceError(
+                                                getApiErrorMessage(
+                                                    error,
+                                                    '장소 삭제에 실패했습니다.',
+                                                ),
+                                            )
+                                        }
                                     }}
                                     onOpenComments={() =>
-                                        setCommentPlaceId(place.id)
+                                        void openCommentSheet(place.id)
                                     }
                                 />
                             ))
@@ -372,7 +459,7 @@ export function RoomDetailPanel({
                         </button>
                     </div>
                     <div className="mp-scroll flex-1 overflow-y-auto">
-                        <ActivityLogPanel tripId={room.backendId} />
+                        <ActivityLogPanel tripId={room.apiTripId} />
                     </div>
                 </div>
             )}
@@ -380,26 +467,22 @@ export function RoomDetailPanel({
                 <CommentSheet
                     place={commentPlace}
                     canWrite={canWrite}
-                    onClose={() => setCommentPlaceId(null)}
+                    error={commentError}
+                    onClose={() => {
+                        setCommentPlaceId(null)
+                        setCommentError(null)
+                    }}
                     onAddComment={(text) =>
-                        onUpdatePlace(commentPlace.id, (place) => ({
-                            ...place,
-                            comments: [
-                                ...place.comments,
-                                {
-                                    id: `c${Date.now()}`,
-                                    memberId: currentUserId,
-                                    text,
-                                    createdAt: '방금',
-                                },
-                            ],
-                        }))
+                        handleAddComment(commentPlace.id, text)
+                    }
+                    onDeleteComment={(commentId) =>
+                        handleDeleteComment(commentPlace.id, commentId)
                     }
                 />
             )}
-            {inviteOpen && room.backendId && (
+            {inviteOpen && room.apiTripId && (
                 <InviteModal
-                    tripId={room.backendId}
+                    tripId={room.apiTripId}
                     onClose={() => setInviteOpen(false)}
                 />
             )}

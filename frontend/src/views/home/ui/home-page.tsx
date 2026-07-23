@@ -168,12 +168,12 @@ export function Home() {
     ])
 
     useEffect(() => {
-        if (currentUser && activeTrip.backendId) {
-            void loadActivityLogs(activeTrip.backendId)
+        if (currentUser && activeTrip.apiTripId) {
+            void loadActivityLogs(activeTrip.apiTripId)
         } else {
             resetActivityLogs()
         }
-    }, [activeTrip.backendId, currentUser, loadActivityLogs, resetActivityLogs])
+    }, [activeTrip.apiTripId, currentUser, loadActivityLogs, resetActivityLogs])
 
     function toggleTask(id: string) {
         setTasks((current) => current.filter((task) => task.id !== id))

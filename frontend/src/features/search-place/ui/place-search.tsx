@@ -2,33 +2,12 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { SearchIcon, PlusIcon, XIcon } from 'lucide-react'
+import { resolvePlacePresentation } from '@/entities/trip'
 import { searchPlaces } from '../api/placeApi'
 import type { PlaceSearchResult } from '../model/types'
 
-function getPlaceEmoji(placeType: string | null): string {
-    if (!placeType) return '📍'
-    if (placeType.includes('restaurant') || placeType.includes('food'))
-        return '🍜'
-    if (placeType.includes('cafe') || placeType.includes('coffee')) return '☕️'
-    if (placeType.includes('shopping') || placeType.includes('store'))
-        return '🛍️'
-    if (
-        placeType.includes('park') ||
-        placeType.includes('nature') ||
-        placeType.includes('garden')
-    )
-        return '🌿'
-    if (
-        placeType.includes('museum') ||
-        placeType.includes('attraction') ||
-        placeType.includes('tourist')
-    )
-        return '🏛️'
-    return '📍'
-}
-
 type Props = {
-    onAdd: (r: PlaceSearchResult) => void
+    onAdd: (r: PlaceSearchResult) => Promise<void>
 }
 
 export function PlaceSearch({ onAdd }: Props) {
@@ -135,7 +114,12 @@ export function PlaceSearch({ onAdd }: Props) {
                                     className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50"
                                 >
                                     <span className="text-lg">
-                                        {getPlaceEmoji(r.placeType)}
+                                        {
+                                            resolvePlacePresentation(
+                                                r.name,
+                                                r.placeType,
+                                            ).emoji
+                                        }
                                     </span>
                                     <div className="min-w-0 flex-1">
                                         <div className="truncate text-sm font-medium">
@@ -147,12 +131,16 @@ export function PlaceSearch({ onAdd }: Props) {
                                     </div>
                                     <button
                                         disabled={isAdded}
-                                        onClick={() => {
-                                            onAdd(r)
-                                            setAdded((prev) => [
-                                                ...prev,
-                                                r.googlePlaceId,
-                                            ])
+                                        onClick={async () => {
+                                            try {
+                                                await onAdd(r)
+                                                setAdded((prev) => [
+                                                    ...prev,
+                                                    r.googlePlaceId,
+                                                ])
+                                            } catch {
+                                                // 호출부에서 사용자 오류 UI를 처리한다.
+                                            }
                                         }}
                                         className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                                             isAdded
@@ -164,7 +152,8 @@ export function PlaceSearch({ onAdd }: Props) {
                                             '추가됨'
                                         ) : (
                                             <>
-                                                <PlusIcon size={13} /> 후보 추가
+                                                <PlusIcon size={13} /> 지도에
+                                                추가
                                             </>
                                         )}
                                     </button>
