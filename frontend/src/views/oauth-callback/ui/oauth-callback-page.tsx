@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { setAccessToken } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { useCurrentUserStore } from '@/shared/model'
 
@@ -16,15 +17,13 @@ export function OAuthCallback() {
 
         const params = new URLSearchParams(window.location.search)
         const accessToken = params.get('accessToken')
-        const refreshToken = params.get('refreshToken')
 
-        if (!accessToken || !refreshToken) {
+        if (!accessToken) {
             navigate('/login', { replace: true })
             return
         }
 
-        localStorage.setItem('accessToken', accessToken)
-        localStorage.setItem('refreshToken', refreshToken)
+        setAccessToken(accessToken)
 
         fetchCurrentUser(accessToken)
             .then((user) => {

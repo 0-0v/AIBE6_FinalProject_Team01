@@ -1,5 +1,5 @@
 import type { Notification } from '@/entities/notification'
-import { apiClient } from '@/shared/api/client'
+import { apiClient, getAccessToken } from '@/shared/api/client'
 
 type ApiResponse<T> = {
     success: boolean
@@ -27,7 +27,7 @@ type ReadCountResponse = {
 }
 
 function authorizationHeaders(): HeadersInit {
-    const accessToken = window.localStorage.getItem('accessToken')
+    const accessToken = getAccessToken()
     if (!accessToken) {
         throw new Error('로그인이 필요합니다.')
     }

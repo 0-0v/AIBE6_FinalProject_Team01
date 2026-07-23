@@ -16,6 +16,7 @@ import { Login } from '@/views/login'
 import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
+import { restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { useCurrentUserStore } from '@/shared/model'
 
@@ -52,19 +53,18 @@ export function App() {
         if (currentUser || window.location.pathname === '/oauth/callback') {
             return
         }
-        const accessToken = localStorage.getItem('accessToken')
-        if (!accessToken) {
-            finishInitialization()
-            return
-        }
-        fetchCurrentUser(accessToken).then((user) => {
-            if (user) {
-                setCurrentUser(user)
+        restoreSession().then((accessToken) => {
+            if (!accessToken) {
+                finishInitialization()
                 return
             }
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('refreshToken')
-            clearCurrentUser()
+            fetchCurrentUser(accessToken).then((user) => {
+                if (user) {
+                    setCurrentUser(user)
+                    return
+                }
+                clearCurrentUser()
+            })
         })
     }, [clearCurrentUser, currentUser, finishInitialization, setCurrentUser])
 
