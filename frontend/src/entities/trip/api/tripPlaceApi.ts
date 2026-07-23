@@ -19,6 +19,7 @@ type TripPlaceResponse = {
     imageUrl: string | null
     status: 'SAVED' | 'HOLD' | 'REJECTED'
     addedBy: number
+    commentCount: number
 }
 
 type AddTripPlaceBody = {
@@ -86,6 +87,7 @@ export function fromApiToPlace(
         addedBy: String(tp.addedBy),
         voteSummary,
         comments: [],
+        commentCount: tp.commentCount ?? 0,
     }
 }
 

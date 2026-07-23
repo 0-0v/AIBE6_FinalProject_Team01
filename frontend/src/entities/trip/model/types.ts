@@ -46,6 +46,7 @@ export type Place = {
     addedBy: string
     voteSummary?: PlaceVoteSummary
     comments: Comment[]
+    commentCount: number
     duplicateOf?: string
 }
 

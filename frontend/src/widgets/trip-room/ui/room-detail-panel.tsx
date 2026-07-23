@@ -117,6 +117,7 @@ export function RoomDetailPanel({
                 onUpdatePlace(commentPlaceId, (place) => ({
                     ...place,
                     comments,
+                    commentCount: comments.length,
                 }))
             })
             .catch(() => {
@@ -197,6 +198,7 @@ export function RoomDetailPanel({
             onUpdatePlace(placeId, (place) => ({
                 ...place,
                 comments: [...place.comments, newComment],
+                commentCount: place.commentCount + 1,
             }))
             refreshCollaborationData()
         } catch (error) {
@@ -215,6 +217,7 @@ export function RoomDetailPanel({
             onUpdatePlace(placeId, (place) => ({
                 ...place,
                 comments: place.comments.filter((c) => c.id !== commentId),
+                commentCount: Math.max(0, place.commentCount - 1),
             }))
         } catch (error) {
             setCommentError(
