@@ -4,6 +4,7 @@ import {
     HistoryIcon,
     LoaderCircleIcon,
     UserRoundIcon,
+    RefreshCwIcon,
 } from 'lucide-react'
 import type { ActivityLog } from '@/entities/activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
@@ -94,6 +95,15 @@ export function ActivityLogPanel({ tripId }: Props) {
         <div className="p-3">
             <div className="mb-2 flex items-center gap-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 <HistoryIcon size={13} /> 활동 로그
+                <button
+                    type="button"
+                    onClick={() => void loadActivityLogs(tripId)}
+                    disabled={isLoading}
+                    className="ml-auto rounded-md p-1 hover:bg-slate-100 disabled:opacity-50"
+                    aria-label="활동 로그 새로고침"
+                >
+                    <RefreshCwIcon size={12} className={isLoading ? 'animate-spin' : ''} />
+                </button>
             </div>
             <div className="space-y-1">
                 {logs.map((log) => {

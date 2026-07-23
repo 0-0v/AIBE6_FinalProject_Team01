@@ -1,17 +1,19 @@
 import { create } from 'zustand'
 import type { Room } from '@/entities/trip'
-import { fetchTrips, type TripResponse } from '../api/trip-api'
+import { fetchInvitedTrip, fetchTrips, type TripResponse } from '../api/trip-api'
 
 type TripState = {
     trips: TripResponse[]
     rooms: Room[]
+    guestRoom: Room | null
     isLoading: boolean
     error: string | null
     loadTrips: () => Promise<void>
+    loadInvitedTrip: (inviteCode: string) => Promise<void>
     resetTrips: () => void
 }
 
-function toRoom(trip: TripResponse): Room {
+export function toRoom(trip: TripResponse): Room {
     const date = trip.startDate && trip.endDate
         ? `${trip.startDate} ~ ${trip.endDate}`
         : '날짜 미정'
@@ -41,6 +43,7 @@ function toRoom(trip: TripResponse): Room {
 export const useTripStore = create<TripState>((set) => ({
     trips: [],
     rooms: [],
+    guestRoom: null,
     isLoading: false,
     error: null,
     loadTrips: async () => {
@@ -57,5 +60,14 @@ export const useTripStore = create<TripState>((set) => ({
             })
         }
     },
-    resetTrips: () => set({ trips: [], rooms: [], error: null, isLoading: false }),
+    loadInvitedTrip: async (inviteCode) => {
+        set({ guestRoom: null, isLoading: true, error: null })
+        try {
+            const trip = await fetchInvitedTrip(inviteCode)
+            set({ guestRoom: toRoom(trip), isLoading: false })
+        } catch (error) {
+            set({ isLoading: false, error: error instanceof Error ? error.message : '초대 여행방을 불러오지 못했습니다.' })
+        }
+    },
+    resetTrips: () => set({ trips: [], rooms: [], guestRoom: null, error: null, isLoading: false }),
 }))

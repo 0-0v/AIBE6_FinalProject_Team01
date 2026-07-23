@@ -33,6 +33,7 @@ function AppShell() {
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
                     <Route path="room/:roomId?" element={<TripRoom />} />
+                    <Route path="room/invite/:inviteCode" element={<TripRoom />} />
                     <Route path="updates" element={<Updates />} />
                     <Route path="mypage" element={<MyPage />} />
                 </Routes>

@@ -100,3 +100,17 @@ export async function completeTrip(
     )
     return response.data
 }
+
+export async function createTripInvitation(id: number) {
+    const response = await apiClient.post<
+        ApiResponse<{ inviteCode: string; expiresAt: string }>
+    >(`/api/trips/${id}/invitations`, {}, { headers: authHeaders() })
+    return response.data
+}
+
+export async function fetchInvitedTrip(inviteCode: string) {
+    const response = await apiClient.get<ApiResponse<TripResponse>>(
+        `/api/trip-invitations/${encodeURIComponent(inviteCode)}/preview`,
+    )
+    return response.data
+}

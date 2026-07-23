@@ -9,10 +9,24 @@ import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 
 export function TripRoom() {
     const navigate = useNavigate()
-    const { roomId } = useParams<{ roomId?: string }>()
+    const { roomId, inviteCode } = useParams<{
+        roomId?: string
+        inviteCode?: string
+    }>()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const { trips, rooms, isLoading, error, loadTrips, resetTrips } = useTripStore()
-    const room = rooms.find((item) => item.id === roomId)
+    const {
+        trips,
+        rooms,
+        guestRoom,
+        isLoading,
+        error,
+        loadTrips,
+        loadInvitedTrip,
+        resetTrips,
+    } = useTripStore()
+    const room = inviteCode
+        ? guestRoom
+        : rooms.find((item) => item.id === roomId)
     const trip = trips.find((item) => String(item.id) === roomId)
 
     const [places, setPlaces] = useState<Place[]>([])
@@ -22,9 +36,10 @@ export function TripRoom() {
     const [manageOpen, setManageOpen] = useState(false)
 
     useEffect(() => {
-        if (currentUser) void loadTrips()
+        if (inviteCode) void loadInvitedTrip(inviteCode)
+        else if (currentUser) void loadTrips()
         else resetTrips()
-    }, [currentUser, loadTrips, resetTrips])
+    }, [currentUser, inviteCode, loadInvitedTrip, loadTrips, resetTrips])
 
     const displayedPlaces = useMemo(
         () =>
@@ -92,6 +107,7 @@ export function TripRoom() {
                                 onSelectPlace={setSelectedId}
                                 onBack={() => navigate('/app/room')}
                                 onManage={() => setManageOpen(true)}
+                                isGuest={Boolean(inviteCode && !currentUser)}
                                 onUpdatePlace={updatePlace}
                                 onAddPlace={addPlace}
                                 onDeletePlace={deletePlace}

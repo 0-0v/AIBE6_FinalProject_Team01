@@ -1,7 +1,6 @@
 import React from 'react'
 import {
     ArrowLeftIcon,
-    EyeIcon,
     LockIcon,
     UnlockIcon,
     UserPlusIcon,
@@ -13,9 +12,8 @@ type Props = {
     subtitle: string
     isPublic: boolean
     isOwner: boolean
-    viewerMode: boolean
+    canWrite: boolean
     onTogglePublic: () => void
-    onToggleViewer: () => void
     onInvite: () => void
     onBack: () => void
     onManage: () => void
@@ -26,9 +24,8 @@ export function RoomHeader({
     subtitle,
     isPublic,
     isOwner,
-    viewerMode,
+    canWrite,
     onTogglePublic,
-    onToggleViewer,
     onInvite,
     onBack,
     onManage,
@@ -70,35 +67,25 @@ export function RoomHeader({
                         {subtitle}
                     </p>
                 </div>
-                <button
+                {canWrite && <button
                     onClick={onManage}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"
                     aria-label="여행방 관리"
                 >
                     <Settings2Icon size={16} />
-                </button>
-                <button
+                </button>}
+                {canWrite && <button
                     onClick={onInvite}
                     className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
                 >
                     <UserPlusIcon size={15} /> 초대
-                </button>
+                </button>}
             </div>
 
             <div className="mt-2.5 flex items-center justify-between gap-2">
-                {/* viewer-mode demo toggle */}
-                <button
-                    onClick={onToggleViewer}
-                    title="비로그인/조회 전용 미리보기"
-                    className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
-                        viewerMode
-                            ? 'border-amber-300 bg-amber-50 text-amber-700'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                    }`}
-                >
-                    <EyeIcon size={14} />{' '}
-                    {viewerMode ? '조회 전용' : '편집 모드'}
-                </button>
+                <span className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold ${canWrite ? 'border-brand-100 bg-brand-50 text-brand-700' : 'border-amber-300 bg-amber-50 text-amber-700'}`}>
+                    {canWrite ? '편집 모드' : '조회 전용'}
+                </span>
 
                 <span className="text-xs font-semibold text-slate-400">
                     멤버 정보 준비 중
