@@ -1,4 +1,9 @@
-export type NotificationType = 'VOTE' | 'AI' | 'ITINERARY' | 'SETTLEMENT'
+export type NotificationType =
+    | 'VOTE'
+    | 'AI'
+    | 'ITINERARY'
+    | 'SETTLEMENT'
+    | 'TRIP'
 
 export type Notification = {
     id: number
