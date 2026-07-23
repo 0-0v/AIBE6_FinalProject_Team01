@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 
 import back.backend.domain.place.dto.request.AddPlaceCommentRequest;
+import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.place.dto.response.PlaceCommentResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceComment;
@@ -36,6 +37,7 @@ class PlaceCommentServiceTest {
     @Mock private TripPlaceRepository tripPlaceRepository;
     @Mock private PlaceCommentRepository commentRepository;
     @Mock private TripAccessChecker accessChecker;
+    @Mock private CollaborationEventService collaborationEventService;
 
     @InjectMocks private PlaceCommentService commentService;
 
@@ -85,6 +87,17 @@ class PlaceCommentServiceTest {
         assertThat(result.memberId()).isEqualTo(1L);
         assertThat(result.content()).isEqualTo("맛있는 곳이에요");
         then(commentRepository).should().save(any(PlaceComment.class));
+        then(collaborationEventService).should().record(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("PLACE_COMMENT_ADDED"),
+                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
+                org.mockito.ArgumentMatchers.eq(10L),
+                any(),
+                any(),
+                any(),
+                any()
+        );
     }
 
     @Test

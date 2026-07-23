@@ -449,7 +449,16 @@ export function Home() {
                                     <SectionTitle
                                         title="최근 활동"
                                         action={
-                                            <button className="text-xs font-bold text-slate-400 hover:text-slate-700">
+                                            <button
+                                                type="button"
+                                                disabled={!activeTrip.id}
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/app/room/${activeTrip.id}?activity=open`,
+                                                    )
+                                                }
+                                                className="text-xs font-bold text-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
                                                 모두 보기
                                             </button>
                                         }

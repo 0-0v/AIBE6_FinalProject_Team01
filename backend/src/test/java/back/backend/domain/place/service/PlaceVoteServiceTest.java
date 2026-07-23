@@ -9,6 +9,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import back.backend.domain.place.dto.request.RespondPlaceVoteRequest;
+import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.place.dto.response.PlaceVoteSummaryResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceVoteChoice;
@@ -24,6 +25,7 @@ import back.backend.domain.place.repository.PlaceVoteResponseRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.security.SecurityContextAccessor;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +46,8 @@ class PlaceVoteServiceTest {
     @Mock private PlaceVoteNotificationRepository notificationRepository;
     @Mock private SecurityContextAccessor securityContextAccessor;
     @Mock private TripAccessChecker accessChecker;
+    @Mock private TripMemberRepository tripMemberRepository;
+    @Mock private CollaborationEventService collaborationEventService;
 
     @InjectMocks private PlaceVoteService placeVoteService;
 
@@ -68,7 +72,7 @@ class PlaceVoteServiceTest {
     void t1_memberStartsVoteAndNotifiesMembers() {
         given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
         given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.empty());
-        given(notificationRepository.findTripMemberIds(1L)).willReturn(List.of(1L, 2L, 3L, 4L));
+        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(1L, 2L, 3L, 4L));
         given(voteRequestRepository.save(any())).willAnswer(invocation -> {
             PlaceVoteRequest request = invocation.getArgument(0);
             ReflectionTestUtils.setField(request, "id", 100L);
@@ -83,7 +87,17 @@ class PlaceVoteServiceTest {
         assertThat(result.expiresAt()).isNotNull();
         assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.HOLD);
         assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.HOLD);
-        then(notificationRepository).should().notifyVoteRequested(1L, 10L, 1L, "성산일출봉", List.of(1L, 2L, 3L, 4L));
+        then(collaborationEventService).should().record(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_STARTED"),
+                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
+                org.mockito.ArgumentMatchers.eq(10L),
+                any(),
+                any(),
+                any(),
+                any()
+        );
     }
 
     @Test
@@ -185,7 +199,7 @@ class PlaceVoteServiceTest {
         given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
         given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L))
                 .willReturn(Optional.of(closedRequest));
-        given(notificationRepository.findTripMemberIds(1L)).willReturn(List.of(1L, 2L));
+        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(1L, 2L));
         given(voteRequestRepository.save(any())).willAnswer(invocation -> {
             PlaceVoteRequest request = invocation.getArgument(0);
             ReflectionTestUtils.setField(request, "id", 101L);

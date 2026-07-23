@@ -5,5 +5,6 @@ public enum NotificationType {
     AI,
     ITINERARY,
     SETTLEMENT,
-    TRIP
+    TRIP,
+    PLACE
 }

@@ -28,6 +28,8 @@ import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
+import { useActivityLogStore } from '@/features/view-activity-log'
+import { useNotificationStore } from '@/features/manage-notification'
 import { useCurrentUserStore } from '@/shared/model'
 import { ItineraryPanel } from './itinerary-panel'
 import { PlaceCard } from './place-card'
@@ -52,13 +54,13 @@ type Props = {
     onSelectPlace: (id: string) => void
     onBack: () => void
     onManage: () => void
-    isGuest: boolean
     onUpdatePlace: (id: string, update: (place: Place) => Place) => void
     onAddPlace: (place: Place) => void
     onDeletePlace: (id: string) => void
     loadError?: string | null
     canManage: boolean
     tripId: number
+    initialActivityOpen?: boolean
 }
 
 export function RoomDetailPanel({
@@ -68,13 +70,13 @@ export function RoomDetailPanel({
     onSelectPlace,
     onBack,
     onManage,
-    isGuest,
     onUpdatePlace,
     onAddPlace,
     onDeletePlace,
     loadError,
     canManage,
     tripId,
+    initialActivityOpen = false,
 }: Props) {
     const currentUserId = String(
         useCurrentUserStore((state) => state.currentUser?.id) ?? '',
@@ -88,15 +90,20 @@ export function RoomDetailPanel({
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
     const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>('all')
-    const [activityOpen, setActivityOpen] = useState(false)
+    const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [isPublic, setIsPublic] = useState(true)
-    const [viewerMode, setViewerMode] = useState(false)
+    const loadActivityLogs = useActivityLogStore(
+        (state) => state.loadActivityLogs,
+    )
+    const loadNotifications = useNotificationStore(
+        (state) => state.loadNotifications,
+    )
     const [placeError, setPlaceError] = useState<string | null>(null)
 
-    const canWrite = canManage && !viewerMode
+    const canWrite = canManage
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const filtered = useMemo(
@@ -106,6 +113,11 @@ export function RoomDetailPanel({
                 : places.filter((place) => place.status === statusFilter),
         [places, statusFilter],
     )
+
+    function refreshCollaborationData() {
+        void loadActivityLogs(tripId)
+        void loadNotifications()
+    }
 
     function switchMode(nextMode: Mode) {
         setMode(nextMode)
@@ -127,7 +139,6 @@ export function RoomDetailPanel({
     }
 
     async function handleStartVote(id: string) {
-        const target = places.find((place) => place.id === id)
         const voteSummary = await withVoteError(
             () => startTripPlaceVote(tripId, Number(id)),
             '투표 신청에 실패했습니다.',
@@ -137,6 +148,7 @@ export function RoomDetailPanel({
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
             voteSummary,
         }))
+        refreshCollaborationData()
     }
 
     async function openCommentSheet(placeId: string) {
@@ -154,7 +166,9 @@ export function RoomDetailPanel({
                 })),
             }))
         } catch (error) {
-            setCommentError(getApiErrorMessage(error, '댓글을 불러오지 못했습니다.'))
+            setCommentError(
+                getApiErrorMessage(error, '댓글을 불러오지 못했습니다.'),
+            )
         }
     }
 
@@ -174,8 +188,11 @@ export function RoomDetailPanel({
                     },
                 ],
             }))
+            refreshCollaborationData()
         } catch (error) {
-            setCommentError(getApiErrorMessage(error, '댓글 등록에 실패했습니다.'))
+            setCommentError(
+                getApiErrorMessage(error, '댓글 등록에 실패했습니다.'),
+            )
             throw error
         }
     }
@@ -189,13 +206,14 @@ export function RoomDetailPanel({
                 comments: place.comments.filter((c) => c.id !== commentId),
             }))
         } catch (error) {
-            setCommentError(getApiErrorMessage(error, '댓글 삭제에 실패했습니다.'))
+            setCommentError(
+                getApiErrorMessage(error, '댓글 삭제에 실패했습니다.'),
+            )
             throw error
         }
     }
 
     async function handleVote(id: string, value: 'up' | 'down') {
-        const target = places.find((place) => place.id === id)
         const voteSummary = await withVoteError(
             () =>
                 respondTripPlaceVote(
@@ -210,6 +228,7 @@ export function RoomDetailPanel({
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
             voteSummary,
         }))
+        refreshCollaborationData()
     }
 
     async function handleAdd(result: PlaceSearchResult) {
@@ -217,6 +236,7 @@ export function RoomDetailPanel({
         try {
             const tripPlace = await addTripPlace(tripId, result)
             onAddPlace(fromApiToPlace(tripPlace, room.id))
+            refreshCollaborationData()
         } catch (error) {
             setPlaceError(
                 getApiErrorMessage(error, '장소 추가에 실패했습니다.'),
@@ -388,6 +408,7 @@ export function RoomDetailPanel({
                                                 Number(place.id),
                                             )
                                             onDeletePlace(place.id)
+                                            refreshCollaborationData()
                                         } catch (error) {
                                             setPlaceError(
                                                 getApiErrorMessage(

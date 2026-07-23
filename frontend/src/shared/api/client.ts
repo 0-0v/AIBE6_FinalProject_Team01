@@ -4,7 +4,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'
 
 type RequestOptions = Omit<RequestInit, 'method' | 'body'>
 
-type ApiEnvelope<T> = {
+export type ApiResponse<T> = {
     success: boolean
     message: string
     data: T
@@ -49,7 +49,7 @@ async function refreshAccessToken(): Promise<string> {
         throw new Error('토큰 재발급에 실패했습니다.')
     }
 
-    const body = (await res.json()) as ApiEnvelope<{ accessToken: string }>
+    const body = (await res.json()) as ApiResponse<{ accessToken: string }>
     setAccessToken(body.data.accessToken)
     return body.data.accessToken
 }
@@ -104,7 +104,10 @@ async function request<T>(
             const newAccessToken = await refreshPromise
             return request<T>(
                 path,
-                { ...init, headers: withAccessToken(init?.headers, newAccessToken) },
+                {
+                    ...init,
+                    headers: withAccessToken(init?.headers, newAccessToken),
+                },
                 false,
             )
         } catch {

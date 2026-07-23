@@ -1,9 +1,5 @@
 export type NotificationType =
-    | 'VOTE'
-    | 'AI'
-    | 'ITINERARY'
-    | 'SETTLEMENT'
-    | 'TRIP'
+    'VOTE' | 'AI' | 'ITINERARY' | 'SETTLEMENT' | 'TRIP' | 'PLACE'
 
 export type Notification = {
     id: number
