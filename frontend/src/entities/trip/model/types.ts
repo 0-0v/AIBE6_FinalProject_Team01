@@ -41,15 +41,6 @@ export type Place = {
     duplicateOf?: string
 }
 
-export type ActivityLog = {
-    id: string
-    memberId: string
-    action: string
-    target: string
-    createdAt: string
-    undoable: boolean
-}
-
 export type TravelRecord = {
     id: string
     memberId: string
@@ -63,6 +54,7 @@ export type TravelRecord = {
 
 export type Room = {
     id: string
+    backendId?: number
     title: string
     date: string
     location: string

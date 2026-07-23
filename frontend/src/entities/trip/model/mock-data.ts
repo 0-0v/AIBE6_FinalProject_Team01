@@ -1,4 +1,4 @@
-import { Member, Place, ActivityLog, Room } from './types'
+import { Member, Place, Room } from './types'
 
 export const currentUserId = 'm1'
 
@@ -8,7 +8,6 @@ export const members: Member[] = [
     { id: 'm3', name: '서연', avatarColor: '#7c3aed', role: 'EDITOR' },
     { id: 'm4', name: '준호', avatarColor: '#2563eb', role: 'VIEWER' },
 ]
-
 export const CATEGORY_META: Record<
     string,
     { label: string; color: string; emoji: string }
@@ -213,6 +212,7 @@ export const initialPlaces: Place[] = [
 export const rooms: Room[] = [
     {
         id: 'jeju-family',
+        backendId: 1,
         title: '제주도 가족여행',
         date: '2026. 08. 12 – 08. 15',
         location: '제주도',
@@ -225,6 +225,7 @@ export const rooms: Room[] = [
     },
     {
         id: 'busan-friends',
+        backendId: 2,
         title: '부산 친구 여행',
         date: '2026. 09. 07 – 09. 09',
         location: '부산광역시',
@@ -237,6 +238,7 @@ export const rooms: Room[] = [
     },
     {
         id: 'gangneung-weekend',
+        backendId: 3,
         title: '강릉 주말 여행',
         date: '2026. 09. 20 – 09. 21',
         location: '강릉시',
@@ -246,32 +248,5 @@ export const rooms: Room[] = [
         cover: IMG.cafe,
         status: '준비 중',
         color: '#0ea5e9',
-    },
-]
-
-export const initialLogs: ActivityLog[] = [
-    {
-        id: 'l1',
-        memberId: 'm3',
-        action: '장소를 등록했어요',
-        target: '동문시장',
-        createdAt: '10분 전',
-        undoable: true,
-    },
-    {
-        id: 'l2',
-        memberId: 'm2',
-        action: '투표를 시작했어요',
-        target: '자매국수',
-        createdAt: '32분 전',
-        undoable: false,
-    },
-    {
-        id: 'l3',
-        memberId: 'm1',
-        action: '장소를 지도에 저장했어요',
-        target: '협재 해수욕장',
-        createdAt: '1시간 전',
-        undoable: true,
     },
 ]
