@@ -17,6 +17,9 @@ node_modules/
 out/
 coverage/
 
+### AI tool local data ###
+.claude/
+
 ### IDE and OS files ###
 .idea/
 .vscode/
