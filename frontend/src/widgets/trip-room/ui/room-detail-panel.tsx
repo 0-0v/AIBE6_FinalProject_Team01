@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
@@ -40,12 +40,7 @@ type Mode = 'plan' | 'record'
 type PlanTab = 'places' | 'itinerary'
 type RecordTab = 'records' | 'expenses'
 
-const STATUS_TABS: { key: PlaceStatus | 'all'; label: string }[] = [
-    { key: 'all', label: '전체' },
-    { key: 'saved', label: '확정' },
-    { key: 'hold', label: '투표중' },
-    { key: 'rejected', label: '탈락' },
-]
+
 
 type Props = {
     room: Room
@@ -89,7 +84,6 @@ export function RoomDetailPanel({
     )
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
-    const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>('all')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
@@ -106,13 +100,6 @@ export function RoomDetailPanel({
     const canWrite = canManage
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
-    const filtered = useMemo(
-        () =>
-            statusFilter === 'all'
-                ? places
-                : places.filter((place) => place.status === statusFilter),
-        [places, statusFilter],
-    )
 
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
@@ -248,7 +235,7 @@ export function RoomDetailPanel({
     function focusPlace(placeId: string) {
         setMode('plan')
         setPlanTab('places')
-        setStatusFilter('all')
+
         onSelectPlace(placeId)
     }
 
@@ -358,36 +345,14 @@ export function RoomDetailPanel({
                                 {placeError ?? loadError}
                             </p>
                         )}
-                        <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5">
-                            {STATUS_TABS.map((status) => {
-                                const count =
-                                    status.key === 'all'
-                                        ? places.length
-                                        : places.filter(
-                                              (place) =>
-                                                  place.status === status.key,
-                                          ).length
-                                return (
-                                    <button
-                                        key={status.key}
-                                        onClick={() =>
-                                            setStatusFilter(status.key)
-                                        }
-                                        className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold transition ${statusFilter === status.key ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                    >
-                                        {status.label} {count}
-                                    </button>
-                                )
-                            })}
-                        </div>
                     </div>
                     <div className="mp-scroll flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
-                        {filtered.length === 0 ? (
+                        {places.length === 0 ? (
                             <p className="py-16 text-center text-sm text-slate-400">
                                 해당하는 장소가 없어요
                             </p>
                         ) : (
-                            filtered.map((place) => (
+                            places.map((place) => (
                                 <PlaceCard
                                     key={place.id}
                                     place={place}

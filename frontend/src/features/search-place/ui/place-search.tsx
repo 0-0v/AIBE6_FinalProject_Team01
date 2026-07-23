@@ -88,7 +88,7 @@ export function PlaceSearch({ onAdd }: Props) {
             </div>
 
             {q.trim().length >= 2 && (
-                <div className="mt-2 overflow-hidden rounded-xl border border-slate-100">
+                <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-100">
                     {loading && (
                         <p className="px-3 py-4 text-center text-sm text-slate-400">
                             검색 중...
