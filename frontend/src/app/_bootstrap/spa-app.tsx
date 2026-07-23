@@ -34,6 +34,7 @@ function AppShell() {
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
                     <Route path="room/:roomId?" element={<TripRoom />} />
+                    <Route path="room/invite/:inviteCode" element={<TripRoom />} />
                     <Route path="updates" element={<Updates />} />
                     <Route path="mypage" element={<MyPage />} />
                 </Routes>
@@ -45,21 +46,27 @@ function AppShell() {
 export function App() {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const setCurrentUser = useCurrentUserStore((state) => state.setCurrentUser)
+    const clearCurrentUser = useCurrentUserStore((state) => state.clearCurrentUser)
+    const finishInitialization = useCurrentUserStore((state) => state.finishInitialization)
 
     useEffect(() => {
         if (currentUser || window.location.pathname === '/oauth/callback') {
             return
         }
-        const accessToken = localStorage.getItem('accessToken')
-        if (!accessToken) {
-            return
-        }
-        fetchCurrentUser(accessToken).then((user) => {
-            if (user) {
-                setCurrentUser(user)
+        restoreSession().then((accessToken) => {
+            if (!accessToken) {
+                finishInitialization()
+                return
             }
+            fetchCurrentUser(accessToken).then((user) => {
+                if (user) {
+                    setCurrentUser(user)
+                    return
+                }
+                clearCurrentUser()
+            })
         })
-    }, [currentUser, setCurrentUser])
+    }, [clearCurrentUser, currentUser, finishInitialization, setCurrentUser])
 
     return (
         <BrowserRouter>
