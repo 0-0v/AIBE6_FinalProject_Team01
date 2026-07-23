@@ -65,4 +65,19 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo("COMMON_500");
     }
+
+    @Test
+    @DisplayName("t5 중복 투표 응답 제약 위반이 발생하면 409를 반환한다")
+    void t5_duplicateVoteResponseReturnsConflict() {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "PUT", "/api/trips/1/places/10/votes/me");
+
+        ResponseEntity<ErrorResponse> response = handler.handleDataIntegrityViolationException(
+                new DataIntegrityViolationException(
+                        "uk_place_vote_responses_request_member"), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(CommonErrorCode.CONFLICT.getStatus());
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().code()).isEqualTo("COMMON_409");
+    }
 }

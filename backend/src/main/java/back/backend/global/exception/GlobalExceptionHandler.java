@@ -89,7 +89,8 @@ public class GlobalExceptionHandler {
             if (message != null) {
                 String normalized = message.toLowerCase();
                 if (normalized.contains("uk_trip_places_trip_place")
-                        || normalized.contains("uk_places_google_place_id")) {
+                        || normalized.contains("uk_places_google_place_id")
+                        || normalized.contains("uk_place_vote_responses_request_member")) {
                     return true;
                 }
             }

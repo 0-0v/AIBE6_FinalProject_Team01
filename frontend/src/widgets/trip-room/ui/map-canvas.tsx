@@ -93,7 +93,7 @@ function GoogleMapCanvas({
                                     backgroundColor: meta?.color ?? '#e7657a',
                                 }}
                             >
-                                {meta?.emoji ?? '📍'}
+                                {place.markerEmoji ?? meta?.emoji ?? '📍'}
                             </div>
                             {isSelected && (
                                 <div className="mt-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-semibold shadow-md">

@@ -1,13 +1,21 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
+    BellIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     CopyIcon,
     SearchIcon,
     SearchXIcon,
 } from 'lucide-react'
-import { exploreCards } from '@/entities/trip'
-import { NotificationList } from '@/features/manage-notification'
+import { useNavigate } from 'react-router-dom'
+import {
+    exploreCards,
+    getPlaceVoteNotifications,
+    markPlaceVoteNotificationRead,
+    rooms,
+} from '@/entities/trip'
+import type { PlaceVoteNotificationResponse } from '@/entities/trip'
+import { getApiErrorMessage } from '@/shared/api/client'
 
 const PAGE_SIZE = 6
 
@@ -233,6 +241,65 @@ export function Explore() {
 }
 
 export function Updates() {
+    const navigate = useNavigate()
+    const [updates, setUpdates] = useState<PlaceVoteNotificationResponse[]>([])
+    const [error, setError] = useState<string | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const controller = new AbortController()
+        getPlaceVoteNotifications(controller.signal)
+            .then((notifications) => {
+                setUpdates(notifications)
+                setError(null)
+            })
+            .catch((requestError: unknown) => {
+                if (controller.signal.aborted) return
+                setError(
+                    getApiErrorMessage(
+                        requestError,
+                        '알림을 불러오지 못했습니다.',
+                    ),
+                )
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false)
+            })
+        return () => controller.abort()
+    }, [])
+
+    async function openNotification(
+        notification: PlaceVoteNotificationResponse,
+    ) {
+        const targetRoom = rooms.find(
+            (room) => room.apiTripId === notification.tripId,
+        )
+        if (!targetRoom) {
+            setError('알림에 연결된 여행방을 찾을 수 없습니다.')
+            return
+        }
+        try {
+            if (!notification.read) {
+                await markPlaceVoteNotificationRead(notification.notificationId)
+                setUpdates((current) =>
+                    current.map((item) =>
+                        item.notificationId === notification.notificationId
+                            ? { ...item, read: true }
+                            : item,
+                    ),
+                )
+            }
+            navigate(`/app/room/${targetRoom.id}`)
+        } catch (requestError) {
+            setError(
+                getApiErrorMessage(
+                    requestError,
+                    '알림 읽음 처리에 실패했습니다.',
+                ),
+            )
+        }
+    }
+
     return (
         <div className="min-h-full bg-[#f8fafb] px-5 py-7 sm:px-9">
             <div className="mx-auto max-w-[860px]">
@@ -241,7 +308,55 @@ export function Updates() {
                     title="알림"
                     description="여행방의 새 활동과 AI 결과를 확인하세요."
                 />
-                <NotificationList />
+                <div className="mt-7 overflow-hidden rounded-[22px] bg-white shadow-sm">
+                    {error && (
+                        <p className="p-5 text-sm text-rose-600" role="alert">
+                            {error}
+                        </p>
+                    )}
+                    {loading && (
+                        <p className="p-8 text-center text-sm text-slate-400">
+                            알림을 불러오는 중입니다.
+                        </p>
+                    )}
+                    {!loading && !error && updates.length === 0 && (
+                        <p className="p-8 text-center text-sm text-slate-400">
+                            새로운 알림이 없습니다.
+                        </p>
+                    )}
+                    {!loading &&
+                        updates.map((notification) => (
+                            <button
+                                key={notification.notificationId}
+                                onClick={() =>
+                                    void openNotification(notification)
+                                }
+                                className={`flex w-full items-start gap-4 border-b border-slate-100 p-5 text-left last:border-0 hover:bg-slate-50 ${notification.read ? 'opacity-50' : ''}`}
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                                    <BellIcon size={18} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="flex justify-between gap-3">
+                                        <b className="text-sm text-slate-800">
+                                            새 장소 투표가 시작됐어요
+                                        </b>
+                                        <small className="shrink-0 text-[11px] text-slate-400">
+                                            {new Date(
+                                                notification.createdAt,
+                                            ).toLocaleString('ko-KR')}
+                                        </small>
+                                    </span>
+                                    <span className="mt-1 block text-xs leading-5 text-slate-500">
+                                        {notification.content}
+                                    </span>
+                                </span>
+                                {!notification.read && (
+                                    <span className="mt-1.5 h-2 w-2 rounded-full bg-brand" />
+                                )}
+                            </button>
+                        ))}
+                </div>
             </div>
         </div>
     )

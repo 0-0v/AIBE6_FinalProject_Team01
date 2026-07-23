@@ -14,6 +14,7 @@ public record GooglePlacesApiResponse(
             DisplayName displayName,
             String formattedAddress,
             Location location,
+            String primaryType,
             List<String> types,
             List<Photo> photos
     ) {}

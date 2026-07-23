@@ -1,11 +1,7 @@
 package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
-import back.backend.domain.place.dto.request.UpdateNoteRequest;
-import back.backend.domain.place.dto.request.UpdatePriorityRequest;
-import back.backend.domain.place.dto.request.UpdateStatusRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
-import back.backend.domain.place.dto.response.TripPlaceAccessResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
@@ -20,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -40,8 +37,8 @@ public class TripPlaceService {
                         .googlePlaceId(request.googlePlaceId())
                         .name(request.name())
                         .address(request.address())
-                        .latitude(request.latitude())
-                        .longitude(request.longitude())
+                        .latitude(BigDecimal.valueOf(request.latitude()))
+                        .longitude(BigDecimal.valueOf(request.longitude()))
                         .placeType(request.placeType())
                         .imageUrl(request.imageUrl())
                         .build()));
@@ -55,7 +52,6 @@ public class TripPlaceService {
                 .place(place)
                 .addedBy(memberId)
                 .status(TripPlaceStatus.CANDIDATE)
-                .userNote(request.userNote())
                 .build());
 
         return TripPlaceResponse.from(tripPlace);
@@ -69,14 +65,6 @@ public class TripPlaceService {
         return tripPlaces.stream().map(TripPlaceResponse::from).toList();
     }
 
-    public TripPlaceAccessResponse getAccess(Long tripId) {
-        Long memberId = securityContextAccessor.getCurrentMemberId();
-        if (!tripAccessRepository.canView(tripId, memberId)) {
-            throw new BusinessException(CommonErrorCode.FORBIDDEN);
-        }
-        return new TripPlaceAccessResponse(tripAccessRepository.canEdit(tripId, memberId));
-    }
-
     @Transactional
     public void deletePlace(Long tripId, Long tripPlaceId) {
         requireEditAccess(tripId);
@@ -85,31 +73,9 @@ public class TripPlaceService {
         tripPlaceRepository.delete(tripPlace);
     }
 
-    @Transactional
-    public TripPlaceResponse updateStatus(Long tripId, Long tripPlaceId, UpdateStatusRequest request) {
-        requireEditAccess(tripId);
-        TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
-                .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
-        tripPlace.updateStatus(request.status());
-        return TripPlaceResponse.from(tripPlace);
-    }
-
-    @Transactional
-    public TripPlaceResponse updateNote(Long tripId, Long tripPlaceId, UpdateNoteRequest request) {
-        requireEditAccess(tripId);
-        TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
-                .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
-        tripPlace.updateNote(request.userNote());
-        return TripPlaceResponse.from(tripPlace);
-    }
-
-    @Transactional
-    public TripPlaceResponse updatePriority(Long tripId, Long tripPlaceId, UpdatePriorityRequest request) {
-        requireEditAccess(tripId);
-        TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
-                .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
-        tripPlace.updatePriority(request.priority());
-        return TripPlaceResponse.from(tripPlace);
+    public boolean canEdit(Long tripId) {
+        Long memberId = securityContextAccessor.getCurrentMemberId();
+        return tripAccessRepository.canEdit(tripId, memberId);
     }
 
     private void requireViewAccess(Long tripId) {

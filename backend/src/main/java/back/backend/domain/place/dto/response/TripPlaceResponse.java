@@ -2,19 +2,18 @@ package back.backend.domain.place.dto.response;
 
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
+import java.math.BigDecimal;
 
 public record TripPlaceResponse(
         Long tripPlaceId,
         String googlePlaceId,
         String name,
         String address,
-        Double latitude,
-        Double longitude,
+        BigDecimal latitude,
+        BigDecimal longitude,
         String placeType,
         String imageUrl,
         TripPlaceStatus status,
-        String userNote,
-        Integer priority,
         Long addedBy
 ) {
     public static TripPlaceResponse from(TripPlace tripPlace) {
@@ -28,8 +27,6 @@ public record TripPlaceResponse(
                 tripPlace.getPlace().getPlaceType(),
                 tripPlace.getPlace().getImageUrl(),
                 tripPlace.getStatus(),
-                tripPlace.getUserNote(),
-                tripPlace.getPriority(),
                 tripPlace.getAddedBy()
         );
     }

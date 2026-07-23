@@ -1,11 +1,7 @@
 package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
-import back.backend.domain.place.dto.request.UpdateNoteRequest;
-import back.backend.domain.place.dto.request.UpdatePriorityRequest;
-import back.backend.domain.place.dto.request.UpdateStatusRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
-import back.backend.domain.place.dto.response.TripPlaceAccessResponse;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.service.TripPlaceService;
@@ -23,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -52,8 +49,8 @@ class TripPlaceControllerTest {
 
         sampleResponse = new TripPlaceResponse(
                 10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null,
-                TripPlaceStatus.CANDIDATE, null, null, 1L);
+                new BigDecimal("33.3065000"), new BigDecimal("126.2897000"),
+                "tourist_attraction", null, TripPlaceStatus.SAVED, 1L);
     }
 
     @Test
@@ -61,7 +58,7 @@ class TripPlaceControllerTest {
     void t1_장소추가성공() throws Exception {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null, null);
+                33.3065, 126.2897, "tourist_attraction", null);
 
         given(tripPlaceService.addPlace(eq(1L), any())).willReturn(sampleResponse);
 
@@ -72,7 +69,7 @@ class TripPlaceControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.tripPlaceId").value(10))
                 .andExpect(jsonPath("$.data.googlePlaceId").value("ChIJxxx"))
-                .andExpect(jsonPath("$.data.status").value("CANDIDATE"));
+                .andExpect(jsonPath("$.data.status").value("SAVED"));
     }
 
     @Test
@@ -80,7 +77,7 @@ class TripPlaceControllerTest {
     void t2_중복장소추가시409반환() throws Exception {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null, null);
+                33.3065, 126.2897, "tourist_attraction", null);
 
         given(tripPlaceService.addPlace(eq(1L), any()))
                 .willThrow(new BusinessException(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS));
@@ -115,12 +112,12 @@ class TripPlaceControllerTest {
     @Test
     @DisplayName("t5 status 파라미터로 필터링된 장소 목록을 반환한다")
     void t5_status필터조회성공() throws Exception {
-        given(tripPlaceService.getPlaces(1L, TripPlaceStatus.CANDIDATE))
+        given(tripPlaceService.getPlaces(1L, TripPlaceStatus.SAVED))
                 .willReturn(List.of(sampleResponse));
 
-        mockMvc.perform(get("/api/trips/1/places").param("status", "CANDIDATE"))
+        mockMvc.perform(get("/api/trips/1/places").param("status", "SAVED"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].status").value("CANDIDATE"));
+                .andExpect(jsonPath("$.data[0].status").value("SAVED"));
     }
 
     @Test
@@ -144,80 +141,11 @@ class TripPlaceControllerTest {
     }
 
     @Test
-    @DisplayName("t8 장소 상태 변경 요청이 성공하면 200 OK와 변경된 상태를 반환한다")
-    void t8_상태변경성공() throws Exception {
-        TripPlaceResponse savedResponse = new TripPlaceResponse(
-                10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null,
-                TripPlaceStatus.SAVED, null, null, 1L);
-
-        given(tripPlaceService.updateStatus(eq(1L), eq(10L), any())).willReturn(savedResponse);
-
-        mockMvc.perform(patch("/api/trips/1/places/10/status")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdateStatusRequest(TripPlaceStatus.SAVED))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("SAVED"));
-    }
-
-    @Test
-    @DisplayName("t9 장소 메모 수정 요청이 성공하면 200 OK와 변경된 메모를 반환한다")
-    void t9_메모수정성공() throws Exception {
-        TripPlaceResponse noteResponse = new TripPlaceResponse(
-                10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null,
-                TripPlaceStatus.CANDIDATE, "오전에 방문 추천!", null, 1L);
-
-        given(tripPlaceService.updateNote(eq(1L), eq(10L), any())).willReturn(noteResponse);
-
-        mockMvc.perform(patch("/api/trips/1/places/10/note")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdateNoteRequest("오전에 방문 추천!"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.userNote").value("오전에 방문 추천!"));
-    }
-
-    @Test
-    @DisplayName("t10 지원하지 않는 status 값으로 조회하면 400 Bad Request를 반환한다")
-    void t10_잘못된상태값조회시400반환() throws Exception {
+    @DisplayName("t8 지원하지 않는 status 값으로 조회하면 400 Bad Request를 반환한다")
+    void t8_잘못된상태값조회시400반환() throws Exception {
         mockMvc.perform(get("/api/trips/1/places").param("status", "INVALID"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_400"));
     }
 
-    @Test
-    @DisplayName("t11 장소 우선순위 변경 요청이 성공하면 200 OK와 변경된 우선순위를 반환한다")
-    void t11_우선순위변경성공() throws Exception {
-        TripPlaceResponse priorityResponse = new TripPlaceResponse(
-                10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null,
-                TripPlaceStatus.CANDIDATE, null, 2, 1L);
-
-        given(tripPlaceService.updatePriority(eq(1L), eq(10L), any())).willReturn(priorityResponse);
-
-        mockMvc.perform(patch("/api/trips/1/places/10/priority")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdatePriorityRequest(2))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.priority").value(2));
-    }
-
-    @Test
-    @DisplayName("t12 우선순위가 1 미만이면 400 Bad Request를 반환한다")
-    void t12_잘못된우선순위변경시400반환() throws Exception {
-        mockMvc.perform(patch("/api/trips/1/places/10/priority")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new UpdatePriorityRequest(0))))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("t13 여행 장소 편집 권한을 조회하면 200 OK와 canEdit을 반환한다")
-    void t13_여행장소편집권한조회성공() throws Exception {
-        given(tripPlaceService.getAccess(1L)).willReturn(new TripPlaceAccessResponse(true));
-
-        mockMvc.perform(get("/api/trips/1/places/access"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.canEdit").value(true));
-    }
 }

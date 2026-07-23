@@ -13,11 +13,9 @@ import {
     TravelRecord,
     addTripPlace,
     deleteTripPlace,
-    updateTripPlaceStatus,
-    updateTripPlaceNote,
-    updateTripPlacePriority,
+    startTripPlaceVote,
+    respondTripPlaceVote,
     fromApiToPlace,
-    TEMP_TRIP_ID,
 } from '@/entities/trip'
 import { CommentSheet } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -55,7 +53,8 @@ type Props = {
     onAddPlace: (place: Place) => void
     onDeletePlace: (id: string) => void
     loadError?: string | null
-    canEdit: boolean
+    canManage: boolean
+    tripId: number
 }
 
 export function RoomDetailPanel({
@@ -70,7 +69,8 @@ export function RoomDetailPanel({
     onAddPlace,
     onDeletePlace,
     loadError,
-    canEdit,
+    canManage,
+    tripId,
 }: Props) {
     const currentUserId = String(
         useCurrentUserStore((state) => state.currentUser?.id) ?? '',
@@ -91,7 +91,7 @@ export function RoomDetailPanel({
     const [viewerMode, setViewerMode] = useState(false)
     const [placeError, setPlaceError] = useState<string | null>(null)
 
-    const canWrite = canEdit && !viewerMode
+    const canWrite = canManage && !viewerMode
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const filtered = useMemo(
@@ -108,30 +108,65 @@ export function RoomDetailPanel({
         else setRecordTab('records')
     }
 
-    function handleVote(id: string, value: 'up' | 'down') {
-        onUpdatePlace(id, (place) => {
-            const existing = place.votes.find(
-                (vote) => vote.memberId === currentUserId,
+    async function withVoteError<T>(
+        fn: () => Promise<T>,
+        fallbackMessage: string,
+    ): Promise<T> {
+        setPlaceError(null)
+        try {
+            return await fn()
+        } catch (error) {
+            setPlaceError(getApiErrorMessage(error, fallbackMessage))
+            throw error
+        }
+    }
+
+    async function handleStartVote(id: string) {
+        const target = places.find((place) => place.id === id)
+        const voteSummary = await withVoteError(
+            () => startTripPlaceVote(tripId, Number(id)),
+            '투표 신청에 실패했습니다.',
+        )
+        onUpdatePlace(id, (place) => ({
+            ...place,
+            status: voteSummary.placeStatus.toLowerCase() as PlaceStatus,
+            voteSummary,
+        }))
+        if (target) addLog('갈래말래 투표를 신청했어요', target.name, false)
+    }
+
+    async function handleVote(id: string, value: 'up' | 'down') {
+        const target = places.find((place) => place.id === id)
+        const voteSummary = await withVoteError(
+            () =>
+                respondTripPlaceVote(
+                    tripId,
+                    Number(id),
+                    value === 'up' ? 'AGREE' : 'DISAGREE',
+                ),
+            '투표 응답에 실패했습니다.',
+        )
+        onUpdatePlace(id, (place) => ({
+            ...place,
+            status: voteSummary.placeStatus.toLowerCase() as PlaceStatus,
+            voteSummary,
+        }))
+        if (target)
+            addLog(
+                value === 'up'
+                    ? '후보 장소에 찬성했어요'
+                    : '후보 장소에 반대했어요',
+                target.name,
+                false,
             )
-            const withoutMine = place.votes.filter(
-                (vote) => vote.memberId !== currentUserId,
-            )
-            return {
-                ...place,
-                votes:
-                    existing?.value === value
-                        ? withoutMine
-                        : [...withoutMine, { memberId: currentUserId, value }],
-            }
-        })
     }
 
     async function handleAdd(result: PlaceSearchResult) {
         setPlaceError(null)
         try {
-            const tripPlace = await addTripPlace(TEMP_TRIP_ID, result)
+            const tripPlace = await addTripPlace(tripId, result)
             onAddPlace(fromApiToPlace(tripPlace, room.id))
-            addLog('후보 장소를 등록했어요', result.name)
+            addLog('장소를 지도에 저장했어요', result.name)
         } catch (error) {
             setPlaceError(
                 getApiErrorMessage(error, '장소 추가에 실패했습니다.'),
@@ -292,61 +327,14 @@ export function RoomDetailPanel({
                                     onVote={(value) =>
                                         handleVote(place.id, value)
                                     }
-                                    onSave={async () => {
-                                        setPlaceError(null)
-                                        try {
-                                            await updateTripPlaceStatus(
-                                                TEMP_TRIP_ID,
-                                                Number(place.id),
-                                                'SAVED',
-                                            )
-                                            onUpdatePlace(place.id, (item) => ({
-                                                ...item,
-                                                status: 'saved',
-                                            }))
-                                            addLog(
-                                                '투표를 마치고 장소를 확정했어요',
-                                                place.name,
-                                            )
-                                        } catch (error) {
-                                            setPlaceError(
-                                                getApiErrorMessage(
-                                                    error,
-                                                    '상태 변경에 실패했습니다.',
-                                                ),
-                                            )
-                                        }
-                                    }}
-                                    onHold={async () => {
-                                        setPlaceError(null)
-                                        try {
-                                            await updateTripPlaceStatus(
-                                                TEMP_TRIP_ID,
-                                                Number(place.id),
-                                                'HOLD',
-                                            )
-                                            onUpdatePlace(place.id, (item) => ({
-                                                ...item,
-                                                status: 'hold',
-                                            }))
-                                            addLog(
-                                                '후보 장소를 보류했어요',
-                                                place.name,
-                                            )
-                                        } catch (error) {
-                                            setPlaceError(
-                                                getApiErrorMessage(
-                                                    error,
-                                                    '상태 변경에 실패했습니다.',
-                                                ),
-                                            )
-                                        }
-                                    }}
+                                    onStartVote={() =>
+                                        handleStartVote(place.id)
+                                    }
                                     onDelete={async () => {
                                         setPlaceError(null)
                                         try {
                                             await deleteTripPlace(
-                                                TEMP_TRIP_ID,
+                                                tripId,
                                                 Number(place.id),
                                             )
                                             onDeletePlace(place.id)
@@ -361,56 +349,6 @@ export function RoomDetailPanel({
                                                     '장소 삭제에 실패했습니다.',
                                                 ),
                                             )
-                                        }
-                                    }}
-                                    onUpdateNote={async (note) => {
-                                        setPlaceError(null)
-                                        try {
-                                            const updated =
-                                                await updateTripPlaceNote(
-                                                    TEMP_TRIP_ID,
-                                                    Number(place.id),
-                                                    note,
-                                                )
-                                            onUpdatePlace(place.id, (item) => ({
-                                                ...item,
-                                                note:
-                                                    updated.userNote ??
-                                                    undefined,
-                                            }))
-                                        } catch (error) {
-                                            setPlaceError(
-                                                getApiErrorMessage(
-                                                    error,
-                                                    '메모 저장에 실패했습니다.',
-                                                ),
-                                            )
-                                            throw error
-                                        }
-                                    }}
-                                    onUpdatePriority={async (priority) => {
-                                        setPlaceError(null)
-                                        try {
-                                            const updated =
-                                                await updateTripPlacePriority(
-                                                    TEMP_TRIP_ID,
-                                                    Number(place.id),
-                                                    priority,
-                                                )
-                                            onUpdatePlace(place.id, (item) => ({
-                                                ...item,
-                                                priority:
-                                                    updated.priority ??
-                                                    undefined,
-                                            }))
-                                        } catch (error) {
-                                            setPlaceError(
-                                                getApiErrorMessage(
-                                                    error,
-                                                    '우선순위 저장에 실패했습니다.',
-                                                ),
-                                            )
-                                            throw error
                                         }
                                     }}
                                     onOpenComments={() =>

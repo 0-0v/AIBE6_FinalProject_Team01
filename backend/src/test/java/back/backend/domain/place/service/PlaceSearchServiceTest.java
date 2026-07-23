@@ -44,7 +44,8 @@ class PlaceSearchServiceTest {
                       "displayName": {"text": "카멜리아힐", "languageCode": "ko"},
                       "formattedAddress": "제주특별자치도 서귀포시 안덕면 병악로 166",
                       "location": {"latitude": 33.291, "longitude": 126.373},
-                      "types": ["tourist_attraction", "point_of_interest"],
+                      "primaryType": "tourist_attraction",
+                      "types": ["point_of_interest", "tourist_attraction"],
                       "photos": []
                     }
                   ]
@@ -55,7 +56,7 @@ class PlaceSearchServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header(
                         "X-Goog-FieldMask",
-                        "places.id,places.displayName,places.formattedAddress,places.location,places.types"
+                        "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types"
                 ))
                 .andExpect(header("X-Goog-Api-Key", "test-api-key"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));

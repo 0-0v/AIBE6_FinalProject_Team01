@@ -16,6 +16,7 @@ public class TripAccessRepository {
             WHERE t.id = :tripId
               AND (t.owner_id = :memberId OR tm.member_id = :memberId)
             """;
+
     private static final String EDIT_ACCESS_QUERY = """
             SELECT COUNT(*)
             FROM trips t
@@ -32,14 +33,14 @@ public class TripAccessRepository {
     }
 
     public boolean canView(Long tripId, Long memberId) {
-        return countAccessibleTrips(VIEW_ACCESS_QUERY, tripId, memberId) > 0;
+        return count(VIEW_ACCESS_QUERY, tripId, memberId) > 0;
     }
 
     public boolean canEdit(Long tripId, Long memberId) {
-        return countAccessibleTrips(EDIT_ACCESS_QUERY, tripId, memberId) > 0;
+        return count(EDIT_ACCESS_QUERY, tripId, memberId) > 0;
     }
 
-    private long countAccessibleTrips(String query, Long tripId, Long memberId) {
+    private long count(String query, Long tripId, Long memberId) {
         return jdbcClient.sql(query)
                 .param("tripId", tripId)
                 .param("memberId", memberId)

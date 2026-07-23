@@ -1,11 +1,7 @@
 package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
-import back.backend.domain.place.dto.request.UpdateNoteRequest;
-import back.backend.domain.place.dto.request.UpdatePriorityRequest;
-import back.backend.domain.place.dto.request.UpdateStatusRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
-import back.backend.domain.place.dto.response.TripPlaceAccessResponse;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.service.TripPlaceService;
 import back.backend.global.response.ApiResponse;
@@ -41,8 +37,8 @@ public class TripPlaceController {
     }
 
     @GetMapping("/access")
-    public ApiResponse<TripPlaceAccessResponse> getAccess(@PathVariable Long tripId) {
-        return ApiResponse.success(tripPlaceService.getAccess(tripId));
+    public ApiResponse<Boolean> getAccess(@PathVariable Long tripId) {
+        return ApiResponse.success(tripPlaceService.canEdit(tripId));
     }
 
     @DeleteMapping("/{tripPlaceId}")
@@ -54,30 +50,4 @@ public class TripPlaceController {
         tripPlaceService.deletePlace(tripId, tripPlaceId);
     }
 
-    @PatchMapping("/{tripPlaceId}/status")
-    public ApiResponse<TripPlaceResponse> updateStatus(
-            @PathVariable Long tripId,
-            @PathVariable Long tripPlaceId,
-            @RequestBody @Valid UpdateStatusRequest request
-    ) {
-        return ApiResponse.success(tripPlaceService.updateStatus(tripId, tripPlaceId, request));
-    }
-
-    @PatchMapping("/{tripPlaceId}/note")
-    public ApiResponse<TripPlaceResponse> updateNote(
-            @PathVariable Long tripId,
-            @PathVariable Long tripPlaceId,
-            @RequestBody @Valid UpdateNoteRequest request
-    ) {
-        return ApiResponse.success(tripPlaceService.updateNote(tripId, tripPlaceId, request));
-    }
-
-    @PatchMapping("/{tripPlaceId}/priority")
-    public ApiResponse<TripPlaceResponse> updatePriority(
-            @PathVariable Long tripId,
-            @PathVariable Long tripPlaceId,
-            @RequestBody @Valid UpdatePriorityRequest request
-    ) {
-        return ApiResponse.success(tripPlaceService.updatePriority(tripId, tripPlaceId, request));
-    }
 }

@@ -37,28 +37,28 @@ class TripAccessRepositoryTest {
     }
 
     @Test
-    @DisplayName("t1 여행 소유자는 조회와 편집 권한을 가진다")
+    @DisplayName("t1 여행 소유자는 조회·편집 권한을 모두 가진다")
     void t1_ownerCanViewAndEdit() {
         assertThat(tripAccessRepository.canView(100L, 1L)).isTrue();
         assertThat(tripAccessRepository.canEdit(100L, 1L)).isTrue();
     }
 
     @Test
-    @DisplayName("t2 EDITOR 여행 멤버는 조회와 편집 권한을 가진다")
+    @DisplayName("t2 EDITOR 역할 멤버는 조회·편집 권한을 모두 가진다")
     void t2_editorCanViewAndEdit() {
         assertThat(tripAccessRepository.canView(100L, 2L)).isTrue();
         assertThat(tripAccessRepository.canEdit(100L, 2L)).isTrue();
     }
 
     @Test
-    @DisplayName("t3 VIEWER 여행 멤버는 조회할 수 있지만 편집할 수 없다")
-    void t3_viewerCanViewButCannotEdit() {
+    @DisplayName("t3 VIEWER 역할 멤버는 조회 권한만 가지고 편집 권한은 없다")
+    void t3_viewerCanViewButNotEdit() {
         assertThat(tripAccessRepository.canView(100L, 3L)).isTrue();
         assertThat(tripAccessRepository.canEdit(100L, 3L)).isFalse();
     }
 
     @Test
-    @DisplayName("t4 여행 멤버가 아닌 회원은 조회와 편집 권한이 없다")
+    @DisplayName("t4 여행 멤버가 아닌 회원은 조회·편집 권한이 모두 없다")
     void t4_nonMemberCannotViewOrEdit() {
         assertThat(tripAccessRepository.canView(100L, 4L)).isFalse();
         assertThat(tripAccessRepository.canEdit(100L, 4L)).isFalse();

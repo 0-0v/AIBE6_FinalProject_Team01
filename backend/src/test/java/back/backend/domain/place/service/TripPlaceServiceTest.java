@@ -1,11 +1,7 @@
 package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
-import back.backend.domain.place.dto.request.UpdateNoteRequest;
-import back.backend.domain.place.dto.request.UpdatePriorityRequest;
-import back.backend.domain.place.dto.request.UpdateStatusRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
-import back.backend.domain.place.dto.response.TripPlaceAccessResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
@@ -27,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -67,8 +64,8 @@ class TripPlaceServiceTest {
                 .googlePlaceId("ChIJxxx")
                 .name("오설록 티 뮤지엄")
                 .address("제주 서귀포시 신화역사로 15")
-                .latitude(33.3065)
-                .longitude(126.2897)
+                .latitude(new BigDecimal("33.3065000"))
+                .longitude(new BigDecimal("126.2897000"))
                 .placeType("tourist_attraction")
                 .build();
         ReflectionTestUtils.setField(savedPlace, "id", 20L);
@@ -77,7 +74,7 @@ class TripPlaceServiceTest {
                 .tripId(1L)
                 .place(savedPlace)
                 .addedBy(1L)
-                .status(TripPlaceStatus.CANDIDATE)
+                .status(TripPlaceStatus.SAVED)
                 .build();
         ReflectionTestUtils.setField(savedTripPlace, "id", 10L);
     }
@@ -87,7 +84,7 @@ class TripPlaceServiceTest {
     void t1_새장소추가시places저장후tripplaces등록() {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null, null);
+                33.3065, 126.2897, "tourist_attraction", null);
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.empty());
         given(placeRepository.save(any(Place.class))).willReturn(savedPlace);
@@ -98,7 +95,7 @@ class TripPlaceServiceTest {
 
         assertThat(result.googlePlaceId()).isEqualTo("ChIJxxx");
         assertThat(result.name()).isEqualTo("오설록 티 뮤지엄");
-        assertThat(result.status()).isEqualTo(TripPlaceStatus.CANDIDATE);
+        assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
         then(placeRepository).should().save(any(Place.class));
         then(tripPlaceRepository).should().save(any(TripPlace.class));
     }
@@ -108,7 +105,7 @@ class TripPlaceServiceTest {
     void t2_기존장소추가시places저장생략() {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null, null);
+                33.3065, 126.2897, "tourist_attraction", null);
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
         given(tripPlaceRepository.existsByTripIdAndPlaceId(1L, savedPlace.getId())).willReturn(false);
@@ -125,7 +122,7 @@ class TripPlaceServiceTest {
     void t3_중복장소추가시예외발생() {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null, null);
+                33.3065, 126.2897, "tourist_attraction", null);
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
         given(tripPlaceRepository.existsByTripIdAndPlaceId(1L, savedPlace.getId())).willReturn(true);
@@ -151,13 +148,13 @@ class TripPlaceServiceTest {
     @Test
     @DisplayName("t5 status 파라미터로 필터링된 장소 목록을 조회한다")
     void t5_status필터조회() {
-        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(1L, TripPlaceStatus.CANDIDATE))
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(1L, TripPlaceStatus.SAVED))
                 .willReturn(List.of(savedTripPlace));
 
-        List<TripPlaceResponse> result = tripPlaceService.getPlaces(1L, TripPlaceStatus.CANDIDATE);
+        List<TripPlaceResponse> result = tripPlaceService.getPlaces(1L, TripPlaceStatus.SAVED);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).status()).isEqualTo(TripPlaceStatus.CANDIDATE);
+        assertThat(result.get(0).status()).isEqualTo(TripPlaceStatus.SAVED);
     }
 
     @Test
@@ -182,30 +179,8 @@ class TripPlaceServiceTest {
     }
 
     @Test
-    @DisplayName("t8 장소 상태를 변경한다")
-    void t8_장소상태변경성공() {
-        given(tripPlaceRepository.findByIdAndTripId(10L, 1L)).willReturn(Optional.of(savedTripPlace));
-
-        TripPlaceResponse result = tripPlaceService.updateStatus(1L, 10L,
-                new UpdateStatusRequest(TripPlaceStatus.SAVED));
-
-        assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
-    }
-
-    @Test
-    @DisplayName("t9 장소 메모를 수정한다")
-    void t9_장소메모수정성공() {
-        given(tripPlaceRepository.findByIdAndTripId(10L, 1L)).willReturn(Optional.of(savedTripPlace));
-
-        TripPlaceResponse result = tripPlaceService.updateNote(1L, 10L,
-                new UpdateNoteRequest("오전에 방문 추천!"));
-
-        assertThat(result.userNote()).isEqualTo("오전에 방문 추천!");
-    }
-
-    @Test
-    @DisplayName("t10 조회 권한이 없는 회원이 장소 목록을 조회하면 FORBIDDEN 예외가 발생한다")
-    void t10_조회권한없는회원조회거부() {
+    @DisplayName("t8 조회 권한이 없는 회원이 장소 목록을 조회하면 FORBIDDEN 예외가 발생한다")
+    void t8_조회권한없는회원조회거부() {
         given(tripAccessRepository.canView(1L, 1L)).willReturn(false);
 
         assertThatThrownBy(() -> tripPlaceService.getPlaces(1L, null))
@@ -215,12 +190,12 @@ class TripPlaceServiceTest {
     }
 
     @Test
-    @DisplayName("t11 편집 권한이 없는 회원이 장소를 추가하면 FORBIDDEN 예외가 발생한다")
-    void t11_편집권한없는회원장소추가거부() {
+    @DisplayName("t9 여행방 멤버가 아닌 회원이 장소를 추가하면 FORBIDDEN 예외가 발생한다")
+    void t9_여행방멤버아닌회원장소추가거부() {
         given(tripAccessRepository.canEdit(1L, 1L)).willReturn(false);
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null, null);
+                33.3065, 126.2897, "tourist_attraction", null);
 
         assertThatThrownBy(() -> tripPlaceService.addPlace(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -229,35 +204,4 @@ class TripPlaceServiceTest {
         then(placeRepository).shouldHaveNoInteractions();
     }
 
-    @Test
-    @DisplayName("t12 장소 우선순위를 변경한다")
-    void t12_장소우선순위변경성공() {
-        given(tripPlaceRepository.findByIdAndTripId(10L, 1L)).willReturn(Optional.of(savedTripPlace));
-
-        TripPlaceResponse result = tripPlaceService.updatePriority(1L, 10L,
-                new UpdatePriorityRequest(2));
-
-        assertThat(result.priority()).isEqualTo(2);
-    }
-
-    @Test
-    @DisplayName("t13 편집 권한이 없는 회원이 우선순위를 변경하면 FORBIDDEN 예외가 발생한다")
-    void t13_편집권한없는회원우선순위변경거부() {
-        given(tripAccessRepository.canEdit(1L, 1L)).willReturn(false);
-
-        assertThatThrownBy(() -> tripPlaceService.updatePriority(1L, 10L,
-                new UpdatePriorityRequest(2)))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
-                        .isEqualTo(CommonErrorCode.FORBIDDEN));
-        then(tripPlaceRepository).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("t14 조회 가능한 회원의 여행 장소 편집 권한을 반환한다")
-    void t14_여행장소편집권한조회() {
-        TripPlaceAccessResponse result = tripPlaceService.getAccess(1L);
-
-        assertThat(result.canEdit()).isTrue();
-    }
 }

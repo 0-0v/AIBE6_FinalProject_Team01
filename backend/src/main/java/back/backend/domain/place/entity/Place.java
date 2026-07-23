@@ -6,6 +6,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,11 +31,11 @@ public class Place {
     @Column(length = 500)
     private String address;
 
-    @Column(nullable = false)
-    private Double latitude;
+    @Column(nullable = false, precision = 10, scale = 7)
+    private BigDecimal latitude;
 
-    @Column(nullable = false)
-    private Double longitude;
+    @Column(nullable = false, precision = 10, scale = 7)
+    private BigDecimal longitude;
 
     @Column(name = "place_type", length = 100)
     private String placeType;
