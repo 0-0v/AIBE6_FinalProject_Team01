@@ -14,20 +14,29 @@ export function TripRoom() {
         inviteCode?: string
     }>()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const isUserInitialized = useCurrentUserStore(
+        (state) => state.isInitialized,
+    )
     const {
         trips,
         rooms,
         guestRoom,
+        activeTripId,
         isLoading,
         error,
         loadTrips,
         loadInvitedTrip,
+        selectTrip,
         resetTrips,
     } = useTripStore()
+    const [showRoomList, setShowRoomList] = useState(false)
+    const effectiveRoomId = roomId ?? activeTripId
     const room = inviteCode
         ? guestRoom
-        : rooms.find((item) => item.id === roomId)
-    const trip = trips.find((item) => String(item.id) === roomId)
+        : showRoomList
+          ? undefined
+          : rooms.find((item) => item.id === effectiveRoomId)
+    const trip = trips.find((item) => String(item.id) === effectiveRoomId)
 
     const [places, setPlaces] = useState<Place[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -37,9 +46,21 @@ export function TripRoom() {
 
     useEffect(() => {
         if (inviteCode) void loadInvitedTrip(inviteCode)
+        else if (!isUserInitialized) return
         else if (currentUser) void loadTrips()
         else resetTrips()
-    }, [currentUser, inviteCode, loadInvitedTrip, loadTrips, resetTrips])
+    }, [
+        currentUser,
+        inviteCode,
+        isUserInitialized,
+        loadInvitedTrip,
+        loadTrips,
+        resetTrips,
+    ])
+
+    useEffect(() => {
+        if (roomId) selectTrip(roomId)
+    }, [roomId, selectTrip])
 
     const displayedPlaces = useMemo(
         () =>
@@ -105,7 +126,7 @@ export function TripRoom() {
                                 places={displayedPlaces}
                                 selectedId={selectedId}
                                 onSelectPlace={setSelectedId}
-                                onBack={() => navigate('/app/room')}
+                                onBack={() => setShowRoomList(true)}
                                 onManage={() => setManageOpen(true)}
                                 isGuest={Boolean(inviteCode)}
                                 onUpdatePlace={updatePlace}
@@ -118,9 +139,11 @@ export function TripRoom() {
                                 isLoading={isLoading}
                                 error={error}
                                 onRetry={() => void loadTrips()}
-                                onSelectRoom={(id) =>
+                                onSelectRoom={(id) => {
+                                    selectTrip(id)
+                                    setShowRoomList(false)
                                     navigate(`/app/room/${id}`)
-                                }
+                                }}
                             />
                         )}
                     </aside>

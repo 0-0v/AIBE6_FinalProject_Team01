@@ -47,7 +47,7 @@ export function Sidebar() {
     return (
         <aside className="z-30 flex w-[86px] shrink-0 flex-col items-center border-r border-slate-100 bg-white py-7">
             <NavLink
-                to="/app"
+                to="/"
                 className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]"
                 aria-label="여지도 대시보드"
                 title="여지도"
