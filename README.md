@@ -61,11 +61,11 @@ SET @member_id = (
 
 INSERT INTO trips (
     id, owner_id, title, destination, start_date, end_date,
-    status, visibility, view_count, created_at, updated_at
+    status, currency, visibility, view_count, created_at, updated_at
 )
 SELECT
     1, @member_id, '로컬 테스트 여행', '제주', CURRENT_DATE, CURRENT_DATE,
-    'PLANNING', 'PRIVATE', 0, NOW(), NOW()
+    'PLANNING', 'KRW', 'PRIVATE', 0, NOW(), NOW()
 WHERE @member_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM trips WHERE id = 1);
 
