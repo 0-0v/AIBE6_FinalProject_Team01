@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-    BellIcon,
     BookmarkCheckIcon,
     CalendarDaysIcon,
     CheckCircle2Icon,
@@ -63,52 +62,6 @@ const aiFindings: {
     tone: string
 }[] = []
 
-const calendarDays = [
-    '26',
-    '27',
-    '28',
-    '29',
-    '30',
-    '31',
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7',
-    '8',
-    '9',
-    '10',
-    '11',
-    '12',
-    '13',
-    '14',
-    '15',
-    '16',
-    '17',
-    '18',
-    '19',
-    '20',
-    '21',
-    '22',
-    '23',
-    '24',
-    '25',
-    '26',
-    '27',
-    '28',
-    '29',
-    '30',
-    '31',
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-]
-
 function SectionTitle({
     title,
     action,
@@ -132,12 +85,25 @@ export function Home() {
     const isUserInitialized = useCurrentUserStore(
         (state) => state.isInitialized,
     )
-    const { rooms, activeTripId, selectTrip, loadTrips, resetTrips } =
+    const { trips, rooms, activeTripId, selectTrip, loadTrips, resetTrips } =
         useTripStore()
     const { logs, loadActivityLogs, resetActivityLogs } = useActivityLogStore()
     const [tasks, setTasks] = useState(initialTasks)
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
     const [saved, setSaved] = useState<typeof exploreCards>([])
+    const activeTripData =
+        trips.find((trip) => String(trip.id) === activeTripId) ?? trips[0]
+    const [calendarCursor, setCalendarCursor] = useState<{
+        tripId: number | null
+        month: Date
+    }>(() => ({ tripId: null, month: startOfMonth(new Date()) }))
+    const defaultCalendarMonth = activeTripData?.startDate
+        ? startOfMonth(parseLocalDate(activeTripData.startDate))
+        : startOfMonth(new Date())
+    const calendarMonth =
+        calendarCursor.tripId === (activeTripData?.id ?? null)
+            ? calendarCursor.month
+            : defaultCalendarMonth
     const activeTrip = rooms.find((room) => room.id === activeTripId) ??
         rooms[0] ?? {
             id: '',
@@ -233,13 +199,6 @@ export function Home() {
                             <ListIcon size={15} /> 리스트
                         </button>
                     </div>
-                    <button
-                        className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#f4f8f7] text-slate-500 hover:bg-slate-100"
-                        aria-label="알림 열기"
-                    >
-                        <BellIcon size={18} />
-                        <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-orange-400 ring-2 ring-white" />
-                    </button>
                     <button
                         onClick={() => navigate('/app/room')}
                         className="flamingo-gradient flamingo-glow hidden items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 sm:flex"
@@ -674,13 +633,42 @@ export function Home() {
                                 <div className="border-t border-slate-100 px-3 pb-3 pt-5">
                                     <div className="flex items-center justify-between">
                                         <h2 className="text-lg font-extrabold tracking-tight">
-                                            8월 2026
+                                            {calendarMonth.getFullYear()}년{' '}
+                                            {calendarMonth.getMonth() + 1}월
                                         </h2>
                                         <div className="flex gap-1">
-                                            <button className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50">
+                                            <button
+                                                onClick={() =>
+                                                    setCalendarCursor({
+                                                        tripId:
+                                                            activeTripData?.id ??
+                                                            null,
+                                                        month: addMonths(
+                                                            calendarMonth,
+                                                            -1,
+                                                        ),
+                                                    })
+                                                }
+                                                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
+                                                aria-label="이전 달"
+                                            >
                                                 ‹
                                             </button>
-                                            <button className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50">
+                                            <button
+                                                onClick={() =>
+                                                    setCalendarCursor({
+                                                        tripId:
+                                                            activeTripData?.id ??
+                                                            null,
+                                                        month: addMonths(
+                                                            calendarMonth,
+                                                            1,
+                                                        ),
+                                                    })
+                                                }
+                                                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
+                                                aria-label="다음 달"
+                                            >
                                                 ›
                                             </button>
                                         </div>
@@ -693,14 +681,16 @@ export function Home() {
                                         <span>목</span>
                                         <span>금</span>
                                         <span>토</span>
-                                        {calendarDays.map((day, index) => (
-                                            <span
-                                                key={`${day}-${index}`}
-                                                className={`${index >= 16 && index <= 19 ? 'rounded-full bg-[#e7657a] py-1 text-white shadow-sm' : index === 17 ? 'ring-2 ring-[#f2b8c2]' : ''} ${index < 6 || index > 36 ? 'text-slate-300' : ''}`}
-                                            >
-                                                {day}
-                                            </span>
-                                        ))}
+                                        {createCalendarDays(calendarMonth).map(
+                                            (day) => (
+                                                <span
+                                                    key={toDateKey(day)}
+                                                    className={`${isTripDate(day, activeTripData?.startDate, activeTripData?.endDate) ? 'rounded-full bg-[#e7657a] py-1 text-white shadow-sm' : ''} ${day.getMonth() !== calendarMonth.getMonth() ? 'text-slate-300' : ''}`}
+                                                >
+                                                    {day.getDate()}
+                                                </span>
+                                            ),
+                                        )}
                                     </div>
                                 </div>
                             </section>,
@@ -809,4 +799,53 @@ export function Home() {
             )}
         </div>
     )
+}
+
+function parseLocalDate(value: string) {
+    const [year, month, day] = value.split('-').map(Number)
+    return new Date(year, month - 1, day)
+}
+
+function startOfMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+function addMonths(date: Date, amount: number) {
+    return new Date(date.getFullYear(), date.getMonth() + amount, 1)
+}
+
+function createCalendarDays(month: Date) {
+    const firstDay = startOfMonth(month)
+    const calendarStart = new Date(
+        firstDay.getFullYear(),
+        firstDay.getMonth(),
+        1 - firstDay.getDay(),
+    )
+    return Array.from(
+        { length: 42 },
+        (_, index) =>
+            new Date(
+                calendarStart.getFullYear(),
+                calendarStart.getMonth(),
+                calendarStart.getDate() + index,
+            ),
+    )
+}
+
+function toDateKey(date: Date) {
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+    ].join('-')
+}
+
+function isTripDate(
+    date: Date,
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+) {
+    if (!startDate || !endDate) return false
+    const dateKey = toDateKey(date)
+    return dateKey >= startDate && dateKey <= endDate
 }

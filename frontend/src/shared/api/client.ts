@@ -1,10 +1,13 @@
 import { useCurrentUserStore } from '../model'
 
-export const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'
+export const BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'
 
 // 백엔드가 반환하는 이미지 등은 상대 경로(예: /uploads/..)로 저장되므로,
 // 프론트엔드(다른 오리진)에서 표시하려면 API 베이스 URL을 붙여야 한다.
-export function resolveMediaUrl(path: string | null | undefined): string | null {
+export function resolveMediaUrl(
+    path: string | null | undefined,
+): string | null {
     if (!path) return null
     if (/^https?:\/\//.test(path)) return path
     return `${BASE_URL}${path}`
@@ -66,25 +69,25 @@ async function refreshAccessToken(): Promise<string> {
 // Refresh Token으로 조용히 재발급을 시도해 로그인 상태를 복원한다.
 export async function restoreSession(): Promise<string | null> {
     try {
-        return await refreshAccessToken()
+        refreshPromise ??= refreshAccessToken().finally(() => {
+            refreshPromise = null
+        })
+        return await refreshPromise
     } catch {
         return null
     }
 }
 
 export async function logout(): Promise<void> {
-    if (accessToken) {
-        try {
-            await fetch(`${BASE_URL}/api/auth/logout`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { Authorization: `Bearer ${accessToken}` },
-            })
-        } catch {
-            // 네트워크 오류가 나도 클라이언트 쪽 로그아웃은 계속 진행한다.
-        }
+    try {
+        await request<ApiResponse<void>>('/api/auth/logout', {
+            method: 'POST',
+        })
+    } catch {
+        // 네트워크 오류가 나도 클라이언트 쪽 로그아웃은 계속 진행한다.
+    } finally {
+        clearSession()
     }
-    clearSession()
 }
 
 function withAccessToken(
@@ -160,7 +163,10 @@ export const apiClient = {
         request<T>(path, {
             ...options,
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...options?.headers },
+            headers: {
+                'Content-Type': 'application/json',
+                ...options?.headers,
+            },
             body: JSON.stringify(body),
         }),
     put: <T>(path: string, body: unknown, options?: RequestOptions) =>
@@ -176,7 +182,10 @@ export const apiClient = {
             headers:
                 body === undefined
                     ? options?.headers
-                    : { 'Content-Type': 'application/json', ...options?.headers },
+                    : {
+                          'Content-Type': 'application/json',
+                          ...options?.headers,
+                      },
             body: body === undefined ? undefined : JSON.stringify(body),
         }),
     delete: <T = void>(path: string, options?: RequestOptions) =>

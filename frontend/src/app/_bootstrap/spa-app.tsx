@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import {
     BrowserRouter,
     Navigate,
@@ -44,7 +44,10 @@ function AppShell() {
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
                     <Route path="room/:roomId?" element={<TripRoom />} />
-                    <Route path="room/invite/:inviteCode" element={<TripRoom />} />
+                    <Route
+                        path="room/invite/:inviteCode"
+                        element={<TripRoom />}
+                    />
                     <Route path="updates" element={<Updates />} />
                     <Route path="mypage" element={<MyPage />} />
                 </Routes>
@@ -54,15 +57,25 @@ function AppShell() {
 }
 
 export function App() {
+    const sessionRestoreStarted = useRef(false)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const setCurrentUser = useCurrentUserStore((state) => state.setCurrentUser)
-    const clearCurrentUser = useCurrentUserStore((state) => state.clearCurrentUser)
-    const finishInitialization = useCurrentUserStore((state) => state.finishInitialization)
+    const clearCurrentUser = useCurrentUserStore(
+        (state) => state.clearCurrentUser,
+    )
+    const finishInitialization = useCurrentUserStore(
+        (state) => state.finishInitialization,
+    )
 
     useEffect(() => {
-        if (currentUser || window.location.pathname === '/oauth/callback') {
+        if (
+            sessionRestoreStarted.current ||
+            currentUser ||
+            window.location.pathname === '/oauth/callback'
+        ) {
             return
         }
+        sessionRestoreStarted.current = true
         restoreSession().then((accessToken) => {
             if (!accessToken) {
                 finishInitialization()

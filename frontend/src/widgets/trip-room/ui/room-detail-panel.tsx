@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
@@ -6,9 +6,7 @@ import {
     ReceiptTextIcon,
 } from 'lucide-react'
 import {
-    Expense,
     Place,
-    PlaceStatus,
     Room,
     TravelRecord,
     addTripPlace,
@@ -39,8 +37,6 @@ import { RoomHeader } from './room-header'
 type Mode = 'plan' | 'record'
 type PlanTab = 'places' | 'itinerary'
 type RecordTab = 'records' | 'expenses'
-
-
 
 type Props = {
     room: Room
@@ -78,7 +74,6 @@ export function RoomDetailPanel({
     )
     const tripHasStarted = false
     const [records, setRecords] = useState<TravelRecord[]>([])
-    const [expenses, setExpenses] = useState<Expense[]>([])
     const [mode, setMode] = useState<Mode>(() =>
         tripHasStarted ? 'record' : 'plan',
     )
@@ -101,30 +96,6 @@ export function RoomDetailPanel({
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const { setComments, addComment, removeComment } = useCommentStore()
-
-    useEffect(() => {
-        if (!commentPlaceId) return
-        const controller = new AbortController()
-        getPlaceComments(tripId, Number(commentPlaceId), controller.signal)
-            .then((fetched) => {
-                const comments = fetched.map((c) => ({
-                    id: String(c.id),
-                    memberId: String(c.memberId),
-                    text: c.content,
-                    createdAt: c.createdAt,
-                }))
-                setComments(commentPlaceId, comments)
-                onUpdatePlace(commentPlaceId, (place) => ({
-                    ...place,
-                    comments,
-                    commentCount: comments.length,
-                }))
-            })
-            .catch(() => {
-                // 시트 닫힘 등으로 abort된 경우 무시
-            })
-        return () => controller.abort()
-    }, [commentPlaceId, tripId])
 
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
@@ -167,15 +138,19 @@ export function RoomDetailPanel({
         setCommentError(null)
         setCommentPlaceId(placeId)
         try {
-            const comments = await getPlaceComments(tripId, Number(placeId))
+            const comments = (
+                await getPlaceComments(tripId, Number(placeId))
+            ).map((comment) => ({
+                id: String(comment.id),
+                memberId: String(comment.memberId),
+                text: comment.content,
+                createdAt: comment.createdAt,
+            }))
+            setComments(placeId, comments)
             onUpdatePlace(placeId, (place) => ({
                 ...place,
-                comments: comments.map((c) => ({
-                    id: String(c.id),
-                    memberId: String(c.memberId),
-                    text: c.content,
-                    createdAt: c.createdAt,
-                })),
+                comments,
+                commentCount: comments.length,
             }))
         } catch (error) {
             setCommentError(
@@ -442,16 +417,7 @@ export function RoomDetailPanel({
                 />
             )}
             {mode === 'record' && recordTab === 'expenses' && (
-                <ExpensePanel
-                    expenses={expenses}
-                    canWrite={canWrite}
-                    onAdd={(expense) => {
-                        setExpenses((current) => [
-                            { ...expense, id: `e${Date.now()}` },
-                            ...current,
-                        ])
-                    }}
-                />
+                <ExpensePanel tripId={tripId} canWrite={canWrite} />
             )}
             {activityOpen && (
                 <div className="absolute inset-0 z-40 flex flex-col bg-white">
