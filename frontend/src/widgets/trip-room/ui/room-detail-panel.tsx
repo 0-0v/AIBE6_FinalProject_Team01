@@ -72,11 +72,8 @@ export function RoomDetailPanel({
     const currentUserId = String(
         useCurrentUserStore((state) => state.currentUser?.id) ?? '',
     )
-    const tripHasStarted = false
     const [records, setRecords] = useState<TravelRecord[]>([])
-    const [mode, setMode] = useState<Mode>(() =>
-        tripHasStarted ? 'record' : 'plan',
-    )
+    const [mode, setMode] = useState<Mode>('plan')
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -91,6 +88,7 @@ export function RoomDetailPanel({
         (state) => state.loadNotifications,
     )
     const [placeError, setPlaceError] = useState<string | null>(null)
+    const [dateAvailabilityDirty, setDateAvailabilityDirty] = useState(false)
 
     const canWrite = canManage
     const commentPlace =
@@ -103,9 +101,24 @@ export function RoomDetailPanel({
     }
 
     function switchMode(nextMode: Mode) {
+        const alreadyAtDefaultTab =
+            nextMode === mode &&
+            ((nextMode === 'plan' && planTab === 'places') ||
+                (nextMode === 'record' && recordTab === 'records'))
+        if (alreadyAtDefaultTab) return
+        if (!confirmDiscardDateChanges()) return
         setMode(nextMode)
         if (nextMode === 'plan') setPlanTab('places')
         else setRecordTab('records')
+    }
+
+    function confirmDiscardDateChanges() {
+        return (
+            !dateAvailabilityDirty ||
+            window.confirm(
+                '저장하지 않은 가능 날짜가 있습니다. 이동하시겠습니까?',
+            )
+        )
     }
 
     async function withVoteError<T>(
@@ -126,6 +139,11 @@ export function RoomDetailPanel({
             () => startTripPlaceVote(tripId, Number(id)),
             '투표 신청에 실패했습니다.',
         )
+        if (voteSummary.placeStatus === 'REJECTED') {
+            onDeletePlace(id)
+            refreshCollaborationData()
+            return
+        }
         onUpdatePlace(id, (place) => ({
             ...place,
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
@@ -194,6 +212,7 @@ export function RoomDetailPanel({
                 comments: place.comments.filter((c) => c.id !== commentId),
                 commentCount: Math.max(0, place.commentCount - 1),
             }))
+            refreshCollaborationData()
         } catch (error) {
             setCommentError(
                 getApiErrorMessage(error, '댓글 삭제에 실패했습니다.'),
@@ -212,6 +231,11 @@ export function RoomDetailPanel({
                 ),
             '투표 응답에 실패했습니다.',
         )
+        if (voteSummary.placeStatus === 'REJECTED') {
+            onDeletePlace(id)
+            refreshCollaborationData()
+            return
+        }
         onUpdatePlace(id, (place) => ({
             ...place,
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
@@ -251,8 +275,12 @@ export function RoomDetailPanel({
                 canWrite={canWrite}
                 onTogglePublic={() => setIsPublic((value) => !value)}
                 onInvite={() => setInviteOpen(true)}
-                onBack={onBack}
-                onManage={onManage}
+                onBack={() => {
+                    if (confirmDiscardDateChanges()) onBack()
+                }}
+                onManage={() => {
+                    if (confirmDiscardDateChanges()) onManage()
+                }}
             />
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
                 <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold">
@@ -288,7 +316,7 @@ export function RoomDetailPanel({
                               },
                               {
                                   key: 'itinerary' as const,
-                                  label: '일정',
+                                  label: '날짜',
                                   icon: CalendarDaysIcon,
                               },
                           ]
@@ -312,11 +340,15 @@ export function RoomDetailPanel({
                         return (
                             <button
                                 key={item.key}
-                                onClick={() =>
-                                    mode === 'plan'
-                                        ? setPlanTab(item.key as PlanTab)
-                                        : setRecordTab(item.key as RecordTab)
-                                }
+                                onClick={() => {
+                                    if (active) return
+                                    if (!confirmDiscardDateChanges()) return
+                                    if (mode === 'plan') {
+                                        setPlanTab(item.key as PlanTab)
+                                    } else {
+                                        setRecordTab(item.key as RecordTab)
+                                    }
+                                }}
                                 role="tab"
                                 aria-selected={active}
                                 className={`flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-extrabold transition ${active ? 'bg-brand text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
@@ -395,7 +427,12 @@ export function RoomDetailPanel({
                 </>
             )}
             {mode === 'plan' && planTab === 'itinerary' && (
-                <ItineraryPanel places={places} />
+                <ItineraryPanel
+                    tripId={tripId}
+                    canWrite={canWrite}
+                    onDirtyChange={setDateAvailabilityDirty}
+                    onCollaborationChanged={refreshCollaborationData}
+                />
             )}
             {mode === 'record' && recordTab === 'records' && (
                 <RecordPanel

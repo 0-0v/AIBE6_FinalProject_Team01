@@ -13,6 +13,13 @@ export function resolveMediaUrl(
     return `${BASE_URL}${path}`
 }
 
+export function resolveGooglePlacePhotoUrl(
+    photoName: string | null | undefined,
+): string | null {
+    if (!photoName) return null
+    return `${BASE_URL}/api/places/photo?name=${encodeURIComponent(photoName)}`
+}
+
 type RequestOptions = Omit<RequestInit, 'method' | 'body'>
 
 export type ApiResponse<T> = {
@@ -104,6 +111,18 @@ export function getApiErrorMessage(
     return error instanceof Error && error.message
         ? error.message
         : fallbackMessage
+}
+
+export function getApiErrorStatus(error: unknown): number | null {
+    if (
+        typeof error === 'object' &&
+        error !== null &&
+        'status' in error &&
+        typeof error.status === 'number'
+    ) {
+        return error.status
+    }
+    return null
 }
 
 async function request<T>(
