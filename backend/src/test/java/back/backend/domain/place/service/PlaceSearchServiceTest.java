@@ -76,7 +76,28 @@ class PlaceSearchServiceTest {
         assertThat(result.get(0).latitude()).isEqualTo(33.291);
         assertThat(result.get(0).longitude()).isEqualTo(126.373);
         assertThat(result.get(0).placeType()).isEqualTo("tourist_attraction");
-        assertThat(result.get(0).imageUrl()).isNull();
+        assertThat(result.get(0).photoName()).isNull();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t7 사진이 있는 검색 결과는 API 키가 포함된 URL 대신 사진 리소스 이름을 반환한다")
+    void t7_photoReturnsResourceNameWithoutApiKey() {
+        String responseJson = """
+                {"places":[{
+                  "id":"ChIJphoto",
+                  "displayName":{"text":"벳푸시"},
+                  "location":{"latitude":33.2844614,"longitude":131.4907093},
+                  "photos":[{"name":"places/ChIJphoto/photos/AWCphoto","widthPx":1200,"heightPx":800}]
+                }]}
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        PlaceSearchResponse result = service.search("벳푸").get(0);
+
+        assertThat(result.photoName()).isEqualTo("places/ChIJphoto/photos/AWCphoto");
+        assertThat(result.toString()).doesNotContain("test-api-key");
         server.verify();
     }
 

@@ -48,7 +48,7 @@ public class TripPlaceService {
                         .latitude(BigDecimal.valueOf(request.latitude()))
                         .longitude(BigDecimal.valueOf(request.longitude()))
                         .placeType(request.placeType())
-                        .imageUrl(request.imageUrl())
+                        .googlePhotoName(request.photoName())
                         .build()));
 
         if (tripPlaceRepository.existsByTripIdAndPlaceId(tripId, place.getId())) {

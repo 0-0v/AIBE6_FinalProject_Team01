@@ -63,10 +63,21 @@ public class PlaceCommentService {
     @Transactional
     public void deleteComment(Long tripId, Long tripPlaceId, Long commentId) {
         Long memberId = accessChecker.requireView(tripId);
-        verifyTripPlace(tripPlaceId, tripId);
+        var tripPlace = verifyTripPlace(tripPlaceId, tripId);
         PlaceComment comment = commentRepository.findByIdAndMemberId(commentId, memberId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.PLACE_COMMENT_NOT_FOUND));
         commentRepository.delete(comment);
+        collaborationEventService.record(
+                tripId,
+                memberId,
+                "PLACE_COMMENT_DELETED",
+                "TRIP_PLACE",
+                tripPlaceId,
+                tripPlace.getPlace().getName() + " 장소의 댓글이 삭제됐습니다.",
+                Map.of("placeName", tripPlace.getPlace().getName()),
+                NotificationType.PLACE,
+                "장소 댓글 삭제"
+        );
     }
 
     private back.backend.domain.place.entity.TripPlace verifyTripPlace(Long tripPlaceId, Long tripId) {

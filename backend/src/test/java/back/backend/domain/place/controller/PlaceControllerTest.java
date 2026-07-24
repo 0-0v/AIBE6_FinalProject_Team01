@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.service.PlaceSearchService;
+import back.backend.domain.place.service.PlacePhotoService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.GlobalExceptionHandler;
 import java.util.List;
@@ -20,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.MediaType;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceControllerTest {
@@ -28,11 +31,13 @@ class PlaceControllerTest {
 
     @Mock
     private PlaceSearchService placeSearchService;
+    @Mock
+    private PlacePhotoService placePhotoService;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new PlaceController(placeSearchService))
+                .standaloneSetup(new PlaceController(placeSearchService, placePhotoService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -57,7 +62,7 @@ class PlaceControllerTest {
                 .andExpect(jsonPath("$.data[0].googlePlaceId").value("ChIJxxx"))
                 .andExpect(jsonPath("$.data[0].name").value("카멜리아힐"))
                 .andExpect(jsonPath("$.data[0].placeType").value("tourist_attraction"))
-                .andExpect(jsonPath("$.data[0].imageUrl", nullValue()));
+                .andExpect(jsonPath("$.data[0].photoName", nullValue()));
     }
 
     @Test
@@ -82,5 +87,19 @@ class PlaceControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("PLACE_SEARCH_QUERY_REQUIRED"))
                 .andExpect(jsonPath("$.message").value("검색어를 입력해주세요."));
+    }
+
+    @Test
+    @DisplayName("t4 유효한 사진 식별자로 요청하면 Google API 키 없이 이미지 바이트를 반환한다")
+    void t4_photoProxyReturnsImage() throws Exception {
+        String photoName = "places/ChIJphoto/photos/AWCphoto";
+        given(placePhotoService.getPhoto(photoName))
+                .willReturn(new PlacePhotoService.PhotoContent(
+                        new byte[]{1, 2, 3}, MediaType.IMAGE_JPEG));
+
+        mockMvc.perform(get("/api/places/photo").param("name", photoName))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_JPEG))
+                .andExpect(content().bytes(new byte[]{1, 2, 3}));
     }
 }

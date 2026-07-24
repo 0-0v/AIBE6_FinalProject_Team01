@@ -45,7 +45,7 @@ public class CollaborationEventService {
                 tripId, actorId, null, actionType, targetType, targetId, description, metadata));
 
         Set<Long> recipients = new LinkedHashSet<>(tripMemberRepository.findMemberIdsByTripId(tripId));
-        if (recipients.isEmpty()) {
+        if (recipients.isEmpty() && actorId != null) {
             recipients.add(actorId);
         }
         for (Long recipientId : recipients) {
