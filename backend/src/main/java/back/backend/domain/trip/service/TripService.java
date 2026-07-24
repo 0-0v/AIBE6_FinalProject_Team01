@@ -68,17 +68,17 @@ public class TripService {
         Trip trip = saveValidTrip(memberId, request);
         tripMemberRepository.save(TripMember.owner(trip.getId(), memberId));
         recordEvent(trip, memberId, "TRIP_CREATED", "여행방을 생성했습니다.");
-        return TripResponse.from(trip);
+        return toResponse(trip);
     }
 
     public List<TripResponse> getMyTrips(Long memberId) {
         return tripRepository.findAllByOwnerIdAndStatusNotOrderByCreatedAtDesc(memberId, TripStatus.CANCELLED).stream()
-                .map(TripResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
     public TripResponse get(Long memberId, Long tripId) {
-        return TripResponse.from(findOwnedTrip(memberId, tripId));
+        return toResponse(findOwnedTrip(memberId, tripId));
     }
 
     @Transactional
@@ -93,7 +93,7 @@ public class TripService {
             throw new BusinessException(TripErrorCode.TRIP_ALREADY_FINISHED);
         }
         recordEvent(trip, memberId, "TRIP_UPDATED", "여행방 정보를 수정했습니다.");
-        return TripResponse.from(trip);
+        return toResponse(trip);
     }
 
     @Transactional
@@ -141,6 +141,10 @@ public class TripService {
     private Trip findOwnedTrip(Long memberId, Long tripId) {
         return tripRepository.findByIdAndOwnerIdAndStatusNot(tripId, memberId, TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+    }
+
+    private TripResponse toResponse(Trip trip) {
+        return TripResponse.from(trip, tripMemberRepository.countByTripId(trip.getId()));
     }
 
     private List<String> normalizeTags(List<String> requestedTags) {

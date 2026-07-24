@@ -10,6 +10,7 @@ import back.backend.domain.trip.entity.TripInvitation;
 import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripInvitationRepository;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import java.time.LocalDateTime;
@@ -26,10 +27,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class TripInvitationServiceTest {
     @Mock TripRepository tripRepository;
     @Mock TripInvitationRepository invitationRepository;
+    @Mock TripMemberRepository tripMemberRepository;
     private TripInvitationService service;
 
     @BeforeEach
-    void setUp() { service = new TripInvitationService(tripRepository, invitationRepository); }
+    void setUp() {
+        service = new TripInvitationService(tripRepository, invitationRepository, tripMemberRepository);
+    }
 
     @Test
     @DisplayName("t1 소유자가 초대 링크를 생성하면 7일간 유효한 코드를 반환한다")
@@ -50,6 +54,7 @@ class TripInvitationServiceTest {
         TripInvitation invitation = TripInvitation.create(10L, "valid-code", 1L, LocalDateTime.now().plusDays(1));
         when(invitationRepository.findByInviteCode("valid-code")).thenReturn(Optional.of(invitation));
         when(tripRepository.findByIdAndStatusNot(10L, TripStatus.CANCELLED)).thenReturn(Optional.of(trip()));
+        when(tripMemberRepository.countByTripId(10L)).thenReturn(1L);
 
         assertThat(service.preview("valid-code").title()).isEqualTo("제주 여행");
     }
