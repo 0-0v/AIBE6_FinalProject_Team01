@@ -21,6 +21,7 @@ import {
 import { useTripStore, type TripResponse } from '@/features/manage-trip'
 import { NotificationPanel } from '@/features/manage-notification'
 import { useActivityLogStore } from '@/features/view-activity-log'
+import { resolveMediaUrl } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import { Avatar } from '@/shared/ui'
 import { TravelRooms } from '@/widgets/travel-rooms'
@@ -582,6 +583,9 @@ export function Home() {
                                     <Avatar
                                         name={currentUser?.nickname ?? '여행자'}
                                         color="#e7657a"
+                                        imageUrl={resolveMediaUrl(
+                                            currentUser?.profileImageUrl,
+                                        )}
                                         size={44}
                                     />
                                     <div className="min-w-0 flex-1">
