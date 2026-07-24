@@ -7,6 +7,7 @@ import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
+import back.backend.domain.place.repository.PlaceCommentRepository;
 import back.backend.domain.place.repository.PlaceRepository;
 import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
@@ -51,6 +52,9 @@ class TripPlaceServiceTest {
 
     @Mock
     private back.backend.domain.place.service.TripAccessChecker accessChecker;
+
+    @Mock
+    private PlaceCommentRepository placeCommentRepository;
 
     @Mock
     private CollaborationEventService collaborationEventService;
@@ -158,6 +162,7 @@ class TripPlaceServiceTest {
     @DisplayName("t4 여행방 장소 전체 목록을 조회한다")
     void t4_전체장소목록조회() {
         given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of(savedTripPlace));
+        given(placeCommentRepository.countByTripPlaceIds(any())).willReturn(List.of());
 
         List<TripPlaceResponse> result = tripPlaceService.getPlaces(1L, null);
 
@@ -170,6 +175,7 @@ class TripPlaceServiceTest {
     void t5_status필터조회() {
         given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(1L, TripPlaceStatus.SAVED))
                 .willReturn(List.of(savedTripPlace));
+        given(placeCommentRepository.countByTripPlaceIds(any())).willReturn(List.of());
 
         List<TripPlaceResponse> result = tripPlaceService.getPlaces(1L, TripPlaceStatus.SAVED);
 

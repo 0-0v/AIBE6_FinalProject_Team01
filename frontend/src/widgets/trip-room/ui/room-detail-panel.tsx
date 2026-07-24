@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
@@ -21,7 +21,7 @@ import {
     addPlaceComment,
     deletePlaceComment,
 } from '@/entities/trip'
-import { CommentSheet } from '@/features/comment-place'
+import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
@@ -40,12 +40,7 @@ type Mode = 'plan' | 'record'
 type PlanTab = 'places' | 'itinerary'
 type RecordTab = 'records' | 'expenses'
 
-const STATUS_TABS: { key: PlaceStatus | 'all'; label: string }[] = [
-    { key: 'all', label: '전체' },
-    { key: 'saved', label: '확정' },
-    { key: 'hold', label: '투표중' },
-    { key: 'rejected', label: '탈락' },
-]
+
 
 type Props = {
     room: Room
@@ -89,7 +84,6 @@ export function RoomDetailPanel({
     )
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
-    const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>('all')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
@@ -106,13 +100,31 @@ export function RoomDetailPanel({
     const canWrite = canManage
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
-    const filtered = useMemo(
-        () =>
-            statusFilter === 'all'
-                ? places
-                : places.filter((place) => place.status === statusFilter),
-        [places, statusFilter],
-    )
+    const { setComments, addComment, removeComment } = useCommentStore()
+
+    useEffect(() => {
+        if (!commentPlaceId) return
+        const controller = new AbortController()
+        getPlaceComments(tripId, Number(commentPlaceId), controller.signal)
+            .then((fetched) => {
+                const comments = fetched.map((c) => ({
+                    id: String(c.id),
+                    memberId: String(c.memberId),
+                    text: c.content,
+                    createdAt: c.createdAt,
+                }))
+                setComments(commentPlaceId, comments)
+                onUpdatePlace(commentPlaceId, (place) => ({
+                    ...place,
+                    comments,
+                    commentCount: comments.length,
+                }))
+            })
+            .catch(() => {
+                // 시트 닫힘 등으로 abort된 경우 무시
+            })
+        return () => controller.abort()
+    }, [commentPlaceId, tripId])
 
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
@@ -176,17 +188,17 @@ export function RoomDetailPanel({
         setCommentError(null)
         try {
             const comment = await addPlaceComment(tripId, Number(placeId), text)
+            const newComment = {
+                id: String(comment.id),
+                memberId: String(comment.memberId),
+                text: comment.content,
+                createdAt: comment.createdAt,
+            }
+            addComment(placeId, newComment)
             onUpdatePlace(placeId, (place) => ({
                 ...place,
-                comments: [
-                    ...place.comments,
-                    {
-                        id: String(comment.id),
-                        memberId: String(comment.memberId),
-                        text: comment.content,
-                        createdAt: comment.createdAt,
-                    },
-                ],
+                comments: [...place.comments, newComment],
+                commentCount: place.commentCount + 1,
             }))
             refreshCollaborationData()
         } catch (error) {
@@ -201,9 +213,11 @@ export function RoomDetailPanel({
         setCommentError(null)
         try {
             await deletePlaceComment(tripId, Number(placeId), Number(commentId))
+            removeComment(placeId, commentId)
             onUpdatePlace(placeId, (place) => ({
                 ...place,
                 comments: place.comments.filter((c) => c.id !== commentId),
+                commentCount: Math.max(0, place.commentCount - 1),
             }))
         } catch (error) {
             setCommentError(
@@ -248,7 +262,7 @@ export function RoomDetailPanel({
     function focusPlace(placeId: string) {
         setMode('plan')
         setPlanTab('places')
-        setStatusFilter('all')
+
         onSelectPlace(placeId)
     }
 
@@ -358,36 +372,14 @@ export function RoomDetailPanel({
                                 {placeError ?? loadError}
                             </p>
                         )}
-                        <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5">
-                            {STATUS_TABS.map((status) => {
-                                const count =
-                                    status.key === 'all'
-                                        ? places.length
-                                        : places.filter(
-                                              (place) =>
-                                                  place.status === status.key,
-                                          ).length
-                                return (
-                                    <button
-                                        key={status.key}
-                                        onClick={() =>
-                                            setStatusFilter(status.key)
-                                        }
-                                        className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold transition ${statusFilter === status.key ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                    >
-                                        {status.label} {count}
-                                    </button>
-                                )
-                            })}
-                        </div>
                     </div>
                     <div className="mp-scroll flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
-                        {filtered.length === 0 ? (
+                        {places.length === 0 ? (
                             <p className="py-16 text-center text-sm text-slate-400">
                                 해당하는 장소가 없어요
                             </p>
                         ) : (
-                            filtered.map((place) => (
+                            places.map((place) => (
                                 <PlaceCard
                                     key={place.id}
                                     place={place}

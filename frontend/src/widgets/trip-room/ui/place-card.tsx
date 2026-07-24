@@ -126,7 +126,7 @@ export function PlaceCard({
                     }}
                     className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-500 hover:bg-white"
                 >
-                    <MessageCircleIcon size={13} /> {place.comments.length}
+                    <MessageCircleIcon size={13} /> {place.commentCount}
                 </button>
             </div>
 

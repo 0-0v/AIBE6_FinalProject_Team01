@@ -8,6 +8,8 @@ import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
+import back.backend.domain.place.repository.PlaceCommentRepository;
+import back.backend.domain.place.repository.PlaceCommentRepository.CommentCountProjection;
 import back.backend.domain.place.repository.PlaceRepository;
 import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +32,7 @@ public class TripPlaceService {
     private final PlaceRepository placeRepository;
     private final TripPlaceRepository tripPlaceRepository;
     private final TripAccessRepository tripAccessRepository;
+    private final PlaceCommentRepository placeCommentRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
     private final CollaborationEventService collaborationEventService;
@@ -77,7 +81,19 @@ public class TripPlaceService {
         List<TripPlace> tripPlaces = (status == null)
                 ? tripPlaceRepository.findAllOrderedByTripId(tripId)
                 : tripPlaceRepository.findAllOrderedByTripIdAndStatus(tripId, status);
-        return tripPlaces.stream().map(TripPlaceResponse::from).toList();
+
+        List<Long> tripPlaceIds = tripPlaces.stream().map(TripPlace::getId).toList();
+        Map<Long, Integer> commentCountMap = placeCommentRepository
+                .countByTripPlaceIds(tripPlaceIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        CommentCountProjection::getTripPlaceId,
+                        p -> p.getCommentCount().intValue()
+                ));
+
+        return tripPlaces.stream()
+                .map(tp -> TripPlaceResponse.from(tp, commentCountMap.getOrDefault(tp.getId(), 0)))
+                .toList();
     }
 
     @Transactional
