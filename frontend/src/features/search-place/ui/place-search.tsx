@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { SearchIcon, PlusIcon, XIcon, StarIcon, PhoneIcon, GlobeIcon, ClockIcon } from 'lucide-react'
+import { SearchIcon, PlusIcon, XIcon, StarIcon, PhoneIcon, GlobeIcon, ClockIcon, BookOpenIcon } from 'lucide-react'
 import { resolvePlacePresentation } from '@/entities/trip'
 import { searchPlaces } from '../api/placeApi'
 import type { PlaceSearchResult } from '../model/types'
@@ -149,10 +149,9 @@ export function PlaceSearch({ onAdd }: Props) {
                                                     />
                                                 )}
                                                 <div className="p-3 space-y-2">
+                                                    {/* 이름 + 카테고리 */}
                                                     <div>
-                                                        <p className="text-sm font-semibold text-slate-800">
-                                                            {r.name}
-                                                        </p>
+                                                        <p className="text-sm font-semibold text-slate-800">{r.name}</p>
                                                         <span
                                                             className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
                                                             style={{
@@ -163,6 +162,8 @@ export function PlaceSearch({ onAdd }: Props) {
                                                             {presentation.label}
                                                         </span>
                                                     </div>
+
+                                                    {/* 평점 + 영업여부 */}
                                                     <div className="flex items-center gap-2">
                                                         {r.rating != null && (
                                                             <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
@@ -182,15 +183,40 @@ export function PlaceSearch({ onAdd }: Props) {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="text-xs leading-relaxed text-slate-500">
-                                                        {r.address}
-                                                    </p>
+
+                                                    {/* 장소 설명 */}
+                                                    {r.editorialSummary && (
+                                                        <p className="text-[11px] leading-relaxed text-slate-500 italic border-l-2 border-slate-200 pl-2">
+                                                            {r.editorialSummary}
+                                                        </p>
+                                                    )}
+
+                                                    {/* 주소 */}
+                                                    <p className="text-xs leading-relaxed text-slate-500">{r.address}</p>
+
+                                                    {/* 영업시간 */}
+                                                    {r.weekdayDescriptions && r.weekdayDescriptions.length > 0 && (
+                                                        <details className="text-xs text-slate-500">
+                                                            <summary className="flex cursor-pointer items-center gap-1 font-medium text-slate-600 hover:text-slate-800">
+                                                                <ClockIcon size={11} /> 영업시간
+                                                            </summary>
+                                                            <ul className="mt-1 space-y-0.5 pl-4">
+                                                                {r.weekdayDescriptions.map((d, i) => (
+                                                                    <li key={i} className="text-[10px] leading-relaxed">{d}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </details>
+                                                    )}
+
+                                                    {/* 전화번호 */}
                                                     {r.phoneNumber && (
                                                         <p className="flex items-center gap-1.5 text-xs text-slate-500">
                                                             <PhoneIcon size={11} className="shrink-0" />
                                                             {r.phoneNumber}
                                                         </p>
                                                     )}
+
+                                                    {/* 웹사이트 */}
                                                     {r.websiteUri && (
                                                         <a
                                                             href={r.websiteUri}
@@ -202,6 +228,32 @@ export function PlaceSearch({ onAdd }: Props) {
                                                             <GlobeIcon size={11} className="shrink-0" />
                                                             <span className="truncate">{r.websiteUri.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
                                                         </a>
+                                                    )}
+
+                                                    {/* 최신 리뷰 */}
+                                                    {r.topReviewText && (
+                                                        <div className="rounded-lg bg-slate-50 p-2 space-y-1">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-600">
+                                                                    <BookOpenIcon size={10} />
+                                                                    {r.topReviewAuthor ?? '익명'}
+                                                                </span>
+                                                                <div className="flex items-center gap-1">
+                                                                    {r.topReviewRating != null && (
+                                                                        <span className="flex items-center gap-0.5 text-[10px] text-amber-500 font-bold">
+                                                                            <StarIcon size={9} className="fill-amber-400 text-amber-400" />
+                                                                            {r.topReviewRating}
+                                                                        </span>
+                                                                    )}
+                                                                    {r.topReviewTime && (
+                                                                        <span className="text-[10px] text-slate-400">{r.topReviewTime}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <p className="line-clamp-3 text-[10px] leading-relaxed text-slate-500">
+                                                                {r.topReviewText}
+                                                            </p>
+                                                        </div>
                                                     )}
                                                 </div>
                                                 <Tooltip.Arrow className="fill-white" />

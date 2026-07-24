@@ -46,7 +46,7 @@ class PlaceControllerTest {
                         "제주특별자치도 서귀포시 안덕면 병악로 166",
                         33.291, 126.373,
                         "tourist_attraction", null,
-                        null, null, null, null, null
+                        null, null, null, null, null, null, null, null, null, null, null
                 )
         );
         given(placeSearchService.search("카멜리아힐")).willReturn(responses);

@@ -20,13 +20,49 @@ public record GooglePlacesApiResponse(
             Double rating,
             Integer userRatingCount,
             CurrentOpeningHours currentOpeningHours,
+            RegularOpeningHours regularOpeningHours,
             String nationalPhoneNumber,
-            String websiteUri
+            String websiteUri,
+            EditorialSummary editorialSummary,
+            List<Review> reviews
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record CurrentOpeningHours(
             Boolean openNow
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record RegularOpeningHours(
+            Boolean openNow,
+            List<String> weekdayDescriptions
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record EditorialSummary(
+            String text,
+            String languageCode
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Review(
+            String relativePublishTimeDescription,
+            Integer rating,
+            LocalizedText text,
+            AuthorAttribution authorAttribution
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record LocalizedText(
+            String text,
+            String languageCode
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record AuthorAttribution(
+            String displayName,
+            String uri,
+            String photoUri
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

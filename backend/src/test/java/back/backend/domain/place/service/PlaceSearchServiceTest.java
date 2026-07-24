@@ -60,7 +60,9 @@ class PlaceSearchServiceTest {
                         "places.primaryType,places.types,places.photos," +
                         "places.rating,places.userRatingCount," +
                         "places.currentOpeningHours.openNow," +
-                        "places.nationalPhoneNumber,places.websiteUri"
+                        "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions," +
+                        "places.nationalPhoneNumber,places.websiteUri," +
+                        "places.editorialSummary,places.reviews"
                 ))
                 .andExpect(header("X-Goog-Api-Key", "test-api-key"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));

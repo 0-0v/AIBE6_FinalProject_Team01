@@ -7,6 +7,7 @@ import back.backend.global.exception.BusinessException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -25,7 +26,9 @@ public class PlaceSearchService {
             "places.primaryType,places.types,places.photos," +
             "places.rating,places.userRatingCount," +
             "places.currentOpeningHours.openNow," +
-            "places.nationalPhoneNumber,places.websiteUri";
+            "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions," +
+            "places.nationalPhoneNumber,places.websiteUri," +
+            "places.editorialSummary,places.reviews";
 
     private final RestClient restClient;
     private final String apiKey;
@@ -100,9 +103,25 @@ public class PlaceSearchService {
                 ? place.primaryType()
                 : firstTypeOrNull(place.types());
         String imageUrl = resolveImageUrl(place);
-        Boolean openNow = place.currentOpeningHours() != null
-                ? place.currentOpeningHours().openNow()
+
+        Boolean openNow = Optional.ofNullable(place.regularOpeningHours())
+                .map(GooglePlacesApiResponse.RegularOpeningHours::openNow)
+                .orElseGet(() -> place.currentOpeningHours() != null
+                        ? place.currentOpeningHours().openNow()
+                        : null);
+
+        List<String> weekdayDescriptions = place.regularOpeningHours() != null
+                ? place.regularOpeningHours().weekdayDescriptions()
                 : null;
+
+        String editorialSummary = place.editorialSummary() != null
+                ? place.editorialSummary().text()
+                : null;
+
+        GooglePlacesApiResponse.Review topReview = (place.reviews() != null && !place.reviews().isEmpty())
+                ? place.reviews().get(0)
+                : null;
+
         return new PlaceSearchResponse(
                 place.id(),
                 name,
@@ -114,8 +133,15 @@ public class PlaceSearchService {
                 place.rating(),
                 place.userRatingCount(),
                 openNow,
+                weekdayDescriptions,
                 place.nationalPhoneNumber(),
-                place.websiteUri()
+                place.websiteUri(),
+                editorialSummary,
+                topReview != null && topReview.text() != null ? topReview.text().text() : null,
+                topReview != null ? topReview.rating() : null,
+                topReview != null && topReview.authorAttribution() != null
+                        ? topReview.authorAttribution().displayName() : null,
+                topReview != null ? topReview.relativePublishTimeDescription() : null
         );
     }
 
