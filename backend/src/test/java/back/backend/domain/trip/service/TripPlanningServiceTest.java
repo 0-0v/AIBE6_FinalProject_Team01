@@ -334,25 +334,24 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t11 확정된 날짜 제안은 다시 열 수 없다")
-    void t11_confirmedProposalCannotBeReopened() {
+    @DisplayName("t11 확정된 여행 기간에 새로운 날짜를 제안하면 투표를 초기화하고 다시 연다")
+    void t11_confirmedProposalCanBeReopenedWithNewDates() {
         long proposalId = insertProposal("CONFIRMED");
         insertVote(proposalId, 2L, "AGREE");
 
-        assertThatThrownBy(() -> tripPlanningService.propose(
+        DateProposalResponse result = tripPlanningService.propose(
                 10L,
                 new DateProposalRequest(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 3))
-        ))
-                .isInstanceOf(BusinessException.class)
-                .extracting(error -> ((BusinessException) error).getErrorCode())
-                .isEqualTo(TripErrorCode.DATE_PROPOSAL_CLOSED);
+        );
 
         Long voteCount = jdbcClient.sql(
                         "SELECT COUNT(*) FROM trip_date_votes WHERE proposal_id=:proposalId")
                 .param("proposalId", proposalId)
                 .query(Long.class)
                 .single();
-        assertThat(voteCount).isEqualTo(1L);
+        assertThat(voteCount).isZero();
+        assertThat(result.status()).isEqualTo("OPEN");
+        assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
     }
 
     private long insertProposal(String status) {
