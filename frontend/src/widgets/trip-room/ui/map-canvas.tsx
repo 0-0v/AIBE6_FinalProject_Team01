@@ -102,11 +102,12 @@ function GoogleMapCanvas({
                                         <span
                                             className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                                             style={{
-                                                backgroundColor: (meta?.color ?? '#e7657a') + '20',
-                                                color: meta?.color ?? '#e7657a',
+                                                backgroundColor:
+                                                    place.categoryColor + '20',
+                                                color: place.categoryColor,
                                             }}
                                         >
-                                            {meta?.label ?? '기타'}
+                                            {place.categoryName}
                                         </span>
                                         <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
                                             {place.address}
@@ -133,10 +134,13 @@ function GoogleMapCanvas({
                                           : 'h-8 w-8 text-sm'
                                 }`}
                                 style={{
-                                    backgroundColor: meta?.color ?? '#e7657a',
+                                    backgroundColor: place.categoryColor,
                                 }}
                             >
-                                {place.markerEmoji ?? meta?.emoji ?? '📍'}
+                                {place.categoryIcon ??
+                                    place.markerEmoji ??
+                                    meta?.emoji ??
+                                    '📍'}
                             </div>
                             {isSelected && (
                                 <div className="mt-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-semibold shadow-md">

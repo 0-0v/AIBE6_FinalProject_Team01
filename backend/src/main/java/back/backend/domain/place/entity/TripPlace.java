@@ -29,8 +29,9 @@ public class TripPlace {
     @JoinColumn(name = "place_id", nullable = false)
     private Place place;
 
-    @Column(name = "category_id")
-    private Long categoryId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private PlaceCategory category;
 
     // 인증 도메인 완성 전까지 FK 없이 Long으로 관리
     @Column(name = "added_by", nullable = false)
@@ -50,6 +51,10 @@ public class TripPlace {
 
     public void updateStatus(TripPlaceStatus status) {
         this.status = status;
+    }
+
+    public void updateCategory(PlaceCategory category) {
+        this.category = category;
     }
 
 }

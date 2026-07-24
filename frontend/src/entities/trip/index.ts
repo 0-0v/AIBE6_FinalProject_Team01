@@ -12,6 +12,7 @@ export {
     respondTripPlaceVote,
     fromApiToPlace,
     apiStatusToPlaceStatus,
+    updateTripPlaceCategory,
 } from './api/tripPlaceApi'
 export type { PlaceVoteSummaryResponse } from './api/tripPlaceApi'
 export {
@@ -28,3 +29,14 @@ export {
     voteDates,
 } from './api/tripPlanningApi'
 export type { DateAvailability, DateProposal } from './api/tripPlanningApi'
+export {
+    getPlaceCategories,
+    createPlaceCategory,
+    updatePlaceCategory,
+    deletePlaceCategory,
+    reorderPlaceCategories,
+} from './api/placeCategoryApi'
+export type {
+    PlaceCategoryInfo,
+    PlaceCategoryInput,
+} from './api/placeCategoryApi'

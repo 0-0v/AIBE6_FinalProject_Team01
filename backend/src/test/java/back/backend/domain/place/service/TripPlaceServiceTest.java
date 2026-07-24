@@ -4,6 +4,8 @@ import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
 import back.backend.domain.place.entity.Place;
+import back.backend.domain.place.entity.PlaceCategory;
+import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
@@ -59,11 +61,15 @@ class TripPlaceServiceTest {
     @Mock
     private CollaborationEventService collaborationEventService;
 
+    @Mock
+    private PlaceCategoryService categoryService;
+
     @InjectMocks
     private TripPlaceService tripPlaceService;
 
     private Place savedPlace;
     private TripPlace savedTripPlace;
+    private PlaceCategory foodCategory;
 
     @BeforeEach
     void setUp() {
@@ -82,10 +88,22 @@ class TripPlaceServiceTest {
                 .placeType("tourist_attraction")
                 .build();
         ReflectionTestUtils.setField(savedPlace, "id", 20L);
+        foodCategory = PlaceCategory.builder()
+                .tripId(1L)
+                .name("음식점")
+                .categoryType(PlaceCategoryType.FOOD)
+                .markerColor("#dc2626")
+                .markerIcon("🍽️")
+                .sortOrder(0)
+                .build();
+        ReflectionTestUtils.setField(foodCategory, "id", 3L);
+        lenient().when(categoryService.recommend(any(), any(), any()))
+                .thenReturn(foodCategory);
 
         savedTripPlace = TripPlace.builder()
                 .tripId(1L)
                 .place(savedPlace)
+                .category(foodCategory)
                 .addedBy(1L)
                 .status(TripPlaceStatus.SAVED)
                 .build();
@@ -250,6 +268,28 @@ class TripPlaceServiceTest {
 
         assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
         then(tripPlaceRepository).should(never()).save(any(TripPlace.class));
+    }
+
+    @Test
+    @DisplayName("t11 여행 장소 카테고리를 같은 여행방 카테고리로 변경한다")
+    void t11_updateCategoryChangesTripPlaceCategory() {
+        PlaceCategory cafe = PlaceCategory.builder()
+                .tripId(1L)
+                .name("카페")
+                .categoryType(PlaceCategoryType.CAFE)
+                .markerColor("#b45309")
+                .markerIcon("☕️")
+                .sortOrder(1)
+                .build();
+        ReflectionTestUtils.setField(cafe, "id", 4L);
+        given(tripPlaceRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(Optional.of(savedTripPlace));
+        given(categoryService.findCategory(1L, 4L)).willReturn(cafe);
+
+        TripPlaceResponse result = tripPlaceService.updateCategory(1L, 10L, 4L);
+
+        assertThat(savedTripPlace.getCategory()).isEqualTo(cafe);
+        assertThat(result.category().categoryId()).isEqualTo(4L);
     }
 
 }

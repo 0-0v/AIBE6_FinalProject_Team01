@@ -7,6 +7,7 @@ import type {
     PlaceVoteSummary,
 } from '../model/types'
 import { resolvePlacePresentation } from '../model/place-presentation'
+import type { PlaceCategoryInfo } from './placeCategoryApi'
 
 type TripPlaceResponse = {
     tripPlaceId: number
@@ -17,6 +18,7 @@ type TripPlaceResponse = {
     longitude: number
     placeType: string | null
     photoName: string | null
+    category: PlaceCategoryInfo | null
     status: 'SAVED' | 'HOLD' | 'REJECTED'
     addedBy: number
     commentCount: number
@@ -51,6 +53,7 @@ export function apiStatusToPlaceStatus(
 const FALLBACK_IMAGES: Record<PlaceCategory, string> = {
     cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
     nature: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
+    lodging: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
     attraction: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     shopping: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
@@ -70,6 +73,10 @@ export function fromApiToPlace(
         name: tp.name,
         address: tp.address ?? '',
         category,
+        categoryId: tp.category?.categoryId ?? null,
+        categoryName: tp.category?.name ?? presentation.label,
+        categoryColor: tp.category?.markerColor ?? presentation.color,
+        categoryIcon: tp.category?.markerIcon ?? presentation.emoji,
         markerEmoji: presentation.emoji,
         status: apiStatusToPlaceStatus(tp.status),
         image:
@@ -82,6 +89,18 @@ export function fromApiToPlace(
         comments: [],
         commentCount: tp.commentCount ?? 0,
     }
+}
+
+export async function updateTripPlaceCategory(
+    tripId: number,
+    tripPlaceId: number,
+    categoryId: number,
+): Promise<TripPlaceResponse> {
+    const response = await apiClient.put<ApiResponse<TripPlaceResponse>>(
+        `/api/trips/${tripId}/places/${tripPlaceId}/category`,
+        { categoryId },
+    )
+    return response.data
 }
 
 export async function getTripPlaceVotes(

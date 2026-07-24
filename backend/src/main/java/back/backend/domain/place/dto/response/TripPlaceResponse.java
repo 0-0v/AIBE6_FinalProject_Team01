@@ -13,6 +13,7 @@ public record TripPlaceResponse(
         BigDecimal longitude,
         String placeType,
         String photoName,
+        PlaceCategoryResponse category,
         TripPlaceStatus status,
         Long addedBy,
         int commentCount
@@ -31,6 +32,7 @@ public record TripPlaceResponse(
                 tripPlace.getPlace().getLongitude(),
                 tripPlace.getPlace().getPlaceType(),
                 tripPlace.getPlace().getGooglePhotoName(),
+                PlaceCategoryResponse.from(tripPlace.getCategory()),
                 tripPlace.getStatus(),
                 tripPlace.getAddedBy(),
                 commentCount

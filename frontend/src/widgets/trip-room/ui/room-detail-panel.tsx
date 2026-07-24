@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
     ListIcon,
     ReceiptTextIcon,
+    Settings2Icon,
 } from 'lucide-react'
 import {
     Place,
@@ -17,11 +18,15 @@ import {
     getPlaceComments,
     addPlaceComment,
     deletePlaceComment,
+    getPlaceCategories,
+    updateTripPlaceCategory,
+    type PlaceCategoryInfo,
 } from '@/entities/trip'
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
+import { CategoryManager } from '@/features/manage-place-category'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
@@ -91,6 +96,8 @@ export function RoomDetailPanel({
     )
     const [placeError, setPlaceError] = useState<string | null>(null)
     const [dateAvailabilityDirty, setDateAvailabilityDirty] = useState(false)
+    const [categories, setCategories] = useState<PlaceCategoryInfo[]>([])
+    const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
 
     const canWrite = canManage
     const canPlanWrite =
@@ -98,6 +105,22 @@ export function RoomDetailPanel({
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const { setComments, addComment, removeComment } = useCommentStore()
+
+    useEffect(() => {
+        const controller = new AbortController()
+        getPlaceCategories(tripId, controller.signal)
+            .then(setCategories)
+            .catch((error: unknown) => {
+                if (controller.signal.aborted) return
+                setPlaceError(
+                    getApiErrorMessage(
+                        error,
+                        '장소 카테고리를 불러오지 못했습니다.',
+                    ),
+                )
+            })
+        return () => controller.abort()
+    }, [tripId])
 
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
@@ -262,6 +285,58 @@ export function RoomDetailPanel({
         }
     }
 
+    async function handleCategoryChange(placeId: string, categoryId: number) {
+        setPlaceError(null)
+        try {
+            const updated = await updateTripPlaceCategory(
+                tripId,
+                Number(placeId),
+                categoryId,
+            )
+            const mapped = fromApiToPlace(updated, room.id)
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                category: mapped.category,
+                categoryId: mapped.categoryId,
+                categoryName: mapped.categoryName,
+                categoryColor: mapped.categoryColor,
+                categoryIcon: mapped.categoryIcon,
+                markerEmoji: mapped.markerEmoji,
+            }))
+            refreshCollaborationData()
+        } catch (error) {
+            setPlaceError(
+                getApiErrorMessage(
+                    error,
+                    '장소 카테고리를 변경하지 못했습니다.',
+                ),
+            )
+        }
+    }
+
+    function syncCategories(nextCategories: PlaceCategoryInfo[]) {
+        setCategories(nextCategories)
+        const fallback =
+            nextCategories.find(
+                (category) => category.categoryType === 'OTHER',
+            ) ?? nextCategories[0]
+        places.forEach((place) => {
+            const category =
+                nextCategories.find(
+                    (item) => item.categoryId === place.categoryId,
+                ) ?? fallback
+            if (!category) return
+            onUpdatePlace(place.id, (current) => ({
+                ...current,
+                categoryId: category.categoryId,
+                categoryName: category.name,
+                categoryColor: category.markerColor,
+                categoryIcon: category.markerIcon,
+            }))
+        })
+        refreshCollaborationData()
+    }
+
     function focusPlace(placeId: string) {
         setMode('plan')
         setPlanTab('places')
@@ -371,7 +446,23 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
-                        {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {canPlanWrite && (
+                            <>
+                                <div className="flex justify-end px-3 pt-3">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setCategoryManagerOpen(true)
+                                        }
+                                        className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-200"
+                                    >
+                                        <Settings2Icon size={13} />
+                                        카테고리 관리
+                                    </button>
+                                </div>
+                                <PlaceSearch onAdd={handleAdd} />
+                            </>
+                        )}
                         {(loadError || placeError) && (
                             <p
                                 role="alert"
@@ -420,6 +511,13 @@ export function RoomDetailPanel({
                                     }}
                                     onOpenComments={() =>
                                         void openCommentSheet(place.id)
+                                    }
+                                    categories={categories}
+                                    onCategoryChange={(categoryId) =>
+                                        handleCategoryChange(
+                                            place.id,
+                                            categoryId,
+                                        )
                                     }
                                 />
                             ))
@@ -476,6 +574,14 @@ export function RoomDetailPanel({
                         />
                     </div>
                 </div>
+            )}
+            {categoryManagerOpen && (
+                <CategoryManager
+                    tripId={tripId}
+                    categories={categories}
+                    onChange={syncCategories}
+                    onClose={() => setCategoryManagerOpen(false)}
+                />
             )}
             {commentPlace && (
                 <CommentSheet

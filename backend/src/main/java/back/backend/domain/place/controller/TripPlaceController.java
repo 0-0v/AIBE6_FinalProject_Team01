@@ -2,6 +2,7 @@ package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
+import back.backend.domain.place.dto.request.UpdateTripPlaceCategoryRequest;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.service.TripPlaceService;
 import back.backend.global.response.ApiResponse;
@@ -48,6 +49,17 @@ public class TripPlaceController {
             @PathVariable Long tripPlaceId
     ) {
         tripPlaceService.deletePlace(tripId, tripPlaceId);
+    }
+
+    @PutMapping("/{tripPlaceId}/category")
+    public ApiResponse<TripPlaceResponse> updateCategory(
+            @PathVariable Long tripId,
+            @PathVariable Long tripPlaceId,
+            @RequestBody @Valid UpdateTripPlaceCategoryRequest request
+    ) {
+        return ApiResponse.success(
+                tripPlaceService.updateCategory(tripId, tripPlaceId, request.categoryId())
+        );
     }
 
 }

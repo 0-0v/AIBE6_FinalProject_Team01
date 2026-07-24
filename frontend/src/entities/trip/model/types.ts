@@ -8,7 +8,13 @@ export type Member = {
 }
 
 export type PlaceCategory =
-    'cafe' | 'food' | 'attraction' | 'nature' | 'shopping' | 'other'
+    | 'cafe'
+    | 'food'
+    | 'attraction'
+    | 'nature'
+    | 'lodging'
+    | 'shopping'
+    | 'other'
 
 export type PlaceStatus = 'saved' | 'hold' | 'rejected'
 
@@ -38,6 +44,10 @@ export type Place = {
     name: string
     address: string
     category: PlaceCategory
+    categoryId: number | null
+    categoryName: string
+    categoryColor: string
+    categoryIcon: string
     markerEmoji?: string
     status: PlaceStatus
     image: string

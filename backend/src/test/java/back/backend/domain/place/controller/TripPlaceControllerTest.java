@@ -50,7 +50,7 @@ class TripPlaceControllerTest {
         sampleResponse = new TripPlaceResponse(
                 10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 new BigDecimal("33.3065000"), new BigDecimal("126.2897000"),
-                "tourist_attraction", null, TripPlaceStatus.SAVED, 1L, 0);
+                "tourist_attraction", null, null, TripPlaceStatus.SAVED, 1L, 0);
     }
 
     @Test
@@ -146,6 +146,18 @@ class TripPlaceControllerTest {
         mockMvc.perform(get("/api/trips/1/places").param("status", "INVALID"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    @DisplayName("t9 장소 카테고리를 변경하면 변경된 장소 정보를 반환한다")
+    void t9_updateCategoryReturnsUpdatedPlace() throws Exception {
+        given(tripPlaceService.updateCategory(1L, 10L, 3L)).willReturn(sampleResponse);
+
+        mockMvc.perform(put("/api/trips/1/places/10/category")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryId\":3}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tripPlaceId").value(10));
     }
 
 }
