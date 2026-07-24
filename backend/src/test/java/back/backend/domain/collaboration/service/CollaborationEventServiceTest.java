@@ -59,4 +59,17 @@ class CollaborationEventServiceTest {
         then(activityLogService).should().create(any());
         then(notificationService).should().create(any());
     }
+
+    @Test
+    @DisplayName("t3 행위자가 없는 시스템 활동에 수신자도 없으면 알림 생성을 건너뛴다")
+    void t3_systemActivityWithoutRecipientsSkipsNotification() {
+        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of());
+
+        collaborationEventService.record(
+                1L, null, "PLACE_VOTE_EXPIRED", "TRIP_PLACE", 10L,
+                "장소 투표가 만료됐습니다.", Map.of(), NotificationType.VOTE, "장소 투표 종료");
+
+        then(activityLogService).should().create(any());
+        then(notificationService).shouldHaveNoInteractions();
+    }
 }

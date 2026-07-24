@@ -15,7 +15,7 @@ type TripState = {
     isLoading: boolean
     error: string | null
     loadTrips: () => Promise<void>
-    loadInvitedTrip: (inviteCode: string) => Promise<void>
+    loadInvitedTrip: (inviteCode: string) => Promise<boolean>
     selectTrip: (tripId: string) => void
     resetTrips: () => void
 }
@@ -87,6 +87,7 @@ export const useTripStore = create<TripState>()(
                 try {
                     const trip = await fetchInvitedTrip(inviteCode)
                     set({ guestRoom: toRoom(trip), isLoading: false })
+                    return true
                 } catch (error) {
                     set({
                         isLoading: false,
@@ -95,6 +96,7 @@ export const useTripStore = create<TripState>()(
                                 ? error.message
                                 : '초대 여행방을 불러오지 못했습니다.',
                     })
+                    return false
                 }
             },
             selectTrip: (activeTripId) => set({ activeTripId }),

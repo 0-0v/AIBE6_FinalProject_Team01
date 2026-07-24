@@ -5,7 +5,7 @@ export type PlaceSearchResult = {
     latitude: number
     longitude: number
     placeType: string | null
-    imageUrl: string | null
+    photoName: string | null
     rating: number | null
     userRatingCount: number | null
     openNow: boolean | null

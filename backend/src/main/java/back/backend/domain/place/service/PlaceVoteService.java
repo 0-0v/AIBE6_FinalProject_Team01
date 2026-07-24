@@ -4,7 +4,6 @@ import back.backend.domain.place.dto.request.RespondPlaceVoteRequest;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.place.dto.response.PlaceVoteSummaryResponse;
-import back.backend.domain.place.dto.response.PlaceVoteNotificationResponse;
 import back.backend.domain.place.entity.PlaceVoteChoice;
 import back.backend.domain.place.entity.PlaceVoteRequest;
 import back.backend.domain.place.entity.PlaceVoteResponse;
@@ -12,12 +11,10 @@ import back.backend.domain.place.entity.PlaceVoteStatus;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
-import back.backend.domain.place.repository.PlaceVoteNotificationRepository;
 import back.backend.domain.place.repository.PlaceVoteRequestRepository;
 import back.backend.domain.place.repository.PlaceVoteResponseRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
-import back.backend.global.security.SecurityContextAccessor;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import java.time.LocalDateTime;
 import java.time.Duration;
@@ -39,8 +36,6 @@ public class PlaceVoteService {
     private final TripPlaceRepository tripPlaceRepository;
     private final PlaceVoteRequestRepository voteRequestRepository;
     private final PlaceVoteResponseRepository voteResponseRepository;
-    private final PlaceVoteNotificationRepository notificationRepository;
-    private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
     private final TripMemberRepository tripMemberRepository;
     private final CollaborationEventService collaborationEventService;
@@ -111,10 +106,11 @@ public class PlaceVoteService {
         LocalDateTime now = LocalDateTime.now();
         if (isExpired(voteRequest, now)) {
             voteRequest.close(now);
-            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
+            tripPlaceRepository.delete(tripPlace);
+            recordExpiredVote(tripId, tripPlace, voteRequest);
             List<PlaceVoteResponse> responses = voteResponseRepository
                     .findAllByVoteRequestId(voteRequestId);
-            return summarize(voteRequest, memberId, responses, tripPlace.getStatus());
+            return summarize(voteRequest, memberId, responses, TripPlaceStatus.REJECTED);
         }
         PlaceVoteResponse response = voteResponseRepository
                 .findByVoteRequestIdAndMemberId(voteRequestId, memberId)
@@ -132,36 +128,44 @@ public class PlaceVoteService {
                 .count();
         int disagreeCount = responses.size() - agreeCount;
         int majorityCount = voteRequest.getRequiredResponseCount();
+        TripPlaceStatus resultStatus = tripPlace.getStatus();
         if (agreeCount >= majorityCount) {
             // 과반수 찬성 → 확정
             tripPlace.updateStatus(TripPlaceStatus.SAVED);
+            resultStatus = TripPlaceStatus.SAVED;
             voteRequest.close(now);
         } else if (disagreeCount >= majorityCount) {
-            // 과반수 반대 → 탈락
-            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
+            // 과반수 반대 → 버킷리스트에서 제거
             voteRequest.close(now);
+            tripPlaceRepository.delete(tripPlace);
+            resultStatus = TripPlaceStatus.REJECTED;
         } else if (responses.size() >= voteRequest.getTotalMemberCount()) {
-            // 전원 투표 완료이지만 동률 → 투표 종료 후 HOLD 유지 (재투표 가능)
-            tripPlace.updateStatus(TripPlaceStatus.HOLD);
+            // 과반 찬성이 없으면 버킷리스트에서 제거
             voteRequest.close(now);
+            tripPlaceRepository.delete(tripPlace);
+            resultStatus = TripPlaceStatus.REJECTED;
         }
-        String choiceLabel = request.choice() == PlaceVoteChoice.AGREE ? "찬성" : "반대";
-        collaborationEventService.record(
-                tripId,
-                memberId,
-                "PLACE_VOTE_RESPONDED",
-                "TRIP_PLACE",
-                tripPlaceId,
-                tripPlace.getPlace().getName() + " 투표에 " + choiceLabel + " 의견이 등록됐습니다.",
-                Map.of(
-                        "placeName", tripPlace.getPlace().getName(),
-                        "voteRequestId", voteRequest.getId(),
-                        "choice", request.choice().name()
-                ),
-                NotificationType.VOTE,
-                "장소 투표"
-        );
-        return summarize(voteRequest, memberId, responses, tripPlace.getStatus());
+        if (voteRequest.getStatus() == PlaceVoteStatus.CLOSED) {
+            recordVoteResult(tripId, memberId, tripPlace, voteRequest, resultStatus);
+        } else {
+            String choiceLabel = request.choice() == PlaceVoteChoice.AGREE ? "찬성" : "반대";
+            collaborationEventService.record(
+                    tripId,
+                    memberId,
+                    "PLACE_VOTE_RESPONDED",
+                    "TRIP_PLACE",
+                    tripPlaceId,
+                    tripPlace.getPlace().getName() + " 투표에 " + choiceLabel + " 의견이 등록됐습니다.",
+                    Map.of(
+                            "placeName", tripPlace.getPlace().getName(),
+                            "voteRequestId", voteRequest.getId(),
+                            "choice", request.choice().name()
+                    ),
+                    NotificationType.VOTE,
+                    "장소 투표"
+            );
+        }
+        return summarize(voteRequest, memberId, responses, resultStatus);
     }
 
     @Transactional
@@ -185,6 +189,8 @@ public class PlaceVoteService {
                     TripPlace tripPlace = tripPlacesById.get(request.getTripPlaceId());
                     if (tripPlace != null) {
                         tripPlace.updateStatus(TripPlaceStatus.REJECTED);
+                        tripPlaceRepository.delete(tripPlace);
+                        recordExpiredVote(tripId, tripPlace, request);
                     }
                 });
         List<Long> voteRequestIds = latestRequests.stream()
@@ -202,20 +208,6 @@ public class PlaceVoteService {
                         responsesByRequestId.getOrDefault(request.getId(), List.of()),
                         statusesByTripPlaceId.get(request.getTripPlaceId())))
                 .toList();
-    }
-
-    public List<PlaceVoteNotificationResponse> getNotifications() {
-        return notificationRepository.findNotifications(
-                securityContextAccessor.getCurrentMemberId());
-    }
-
-    @Transactional
-    public void markNotificationRead(Long notificationId) {
-        boolean updated = notificationRepository.markRead(
-                notificationId, securityContextAccessor.getCurrentMemberId());
-        if (!updated) {
-            throw new BusinessException(PlaceErrorCode.PLACE_VOTE_NOTIFICATION_NOT_FOUND);
-        }
     }
 
     private PlaceVoteSummaryResponse summarize(
@@ -252,6 +244,53 @@ public class PlaceVoteService {
 
     private boolean isExpired(PlaceVoteRequest request, LocalDateTime now) {
         return request.getExpiresAt() != null && !request.getExpiresAt().isAfter(now);
+    }
+
+    private void recordExpiredVote(
+            Long tripId,
+            TripPlace tripPlace,
+            PlaceVoteRequest voteRequest
+    ) {
+        collaborationEventService.record(
+                tripId,
+                null,
+                "PLACE_VOTE_EXPIRED",
+                "TRIP_PLACE",
+                tripPlace.getId(),
+                tripPlace.getPlace().getName() + " 갈래말래 투표가 응답 없이 종료됐습니다.",
+                Map.of(
+                        "placeName", tripPlace.getPlace().getName(),
+                        "voteRequestId", voteRequest.getId()
+                ),
+                NotificationType.VOTE,
+                "장소 투표 종료"
+        );
+    }
+
+    private void recordVoteResult(
+            Long tripId,
+            Long actorId,
+            TripPlace tripPlace,
+            PlaceVoteRequest voteRequest,
+            TripPlaceStatus resultStatus
+    ) {
+        boolean approved = resultStatus == TripPlaceStatus.SAVED;
+        collaborationEventService.record(
+                tripId,
+                actorId,
+                approved ? "PLACE_VOTE_APPROVED" : "PLACE_VOTE_REJECTED",
+                "TRIP_PLACE",
+                tripPlace.getId(),
+                tripPlace.getPlace().getName()
+                        + (approved ? " 장소가 투표로 확정됐습니다." : " 장소가 투표 결과로 제외됐습니다."),
+                Map.of(
+                        "placeName", tripPlace.getPlace().getName(),
+                        "voteRequestId", voteRequest.getId(),
+                        "result", resultStatus.name()
+                ),
+                NotificationType.VOTE,
+                approved ? "장소 투표 확정" : "장소 투표 종료"
+        );
     }
 
 }

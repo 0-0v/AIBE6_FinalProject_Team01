@@ -32,11 +32,11 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, Long> {
     );
     boolean existsByTripIdAndPlaceId(Long tripId, Long placeId);
     Optional<TripPlace> findByIdAndTripId(Long id, Long tripId);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tp FROM TripPlace tp JOIN FETCH tp.place WHERE tp.id = :id AND tp.tripId = :tripId")
     Optional<TripPlace> findByIdAndTripIdForUpdate(
             @Param("id") Long id,
             @Param("tripId") Long tripId
     );
+
 }

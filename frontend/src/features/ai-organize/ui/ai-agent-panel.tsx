@@ -6,13 +6,12 @@ import {
     RotateCcwIcon,
     AlertTriangleIcon,
     LayersIcon,
-    CalendarIcon,
 } from 'lucide-react'
 import { Place } from '@/entities/trip'
 
 type Suggestion = {
     id: string
-    type: 'duplicate' | 'category' | 'schedule'
+    type: 'duplicate' | 'category'
     icon: React.ComponentType<{ size?: number; className?: string }>
     title: string
     detail: string
@@ -50,13 +49,6 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
             title: `투표중인 장소 ${holdCount}곳 정리`,
             detail: '카테고리와 동선을 분석해 투표중인 장소를 효율적으로 정리해요.',
         },
-        {
-            id: 's3',
-            type: 'schedule',
-            icon: CalendarIcon,
-            title: '2박 3일 일정 초안 생성',
-            detail: '확정된 장소로 동선을 최적화한 날짜별 일정 초안을 만들어요. (이동시간·영업시간 충돌 확인 포함)',
-        },
     ]
 
     function runOrganize() {
@@ -85,8 +77,8 @@ export function AiAgentPanel({ places, onClose, onApply }: Props) {
                 {phase === 'idle' && (
                     <div className="rounded-xl bg-brand-50 p-4 text-center">
                         <p className="text-sm text-brand-700">
-                            등록된 장소들을 분석해 <b>중복·미분류·일정 충돌</b>
-                            을 찾아 정리안을 제안해 드릴게요.
+                            등록된 장소들을 분석해 <b>중복·미분류 상태</b>을
+                            찾아 정리안을 제안해 드릴게요.
                         </p>
                         <button
                             onClick={runOrganize}

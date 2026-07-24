@@ -10,18 +10,21 @@ export {
     getTripPlaceVotes,
     startTripPlaceVote,
     respondTripPlaceVote,
-    getPlaceVoteNotifications,
-    markPlaceVoteNotificationRead,
     fromApiToPlace,
     apiStatusToPlaceStatus,
 } from './api/tripPlaceApi'
-export type {
-    PlaceVoteSummaryResponse,
-    PlaceVoteNotificationResponse,
-} from './api/tripPlaceApi'
+export type { PlaceVoteSummaryResponse } from './api/tripPlaceApi'
 export {
     getPlaceComments,
     addPlaceComment,
     deletePlaceComment,
 } from './api/commentApi'
 export type { PlaceCommentResponse } from './api/commentApi'
+export {
+    getDateAvailability,
+    saveDateAvailability,
+    getDateProposal,
+    proposeDates,
+    voteDates,
+} from './api/tripPlanningApi'
+export type { DateAvailability, DateProposal } from './api/tripPlanningApi'

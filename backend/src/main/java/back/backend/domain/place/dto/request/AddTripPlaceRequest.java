@@ -10,5 +10,5 @@ public record AddTripPlaceRequest(
         @NotNull Double latitude,
         @NotNull Double longitude,
         String placeType,
-        String imageUrl
+        String photoName
 ) {}

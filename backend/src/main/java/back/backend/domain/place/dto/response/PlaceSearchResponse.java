@@ -9,7 +9,7 @@ public record PlaceSearchResponse(
         double latitude,
         double longitude,
         String placeType,
-        String imageUrl,
+        String photoName,
         Double rating,
         Integer userRatingCount,
         Boolean openNow,

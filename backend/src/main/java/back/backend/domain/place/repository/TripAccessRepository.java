@@ -17,15 +17,6 @@ public class TripAccessRepository {
               AND (t.owner_id = :memberId OR tm.member_id = :memberId)
             """;
 
-    private static final String EDIT_ACCESS_QUERY = """
-            SELECT COUNT(*)
-            FROM trips t
-            LEFT JOIN trip_members tm
-              ON tm.trip_id = t.id AND tm.member_id = :memberId
-            WHERE t.id = :tripId
-              AND (t.owner_id = :memberId OR tm.role IN ('OWNER', 'EDITOR'))
-            """;
-
     private final JdbcClient jdbcClient;
 
     public TripAccessRepository(JdbcClient jdbcClient) {
@@ -37,7 +28,8 @@ public class TripAccessRepository {
     }
 
     public boolean canEdit(Long tripId, Long memberId) {
-        return count(EDIT_ACCESS_QUERY, tripId, memberId) > 0;
+        // 여행방에 초대된 모든 멤버는 동일하게 계획을 편집한다.
+        return count(VIEW_ACCESS_QUERY, tripId, memberId) > 0;
     }
 
     private long count(String query, Long tripId, Long memberId) {

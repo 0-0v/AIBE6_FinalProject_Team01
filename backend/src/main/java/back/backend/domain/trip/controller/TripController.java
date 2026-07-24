@@ -5,6 +5,12 @@ import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.TripCompleteRequest;
 import back.backend.domain.trip.dto.TripCompleteResponse;
 import back.backend.domain.trip.service.TripService;
+import back.backend.domain.trip.service.TripPlanningService;
+import back.backend.domain.trip.dto.DateAvailabilityRequest;
+import back.backend.domain.trip.dto.DateAvailabilityResponse;
+import back.backend.domain.trip.dto.DateProposalRequest;
+import back.backend.domain.trip.dto.DateProposalResponse;
+import back.backend.domain.trip.dto.DateVoteRequest;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -26,10 +33,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class TripController {
     private final TripService tripService;
     private final SecurityContextAccessor securityContextAccessor;
+    private final TripPlanningService tripPlanningService;
 
-    public TripController(TripService tripService, SecurityContextAccessor securityContextAccessor) {
+    public TripController(
+            TripService tripService,
+            SecurityContextAccessor securityContextAccessor,
+            TripPlanningService tripPlanningService
+    ) {
         this.tripService = tripService;
         this.securityContextAccessor = securityContextAccessor;
+        this.tripPlanningService = tripPlanningService;
     }
 
     @PostMapping
@@ -73,4 +86,44 @@ public class TripController {
         return ApiResponse.success(tripService.complete(
                 securityContextAccessor.getCurrentMemberId(), tripId, request));
     }
+
+    @PutMapping("/{tripId}/date-availability")
+    @Operation(summary = "내 가능 날짜 교체")
+    public ApiResponse<List<DateAvailabilityResponse>> replaceAvailability(
+            @PathVariable Long tripId,
+            @Valid @RequestBody DateAvailabilityRequest request
+    ) {
+        return ApiResponse.success(tripPlanningService.replaceAvailability(tripId, request.availableDates()));
+    }
+
+    @GetMapping("/{tripId}/date-availability")
+    @Operation(summary = "멤버별 가능 날짜 조회")
+    public ApiResponse<List<DateAvailabilityResponse>> getAvailability(@PathVariable Long tripId) {
+        return ApiResponse.success(tripPlanningService.getAvailability(tripId));
+    }
+
+    @PutMapping("/{tripId}/date-proposal")
+    @Operation(summary = "여행 날짜 제안 또는 덮어쓰기")
+    public ApiResponse<DateProposalResponse> proposeDates(
+            @PathVariable Long tripId,
+            @Valid @RequestBody DateProposalRequest request
+    ) {
+        return ApiResponse.success(tripPlanningService.propose(tripId, request));
+    }
+
+    @GetMapping("/{tripId}/date-proposal")
+    @Operation(summary = "여행 날짜 제안 조회")
+    public ApiResponse<DateProposalResponse> getDateProposal(@PathVariable Long tripId) {
+        return ApiResponse.success(tripPlanningService.getProposal(tripId));
+    }
+
+    @PostMapping("/{tripId}/date-proposal/vote")
+    @Operation(summary = "여행 날짜 제안 투표")
+    public ApiResponse<DateProposalResponse> voteDateProposal(
+            @PathVariable Long tripId,
+            @Valid @RequestBody DateVoteRequest request
+    ) {
+        return ApiResponse.success(tripPlanningService.vote(tripId, request));
+    }
+
 }
