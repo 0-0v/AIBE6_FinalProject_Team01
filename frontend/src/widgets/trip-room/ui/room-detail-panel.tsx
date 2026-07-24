@@ -275,12 +275,8 @@ export function RoomDetailPanel({
                 canWrite={canWrite}
                 onTogglePublic={() => setIsPublic((value) => !value)}
                 onInvite={() => setInviteOpen(true)}
-                onBack={() => {
-                    if (confirmDiscardDateChanges()) onBack()
-                }}
-                onManage={() => {
-                    if (confirmDiscardDateChanges()) onManage()
-                }}
+                onBack={onBack}
+                onManage={onManage}
             />
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
                 <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold">

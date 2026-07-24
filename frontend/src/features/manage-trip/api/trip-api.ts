@@ -101,9 +101,23 @@ export async function createTripInvitation(id: number) {
     return response.data
 }
 
-export async function fetchInvitedTrip(inviteCode: string) {
-    const response = await apiClient.get<ApiResponse<TripResponse>>(
-        `/api/trip-invitations/${encodeURIComponent(inviteCode)}/preview`,
-    )
-    return response.data
+const pendingInvitedTripRequests = new Map<string, Promise<TripResponse>>()
+
+export function fetchInvitedTrip(inviteCode: string): Promise<TripResponse> {
+    const pendingRequest = pendingInvitedTripRequests.get(inviteCode)
+    if (pendingRequest) return pendingRequest
+
+    const request = apiClient
+        .postPublic<ApiResponse<TripResponse>>(
+            `/api/trip-invitations/${encodeURIComponent(inviteCode)}/accept`,
+            {},
+        )
+        .then((response) => response.data)
+        .finally(() => {
+            if (pendingInvitedTripRequests.get(inviteCode) === request) {
+                pendingInvitedTripRequests.delete(inviteCode)
+            }
+        })
+    pendingInvitedTripRequests.set(inviteCode, request)
+    return request
 }

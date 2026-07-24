@@ -17,6 +17,7 @@ type Props = {
     onInvite: () => void
     onBack: () => void
     onManage: () => void
+    showBackButton?: boolean
 }
 
 export function RoomHeader({
@@ -29,17 +30,20 @@ export function RoomHeader({
     onInvite,
     onBack,
     onManage,
+    showBackButton = true,
 }: Props) {
     return (
         <header className="border-b border-slate-100 bg-white px-4 py-3 shadow-sm">
             <div className="flex items-center gap-3">
-                <button
-                    onClick={onBack}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 hover:bg-brand-100"
-                    aria-label="여행방 목록으로 돌아가기"
-                >
-                    <ArrowLeftIcon size={18} />
-                </button>
+                {showBackButton && (
+                    <button
+                        onClick={onBack}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 hover:bg-brand-100"
+                        aria-label="여행방 목록으로 돌아가기"
+                    >
+                        <ArrowLeftIcon size={18} />
+                    </button>
+                )}
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                         <h1 className="truncate text-base font-extrabold tracking-tight">
