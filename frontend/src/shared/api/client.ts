@@ -12,7 +12,7 @@ export function resolveMediaUrl(path: string | null | undefined): string | null 
 
 type RequestOptions = Omit<RequestInit, 'method' | 'body'>
 
-type ApiEnvelope<T> = {
+export type ApiResponse<T> = {
     success: boolean
     message: string
     data: T
@@ -57,7 +57,7 @@ async function refreshAccessToken(): Promise<string> {
         throw new Error('토큰 재발급에 실패했습니다.')
     }
 
-    const body = (await res.json()) as ApiEnvelope<{ accessToken: string }>
+    const body = (await res.json()) as ApiResponse<{ accessToken: string }>
     setAccessToken(body.data.accessToken)
     return body.data.accessToken
 }
@@ -94,14 +94,29 @@ function withAccessToken(
     return { ...headers, Authorization: `Bearer ${token}` }
 }
 
+export function getApiErrorMessage(
+    error: unknown,
+    fallbackMessage: string,
+): string {
+    return error instanceof Error && error.message
+        ? error.message
+        : fallbackMessage
+}
+
 async function request<T>(
     path: string,
     init?: RequestInit,
     retryOn401 = true,
 ): Promise<T> {
+    const isFormData = init?.body instanceof FormData
     const res = await fetch(`${BASE_URL}${path}`, {
         ...init,
         credentials: 'include',
+        headers: {
+            ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            ...init?.headers,
+        },
     })
 
     if (res.status === 401 && retryOn401) {
@@ -113,7 +128,10 @@ async function request<T>(
             const newAccessToken = await refreshPromise
             return request<T>(
                 path,
-                { ...init, headers: withAccessToken(init?.headers, newAccessToken) },
+                {
+                    ...init,
+                    headers: withAccessToken(init?.headers, newAccessToken),
+                },
                 false,
             )
         } catch {
@@ -131,6 +149,7 @@ async function request<T>(
         throw error
     }
 
+    if (res.status === 204) return undefined as T
     return res.json() as Promise<T>
 }
 
@@ -144,6 +163,12 @@ export const apiClient = {
             headers: { 'Content-Type': 'application/json', ...options?.headers },
             body: JSON.stringify(body),
         }),
+    put: <T>(path: string, body: unknown, options?: RequestOptions) =>
+        request<T>(path, {
+            ...options,
+            method: 'PUT',
+            body: JSON.stringify(body),
+        }),
     patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
         request<T>(path, {
             ...options,
@@ -154,7 +179,7 @@ export const apiClient = {
                     : { 'Content-Type': 'application/json', ...options?.headers },
             body: body === undefined ? undefined : JSON.stringify(body),
         }),
-    delete: <T>(path: string, options?: RequestOptions) =>
+    delete: <T = void>(path: string, options?: RequestOptions) =>
         request<T>(path, { ...options, method: 'DELETE' }),
     // FormData는 브라우저가 Content-Type(multipart boundary)을 직접 설정해야 하므로
     // 이 메서드에서는 Content-Type 헤더를 지정하지 않는다.

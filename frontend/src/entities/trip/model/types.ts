@@ -8,13 +8,21 @@ export type Member = {
 }
 
 export type PlaceCategory =
-    'cafe' | 'food' | 'attraction' | 'nature' | 'shopping'
+    'cafe' | 'food' | 'attraction' | 'nature' | 'shopping' | 'other'
 
-export type PlaceStatus = 'candidate' | 'saved' | 'hold'
+export type PlaceStatus = 'saved' | 'hold' | 'rejected'
 
-export type Vote = {
-    memberId: string
-    value: 'up' | 'down'
+export type PlaceVoteSummary = {
+    voteRequestId: number
+    status: 'OPEN' | 'CLOSED'
+    agreeCount: number
+    disagreeCount: number
+    responseCount: number
+    requiredResponseCount: number
+    totalMemberCount: number
+    myChoice: 'AGREE' | 'DISAGREE' | null
+    placeStatus: 'SAVED' | 'HOLD' | 'REJECTED'
+    expiresAt: string
 }
 
 export type Comment = {
@@ -30,14 +38,15 @@ export type Place = {
     name: string
     address: string
     category: PlaceCategory
+    markerEmoji?: string
     status: PlaceStatus
     image: string
     lat: number
     lng: number
     addedBy: string
-    note?: string
-    votes: Vote[]
+    voteSummary?: PlaceVoteSummary
     comments: Comment[]
+    commentCount: number
     duplicateOf?: string
 }
 
@@ -54,7 +63,7 @@ export type TravelRecord = {
 
 export type Room = {
     id: string
-    backendId?: number
+    apiTripId?: number
     title: string
     date: string
     location: string

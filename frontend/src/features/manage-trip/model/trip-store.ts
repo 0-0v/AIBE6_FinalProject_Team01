@@ -35,7 +35,7 @@ export function toRoom(trip: TripResponse): Room {
 
     return {
         id: String(trip.id),
-        backendId: trip.id,
+        apiTripId: trip.id,
         title: trip.title,
         date,
         location: trip.destination ?? '장소 미정',

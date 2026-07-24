@@ -1,14 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { Place } from '@/entities/trip'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import {
+    Place,
+    getTripPlaces,
+    getTripPlaceAccess,
+    getTripPlaceVotes,
+    fromApiToPlace,
+} from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
+import { useCommentStore } from '@/features/comment-place'
 import { ManageTripModal, useTripStore } from '@/features/manage-trip'
+import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 
 export function TripRoom() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const { roomId, inviteCode } = useParams<{
         roomId?: string
         inviteCode?: string
@@ -37,12 +46,16 @@ export function TripRoom() {
           ? undefined
           : rooms.find((item) => item.id === effectiveRoomId)
     const trip = trips.find((item) => String(item.id) === effectiveRoomId)
+    const activeRoomId = room?.id
+    const tripId = room?.apiTripId
 
     const [places, setPlaces] = useState<Place[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [collapsed, setCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
     const [manageOpen, setManageOpen] = useState(false)
+    const [placesError, setPlacesError] = useState<string | null>(null)
+    const [canManagePlaces, setCanManagePlaces] = useState(false)
 
     useEffect(() => {
         if (inviteCode) void loadInvitedTrip(inviteCode)
@@ -62,10 +75,60 @@ export function TripRoom() {
         if (roomId) selectTrip(roomId)
     }, [roomId, selectTrip])
 
+    useEffect(() => {
+        if (!activeRoomId || !tripId) return
+        const controller = new AbortController()
+        Promise.all([
+            getTripPlaces(tripId, controller.signal),
+            getTripPlaceVotes(tripId, controller.signal),
+            getTripPlaceAccess(tripId, controller.signal),
+        ])
+            .then(([tripPlaces, voteSummaries, canEdit]) => {
+                setPlacesError(null)
+                setCanManagePlaces(canEdit)
+                const votesByPlaceId = new Map(
+                    voteSummaries.map((vote) => [vote.tripPlaceId, vote]),
+                )
+                const cachedComments =
+                    useCommentStore.getState().commentsByPlaceId
+                setPlaces(
+                    tripPlaces.map((tp) => {
+                        const place = fromApiToPlace(
+                            tp,
+                            activeRoomId,
+                            votesByPlaceId.get(tp.tripPlaceId),
+                        )
+                        return {
+                            ...place,
+                            comments:
+                                cachedComments[place.id] ?? place.comments,
+                        }
+                    }),
+                )
+            })
+            .catch((error: unknown) => {
+                if (controller.signal.aborted) return
+                setPlaces([])
+                setCanManagePlaces(false)
+                setPlacesError(
+                    getApiErrorMessage(
+                        error,
+                        '여행 장소를 불러오지 못했습니다.',
+                    ),
+                )
+            })
+        return () => controller.abort()
+    }, [activeRoomId, tripId])
+
     const displayedPlaces = useMemo(
         () =>
             room ? places.filter((place) => place.roomId === room.id) : places,
         [places, room],
+    )
+
+    const mapPlaces = useMemo(
+        () => displayedPlaces.filter((place) => place.status === 'saved'),
+        [displayedPlaces],
     )
 
     function updatePlace(id: string, update: (place: Place) => Place) {
@@ -87,7 +150,7 @@ export function TripRoom() {
             <div className="relative flex min-h-0 flex-1 flex-row">
                 <div className="relative min-w-0 flex-1">
                     <MapCanvas
-                        places={displayedPlaces}
+                        places={mapPlaces}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                     />
@@ -128,10 +191,19 @@ export function TripRoom() {
                                 onSelectPlace={setSelectedId}
                                 onBack={() => setShowRoomList(true)}
                                 onManage={() => setManageOpen(true)}
-                                isGuest={Boolean(inviteCode)}
                                 onUpdatePlace={updatePlace}
                                 onAddPlace={addPlace}
                                 onDeletePlace={deletePlace}
+                                loadError={
+                                    tripId
+                                        ? placesError
+                                        : '아직 서버와 연결되지 않은 여행방입니다.'
+                                }
+                                canManage={canManagePlaces}
+                                tripId={tripId!}
+                                initialActivityOpen={
+                                    searchParams.get('activity') === 'open'
+                                }
                             />
                         ) : (
                             <RoomListPanel

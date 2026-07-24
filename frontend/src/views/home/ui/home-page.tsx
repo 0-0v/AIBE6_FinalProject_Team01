@@ -168,12 +168,12 @@ export function Home() {
     ])
 
     useEffect(() => {
-        if (currentUser && activeTrip.backendId) {
-            void loadActivityLogs(activeTrip.backendId)
+        if (currentUser && activeTrip.apiTripId) {
+            void loadActivityLogs(activeTrip.apiTripId)
         } else {
             resetActivityLogs()
         }
-    }, [activeTrip.backendId, currentUser, loadActivityLogs, resetActivityLogs])
+    }, [activeTrip.apiTripId, currentUser, loadActivityLogs, resetActivityLogs])
 
     function toggleTask(id: string) {
         setTasks((current) => current.filter((task) => task.id !== id))
@@ -449,7 +449,16 @@ export function Home() {
                                     <SectionTitle
                                         title="최근 활동"
                                         action={
-                                            <button className="text-xs font-bold text-slate-400 hover:text-slate-700">
+                                            <button
+                                                type="button"
+                                                disabled={!activeTrip.id}
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/app/room/${activeTrip.id}?activity=open`,
+                                                    )
+                                                }
+                                                className="text-xs font-bold text-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                            >
                                                 모두 보기
                                             </button>
                                         }

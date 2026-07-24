@@ -1,3 +1,5 @@
+export const DEFAULT_AVATAR_COLOR = '#0f766e'
+
 type Props = {
     name: string
     color: string

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
@@ -8,17 +8,28 @@ import {
 import {
     Expense,
     Place,
-    PlaceCategory,
     PlaceStatus,
     Room,
     TravelRecord,
+    addTripPlace,
+    deleteTripPlace,
+    startTripPlaceVote,
+    respondTripPlaceVote,
+    fromApiToPlace,
+    apiStatusToPlaceStatus,
+    getPlaceComments,
+    addPlaceComment,
+    deletePlaceComment,
 } from '@/entities/trip'
-import { CommentSheet } from '@/features/comment-place'
+import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
+import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
+import { useActivityLogStore } from '@/features/view-activity-log'
+import { useNotificationStore } from '@/features/manage-notification'
 import { useCurrentUserStore } from '@/shared/model'
 import { ItineraryPanel } from './itinerary-panel'
 import { PlaceCard } from './place-card'
@@ -29,12 +40,7 @@ type Mode = 'plan' | 'record'
 type PlanTab = 'places' | 'itinerary'
 type RecordTab = 'records' | 'expenses'
 
-const STATUS_TABS: { key: PlaceStatus | 'all'; label: string }[] = [
-    { key: 'all', label: '전체' },
-    { key: 'candidate', label: '후보' },
-    { key: 'saved', label: '확정' },
-    { key: 'hold', label: '보류' },
-]
+
 
 type Props = {
     room: Room
@@ -43,10 +49,13 @@ type Props = {
     onSelectPlace: (id: string) => void
     onBack: () => void
     onManage: () => void
-    isGuest: boolean
     onUpdatePlace: (id: string, update: (place: Place) => Place) => void
     onAddPlace: (place: Place) => void
     onDeletePlace: (id: string) => void
+    loadError?: string | null
+    canManage: boolean
+    tripId: number
+    initialActivityOpen?: boolean
 }
 
 export function RoomDetailPanel({
@@ -56,10 +65,13 @@ export function RoomDetailPanel({
     onSelectPlace,
     onBack,
     onManage,
-    isGuest,
     onUpdatePlace,
     onAddPlace,
     onDeletePlace,
+    loadError,
+    canManage,
+    tripId,
+    initialActivityOpen = false,
 }: Props) {
     const currentUserId = String(
         useCurrentUserStore((state) => state.currentUser?.id) ?? '',
@@ -72,21 +84,52 @@ export function RoomDetailPanel({
     )
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
-    const [statusFilter, setStatusFilter] = useState<PlaceStatus | 'all'>('all')
-    const [activityOpen, setActivityOpen] = useState(false)
+    const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
+    const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [isPublic, setIsPublic] = useState(true)
-    const canWrite = !isGuest && Boolean(currentUserId)
+    const loadActivityLogs = useActivityLogStore(
+        (state) => state.loadActivityLogs,
+    )
+    const loadNotifications = useNotificationStore(
+        (state) => state.loadNotifications,
+    )
+    const [placeError, setPlaceError] = useState<string | null>(null)
+
+    const canWrite = canManage
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
-    const filtered = useMemo(
-        () =>
-            statusFilter === 'all'
-                ? places
-                : places.filter((place) => place.status === statusFilter),
-        [places, statusFilter],
-    )
+    const { setComments, addComment, removeComment } = useCommentStore()
+
+    useEffect(() => {
+        if (!commentPlaceId) return
+        const controller = new AbortController()
+        getPlaceComments(tripId, Number(commentPlaceId), controller.signal)
+            .then((fetched) => {
+                const comments = fetched.map((c) => ({
+                    id: String(c.id),
+                    memberId: String(c.memberId),
+                    text: c.content,
+                    createdAt: c.createdAt,
+                }))
+                setComments(commentPlaceId, comments)
+                onUpdatePlace(commentPlaceId, (place) => ({
+                    ...place,
+                    comments,
+                    commentCount: comments.length,
+                }))
+            })
+            .catch(() => {
+                // 시트 닫힘 등으로 abort된 경우 무시
+            })
+        return () => controller.abort()
+    }, [commentPlaceId, tripId])
+
+    function refreshCollaborationData() {
+        void loadActivityLogs(tripId)
+        void loadNotifications()
+    }
 
     function switchMode(nextMode: Mode) {
         setMode(nextMode)
@@ -94,67 +137,132 @@ export function RoomDetailPanel({
         else setRecordTab('records')
     }
 
-    function handleVote(id: string, value: 'up' | 'down') {
-        onUpdatePlace(id, (place) => {
-            const existing = place.votes.find(
-                (vote) => vote.memberId === currentUserId,
-            )
-            const withoutMine = place.votes.filter(
-                (vote) => vote.memberId !== currentUserId,
-            )
-            return {
+    async function withVoteError<T>(
+        fn: () => Promise<T>,
+        fallbackMessage: string,
+    ): Promise<T> {
+        setPlaceError(null)
+        try {
+            return await fn()
+        } catch (error) {
+            setPlaceError(getApiErrorMessage(error, fallbackMessage))
+            throw error
+        }
+    }
+
+    async function handleStartVote(id: string) {
+        const voteSummary = await withVoteError(
+            () => startTripPlaceVote(tripId, Number(id)),
+            '투표 신청에 실패했습니다.',
+        )
+        onUpdatePlace(id, (place) => ({
+            ...place,
+            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
+            voteSummary,
+        }))
+        refreshCollaborationData()
+    }
+
+    async function openCommentSheet(placeId: string) {
+        setCommentError(null)
+        setCommentPlaceId(placeId)
+        try {
+            const comments = await getPlaceComments(tripId, Number(placeId))
+            onUpdatePlace(placeId, (place) => ({
                 ...place,
-                votes:
-                    existing?.value === value
-                        ? withoutMine
-                        : [...withoutMine, { memberId: currentUserId, value }],
+                comments: comments.map((c) => ({
+                    id: String(c.id),
+                    memberId: String(c.memberId),
+                    text: c.content,
+                    createdAt: c.createdAt,
+                })),
+            }))
+        } catch (error) {
+            setCommentError(
+                getApiErrorMessage(error, '댓글을 불러오지 못했습니다.'),
+            )
+        }
+    }
+
+    async function handleAddComment(placeId: string, text: string) {
+        setCommentError(null)
+        try {
+            const comment = await addPlaceComment(tripId, Number(placeId), text)
+            const newComment = {
+                id: String(comment.id),
+                memberId: String(comment.memberId),
+                text: comment.content,
+                createdAt: comment.createdAt,
             }
-        })
+            addComment(placeId, newComment)
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                comments: [...place.comments, newComment],
+                commentCount: place.commentCount + 1,
+            }))
+            refreshCollaborationData()
+        } catch (error) {
+            setCommentError(
+                getApiErrorMessage(error, '댓글 등록에 실패했습니다.'),
+            )
+            throw error
+        }
     }
 
-    function mapPlaceTypeToCategory(placeType: string | null): PlaceCategory {
-        if (!placeType) return 'attraction'
-        if (placeType.includes('restaurant') || placeType.includes('food'))
-            return 'food'
-        if (placeType.includes('cafe') || placeType.includes('coffee'))
-            return 'cafe'
-        if (placeType.includes('shopping') || placeType.includes('store'))
-            return 'shopping'
-        if (placeType.includes('park') || placeType.includes('garden'))
-            return 'nature'
-        return 'attraction'
+    async function handleDeleteComment(placeId: string, commentId: string) {
+        setCommentError(null)
+        try {
+            await deletePlaceComment(tripId, Number(placeId), Number(commentId))
+            removeComment(placeId, commentId)
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                comments: place.comments.filter((c) => c.id !== commentId),
+                commentCount: Math.max(0, place.commentCount - 1),
+            }))
+        } catch (error) {
+            setCommentError(
+                getApiErrorMessage(error, '댓글 삭제에 실패했습니다.'),
+            )
+            throw error
+        }
     }
 
-    function handleAdd(result: PlaceSearchResult) {
-        const category = mapPlaceTypeToCategory(result.placeType)
-        const fallbackImages: Record<PlaceCategory, string> = {
-            cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
-            nature: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
-            food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
-            attraction: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
-            shopping: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
+    async function handleVote(id: string, value: 'up' | 'down') {
+        const voteSummary = await withVoteError(
+            () =>
+                respondTripPlaceVote(
+                    tripId,
+                    Number(id),
+                    value === 'up' ? 'AGREE' : 'DISAGREE',
+                ),
+            '투표 응답에 실패했습니다.',
+        )
+        onUpdatePlace(id, (place) => ({
+            ...place,
+            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
+            voteSummary,
+        }))
+        refreshCollaborationData()
+    }
+
+    async function handleAdd(result: PlaceSearchResult) {
+        setPlaceError(null)
+        try {
+            const tripPlace = await addTripPlace(tripId, result)
+            onAddPlace(fromApiToPlace(tripPlace, room.id))
+            refreshCollaborationData()
+        } catch (error) {
+            setPlaceError(
+                getApiErrorMessage(error, '장소 추가에 실패했습니다.'),
+            )
+            throw error
         }
-        const place: Place = {
-            id: `p${Date.now()}`,
-            roomId: room.id,
-            name: result.name,
-            address: result.address,
-            category,
-            status: 'candidate',
-            image: result.imageUrl ?? fallbackImages[category],
-            lat: result.latitude,
-            lng: result.longitude,
-            addedBy: currentUserId,
-            votes: [],
-            comments: [],
-        }
-        onAddPlace(place)
     }
 
     function focusPlace(placeId: string) {
         setMode('plan')
         setPlanTab('places')
-        setStatusFilter('all')
+
         onSelectPlace(placeId)
     }
 
@@ -256,36 +364,22 @@ export function RoomDetailPanel({
                 <>
                     <div className="border-b border-slate-100">
                         {canWrite && <PlaceSearch onAdd={handleAdd} />}
-                        <div className="flex gap-1.5 overflow-x-auto px-3 py-2.5">
-                            {STATUS_TABS.map((status) => {
-                                const count =
-                                    status.key === 'all'
-                                        ? places.length
-                                        : places.filter(
-                                              (place) =>
-                                                  place.status === status.key,
-                                          ).length
-                                return (
-                                    <button
-                                        key={status.key}
-                                        onClick={() =>
-                                            setStatusFilter(status.key)
-                                        }
-                                        className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold transition ${statusFilter === status.key ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                    >
-                                        {status.label} {count}
-                                    </button>
-                                )
-                            })}
-                        </div>
+                        {(loadError || placeError) && (
+                            <p
+                                role="alert"
+                                className="mx-3 mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"
+                            >
+                                {placeError ?? loadError}
+                            </p>
+                        )}
                     </div>
                     <div className="mp-scroll flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
-                        {filtered.length === 0 ? (
+                        {places.length === 0 ? (
                             <p className="py-16 text-center text-sm text-slate-400">
                                 해당하는 장소가 없어요
                             </p>
                         ) : (
-                            filtered.map((place) => (
+                            places.map((place) => (
                                 <PlaceCard
                                     key={place.id}
                                     place={place}
@@ -295,23 +389,29 @@ export function RoomDetailPanel({
                                     onVote={(value) =>
                                         handleVote(place.id, value)
                                     }
-                                    onSave={() => {
-                                        onUpdatePlace(place.id, (item) => ({
-                                            ...item,
-                                            status: 'saved',
-                                        }))
-                                    }}
-                                    onHold={() => {
-                                        onUpdatePlace(place.id, (item) => ({
-                                            ...item,
-                                            status: 'hold',
-                                        }))
-                                    }}
-                                    onDelete={() => {
-                                        onDeletePlace(place.id)
+                                    onStartVote={() =>
+                                        handleStartVote(place.id)
+                                    }
+                                    onDelete={async () => {
+                                        setPlaceError(null)
+                                        try {
+                                            await deleteTripPlace(
+                                                tripId,
+                                                Number(place.id),
+                                            )
+                                            onDeletePlace(place.id)
+                                            refreshCollaborationData()
+                                        } catch (error) {
+                                            setPlaceError(
+                                                getApiErrorMessage(
+                                                    error,
+                                                    '장소 삭제에 실패했습니다.',
+                                                ),
+                                            )
+                                        }
                                     }}
                                     onOpenComments={() =>
-                                        setCommentPlaceId(place.id)
+                                        void openCommentSheet(place.id)
                                     }
                                 />
                             ))
@@ -372,7 +472,7 @@ export function RoomDetailPanel({
                         </button>
                     </div>
                     <div className="mp-scroll flex-1 overflow-y-auto">
-                        <ActivityLogPanel tripId={room.backendId} />
+                        <ActivityLogPanel tripId={room.apiTripId} />
                     </div>
                 </div>
             )}
@@ -380,26 +480,22 @@ export function RoomDetailPanel({
                 <CommentSheet
                     place={commentPlace}
                     canWrite={canWrite}
-                    onClose={() => setCommentPlaceId(null)}
+                    error={commentError}
+                    onClose={() => {
+                        setCommentPlaceId(null)
+                        setCommentError(null)
+                    }}
                     onAddComment={(text) =>
-                        onUpdatePlace(commentPlace.id, (place) => ({
-                            ...place,
-                            comments: [
-                                ...place.comments,
-                                {
-                                    id: `c${Date.now()}`,
-                                    memberId: currentUserId,
-                                    text,
-                                    createdAt: '방금',
-                                },
-                            ],
-                        }))
+                        handleAddComment(commentPlace.id, text)
+                    }
+                    onDeleteComment={(commentId) =>
+                        handleDeleteComment(commentPlace.id, commentId)
                     }
                 />
             )}
-            {inviteOpen && room.backendId && (
+            {inviteOpen && room.apiTripId && (
                 <InviteModal
-                    tripId={room.backendId}
+                    tripId={room.apiTripId}
                     onClose={() => setInviteOpen(false)}
                 />
             )}

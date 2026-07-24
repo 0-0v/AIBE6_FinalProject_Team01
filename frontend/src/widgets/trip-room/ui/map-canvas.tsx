@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     AdvancedMarker,
     Map,
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
+import { MessageCircleIcon } from 'lucide-react'
 import { CATEGORY_META, Place } from '@/entities/trip'
 
 const JEJU_CENTER = { lat: 33.489, lng: 126.4983 }
@@ -46,9 +47,9 @@ function GoogleMapCanvas({
     onSelect,
 }: Pick<Props, 'places' | 'selectedId' | 'onSelect'>) {
     const isLoaded = useApiIsLoaded()
-    // NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID 미설정 시 Google 공식 데모 ID 사용 (개발용)
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
     const center = calculateCenter(places)
+    const [hoveredId, setHoveredId] = useState<string | null>(null)
 
     if (!isLoaded) {
         return (
@@ -71,29 +72,71 @@ function GoogleMapCanvas({
             {places.map((place) => {
                 const meta = CATEGORY_META[place.category]
                 const isSelected = place.id === selectedId
+                const isHovered = place.id === hoveredId
                 return (
                     <AdvancedMarker
                         key={place.id}
                         position={{ lat: place.lat, lng: place.lng }}
                         onClick={() => onSelect(place.id)}
-                        zIndex={isSelected ? 10 : 1}
+                        zIndex={isHovered ? 20 : isSelected ? 10 : 1}
                     >
                         <div
-                            className={`flex flex-col items-center transition-transform ${
-                                isSelected ? 'scale-125' : 'hover:scale-110'
-                            }`}
+                            className="relative flex flex-col items-center"
+                            onMouseEnter={() => setHoveredId(place.id)}
+                            onMouseLeave={() => setHoveredId(null)}
                         >
+                            {/* 호버 인포카드 */}
+                            {isHovered && !isSelected && (
+                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 overflow-hidden rounded-xl bg-white shadow-xl border border-slate-100 pointer-events-none">
+                                    {place.image && (
+                                        <img
+                                            src={place.image}
+                                            alt={place.name}
+                                            className="h-24 w-full object-cover"
+                                        />
+                                    )}
+                                    <div className="p-2.5">
+                                        <p className="truncate text-xs font-bold text-slate-800">
+                                            {place.name}
+                                        </p>
+                                        <span
+                                            className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                            style={{
+                                                backgroundColor: (meta?.color ?? '#e7657a') + '20',
+                                                color: meta?.color ?? '#e7657a',
+                                            }}
+                                        >
+                                            {meta?.label ?? '기타'}
+                                        </span>
+                                        <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
+                                            {place.address}
+                                        </p>
+                                        {place.commentCount > 0 && (
+                                            <p className="mt-1.5 flex items-center gap-1 text-[10px] text-slate-400">
+                                                <MessageCircleIcon size={10} />
+                                                댓글 {place.commentCount}개
+                                            </p>
+                                        )}
+                                    </div>
+                                    {/* 말풍선 꼬리 */}
+                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-white" />
+                                </div>
+                            )}
+
+                            {/* 마커 */}
                             <div
-                                className={`flex items-center justify-center rounded-full border-2 border-white shadow-md ${
+                                className={`flex items-center justify-center rounded-full border-2 border-white shadow-md transition-transform ${
                                     isSelected
-                                        ? 'h-10 w-10 text-base'
-                                        : 'h-8 w-8 text-sm'
+                                        ? 'h-10 w-10 scale-125 text-base'
+                                        : isHovered
+                                          ? 'h-8 w-8 scale-110 text-sm'
+                                          : 'h-8 w-8 text-sm'
                                 }`}
                                 style={{
                                     backgroundColor: meta?.color ?? '#e7657a',
                                 }}
                             >
-                                {meta?.emoji ?? '📍'}
+                                {place.markerEmoji ?? meta?.emoji ?? '📍'}
                             </div>
                             {isSelected && (
                                 <div className="mt-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-semibold shadow-md">

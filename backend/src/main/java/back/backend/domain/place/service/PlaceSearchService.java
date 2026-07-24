@@ -7,6 +7,7 @@ import back.backend.global.exception.BusinessException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -21,9 +22,16 @@ public class PlaceSearchService {
 
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
     private static final String FIELD_MASK =
-            "places.id,places.displayName,places.formattedAddress,places.location,places.types";
+            "places.id,places.displayName,places.formattedAddress,places.location," +
+            "places.primaryType,places.types,places.photos," +
+            "places.rating,places.userRatingCount," +
+            "places.currentOpeningHours.openNow," +
+            "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions," +
+            "places.nationalPhoneNumber,places.websiteUri," +
+            "places.editorialSummary,places.reviews";
 
     private final RestClient restClient;
+    private final String apiKey;
 
     @Autowired
     public PlaceSearchService(
@@ -35,6 +43,7 @@ public class PlaceSearchService {
 
     // 테스트용 생성자 (MockRestServiceServer 바인딩)
     PlaceSearchService(RestClient.Builder builder, String apiKey) {
+        this.apiKey = apiKey;
         this.restClient = builder
                 .baseUrl(GOOGLE_PLACES_BASE_URL)
                 .defaultHeader("X-Goog-Api-Key", apiKey)
@@ -90,9 +99,29 @@ public class PlaceSearchService {
         String name = place.displayName() != null ? place.displayName().text() : null;
         double latitude = place.location().latitude();
         double longitude = place.location().longitude();
-        String placeType = (place.types() != null && !place.types().isEmpty())
-                ? place.types().get(0)
+        String placeType = StringUtils.hasText(place.primaryType())
+                ? place.primaryType()
+                : firstTypeOrNull(place.types());
+        String imageUrl = resolveImageUrl(place);
+
+        Boolean openNow = Optional.ofNullable(place.regularOpeningHours())
+                .map(GooglePlacesApiResponse.RegularOpeningHours::openNow)
+                .orElseGet(() -> place.currentOpeningHours() != null
+                        ? place.currentOpeningHours().openNow()
+                        : null);
+
+        List<String> weekdayDescriptions = place.regularOpeningHours() != null
+                ? place.regularOpeningHours().weekdayDescriptions()
                 : null;
+
+        String editorialSummary = place.editorialSummary() != null
+                ? place.editorialSummary().text()
+                : null;
+
+        GooglePlacesApiResponse.Review topReview = (place.reviews() != null && !place.reviews().isEmpty())
+                ? place.reviews().get(0)
+                : null;
+
         return new PlaceSearchResponse(
                 place.id(),
                 name,
@@ -100,7 +129,30 @@ public class PlaceSearchService {
                 latitude,
                 longitude,
                 placeType,
-                null
+                imageUrl,
+                place.rating(),
+                place.userRatingCount(),
+                openNow,
+                weekdayDescriptions,
+                place.nationalPhoneNumber(),
+                place.websiteUri(),
+                editorialSummary,
+                topReview != null && topReview.text() != null ? topReview.text().text() : null,
+                topReview != null ? topReview.rating() : null,
+                topReview != null && topReview.authorAttribution() != null
+                        ? topReview.authorAttribution().displayName() : null,
+                topReview != null ? topReview.relativePublishTimeDescription() : null
         );
+    }
+
+    private String resolveImageUrl(GooglePlacesApiResponse.Place place) {
+        if (place.photos() == null || place.photos().isEmpty()) return null;
+        String photoName = place.photos().get(0).name();
+        return GOOGLE_PLACES_BASE_URL + "/" + photoName
+                + "/media?maxWidthPx=400&key=" + apiKey;
+    }
+
+    private String firstTypeOrNull(List<String> types) {
+        return types != null && !types.isEmpty() ? types.get(0) : null;
     }
 }

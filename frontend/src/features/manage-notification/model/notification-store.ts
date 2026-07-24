@@ -25,6 +25,8 @@ function errorMessage(error: unknown): string {
         : '알림을 처리하는 중 오류가 발생했습니다.'
 }
 
+let notificationRevision = 0
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
     notifications: [],
     unreadCount: 0,
@@ -32,22 +34,26 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     error: null,
 
     loadNotifications: async () => {
+        const revision = notificationRevision
         set({ isLoading: true, error: null })
         try {
             const [notifications, unreadCount] = await Promise.all([
                 fetchNotifications(),
                 fetchUnreadNotificationCount(),
             ])
-            set({ notifications, unreadCount, isLoading: false })
+            if (revision === notificationRevision) {
+                set({ notifications, unreadCount, isLoading: false })
+            }
         } catch (error) {
             set({ error: errorMessage(error), isLoading: false })
         }
     },
 
     loadUnreadCount: async () => {
+        const revision = notificationRevision
         try {
             const unreadCount = await fetchUnreadNotificationCount()
-            set({ unreadCount })
+            if (revision === notificationRevision) set({ unreadCount })
         } catch {
             set({ unreadCount: 0 })
         }
@@ -63,6 +69,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
         try {
             await markNotificationAsRead(notificationId)
+            notificationRevision += 1
             const readAt = new Date().toISOString()
             set((state) => ({
                 notifications: state.notifications.map((item) =>
@@ -85,6 +92,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
         try {
             await markAllNotificationsAsRead()
+            notificationRevision += 1
             const readAt = new Date().toISOString()
             set((state) => ({
                 notifications: state.notifications.map((item) =>
@@ -98,11 +106,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
 
-    resetNotifications: () =>
+    resetNotifications: () => {
+        notificationRevision += 1
         set({
             notifications: [],
             unreadCount: 0,
             isLoading: false,
             error: null,
-        }),
+        })
+    },
 }))

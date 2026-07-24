@@ -7,11 +7,12 @@ import {
     LogOutIcon,
     MapIcon,
     PlusIcon,
+    Settings2Icon,
     SparklesIcon,
-    UserRoundIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
 import { logout, resolveMediaUrl } from '@/shared/api/client'
+import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 
 const nav = [
@@ -31,8 +32,11 @@ export function Sidebar() {
     const resetNotifications = useNotificationStore(
         (state) => state.resetNotifications,
     )
-    const displayName = currentUser?.nickname ?? '게스트'
-    const profileImageUrl = resolveMediaUrl(currentUser?.profileImageUrl)
+    const me = {
+        name: currentUser?.nickname ?? '게스트',
+        avatarColor: DEFAULT_AVATAR_COLOR,
+        imageUrl: resolveMediaUrl(currentUser?.profileImageUrl),
+    }
 
     useEffect(() => {
         if (currentUser) {
@@ -101,6 +105,14 @@ export function Sidebar() {
             </nav>
 
             <div className="flex flex-col items-center gap-4">
+                <NavLink
+                    to="/app/mypage"
+                    title="설정"
+                    aria-label="설정"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+                >
+                    <Settings2Icon size={20} />
+                </NavLink>
                 <button
                     type="button"
                     onClick={handleLogout}
@@ -116,17 +128,12 @@ export function Sidebar() {
                     aria-label="내 프로필"
                     className="rounded-full ring-2 ring-slate-100 transition hover:ring-brand"
                 >
-                    {profileImageUrl ? (
-                        <img
-                            src={profileImageUrl}
-                            alt={displayName}
-                            className="h-10 w-10 rounded-full object-cover"
-                        />
-                    ) : (
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                            <UserRoundIcon size={20} />
-                        </span>
-                    )}
+                    <Avatar
+                        name={me.name}
+                        color={me.avatarColor}
+                        imageUrl={me.imageUrl}
+                        size={40}
+                    />
                 </NavLink>
             </div>
         </aside>

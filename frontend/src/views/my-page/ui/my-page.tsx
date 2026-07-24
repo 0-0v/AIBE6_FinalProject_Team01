@@ -6,12 +6,11 @@ import {
     AlertTriangleIcon,
     CameraIcon,
 } from 'lucide-react'
-import { Avatar } from '@/shared/ui'
+import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { useProfileStore } from '@/features/manage-profile'
 
-const DEFAULT_AVATAR_COLOR = '#0f766e'
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
 const ALLOWED_PROFILE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
