@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
     BellIcon,
     CompassIcon,
     HomeIcon,
+    LogOutIcon,
     MapIcon,
     PlusIcon,
     Settings2Icon,
     SparklesIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
+import { logout, resolveMediaUrl } from '@/shared/api/client'
 import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 
@@ -21,6 +23,7 @@ const nav = [
 ]
 
 export function Sidebar() {
+    const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
     const loadUnreadCount = useNotificationStore(
@@ -32,6 +35,7 @@ export function Sidebar() {
     const me = {
         name: currentUser?.nickname ?? '게스트',
         avatarColor: DEFAULT_AVATAR_COLOR,
+        imageUrl: resolveMediaUrl(currentUser?.profileImageUrl),
     }
 
     useEffect(() => {
@@ -41,6 +45,11 @@ export function Sidebar() {
         }
         resetNotifications()
     }, [currentUser, loadUnreadCount, resetNotifications])
+
+    async function handleLogout() {
+        await logout()
+        navigate('/login')
+    }
 
     return (
         <aside className="z-30 flex w-[86px] shrink-0 flex-col items-center border-r border-slate-100 bg-white py-7">
@@ -104,13 +113,27 @@ export function Sidebar() {
                 >
                     <Settings2Icon size={20} />
                 </NavLink>
+                <button
+                    type="button"
+                    onClick={handleLogout}
+                    title="로그아웃"
+                    aria-label="로그아웃"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+                >
+                    <LogOutIcon size={20} />
+                </button>
                 <NavLink
                     to="/app/mypage"
                     title="내 프로필"
                     aria-label="내 프로필"
                     className="rounded-full ring-2 ring-slate-100 transition hover:ring-brand"
                 >
-                    <Avatar name={me.name} color={me.avatarColor} size={40} />
+                    <Avatar
+                        name={me.name}
+                        color={me.avatarColor}
+                        imageUrl={me.imageUrl}
+                        size={40}
+                    />
                 </NavLink>
             </div>
         </aside>

@@ -1,12 +1,18 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
     LockIcon,
     UnlockIcon,
     PencilIcon,
     AlertTriangleIcon,
+    CameraIcon,
 } from 'lucide-react'
 import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
+import { resolveMediaUrl } from '@/shared/api/client'
+import { useProfileStore } from '@/features/manage-profile'
+
+const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
+const ALLOWED_PROFILE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
 const PROVIDER_LABEL: Record<string, string> = {
     GOOGLE: 'Google',
@@ -17,22 +23,26 @@ const PROVIDER_LABEL: Record<string, string> = {
 
 export function MyPage() {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const { changeNickname, changeProfileImage, isUploadingImage } =
+        useProfileStore()
     const me = {
         name: currentUser?.nickname ?? '게스트',
         avatarColor: DEFAULT_AVATAR_COLOR,
+        imageUrl: resolveMediaUrl(currentUser?.profileImageUrl),
     }
     const loginProviderLabel = currentUser
         ? PROVIDER_LABEL[currentUser.provider]
         : '로그인 필요'
-    const [nickname, setNickname] = useState(me.name)
     const [draft, setDraft] = useState(me.name)
     const [editing, setEditing] = useState(false)
     const [error, setError] = useState('')
+    const [imageError, setImageError] = useState('')
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const [trips, setTrips] = useState<
         { id: string; title: string; role: string; isPublic: boolean }[]
     >([])
 
-    function saveNickname() {
+    async function saveNickname() {
         const v = draft.trim()
         if (v.length < 2 || v.length > 12) {
             setError('닉네임은 2~12자로 입력해주세요')
@@ -42,9 +52,43 @@ export function MyPage() {
             setError('한글, 영문, 숫자, _만 사용할 수 있어요')
             return
         }
-        setError('')
-        setNickname(v)
-        setEditing(false)
+        try {
+            await changeNickname(v)
+            setError('')
+            setEditing(false)
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : '닉네임 변경에 실패했어요',
+            )
+        }
+    }
+
+    async function handleProfileImageSelect(
+        event: React.ChangeEvent<HTMLInputElement>,
+    ) {
+        const file = event.target.files?.[0]
+        event.target.value = ''
+        if (!file) return
+
+        if (!ALLOWED_PROFILE_IMAGE_TYPES.includes(file.type)) {
+            setImageError('jpg, png, webp 이미지만 업로드할 수 있어요')
+            return
+        }
+        if (file.size > MAX_PROFILE_IMAGE_SIZE) {
+            setImageError('이미지 파일은 5MB 이하만 업로드할 수 있어요')
+            return
+        }
+
+        try {
+            await changeProfileImage(file)
+            setImageError('')
+        } catch (err) {
+            setImageError(
+                err instanceof Error
+                    ? err.message
+                    : '프로필 이미지 등록에 실패했어요',
+            )
+        }
     }
 
     return (
@@ -60,11 +104,30 @@ export function MyPage() {
                 {/* Profile */}
                 <section className="mb-8 rounded-[22px] border border-slate-100 bg-white p-6 shadow-sm">
                     <div className="flex items-center gap-4">
-                        <Avatar
-                            name={nickname}
-                            color={me.avatarColor}
-                            size={64}
-                        />
+                        <div className="relative shrink-0">
+                            <Avatar
+                                name={me.name}
+                                color={me.avatarColor}
+                                imageUrl={me.imageUrl}
+                                size={64}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploadingImage}
+                                aria-label="프로필 이미지 변경"
+                                className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow-sm hover:bg-slate-700 disabled:opacity-50"
+                            >
+                                <CameraIcon size={12} />
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                className="hidden"
+                                onChange={handleProfileImageSelect}
+                            />
+                        </div>
                         <div className="flex-1">
                             {editing ? (
                                 <div>
@@ -91,7 +154,7 @@ export function MyPage() {
                                         <button
                                             onClick={() => {
                                                 setEditing(false)
-                                                setDraft(nickname)
+                                                setDraft(me.name)
                                                 setError('')
                                             }}
                                             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
@@ -108,15 +171,23 @@ export function MyPage() {
                             ) : (
                                 <div className="flex items-center gap-2">
                                     <span className="text-lg font-bold">
-                                        {nickname}
+                                        {me.name}
                                     </span>
                                     <button
-                                        onClick={() => setEditing(true)}
+                                        onClick={() => {
+                                            setDraft(me.name)
+                                            setEditing(true)
+                                        }}
                                         className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
                                     >
                                         <PencilIcon size={13} /> 닉네임 변경
                                     </button>
                                 </div>
+                            )}
+                            {imageError && (
+                                <p className="mt-1 text-xs font-medium text-red-500">
+                                    {imageError}
+                                </p>
                             )}
                             <p className="mt-0.5 text-sm text-slate-500">
                                 {loginProviderLabel} 계정으로 로그인됨

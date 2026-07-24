@@ -1,7 +1,11 @@
 package back.backend.domain.member.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,8 +24,10 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MultipartFile;
 
 @WebMvcTest(
         controllers = MemberController.class,
@@ -66,5 +72,46 @@ class MemberControllerTest {
         mockMvc.perform(get("/api/members/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_401"));
+    }
+
+    @Test
+    @DisplayName("t3 유효한 닉네임으로 변경 요청하면 200과 변경된 회원 정보를 반환한다")
+    void t3_updateNicknameReturnsUpdatedMemberResponse() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(memberService.updateNickname(1L, "새닉네임")).thenReturn(
+                new MemberResponse(1L, "user@example.com", "새닉네임", null, AuthProvider.KAKAO));
+
+        mockMvc.perform(patch("/api/members/me/nickname")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"새닉네임\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.nickname").value("새닉네임"));
+    }
+
+    @Test
+    @DisplayName("t4 형식에 맞지 않는 닉네임으로 변경 요청하면 400을 반환한다")
+    void t4_updateNicknameReturnsBadRequestWhenNicknameInvalid() throws Exception {
+        mockMvc.perform(patch("/api/members/me/nickname")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"a\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    @DisplayName("t5 프로필 이미지를 업로드하면 200과 갱신된 이미지 URL을 반환한다")
+    void t5_updateProfileImageReturnsUpdatedMemberResponse() throws Exception {
+        MockMultipartFile file =
+                new MockMultipartFile("file", "profile.png", "image/png", "image-content".getBytes());
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(memberService.updateProfileImage(eq(1L), any(MultipartFile.class))).thenReturn(
+                new MemberResponse(1L, "user@example.com", "닉네임", "/uploads/profile-images/1-uuid.png",
+                        AuthProvider.KAKAO));
+
+        mockMvc.perform(multipart("/api/members/me/profile-image").file(file))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.profileImageUrl").value("/uploads/profile-images/1-uuid.png"));
     }
 }
