@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
     dateRange,
+    formatKoreanRange,
     isSupportedAvailabilityDate,
     recommendDateRanges,
     updateDateSet,
@@ -93,4 +94,12 @@ test('t6 지원 날짜 경계 밖의 값은 선택할 수 없다', () => {
     assert.equal(isSupportedAvailabilityDate('2100-12-31'), true)
     assert.equal(isSupportedAvailabilityDate('1999-12-31'), false)
     assert.equal(isSupportedAvailabilityDate('2101-01-01'), false)
+})
+
+test('t7 시작일과 종료일이 같으면 하루 날짜로 표시한다', () => {
+    assert.equal(formatKoreanRange('2026-08-05', '2026-08-05'), '8월 5일')
+    assert.equal(
+        formatKoreanRange('2026-08-05', '2026-08-07'),
+        '8월 5일~7일',
+    )
 })

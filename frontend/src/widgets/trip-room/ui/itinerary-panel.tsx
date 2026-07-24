@@ -380,10 +380,6 @@ export function ItineraryPanel({
                         <h3 className="text-sm font-extrabold">
                             멤버 가능 날짜
                         </h3>
-                        <p className="mt-1 text-[11px] text-slate-400">
-                            PC는 드래그, 모바일은 시작일과 종료일을 차례로
-                            선택하세요.
-                        </p>
                     </div>
                     <div className="flex -space-x-1.5">
                         {members.slice(0, 5).map((member) => (
@@ -750,7 +746,10 @@ export function ItineraryPanel({
                 {proposal && (
                     <div className="mt-3 rounded-lg bg-slate-50 p-2 text-xs">
                         <b>
-                            {proposal.startDate} ~ {proposal.endDate}
+                            {formatKoreanRange(
+                                proposal.startDate,
+                                proposal.endDate,
+                            )}
                         </b>
                         <p className="mt-1 text-slate-500">
                             찬성 {proposal.agreeCount} · 반대{' '}

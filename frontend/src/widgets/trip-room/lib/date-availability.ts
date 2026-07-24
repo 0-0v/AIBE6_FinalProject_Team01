@@ -142,6 +142,8 @@ export function formatKoreanRange(startDate: string, endDate: string) {
     const start = parseLocalDate(startDate)
     const end = parseLocalDate(endDate)
     const startLabel = `${start.getMonth() + 1}월 ${start.getDate()}일`
+    if (startDate === endDate) return startLabel
+
     const endLabel =
         start.getMonth() === end.getMonth()
             ? `${end.getDate()}일`
