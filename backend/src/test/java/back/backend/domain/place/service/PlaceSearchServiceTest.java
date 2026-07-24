@@ -137,4 +137,21 @@ class PlaceSearchServiceTest {
         assertThat(result).isEmpty();
         server.verify();
     }
+
+    @Test
+    @DisplayName("t6 로컬 referrer가 설정되면 Google Places API 요청 헤더에 포함한다")
+    void t6_로컬Referrer설정시요청헤더포함() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer refererServer = MockRestServiceServer.bindTo(builder).build();
+        PlaceSearchService refererService =
+                new PlaceSearchService(builder, "test-api-key", "http://localhost:3000/");
+        refererServer.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andExpect(header("Referer", "http://localhost:3000/"))
+                .andRespond(withSuccess("{\"places\":[]}", MediaType.APPLICATION_JSON));
+
+        List<PlaceSearchResponse> result = refererService.search("후쿠오카");
+
+        assertThat(result).isEmpty();
+        refererServer.verify();
+    }
 }

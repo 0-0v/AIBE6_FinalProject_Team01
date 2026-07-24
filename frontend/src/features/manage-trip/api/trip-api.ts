@@ -1,12 +1,7 @@
 import { apiClient } from '@/shared/api/client'
 
 export type CompanionType =
-    | 'ALONE'
-    | 'FRIENDS'
-    | 'COUPLE'
-    | 'SPOUSE'
-    | 'CHILDREN'
-    | 'PARENTS'
+    'ALONE' | 'FRIENDS' | 'COUPLE' | 'SPOUSE' | 'CHILDREN' | 'PARENTS'
 
 export type TravelStyle =
     | 'ACTIVITY'
@@ -44,9 +39,7 @@ export type TripRequest = {
 type ApiResponse<T> = { success: boolean; message: string; data: T }
 
 function authHeaders(): HeadersInit {
-    const accessToken = window.localStorage.getItem('accessToken')
-    if (!accessToken) throw new Error('로그인이 필요합니다.')
-    return { Authorization: `Bearer ${accessToken}` }
+    return {}
 }
 
 export async function fetchTrips() {

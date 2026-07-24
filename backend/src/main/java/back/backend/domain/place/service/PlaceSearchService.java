@@ -36,19 +36,27 @@ public class PlaceSearchService {
     @Autowired
     public PlaceSearchService(
             @Value("${app.integrations.google-maps.api-key}") String apiKey,
+            @Value("${app.integrations.google-maps.referer:}") String referer,
             @Value("${app.integrations.google-maps.connect-timeout:3s}") Duration connectTimeout,
             @Value("${app.integrations.google-maps.read-timeout:5s}") Duration readTimeout) {
-        this(createRestClientBuilder(connectTimeout, readTimeout), apiKey);
+        this(createRestClientBuilder(connectTimeout, readTimeout), apiKey, referer);
     }
 
     // 테스트용 생성자 (MockRestServiceServer 바인딩)
     PlaceSearchService(RestClient.Builder builder, String apiKey) {
+        this(builder, apiKey, "");
+    }
+
+    PlaceSearchService(RestClient.Builder builder, String apiKey, String referer) {
         this.apiKey = apiKey;
-        this.restClient = builder
+        RestClient.Builder configuredBuilder = builder
                 .baseUrl(GOOGLE_PLACES_BASE_URL)
                 .defaultHeader("X-Goog-Api-Key", apiKey)
-                .defaultHeader("X-Goog-FieldMask", FIELD_MASK)
-                .build();
+                .defaultHeader("X-Goog-FieldMask", FIELD_MASK);
+        if (StringUtils.hasText(referer)) {
+            configuredBuilder.defaultHeader("Referer", referer);
+        }
+        this.restClient = configuredBuilder.build();
     }
 
     private static RestClient.Builder createRestClientBuilder(
