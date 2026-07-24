@@ -7,7 +7,6 @@ import {
     LogOutIcon,
     MapIcon,
     PlusIcon,
-    Settings2Icon,
     SparklesIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -105,14 +104,6 @@ export function Sidebar() {
             </nav>
 
             <div className="flex flex-col items-center gap-4">
-                <NavLink
-                    to="/app/mypage"
-                    title="설정"
-                    aria-label="설정"
-                    className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
-                >
-                    <Settings2Icon size={20} />
-                </NavLink>
                 <button
                     type="button"
                     onClick={handleLogout}

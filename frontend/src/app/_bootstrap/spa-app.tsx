@@ -1,9 +1,11 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
+import { SparklesIcon } from 'lucide-react'
 import {
     BrowserRouter,
     Navigate,
+    NavLink,
     Route,
     Routes,
     useLocation,
@@ -23,6 +25,7 @@ import { useCurrentUserStore } from '@/shared/model'
 function AppShell() {
     const location = useLocation()
     const isRoom = location.pathname.startsWith('/app/room')
+    const isGuestInvite = location.pathname.startsWith('/app/room/invite/')
     const isInitialized = useCurrentUserStore((state) => state.isInitialized)
 
     // 세션 복원(리프레시 토큰 -> 내 정보 조회)이 끝나기 전에 그리면
@@ -35,8 +38,19 @@ function AppShell() {
     }
 
     return (
-        <div className="flex h-full w-full overflow-hidden bg-white">
-            <Sidebar />
+        <div className="relative flex h-full w-full overflow-hidden bg-white">
+            {isGuestInvite ? (
+                <NavLink
+                    to="/"
+                    className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]"
+                    aria-label="랜딩 페이지로 이동"
+                    title="여지도 홈"
+                >
+                    <SparklesIcon size={21} />
+                </NavLink>
+            ) : (
+                <Sidebar />
+            )}
             <main
                 className={`min-w-0 flex-1 bg-white ${isRoom ? 'overflow-hidden' : 'mp-scroll overflow-y-auto'}`}
             >

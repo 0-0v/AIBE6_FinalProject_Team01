@@ -188,6 +188,20 @@ export const apiClient = {
             },
             body: JSON.stringify(body),
         }),
+    postPublic: <T>(path: string, body: unknown, options?: RequestOptions) =>
+        request<T>(
+            path,
+            {
+                ...options,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options?.headers,
+                },
+                body: JSON.stringify(body),
+            },
+            false,
+        ),
     put: <T>(path: string, body: unknown, options?: RequestOptions) =>
         request<T>(path, {
             ...options,
