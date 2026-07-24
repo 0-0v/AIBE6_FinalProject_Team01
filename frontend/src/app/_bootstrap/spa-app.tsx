@@ -23,6 +23,16 @@ import { useCurrentUserStore } from '@/shared/model'
 function AppShell() {
     const location = useLocation()
     const isRoom = location.pathname.startsWith('/app/room')
+    const isInitialized = useCurrentUserStore((state) => state.isInitialized)
+
+    // 세션 복원(리프레시 토큰 -> 내 정보 조회)이 끝나기 전에 그리면
+    // 이전 currentUser 값(게스트 또는 직전 닉네임/사진)이 잠깐 보였다가
+    // 최신 값으로 바뀌는 깜빡임이 생긴다. 초기화가 끝날 때까지 대기한다.
+    if (!isInitialized) {
+        return (
+            <div className="flex h-full w-full items-center justify-center bg-white" />
+        )
+    }
 
     return (
         <div className="flex h-full w-full overflow-hidden bg-white">

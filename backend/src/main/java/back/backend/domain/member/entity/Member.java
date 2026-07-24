@@ -126,9 +126,15 @@ public class Member {
         return updatedAt;
     }
 
-    public void recordLogin(String nickname, String profileImageUrl) {
-        this.nickname = Objects.requireNonNull(nickname, "nickname must not be null");
-        this.profileImageUrl = profileImageUrl;
+    public void recordLogin() {
         this.lastLoginAt = LocalDateTime.now();
+    }
+
+    public void changeNickname(String nickname) {
+        this.nickname = Objects.requireNonNull(nickname, "nickname must not be null");
+    }
+
+    public void changeProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 }

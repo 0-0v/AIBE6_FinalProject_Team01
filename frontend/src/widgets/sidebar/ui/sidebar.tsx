@@ -11,7 +11,7 @@ import {
     UserRoundIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
-import { logout } from '@/shared/api/client'
+import { logout, resolveMediaUrl } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 
 const nav = [
@@ -32,7 +32,7 @@ export function Sidebar() {
         (state) => state.resetNotifications,
     )
     const displayName = currentUser?.nickname ?? '게스트'
-    const profileImageUrl = currentUser?.profileImageUrl ?? null
+    const profileImageUrl = resolveMediaUrl(currentUser?.profileImageUrl)
 
     useEffect(() => {
         if (currentUser) {

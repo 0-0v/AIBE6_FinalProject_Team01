@@ -35,7 +35,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         Member member = memberRepository.findByProviderAndProviderId(provider, userInfo.providerId())
                 .map(existing -> {
-                    existing.recordLogin(userInfo.nickname(), userInfo.profileImageUrl());
+                    existing.recordLogin();
                     return existing;
                 })
                 .orElseGet(() -> memberRepository.save(Member.create(

@@ -50,3 +50,6 @@ out/
 *.log
 logs/
 *.pid
+
+### Local file storage (uploaded profile images, etc.) ###
+/uploads/

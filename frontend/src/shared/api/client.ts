@@ -1,6 +1,14 @@
 import { useCurrentUserStore } from '../model'
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'
+export const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080'
+
+// 백엔드가 반환하는 이미지 등은 상대 경로(예: /uploads/..)로 저장되므로,
+// 프론트엔드(다른 오리진)에서 표시하려면 API 베이스 URL을 붙여야 한다.
+export function resolveMediaUrl(path: string | null | undefined): string | null {
+    if (!path) return null
+    if (/^https?:\/\//.test(path)) return path
+    return `${BASE_URL}${path}`
+}
 
 type RequestOptions = Omit<RequestInit, 'method' | 'body'>
 
@@ -94,10 +102,6 @@ async function request<T>(
     const res = await fetch(`${BASE_URL}${path}`, {
         ...init,
         credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...init?.headers,
-        },
     })
 
     if (res.status === 401 && retryOn401) {
@@ -137,14 +141,27 @@ export const apiClient = {
         request<T>(path, {
             ...options,
             method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...options?.headers },
             body: JSON.stringify(body),
         }),
     patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
         request<T>(path, {
             ...options,
             method: 'PATCH',
+            headers:
+                body === undefined
+                    ? options?.headers
+                    : { 'Content-Type': 'application/json', ...options?.headers },
             body: body === undefined ? undefined : JSON.stringify(body),
         }),
     delete: <T>(path: string, options?: RequestOptions) =>
         request<T>(path, { ...options, method: 'DELETE' }),
+    // FormData는 브라우저가 Content-Type(multipart boundary)을 직접 설정해야 하므로
+    // 이 메서드에서는 Content-Type 헤더를 지정하지 않는다.
+    postForm: <T>(path: string, formData: FormData, options?: RequestOptions) =>
+        request<T>(path, {
+            ...options,
+            method: 'POST',
+            body: formData,
+        }),
 }

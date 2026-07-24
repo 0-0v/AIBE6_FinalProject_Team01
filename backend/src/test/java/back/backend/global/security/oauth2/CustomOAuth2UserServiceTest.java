@@ -89,8 +89,8 @@ class CustomOAuth2UserServiceTest {
     }
 
     @Test
-    @DisplayName("t3 기존 카카오 회원이면 로그인 정보를 갱신하고 저장하지 않은 채 principal을 반환한다")
-    void t3_existingKakaoMemberRecordsLoginWithoutInsert() {
+    @DisplayName("t3 기존 카카오 회원이면 마지막 로그인 시각만 갱신하고 직접 설정한 닉네임은 유지한 채 principal을 반환한다")
+    void t3_existingKakaoMemberRecordsLoginWithoutOverwritingNickname() {
         Member existing = Member.create("old@example.com", "예전닉네임", null, AuthProvider.KAKAO, "12345");
         ReflectionTestUtils.setField(existing, "id", 20L);
         when(memberRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "12345")).thenReturn(Optional.of(existing));
@@ -98,7 +98,7 @@ class CustomOAuth2UserServiceTest {
         MemberPrincipal principal = (MemberPrincipal) service.mapToPrincipal("kakao", kakaoOAuth2User());
 
         assertThat(principal.getMemberId()).isEqualTo(20L);
-        assertThat(existing.getNickname()).isEqualTo("닉네임");
+        assertThat(existing.getNickname()).isEqualTo("예전닉네임");
         assertThat(existing.getLastLoginAt()).isNotNull();
         verify(memberRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
@@ -119,8 +119,8 @@ class CustomOAuth2UserServiceTest {
     }
 
     @Test
-    @DisplayName("t5 기존 구글 회원이면 로그인 정보를 갱신하고 저장하지 않은 채 principal을 반환한다")
-    void t5_existingGoogleMemberRecordsLoginWithoutInsert() {
+    @DisplayName("t5 기존 구글 회원이면 마지막 로그인 시각만 갱신하고 직접 설정한 닉네임은 유지한 채 principal을 반환한다")
+    void t5_existingGoogleMemberRecordsLoginWithoutOverwritingNickname() {
         Member existing = Member.create("old@gmail.com", "예전이름", null, AuthProvider.GOOGLE, "67890");
         ReflectionTestUtils.setField(existing, "id", 40L);
         when(memberRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "67890")).thenReturn(Optional.of(existing));
@@ -128,7 +128,7 @@ class CustomOAuth2UserServiceTest {
         MemberPrincipal principal = (MemberPrincipal) service.mapToPrincipal("google", googleOAuth2User());
 
         assertThat(principal.getMemberId()).isEqualTo(40L);
-        assertThat(existing.getNickname()).isEqualTo("구글유저");
+        assertThat(existing.getNickname()).isEqualTo("예전이름");
         assertThat(existing.getLastLoginAt()).isNotNull();
         verify(memberRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }

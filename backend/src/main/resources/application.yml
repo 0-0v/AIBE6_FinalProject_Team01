@@ -29,6 +29,8 @@ springdoc:
     path: /swagger-ui.html
 
 app:
+  file-storage:
+    upload-dir: ${FILE_UPLOAD_DIR:uploads}
   auth:
     jwt:
       secret: ${JWT_SECRET}
