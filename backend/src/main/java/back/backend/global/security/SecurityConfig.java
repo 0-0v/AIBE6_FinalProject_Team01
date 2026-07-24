@@ -63,6 +63,7 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trip-invitations/*/preview").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/places/photo").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api/client'
+import { apiClient, resolveGooglePlacePhotoUrl } from '@/shared/api/client'
 import type { ApiResponse } from '@/shared/api/client'
 import type {
     Place,
@@ -16,7 +16,7 @@ type TripPlaceResponse = {
     latitude: number
     longitude: number
     placeType: string | null
-    imageUrl: string | null
+    photoName: string | null
     status: 'SAVED' | 'HOLD' | 'REJECTED'
     addedBy: number
     commentCount: number
@@ -29,20 +29,11 @@ type AddTripPlaceBody = {
     latitude: number
     longitude: number
     placeType: string | null
-    imageUrl: string | null
+    photoName: string | null
 }
 
 export type PlaceVoteSummaryResponse = PlaceVoteSummary & {
     tripPlaceId: number
-}
-
-export type PlaceVoteNotificationResponse = {
-    notificationId: number
-    tripId: number
-    tripPlaceId: number
-    content: string
-    read: boolean
-    createdAt: string
 }
 
 const API_STATUS_MAP: Record<'SAVED' | 'HOLD' | 'REJECTED', PlaceStatus> = {
@@ -81,7 +72,9 @@ export function fromApiToPlace(
         category,
         markerEmoji: presentation.emoji,
         status: apiStatusToPlaceStatus(tp.status),
-        image: tp.imageUrl ?? FALLBACK_IMAGES[category],
+        image:
+            resolveGooglePlacePhotoUrl(tp.photoName) ??
+            FALLBACK_IMAGES[category],
         lat: tp.latitude,
         lng: tp.longitude,
         addedBy: String(tp.addedBy),
@@ -123,24 +116,6 @@ export async function respondTripPlaceVote(
         { choice },
     )
     return res.data
-}
-
-export async function getPlaceVoteNotifications(
-    signal?: AbortSignal,
-): Promise<PlaceVoteNotificationResponse[]> {
-    const res = await apiClient.get<
-        ApiResponse<PlaceVoteNotificationResponse[]>
-    >('/api/notifications/place-votes', { signal })
-    return res.data
-}
-
-export async function markPlaceVoteNotificationRead(
-    notificationId: number,
-): Promise<void> {
-    await apiClient.patch(
-        `/api/notifications/place-votes/${notificationId}/read`,
-        {},
-    )
 }
 
 export async function addTripPlace(

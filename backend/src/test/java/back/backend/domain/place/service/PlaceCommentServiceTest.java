@@ -109,6 +109,17 @@ class PlaceCommentServiceTest {
         commentService.deleteComment(1L, 10L, 300L);
 
         then(commentRepository).should().delete(myComment);
+        then(collaborationEventService).should().record(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("PLACE_COMMENT_DELETED"),
+                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
+                org.mockito.ArgumentMatchers.eq(10L),
+                any(),
+                any(),
+                any(),
+                any()
+        );
     }
 
     @Test

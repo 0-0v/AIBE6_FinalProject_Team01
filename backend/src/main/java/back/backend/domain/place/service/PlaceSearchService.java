@@ -31,8 +31,6 @@ public class PlaceSearchService {
             "places.editorialSummary,places.reviews";
 
     private final RestClient restClient;
-    private final String apiKey;
-
     @Autowired
     public PlaceSearchService(
             @Value("${app.integrations.google-maps.api-key}") String apiKey,
@@ -48,7 +46,6 @@ public class PlaceSearchService {
     }
 
     PlaceSearchService(RestClient.Builder builder, String apiKey, String referer) {
-        this.apiKey = apiKey;
         RestClient.Builder configuredBuilder = builder
                 .baseUrl(GOOGLE_PLACES_BASE_URL)
                 .defaultHeader("X-Goog-Api-Key", apiKey)
@@ -110,7 +107,7 @@ public class PlaceSearchService {
         String placeType = StringUtils.hasText(place.primaryType())
                 ? place.primaryType()
                 : firstTypeOrNull(place.types());
-        String imageUrl = resolveImageUrl(place);
+        String photoName = resolvePhotoName(place);
 
         Boolean openNow = Optional.ofNullable(place.regularOpeningHours())
                 .map(GooglePlacesApiResponse.RegularOpeningHours::openNow)
@@ -137,7 +134,7 @@ public class PlaceSearchService {
                 latitude,
                 longitude,
                 placeType,
-                imageUrl,
+                photoName,
                 place.rating(),
                 place.userRatingCount(),
                 openNow,
@@ -153,11 +150,9 @@ public class PlaceSearchService {
         );
     }
 
-    private String resolveImageUrl(GooglePlacesApiResponse.Place place) {
+    private String resolvePhotoName(GooglePlacesApiResponse.Place place) {
         if (place.photos() == null || place.photos().isEmpty()) return null;
-        String photoName = place.photos().get(0).name();
-        return GOOGLE_PLACES_BASE_URL + "/" + photoName
-                + "/media?maxWidthPx=400&key=" + apiKey;
+        return place.photos().get(0).name();
     }
 
     private String firstTypeOrNull(List<String> types) {

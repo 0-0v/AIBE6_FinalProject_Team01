@@ -92,18 +92,24 @@ export function TripRoom() {
                 const cachedComments =
                     useCommentStore.getState().commentsByPlaceId
                 setPlaces(
-                    tripPlaces.map((tp) => {
-                        const place = fromApiToPlace(
-                            tp,
-                            activeRoomId,
-                            votesByPlaceId.get(tp.tripPlaceId),
+                    tripPlaces
+                        .filter(
+                            (tp) =>
+                                votesByPlaceId.get(tp.tripPlaceId)
+                                    ?.placeStatus !== 'REJECTED',
                         )
-                        return {
-                            ...place,
-                            comments:
-                                cachedComments[place.id] ?? place.comments,
-                        }
-                    }),
+                        .map((tp) => {
+                            const place = fromApiToPlace(
+                                tp,
+                                activeRoomId,
+                                votesByPlaceId.get(tp.tripPlaceId),
+                            )
+                            return {
+                                ...place,
+                                comments:
+                                    cachedComments[place.id] ?? place.comments,
+                            }
+                        }),
                 )
             })
             .catch((error: unknown) => {

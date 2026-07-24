@@ -12,7 +12,7 @@ public record TripPlaceResponse(
         BigDecimal latitude,
         BigDecimal longitude,
         String placeType,
-        String imageUrl,
+        String photoName,
         TripPlaceStatus status,
         Long addedBy,
         int commentCount
@@ -30,7 +30,7 @@ public record TripPlaceResponse(
                 tripPlace.getPlace().getLatitude(),
                 tripPlace.getPlace().getLongitude(),
                 tripPlace.getPlace().getPlaceType(),
-                tripPlace.getPlace().getImageUrl(),
+                tripPlace.getPlace().getGooglePhotoName(),
                 tripPlace.getStatus(),
                 tripPlace.getAddedBy(),
                 commentCount

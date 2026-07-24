@@ -51,10 +51,10 @@ class TripAccessRepositoryTest {
     }
 
     @Test
-    @DisplayName("t3 VIEWER 역할 멤버는 조회 권한만 가지고 편집 권한은 없다")
-    void t3_viewerCanViewButNotEdit() {
+    @DisplayName("t3 초대된 멤버는 기존 역할과 무관하게 조회·편집 권한을 모두 가진다")
+    void t3_invitedMemberCanViewAndEdit() {
         assertThat(tripAccessRepository.canView(100L, 3L)).isTrue();
-        assertThat(tripAccessRepository.canEdit(100L, 3L)).isFalse();
+        assertThat(tripAccessRepository.canEdit(100L, 3L)).isTrue();
     }
 
     @Test

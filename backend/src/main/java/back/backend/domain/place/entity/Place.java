@@ -40,8 +40,8 @@ public class Place {
     @Column(name = "place_type", length = 100)
     private String placeType;
 
-    @Column(name = "image_url", length = 500)
-    private String imageUrl;
+    @Column(name = "google_photo_name", length = 1000)
+    private String googlePhotoName;
 
     @Column(name = "website_url", length = 500)
     private String websiteUrl;
