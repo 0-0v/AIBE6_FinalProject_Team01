@@ -7,7 +7,12 @@ import {
 } from '../lib/notification-presentation'
 import { useNotificationStore } from '../model/notification-store'
 
-export function NotificationPanel() {
+type Props = {
+    maxItems?: number
+    onViewAll?: () => void
+}
+
+export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const notifications = useNotificationStore((state) => state.notifications)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
@@ -21,6 +26,11 @@ export function NotificationPanel() {
     )
     const readAllNotifications = useNotificationStore(
         (state) => state.readAllNotifications,
+    )
+    const displayedNotifications = notifications.slice(0, maxItems)
+    const hiddenNotificationCount = Math.max(
+        notifications.length - displayedNotifications.length,
+        0,
     )
 
     useEffect(() => {
@@ -78,8 +88,9 @@ export function NotificationPanel() {
                 <EmptyMessage message="새로운 알림이 없습니다." />
             ) : (
                 <div className="space-y-2">
-                    {notifications.map((notification) => {
-                        const style = notificationStyle[notification.notificationType]
+                    {displayedNotifications.map((notification) => {
+                        const style =
+                            notificationStyle[notification.notificationType]
                         const Icon = style.icon
                         return (
                             <button
@@ -117,6 +128,15 @@ export function NotificationPanel() {
                             </button>
                         )
                     })}
+                    {hiddenNotificationCount > 0 && onViewAll ? (
+                        <button
+                            type="button"
+                            onClick={onViewAll}
+                            className="mt-3 w-full rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-extrabold text-brand-700 transition hover:bg-brand-50"
+                        >
+                            알림 {hiddenNotificationCount}개 더 보기
+                        </button>
+                    ) : null}
                 </div>
             )}
         </section>

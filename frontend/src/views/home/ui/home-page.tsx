@@ -791,7 +791,10 @@ export function Home() {
                             {editable(
                                 'notifications',
                                 '알림',
-                                <NotificationPanel />,
+                                <NotificationPanel
+                                    maxItems={4}
+                                    onViewAll={() => navigate('/app/updates')}
+                                />,
                             )}
                         </div>
                     </aside>
