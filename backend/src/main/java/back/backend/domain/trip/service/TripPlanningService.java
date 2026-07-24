@@ -105,10 +105,8 @@ public class TripPlanningService {
         Long memberId = accessChecker.requireEdit(tripId);
         validateRange(request.startDate(), request.endDate());
         Proposal existingProposal = findProposalOptional(tripId);
-        if (existingProposal != null && "CONFIRMED".equals(existingProposal.status())) {
-            throw new BusinessException(TripErrorCode.DATE_PROPOSAL_CLOSED);
-        }
         if (existingProposal != null
+                && "OPEN".equals(existingProposal.status())
                 && existingProposal.startDate().equals(request.startDate())
                 && existingProposal.endDate().equals(request.endDate())) {
             return summarize(existingProposal, memberId);

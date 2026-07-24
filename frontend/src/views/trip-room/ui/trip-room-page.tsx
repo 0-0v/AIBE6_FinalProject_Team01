@@ -210,6 +210,7 @@ export function TripRoom() {
                                 initialActivityOpen={
                                     searchParams.get('activity') === 'open'
                                 }
+                                onTripDatesChanged={() => void loadTrips()}
                             />
                         ) : (
                             <RoomListPanel
