@@ -101,7 +101,8 @@ class TripPlaceServiceTest {
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.empty());
         given(placeRepository.save(any(Place.class))).willReturn(savedPlace);
-        given(tripPlaceRepository.existsByTripIdAndPlaceId(1L, savedPlace.getId())).willReturn(false);
+        given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
+                .willReturn(Optional.empty());
         given(tripPlaceRepository.save(any(TripPlace.class))).willReturn(savedTripPlace);
 
         TripPlaceResponse result = tripPlaceService.addPlace(1L, request);
@@ -132,7 +133,8 @@ class TripPlaceServiceTest {
                 33.3065, 126.2897, "tourist_attraction", null);
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
-        given(tripPlaceRepository.existsByTripIdAndPlaceId(1L, savedPlace.getId())).willReturn(false);
+        given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
+                .willReturn(Optional.empty());
         given(tripPlaceRepository.save(any(TripPlace.class))).willReturn(savedTripPlace);
 
         tripPlaceService.addPlace(1L, request);
@@ -149,7 +151,8 @@ class TripPlaceServiceTest {
                 33.3065, 126.2897, "tourist_attraction", null);
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
-        given(tripPlaceRepository.existsByTripIdAndPlaceId(1L, savedPlace.getId())).willReturn(true);
+        given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
+                .willReturn(Optional.of(savedTripPlace));
 
         assertThatThrownBy(() -> tripPlaceService.addPlace(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -230,6 +233,23 @@ class TripPlaceServiceTest {
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(CommonErrorCode.FORBIDDEN));
         then(placeRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("t10 거절되어 목록에서 제거된 장소를 다시 추가하면 확정 상태로 복원한다")
+    void t10_rejectedPlaceCanBeAddedAgain() {
+        savedTripPlace.updateStatus(TripPlaceStatus.REJECTED);
+        AddTripPlaceRequest request = new AddTripPlaceRequest(
+                "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
+                33.3065, 126.2897, "tourist_attraction", null);
+        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
+                .willReturn(Optional.of(savedTripPlace));
+
+        TripPlaceResponse result = tripPlaceService.addPlace(1L, request);
+
+        assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
+        then(tripPlaceRepository).should(never()).save(any(TripPlace.class));
     }
 
 }
