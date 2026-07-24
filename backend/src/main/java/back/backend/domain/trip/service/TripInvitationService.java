@@ -7,6 +7,7 @@ import back.backend.domain.trip.entity.TripInvitation;
 import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripInvitationRepository;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import java.time.LocalDateTime;
@@ -19,10 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class TripInvitationService {
     private final TripRepository tripRepository;
     private final TripInvitationRepository invitationRepository;
+    private final TripMemberRepository tripMemberRepository;
 
-    public TripInvitationService(TripRepository tripRepository, TripInvitationRepository invitationRepository) {
+    public TripInvitationService(
+            TripRepository tripRepository,
+            TripInvitationRepository invitationRepository,
+            TripMemberRepository tripMemberRepository) {
         this.tripRepository = tripRepository;
         this.invitationRepository = invitationRepository;
+        this.tripMemberRepository = tripMemberRepository;
     }
 
     @Transactional
@@ -39,7 +45,7 @@ public class TripInvitationService {
                 .orElseThrow(() -> new BusinessException(TripErrorCode.INVITATION_NOT_FOUND));
         Trip trip = tripRepository.findByIdAndStatusNot(invitation.getTripId(), TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
-        return TripResponse.from(trip);
+        return TripResponse.from(trip, tripMemberRepository.countByTripId(invitation.getTripId()));
     }
 
     private Trip findOwnedTrip(Long memberId, Long tripId) {

@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-    BookmarkCheckIcon,
     CalendarDaysIcon,
     CheckCircle2Icon,
     ChevronRightIcon,
-    CopyIcon,
     CreditCardIcon,
-    HeartIcon,
     LayoutGridIcon,
     ListIcon,
     MapPinIcon,
     PlusIcon,
-    SparklesIcon,
     ThumbsUpIcon,
-    WandSparklesIcon,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { exploreCards } from '@/entities/trip'
-import { useTripStore } from '@/features/manage-trip'
+import { getTripPlaces, getTripPlaceVotes } from '@/entities/trip'
+import {
+    fetchExpenseData,
+    type ExpenseResponse,
+    type SettlementSummary,
+} from '@/features/manage-expense'
+import { useTripStore, type TripResponse } from '@/features/manage-trip'
 import { NotificationPanel } from '@/features/manage-notification'
 import { useActivityLogStore } from '@/features/view-activity-log'
+import { resolveMediaUrl } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import { Avatar } from '@/shared/ui'
 import { TravelRooms } from '@/widgets/travel-rooms'
@@ -30,11 +31,9 @@ type SurfaceId =
     | 'tasks'
     | 'activity'
     | 'calendar'
-    | 'insights'
     | 'schedule'
     | 'expenses'
     | 'notifications'
-    | 'saved'
 
 const initialTasks: {
     id: string
@@ -48,19 +47,10 @@ const initialColors: Record<SurfaceId, string> = {
     tasks: '#ffffff',
     activity: '#ffffff',
     calendar: '#ffffff',
-    insights: '#ffffff',
     schedule: '#ffffff',
     expenses: '#ffffff',
     notifications: '#ffffff',
-    saved: '#ffffff',
 }
-
-const aiFindings: {
-    icon: typeof CopyIcon
-    title: string
-    description: string
-    tone: string
-}[] = []
 
 function SectionTitle({
     title,
@@ -90,7 +80,11 @@ export function Home() {
     const { logs, loadActivityLogs, resetActivityLogs } = useActivityLogStore()
     const [tasks, setTasks] = useState(initialTasks)
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
-    const [saved, setSaved] = useState<typeof exploreCards>([])
+    const [placeCount, setPlaceCount] = useState(0)
+    const [pendingVoteCount, setPendingVoteCount] = useState(0)
+    const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
+    const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
+    const [dashboardError, setDashboardError] = useState<string | null>(null)
     const activeTripData =
         trips.find((trip) => String(trip.id) === activeTripId) ?? trips[0]
     const [calendarCursor, setCalendarCursor] = useState<{
@@ -141,9 +135,59 @@ export function Home() {
         }
     }, [activeTrip.apiTripId, currentUser, loadActivityLogs, resetActivityLogs])
 
-    function toggleTask(id: string) {
-        setTasks((current) => current.filter((task) => task.id !== id))
-    }
+    useEffect(() => {
+        if (!currentUser || !activeTrip.apiTripId) {
+            Promise.resolve().then(() => {
+                setPlaceCount(0)
+                setPendingVoteCount(0)
+                setExpenses([])
+                setSettlement(null)
+                setTasks([])
+            })
+            return
+        }
+        const controller = new AbortController()
+        Promise.all([
+            getTripPlaces(activeTrip.apiTripId, controller.signal),
+            getTripPlaceVotes(activeTrip.apiTripId, controller.signal),
+            fetchExpenseData(activeTrip.apiTripId),
+        ])
+            .then(([places, votes, expenseData]) => {
+                if (controller.signal.aborted) return
+                const openVotes = votes.filter(
+                    (vote) => vote.status === 'OPEN',
+                ).length
+                setPlaceCount(places.length)
+                setPendingVoteCount(openVotes)
+                setExpenses(expenseData.expenses)
+                setSettlement(expenseData.settlement)
+                setTasks(
+                    createDashboardTasks({
+                        trip: activeTripData,
+                        placeCount: places.length,
+                        pendingVoteCount: openVotes,
+                        transferCount: expenseData.settlement.transfers.length,
+                    }),
+                )
+                setDashboardError(null)
+            })
+            .catch((error: unknown) => {
+                if (controller.signal.aborted) return
+                setDashboardError(
+                    error instanceof Error
+                        ? error.message
+                        : '대시보드 데이터를 불러오지 못했습니다.',
+                )
+            })
+        return () => controller.abort()
+    }, [activeTrip.apiTripId, activeTripData, currentUser])
+
+    const progress = calculatePreparationProgress({
+        trip: activeTripData,
+        placeCount,
+        pendingVoteCount,
+        expenseCount: expenses.length,
+    })
 
     function editable(
         id: SurfaceId,
@@ -208,6 +252,15 @@ export function Home() {
                 </div>
             </header>
 
+            {dashboardError && (
+                <p
+                    role="alert"
+                    className="mx-auto mt-4 max-w-[1440px] rounded-xl bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600"
+                >
+                    {dashboardError}
+                </p>
+            )}
+
             {view === 'list' ? (
                 <div className="mx-auto mt-6 max-w-[1440px] px-1">
                     <TravelRooms embedded />
@@ -268,18 +321,13 @@ export function Home() {
                                                 <div className="flex-1">
                                                     <div className="mb-1.5 flex justify-between text-[11px] font-bold">
                                                         <span>여행 준비도</span>
-                                                        <span>
-                                                            {
-                                                                activeTrip.progress
-                                                            }
-                                                            %
-                                                        </span>
+                                                        <span>{progress}%</span>
                                                     </div>
                                                     <div className="h-2 overflow-hidden rounded-full bg-white/25">
                                                         <div
                                                             className="h-full rounded-full"
                                                             style={{
-                                                                width: `${activeTrip.progress}%`,
+                                                                width: `${progress}%`,
                                                                 backgroundColor:
                                                                     activeTrip.color,
                                                             }}
@@ -293,25 +341,31 @@ export function Home() {
                                         {[
                                             {
                                                 title: '투표 대기',
-                                                text: '연결된 데이터 없음',
+                                                text: `${pendingVoteCount}건`,
                                                 icon: ThumbsUpIcon,
                                                 tone: 'bg-amber-100 text-amber-600',
                                             },
                                             {
-                                                title: 'AI 정리안',
-                                                text: '연결된 데이터 없음',
-                                                icon: SparklesIcon,
+                                                title: '후보 장소',
+                                                text: `${placeCount}곳`,
+                                                icon: MapPinIcon,
                                                 tone: 'bg-emerald-100 text-emerald-600',
                                             },
                                             {
-                                                title: '오늘 일정',
-                                                text: '연결된 데이터 없음',
+                                                title: '여행 일정',
+                                                text: getTripScheduleLabel(
+                                                    activeTripData?.startDate,
+                                                    activeTripData?.endDate,
+                                                ),
                                                 icon: CalendarDaysIcon,
                                                 tone: 'bg-sky-100 text-sky-600',
                                             },
                                             {
-                                                title: '예산 현황',
-                                                text: '연결된 데이터 없음',
+                                                title: '누적 지출',
+                                                text: currency(
+                                                    settlement?.totalExpense ??
+                                                        0,
+                                                ),
                                                 icon: CreditCardIcon,
                                                 tone: 'bg-violet-100 text-violet-600',
                                             },
@@ -369,14 +423,11 @@ export function Home() {
                                             </div>
                                         ) : (
                                             tasks.map((task) => (
-                                                <button
+                                                <div
                                                     key={task.id}
-                                                    onClick={() =>
-                                                        toggleTask(task.id)
-                                                    }
-                                                    className="group flex w-full items-center gap-3 py-3 text-left"
+                                                    className="flex w-full items-center gap-3 py-3 text-left"
                                                 >
-                                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-slate-300 text-transparent transition group-hover:border-brand group-hover:bg-brand">
+                                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-brand bg-brand text-white">
                                                         <CheckCircle2Icon
                                                             size={14}
                                                         />
@@ -392,13 +443,10 @@ export function Home() {
                                                     {task.urgent && (
                                                         <span className="h-2 w-2 shrink-0 rounded-full bg-orange-400" />
                                                     )}
-                                                </button>
+                                                </div>
                                             ))
                                         )}
                                     </div>
-                                    <button className="mt-3 flex items-center gap-1 text-xs font-bold text-brand-700 hover:text-brand-700">
-                                        <PlusIcon size={13} /> 할 일 추가
-                                    </button>
                                 </section>,
                             )}
                             {editable(
@@ -516,94 +564,14 @@ export function Home() {
                                             <p className="mt-1 text-[11px] text-slate-500">
                                                 {room.members}명 · {room.dday}
                                             </p>
-                                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                                                <div
-                                                    className="h-full rounded-full"
-                                                    style={{
-                                                        width: `${room.progress}%`,
-                                                        backgroundColor:
-                                                            room.color,
-                                                    }}
-                                                />
-                                            </div>
+                                            <p className="mt-2 truncate text-[10px] text-slate-400">
+                                                {room.location} · {room.date}
+                                            </p>
                                         </div>
                                     </motion.button>
                                 ))}
                             </div>
                         </section>
-
-                        {editable(
-                            'saved',
-                            '저장됨',
-                            <section className="rounded-2xl border border-slate-200 p-5 shadow-sm">
-                                <SectionTitle
-                                    title="저장됨"
-                                    action={
-                                        <button
-                                            onClick={() =>
-                                                navigate('/app/explore')
-                                            }
-                                            className="flex items-center gap-0.5 text-xs font-bold text-slate-400 hover:text-slate-700"
-                                        >
-                                            전체 보기{' '}
-                                            <ChevronRightIcon size={14} />
-                                        </button>
-                                    }
-                                />
-                                {saved.length === 0 ? (
-                                    <div className="py-10 text-center">
-                                        <BookmarkCheckIcon
-                                            className="mx-auto text-slate-300"
-                                            size={28}
-                                        />
-                                        <p className="mt-2 text-sm font-semibold text-slate-700">
-                                            저장한 여행이 없어요
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="grid gap-4 sm:grid-cols-3">
-                                        {saved.map((card) => (
-                                            <div
-                                                key={card.title}
-                                                className="group relative overflow-hidden rounded-xl border border-slate-100"
-                                            >
-                                                <img
-                                                    src={card.image}
-                                                    alt=""
-                                                    className="h-24 w-full object-cover"
-                                                />
-                                                <div className="p-2.5">
-                                                    <h3 className="truncate text-xs font-extrabold text-slate-800">
-                                                        {card.title}
-                                                    </h3>
-                                                    <p className="mt-0.5 truncate text-[11px] text-slate-400">
-                                                        {card.tag}
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    onClick={() =>
-                                                        setSaved((current) =>
-                                                            current.filter(
-                                                                (item) =>
-                                                                    item.title !==
-                                                                    card.title,
-                                                            ),
-                                                        )
-                                                    }
-                                                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-rose-500 shadow-sm hover:bg-white"
-                                                    aria-label="저장 해제"
-                                                >
-                                                    <HeartIcon
-                                                        className="fill-current"
-                                                        size={13}
-                                                    />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>,
-                        )}
                     </div>
 
                     <aside className="min-w-0 space-y-5 border-l border-slate-100 pl-0 xl:pl-6">
@@ -615,6 +583,9 @@ export function Home() {
                                     <Avatar
                                         name={currentUser?.nickname ?? '여행자'}
                                         color="#e7657a"
+                                        imageUrl={resolveMediaUrl(
+                                            currentUser?.profileImageUrl,
+                                        )}
                                         size={44}
                                     />
                                     <div className="min-w-0 flex-1">
@@ -696,68 +667,19 @@ export function Home() {
                             </section>,
                         )}
                         {editable(
-                            'insights',
-                            'AI 인사이트',
-                            <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
-                                <SectionTitle
-                                    title="AI가 발견한 것"
-                                    action={
-                                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
-                                            <WandSparklesIcon size={15} />
-                                        </span>
-                                    }
-                                />
-                                <p className="-mt-1 mb-4 text-xs leading-5 text-slate-500">
-                                    여행방을 분석해, 확인이 필요한 항목을
-                                    모았어요.
-                                </p>
-                                <div className="space-y-2.5">
-                                    {aiFindings.length === 0 && (
-                                        <p className="py-5 text-center text-xs text-slate-400">
-                                            연결된 AI 분석 결과가 없습니다.
-                                        </p>
-                                    )}
-                                    {aiFindings.map((finding) => (
-                                        <button
-                                            onClick={() =>
-                                                navigate('/app/room')
-                                            }
-                                            key={finding.title}
-                                            className="flex w-full items-start gap-3 rounded-xl border border-slate-100 p-3 text-left transition hover:border-slate-200 hover:bg-slate-50"
-                                        >
-                                            <span
-                                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${finding.tone}`}
-                                            >
-                                                <finding.icon size={15} />
-                                            </span>
-                                            <span className="min-w-0 flex-1">
-                                                <b className="block text-xs text-slate-800">
-                                                    {finding.title}
-                                                </b>
-                                                <span className="mt-0.5 block text-[11px] leading-4 text-slate-500">
-                                                    {finding.description}
-                                                </span>
-                                            </span>
-                                            <ChevronRightIcon
-                                                className="mt-1 shrink-0 text-slate-300"
-                                                size={14}
-                                            />
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>,
-                        )}
-                        {editable(
                             'schedule',
-                            '오늘 일정',
+                            '여행 일정 상태',
                             <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
                                 <SectionTitle
-                                    title="오늘 일정"
+                                    title="여행 일정 상태"
                                     action={
                                         <button
                                             onClick={() =>
-                                                navigate('/app/room')
+                                                navigate(
+                                                    `/app/room/${activeTrip.id}`,
+                                                )
                                             }
+                                            disabled={!activeTrip.id}
                                             className="text-xs font-bold text-brand-700"
                                         >
                                             전체 일정
@@ -765,7 +687,10 @@ export function Home() {
                                     }
                                 />
                                 <p className="py-6 text-center text-xs text-slate-400">
-                                    연결된 일정 데이터가 없습니다.
+                                    {getTodayTripStatus(
+                                        activeTripData?.startDate,
+                                        activeTripData?.endDate,
+                                    )}
                                 </p>
                             </section>,
                         )}
@@ -783,15 +708,48 @@ export function Home() {
                                             />
                                         }
                                     />
-                                    <p className="py-6 text-center text-xs text-slate-400">
-                                        연결된 지출 데이터가 없습니다.
+                                    <p className="text-xl font-extrabold text-slate-900">
+                                        {currency(
+                                            settlement?.totalExpense ?? 0,
+                                        )}
                                     </p>
+                                    {expenses.length === 0 ? (
+                                        <p className="py-5 text-center text-xs text-slate-400">
+                                            등록된 지출이 없습니다.
+                                        </p>
+                                    ) : (
+                                        <div className="mt-3 space-y-2">
+                                            {expenses
+                                                .slice(-3)
+                                                .reverse()
+                                                .map((expense) => (
+                                                    <div
+                                                        key={expense.id}
+                                                        className="flex justify-between gap-3 text-xs"
+                                                    >
+                                                        <span className="truncate text-slate-500">
+                                                            DAY{' '}
+                                                            {expense.dayNumber}{' '}
+                                                            · {expense.title}
+                                                        </span>
+                                                        <b className="shrink-0 text-slate-700">
+                                                            {currency(
+                                                                expense.totalAmount,
+                                                            )}
+                                                        </b>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    )}
                                 </section>,
                             )}
                             {editable(
                                 'notifications',
                                 '알림',
-                                <NotificationPanel />,
+                                <NotificationPanel
+                                    maxItems={4}
+                                    onViewAll={() => navigate('/app/updates')}
+                                />,
                             )}
                         </div>
                     </aside>
@@ -848,4 +806,111 @@ function isTripDate(
     if (!startDate || !endDate) return false
     const dateKey = toDateKey(date)
     return dateKey >= startDate && dateKey <= endDate
+}
+
+function createDashboardTasks({
+    trip,
+    placeCount,
+    pendingVoteCount,
+    transferCount,
+}: {
+    trip: TripResponse | undefined
+    placeCount: number
+    pendingVoteCount: number
+    transferCount: number
+}) {
+    if (!trip) return []
+    const tasks = []
+    if (!trip.startDate || !trip.endDate) {
+        tasks.push({
+            id: 'schedule',
+            label: '여행 기간 정하기',
+            meta: '여행방 설정에서 시작일과 종료일을 입력해 주세요.',
+            urgent: true,
+        })
+    }
+    if (placeCount === 0) {
+        tasks.push({
+            id: 'places',
+            label: '후보 장소 등록하기',
+            meta: '여행방 지도에서 가고 싶은 장소를 추가해 주세요.',
+            urgent: false,
+        })
+    }
+    if (pendingVoteCount > 0) {
+        tasks.push({
+            id: 'votes',
+            label: `대기 중인 장소 투표 ${pendingVoteCount}건 확인하기`,
+            meta: '여행방에서 멤버들의 장소 투표를 확인해 주세요.',
+            urgent: true,
+        })
+    }
+    if (transferCount > 0) {
+        tasks.push({
+            id: 'settlement',
+            label: `미정산 송금 ${transferCount}건 확인하기`,
+            meta: '지출·정산 화면에서 최종 송금 내역을 확인해 주세요.',
+            urgent: true,
+        })
+    }
+    return tasks
+}
+
+function calculatePreparationProgress({
+    trip,
+    placeCount,
+    pendingVoteCount,
+    expenseCount,
+}: {
+    trip: TripResponse | undefined
+    placeCount: number
+    pendingVoteCount: number
+    expenseCount: number
+}) {
+    if (!trip) return 0
+    const completed = [
+        Boolean(trip.destination),
+        Boolean(trip.startDate && trip.endDate),
+        placeCount > 0,
+        placeCount > 0 && pendingVoteCount === 0,
+        expenseCount > 0,
+    ].filter(Boolean).length
+    return completed * 20
+}
+
+function getTripScheduleLabel(
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+) {
+    if (!startDate || !endDate) return '미정'
+    const days =
+        Math.round(
+            (parseLocalDate(endDate).getTime() -
+                parseLocalDate(startDate).getTime()) /
+                86_400_000,
+        ) + 1
+    return `${days}일`
+}
+
+function getTodayTripStatus(
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+) {
+    if (!startDate || !endDate) return '여행 기간이 아직 정해지지 않았습니다.'
+    const today = toDateKey(new Date())
+    if (today < startDate)
+        return `여행 시작일까지 ${daysBetween(today, startDate)}일 남았습니다.`
+    if (today > endDate) return '완료된 여행입니다.'
+    return `오늘은 여행 DAY ${daysBetween(startDate, today) + 1}입니다.`
+}
+
+function daysBetween(from: string, to: string) {
+    return Math.round(
+        (parseLocalDate(to).getTime() - parseLocalDate(from).getTime()) /
+            86_400_000,
+    )
+}
+
+function currency(value: number) {
+    return `${Number(value).toLocaleString('ko-KR')}원`
 }
