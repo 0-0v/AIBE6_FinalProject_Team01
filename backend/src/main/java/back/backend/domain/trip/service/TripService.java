@@ -78,7 +78,13 @@ public class TripService {
     }
 
     public TripResponse get(Long memberId, Long tripId) {
-        return TripResponse.from(findOwnedTrip(memberId, tripId));
+        Trip trip = tripRepository.findByIdAndStatusNot(tripId, TripStatus.CANCELLED)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+        if (trip.getOwnerId().equals(memberId)
+                || tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
+            return TripResponse.from(trip);
+        }
+        throw new BusinessException(TripErrorCode.TRIP_NOT_FOUND);
     }
 
     @Transactional

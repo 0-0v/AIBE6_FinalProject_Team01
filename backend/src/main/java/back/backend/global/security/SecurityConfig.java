@@ -62,6 +62,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trip-invitations/*/preview").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/trip-invitations/*/accept").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/guest/trips/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/trips/*/places/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/trips/*/expenses/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/trips/*/activity-logs").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/search").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated())

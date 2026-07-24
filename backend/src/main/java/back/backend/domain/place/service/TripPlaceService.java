@@ -117,7 +117,11 @@ public class TripPlaceService {
     }
 
     public boolean canEdit(Long tripId) {
-        Long memberId = securityContextAccessor.getCurrentMemberId();
-        return tripAccessRepository.canEdit(tripId, memberId);
+        var principal = securityContextAccessor.getCurrentPrincipal();
+        if (principal.isEmpty()) {
+            accessChecker.requireView(tripId);
+            return false;
+        }
+        return tripAccessRepository.canEdit(tripId, principal.get().getMemberId());
     }
 }

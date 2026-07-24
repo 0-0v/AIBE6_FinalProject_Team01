@@ -96,7 +96,7 @@ public class PlaceVoteService {
             Long tripPlaceId,
             RespondPlaceVoteRequest request
     ) {
-        Long memberId = accessChecker.requireView(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripIdForUpdate(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         Long voteRequestId = voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(tripPlaceId)

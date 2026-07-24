@@ -5,6 +5,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import back.backend.global.config.FrontendProperties;
+import back.backend.domain.trip.service.GuestAccessCookieProvider;
+import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.global.security.MemberPrincipal;
 import back.backend.global.security.jwt.JwtProvider;
 import back.backend.global.security.jwt.RefreshTokenCookieProvider;
@@ -19,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseCookie;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import jakarta.servlet.http.Cookie;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -36,6 +39,12 @@ class OAuth2LoginSuccessHandlerTest {
     @Mock
     private RefreshTokenCookieProvider refreshTokenCookieProvider;
 
+    @Mock
+    private GuestTripAccessService guestTripAccessService;
+
+    @Mock
+    private GuestAccessCookieProvider guestAccessCookieProvider;
+
     private OAuth2LoginSuccessHandler handler;
 
     @BeforeEach
@@ -43,7 +52,8 @@ class OAuth2LoginSuccessHandlerTest {
         FrontendProperties frontendProperties = new FrontendProperties();
         frontendProperties.setFrontendBaseUrl("https://plamingo.example");
         handler = new OAuth2LoginSuccessHandler(
-                jwtProvider, refreshTokenRepository, refreshTokenCookieProvider, frontendProperties);
+                jwtProvider, refreshTokenRepository, refreshTokenCookieProvider, frontendProperties,
+                guestTripAccessService, guestAccessCookieProvider);
     }
 
     @Test
@@ -69,5 +79,32 @@ class OAuth2LoginSuccessHandlerTest {
         var params = UriComponentsBuilder.fromUriString(redirectedUrl).build().getQueryParams();
         assertThat(params.getFirst("accessToken")).isEqualTo("access-token");
         assertThat(params.containsKey("refreshToken")).isFalse();
+    }
+
+    @Test
+    @DisplayName("t2 게스트가 로그인하면 여행방 권한을 회원에게 이전하고 게스트 쿠키를 만료한다")
+    void t2_onAuthenticationSuccessClaimsGuestAccessAndExpiresGuestCookie() throws Exception {
+        MemberPrincipal principal = new MemberPrincipal(
+                1L, "user@example.com", List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                principal, null, principal.getAuthorities());
+        when(jwtProvider.createAccessToken(1L, "user@example.com")).thenReturn("access-token");
+        when(jwtProvider.createRefreshToken(1L)).thenReturn("refresh-token");
+        when(refreshTokenCookieProvider.create("refresh-token"))
+                .thenReturn(ResponseCookie.from("refreshToken", "refresh-token").build());
+        when(guestTripAccessService.claimIfPresent(1L, "guest-token")).thenReturn(true);
+        ResponseCookie expiredCookie = ResponseCookie.from("guestAccessToken", "")
+                .maxAge(0)
+                .build();
+        when(guestAccessCookieProvider.expire()).thenReturn(expiredCookie);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie("guestAccessToken", "guest-token"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(request, response, authentication);
+
+        verify(guestTripAccessService).claimIfPresent(1L, "guest-token");
+        assertThat(response.getHeaders("Set-Cookie"))
+                .anyMatch(value -> value.startsWith("guestAccessToken=; Max-Age=0"));
     }
 }

@@ -14,10 +14,16 @@ import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.response.PageResponse;
 import back.backend.global.security.SecurityConfig;
 import back.backend.global.security.SecurityContextAccessor;
+import back.backend.global.security.MemberPrincipal;
 import back.backend.global.security.jwt.JwtAuthenticationFilter;
+import back.backend.domain.trip.service.GuestAccessCookieProvider;
+import back.backend.domain.trip.service.GuestTripAccessService;
+import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,10 +52,13 @@ class ActivityLogControllerTest {
     @MockitoBean
     private SecurityContextAccessor securityContextAccessor;
 
+    @MockitoBean
+    private GuestTripAccessService guestTripAccessService;
+
     @Test
     @DisplayName("t1 여행 멤버가 활동 로그를 조회하면 페이지 응답을 반환한다")
     void t1_getActivityLogsReturnsPageWhenMemberHasAccess() throws Exception {
-        when(securityContextAccessor.getCurrentMemberId()).thenReturn(2L);
+        when(securityContextAccessor.getCurrentPrincipal()).thenReturn(Optional.of(principal(2L)));
         when(activityLogService.getActivityLogs(any(Long.class), any(Long.class), any(Pageable.class)))
                 .thenReturn(activityLogPage());
 
@@ -67,9 +76,6 @@ class ActivityLogControllerTest {
     @Test
     @DisplayName("t2 미인증 사용자가 활동 로그를 조회하면 401 응답을 반환한다")
     void t2_getActivityLogsReturnsUnauthorizedWhenNotAuthenticated() throws Exception {
-        when(securityContextAccessor.getCurrentMemberId())
-                .thenThrow(new BusinessException(CommonErrorCode.UNAUTHORIZED));
-
         mockMvc.perform(get("/api/trips/{tripId}/activity-logs", 1L))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_401"));
@@ -78,13 +84,31 @@ class ActivityLogControllerTest {
     @Test
     @DisplayName("t3 여행 멤버가 아닌 회원이 활동 로그를 조회하면 403 응답을 반환한다")
     void t3_getActivityLogsReturnsForbiddenWhenMemberHasNoAccess() throws Exception {
-        when(securityContextAccessor.getCurrentMemberId()).thenReturn(3L);
+        when(securityContextAccessor.getCurrentPrincipal()).thenReturn(Optional.of(principal(3L)));
         when(activityLogService.getActivityLogs(any(Long.class), any(Long.class), any(Pageable.class)))
                 .thenThrow(new BusinessException(ActivityLogErrorCode.TRIP_ACCESS_DENIED));
 
         mockMvc.perform(get("/api/trips/{tripId}/activity-logs", 1L))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ACTIVITY_LOG_403_1"));
+    }
+
+    @Test
+    @DisplayName("t4 조회 권한이 있는 게스트가 활동 로그를 조회하면 페이지 응답을 반환한다")
+    void t4_getActivityLogsReturnsPageForAuthorizedGuest() throws Exception {
+        when(guestTripAccessService.canView(1L, "guest-token")).thenReturn(true);
+        when(activityLogService.getActivityLogsForAuthorizedViewer(any(Long.class), any(Pageable.class)))
+                .thenReturn(activityLogPage());
+
+        mockMvc.perform(get("/api/trips/{tripId}/activity-logs", 1L)
+                        .cookie(new Cookie(GuestAccessCookieProvider.COOKIE_NAME, "guest-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].id").value(10));
+    }
+
+    private MemberPrincipal principal(Long memberId) {
+        return new MemberPrincipal(memberId, "user@example.com",
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
     }
 
     private PageResponse<ActivityLogResponse> activityLogPage() {

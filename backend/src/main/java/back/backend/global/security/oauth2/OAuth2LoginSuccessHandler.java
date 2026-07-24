@@ -1,12 +1,15 @@
 package back.backend.global.security.oauth2;
 
 import back.backend.global.config.FrontendProperties;
+import back.backend.domain.trip.service.GuestAccessCookieProvider;
+import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.global.security.MemberPrincipal;
 import back.backend.global.security.jwt.JwtProvider;
 import back.backend.global.security.jwt.RefreshTokenCookieProvider;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Cookie;
 import java.io.IOException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
@@ -23,17 +26,23 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
     private final FrontendProperties frontendProperties;
+    private final GuestTripAccessService guestTripAccessService;
+    private final GuestAccessCookieProvider guestAccessCookieProvider;
 
     public OAuth2LoginSuccessHandler(
             JwtProvider jwtProvider,
             RefreshTokenRepository refreshTokenRepository,
             RefreshTokenCookieProvider refreshTokenCookieProvider,
-            FrontendProperties frontendProperties
+            FrontendProperties frontendProperties,
+            GuestTripAccessService guestTripAccessService,
+            GuestAccessCookieProvider guestAccessCookieProvider
     ) {
         this.jwtProvider = jwtProvider;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenCookieProvider = refreshTokenCookieProvider;
         this.frontendProperties = frontendProperties;
+        this.guestTripAccessService = guestTripAccessService;
+        this.guestAccessCookieProvider = guestAccessCookieProvider;
     }
 
     @Override
@@ -47,6 +56,10 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         String refreshToken = jwtProvider.createRefreshToken(principal.getMemberId());
         refreshTokenRepository.save(principal.getMemberId(), refreshToken);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.create(refreshToken).toString());
+        String guestToken = findCookie(request, GuestAccessCookieProvider.COOKIE_NAME);
+        if (guestTripAccessService.claimIfPresent(principal.getMemberId(), guestToken)) {
+            response.addHeader(HttpHeaders.SET_COOKIE, guestAccessCookieProvider.expire().toString());
+        }
 
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendProperties.getFrontendBaseUrl())
                 .path(CALLBACK_PATH)
@@ -55,5 +68,18 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 .toUriString();
 
         response.sendRedirect(redirectUrl);
+    }
+
+    private String findCookie(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (Cookie cookie : cookies) {
+            if (name.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
     }
 }
