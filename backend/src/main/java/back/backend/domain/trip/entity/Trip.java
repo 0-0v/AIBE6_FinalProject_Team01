@@ -167,6 +167,16 @@ public class Trip {
         this.status = TripStatus.CANCELLED;
     }
 
+    public void confirmDates(LocalDate startDate, LocalDate endDate) {
+        ensureMutable();
+        validateDateRange(startDate, endDate);
+        if (startDate == null) {
+            throw new IllegalArgumentException("확정할 여행 기간을 입력해야 합니다.");
+        }
+        this.startDate = startDate;
+        this.endDate = endDate;
+    }
+
     private void ensureMutable() {
         if (status == TripStatus.COMPLETED || status == TripStatus.CANCELLED) {
             throw new IllegalStateException("이미 완료되었거나 취소된 여행방입니다.");
