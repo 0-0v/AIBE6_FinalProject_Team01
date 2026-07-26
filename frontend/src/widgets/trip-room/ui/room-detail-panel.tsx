@@ -8,7 +8,6 @@ import {
 import {
     Place,
     Room,
-    TravelRecord,
     addTripPlace,
     deleteTripPlace,
     startTripPlaceVote,
@@ -28,7 +27,6 @@ import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
-import { useCurrentUserStore } from '@/shared/model'
 import { ItineraryPanel } from './itinerary-panel'
 import { PlaceCard } from './place-card'
 import { RecordPanel } from './record-panel'
@@ -75,10 +73,6 @@ export function RoomDetailPanel({
     showBackButton = true,
     guestView = false,
 }: Props) {
-    const currentUserId = String(
-        useCurrentUserStore((state) => state.currentUser?.id) ?? '',
-    )
-    const [records, setRecords] = useState<TravelRecord[]>([])
     const [mode, setMode] = useState<Mode>('plan')
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
@@ -440,21 +434,13 @@ export function RoomDetailPanel({
             )}
             {mode === 'record' && recordTab === 'records' && (
                 <RecordPanel
-                    records={records}
+                    tripId={tripId}
                     places={places}
                     canWrite={canWrite}
-                    onAdd={(record) => {
-                        setRecords((current) => [
-                            {
-                                ...record,
-                                id: `r${Date.now()}`,
-                                memberId: currentUserId,
-                                createdAt: new Date().toISOString(),
-                            },
-                            ...current,
-                        ])
-                    }}
+                    startDate={room.startDate}
+                    endDate={room.endDate}
                     onPlaceClick={focusPlace}
+                    onChanged={refreshCollaborationData}
                 />
             )}
             {mode === 'record' && recordTab === 'expenses' && (

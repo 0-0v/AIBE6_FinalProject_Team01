@@ -39,6 +39,8 @@ export function toRoom(trip: TripResponse): Room {
         apiTripId: trip.id,
         title: trip.title,
         date,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
         location: trip.destination ?? '장소 미정',
         dday,
         members: trip.memberCount,

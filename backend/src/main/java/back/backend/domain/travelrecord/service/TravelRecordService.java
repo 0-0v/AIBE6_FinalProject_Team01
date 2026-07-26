@@ -168,7 +168,7 @@ public class TravelRecordService {
 
     private Trip getTrip(Long tripId) {
         return tripRepository.findById(tripId)
-                .orElseThrow(() -> new BusinessException(TravelRecordErrorCode.TRIP_PLACE_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(TravelRecordErrorCode.TRIP_NOT_FOUND));
     }
 
     private int calculateDayNumber(Trip trip, LocalDate visitedDate) {
