@@ -63,6 +63,12 @@ export type Room = {
     progress: number
     cover: string
     status: string
+    lifecycleStatus:
+        | 'PLANNING'
+        | 'CONFIRMED'
+        | 'IN_PROGRESS'
+        | 'COMPLETED'
+        | 'CANCELLED'
     color: string
 }
 

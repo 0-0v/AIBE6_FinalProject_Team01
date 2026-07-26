@@ -30,6 +30,7 @@ type Props = {
     endDate: string | null
     onPlaceClick: (placeId: string) => void
     onChanged?: () => void
+    guestView?: boolean
 }
 
 const SAMPLE_IMAGES = ['/trip-record-2.png', '/trip-record-1.png']
@@ -42,6 +43,7 @@ export function RecordPanel({
     endDate,
     onPlaceClick,
     onChanged,
+    guestView = false,
 }: Props) {
     const [records, setRecords] = useState<TravelRecord[]>([])
     const [retrospective, setRetrospective] = useState<Retrospective | null>(
@@ -83,7 +85,10 @@ export function RecordPanel({
 
     useEffect(() => {
         let active = true
-        Promise.all([getTravelRecords(tripId), getMyRetrospective(tripId)])
+        Promise.all([
+            getTravelRecords(tripId),
+            guestView ? Promise.resolve(null) : getMyRetrospective(tripId),
+        ])
             .then(([nextRecords, nextRetrospective]) => {
                 if (!active) return
                 setRecords(nextRecords)
@@ -110,7 +115,7 @@ export function RecordPanel({
         return () => {
             active = false
         }
-    }, [tripId])
+    }, [guestView, tripId])
 
     async function addRecord() {
         if (!tripPlaceId || (!memo.trim() && selectedImages.length === 0)) {

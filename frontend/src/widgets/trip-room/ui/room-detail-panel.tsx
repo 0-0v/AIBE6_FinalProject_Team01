@@ -73,7 +73,9 @@ export function RoomDetailPanel({
     showBackButton = true,
     guestView = false,
 }: Props) {
-    const [mode, setMode] = useState<Mode>('plan')
+    const [mode, setMode] = useState<Mode>(
+        room.lifecycleStatus === 'COMPLETED' ? 'record' : 'plan',
+    )
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -91,6 +93,8 @@ export function RoomDetailPanel({
     const [dateAvailabilityDirty, setDateAvailabilityDirty] = useState(false)
 
     const canWrite = canManage
+    const canPlanWrite =
+        canWrite && room.lifecycleStatus !== 'COMPLETED'
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const { setComments, addComment, removeComment } = useCommentStore()
@@ -271,8 +275,8 @@ export function RoomDetailPanel({
                 title={room.title}
                 subtitle={`#${room.location} · ${room.date}`}
                 isPublic={isPublic}
-                isOwner={canWrite}
-                canWrite={canWrite}
+                isOwner={canPlanWrite}
+                canWrite={canPlanWrite}
                 onTogglePublic={() => setIsPublic((value) => !value)}
                 onInvite={() => setInviteOpen(true)}
                 onBack={onBack}
@@ -367,7 +371,7 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
-                        {canWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
                         {(loadError || placeError) && (
                             <p
                                 role="alert"
@@ -388,7 +392,7 @@ export function RoomDetailPanel({
                                     key={place.id}
                                     place={place}
                                     selected={selectedId === place.id}
-                                    canWrite={canWrite}
+                                    canWrite={canPlanWrite}
                                     onSelect={() => onSelectPlace(place.id)}
                                     onVote={(value) =>
                                         handleVote(place.id, value)
@@ -426,7 +430,7 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'itinerary' && (
                 <ItineraryPanel
                     tripId={tripId}
-                    canWrite={canWrite}
+                    canWrite={canPlanWrite}
                     onDirtyChange={setDateAvailabilityDirty}
                     onCollaborationChanged={refreshCollaborationData}
                     onTripDatesChanged={onTripDatesChanged}
@@ -441,6 +445,7 @@ export function RoomDetailPanel({
                     endDate={room.endDate}
                     onPlaceClick={focusPlace}
                     onChanged={refreshCollaborationData}
+                    guestView={guestView}
                 />
             )}
             {mode === 'record' && recordTab === 'expenses' && (
