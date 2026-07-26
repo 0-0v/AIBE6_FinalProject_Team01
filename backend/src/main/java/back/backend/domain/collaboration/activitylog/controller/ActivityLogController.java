@@ -54,15 +54,15 @@ public class ActivityLogController {
             @ParameterObject @PageableDefault(size = 20) Pageable pageable,
             @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken
     ) {
+        if (guestTripAccessService.canView(tripId, guestToken)) {
+            return ApiResponse.success(
+                    activityLogService.getActivityLogsForAuthorizedViewer(tripId, pageable));
+        }
         var principal = securityContextAccessor.getCurrentPrincipal();
         if (principal.isPresent()) {
             return ApiResponse.success(activityLogService.getActivityLogs(
                     tripId, principal.get().getMemberId(), pageable));
         }
-        if (!guestTripAccessService.canView(tripId, guestToken)) {
-            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
-        }
-        return ApiResponse.success(
-                activityLogService.getActivityLogsForAuthorizedViewer(tripId, pageable));
+        throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
     }
 }

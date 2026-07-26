@@ -71,7 +71,7 @@ class TripServiceTest {
     @Test
     @DisplayName("t2 회원이 본인 여행방 목록을 조회하면 생성 역순 결과를 반환한다")
     void t2_getMyTripsReturnsOwnedTrips() {
-        when(tripRepository.findAllByOwnerIdAndStatusNotOrderByCreatedAtDesc(1L, TripStatus.CANCELLED))
+        when(tripRepository.findAllAccessibleByMemberIdAndStatusNot(1L, TripStatus.CANCELLED))
                 .thenReturn(List.of(trip("제주 여행"), trip("부산 여행")));
 
         assertThat(tripService.getMyTrips(1L)).extracting("title")

@@ -92,22 +92,16 @@ class TripInvitationControllerTest {
     }
 
     @Test
-    @DisplayName("t4 로그인 회원이 초대를 수락하면 즉시 회원 VIEWER 권한으로 이전한다")
-    void t4_acceptInvitationAsMemberClaimsImmediately() throws Exception {
+    @DisplayName("t4 로그인 회원이 초대를 수락해도 참여 확인 전에는 게스트 권한을 유지한다")
+    void t4_acceptInvitationAsMemberKeepsGuestAccessUntilConfirmation() throws Exception {
         when(guestTripAccessService.accept("invite-code", null)).thenReturn(
                 new GuestAccessGrant(response(), "guest-token", LocalDateTime.now().plusDays(1)));
-        MemberPrincipal principal = new MemberPrincipal(
-                1L, "user@example.com", List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        when(securityContextAccessor.getCurrentPrincipal()).thenReturn(Optional.of(principal));
-        when(guestTripAccessService.claimIfPresent(1L, "guest-token")).thenReturn(true);
-        when(guestAccessCookieProvider.expire()).thenReturn(
-                ResponseCookie.from(GuestAccessCookieProvider.COOKIE_NAME, "").maxAge(0).build());
+        when(guestAccessCookieProvider.create("guest-token")).thenReturn(
+                ResponseCookie.from(GuestAccessCookieProvider.COOKIE_NAME, "guest-token").build());
 
         mockMvc.perform(post("/api/trip-invitations/{inviteCode}/accept", "invite-code"))
                 .andExpect(status().isCreated())
-                .andExpect(cookie().maxAge(GuestAccessCookieProvider.COOKIE_NAME, 0));
-
-        verify(guestTripAccessService).claimIfPresent(1L, "guest-token");
+                .andExpect(cookie().value(GuestAccessCookieProvider.COOKIE_NAME, "guest-token"));
     }
 
     private TripResponse response() {

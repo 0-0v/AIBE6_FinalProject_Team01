@@ -10,7 +10,11 @@ import {
 } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
 import { useCommentStore } from '@/features/comment-place'
-import { ManageTripModal, useTripStore } from '@/features/manage-trip'
+import {
+    claimGuestTripAccess,
+    ManageTripModal,
+    useTripStore,
+} from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
@@ -61,6 +65,15 @@ export function TripRoom() {
         null,
     )
     const [inviteCodeError, setInviteCodeError] = useState<string | null>(null)
+    const [inviteMode, setInviteMode] = useState<
+        'guest' | 'join-confirm' | null
+    >(null)
+    const [joinError, setJoinError] = useState<string | null>(null)
+    const [isJoining, setIsJoining] = useState(false)
+    const isReturningFromLogin =
+        Boolean(inviteCode) &&
+        searchParams.get('join') === 'true' &&
+        Boolean(currentUser)
 
     useEffect(() => {
         if (inviteCode) return
@@ -79,6 +92,26 @@ export function TripRoom() {
     useEffect(() => {
         if (roomId) selectTrip(roomId)
     }, [roomId, selectTrip])
+
+    useEffect(() => {
+        if (
+            !inviteCode ||
+            !isReturningFromLogin ||
+            verifiedInviteCode === inviteCode
+        ) {
+            return
+        }
+        void loadInvitedTrip(inviteCode).then((success) => {
+            if (!success) return
+            setVerifiedInviteCode(inviteCode)
+            setInviteMode('join-confirm')
+        })
+    }, [
+        inviteCode,
+        isReturningFromLogin,
+        loadInvitedTrip,
+        verifiedInviteCode,
+    ])
 
     useEffect(() => {
         if (!activeRoomId || !tripId) return
@@ -174,6 +207,40 @@ export function TripRoom() {
         const success = await loadInvitedTrip(normalizedCode)
         if (success) {
             setVerifiedInviteCode(normalizedCode)
+            setInviteMode(null)
+        }
+    }
+
+    function handleLoginChoice() {
+        if (!inviteCode) return
+        if (currentUser) {
+            setInviteMode('join-confirm')
+            return
+        }
+        sessionStorage.setItem(
+            'postLoginReturnPath',
+            `/app/room/invite/${encodeURIComponent(inviteCode)}?join=true`,
+        )
+        navigate('/login')
+    }
+
+    async function handleJoinTrip() {
+        if (!tripId) return
+        setIsJoining(true)
+        setJoinError(null)
+        try {
+            await claimGuestTripAccess()
+            selectTrip(String(tripId))
+            navigate(`/app/room/${tripId}`, { replace: true })
+        } catch (claimError) {
+            setJoinError(
+                getApiErrorMessage(
+                    claimError,
+                    '여행방 참여에 실패했습니다. 다시 시도해 주세요.',
+                ),
+            )
+        } finally {
+            setIsJoining(false)
         }
     }
 
@@ -181,6 +248,15 @@ export function TripRoom() {
         inviteCode &&
         (verifiedInviteCode !== inviteCode || guestRoom === null)
     ) {
+        if (isReturningFromLogin) {
+            return (
+                <main className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-orange-50">
+                    <p className="text-sm font-bold text-slate-500">
+                        초대 여행방을 불러오는 중입니다...
+                    </p>
+                </main>
+            )
+        }
         return (
             <main className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-orange-50 px-5">
                 <section className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
@@ -244,8 +320,52 @@ export function TripRoom() {
         )
     }
 
+    if (inviteCode && guestRoom && inviteMode === null) {
+        return (
+            <main className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-orange-50 px-5">
+                <section className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+                    <p className="text-sm font-extrabold text-brand-700">
+                        초대 코드 확인 완료
+                    </p>
+                    <h1 className="mt-2 text-2xl font-black text-slate-900">
+                        {guestRoom.title}
+                    </h1>
+                    <p className="mt-3 text-sm leading-6 text-slate-500">
+                        게스트로 둘러보거나 로그인한 계정으로 여행방 참여를
+                        진행할 수 있습니다.
+                    </p>
+                    <div className="mt-7 space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => setInviteMode('guest')}
+                            className="flex h-12 w-full items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-sm font-extrabold text-brand-700 transition hover:bg-brand-100"
+                        >
+                            게스트 모드로 보기
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleLoginChoice}
+                            className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-sm font-extrabold text-white transition hover:bg-brand-700"
+                        >
+                            {currentUser ? '로그인 계정으로 참여' : '로그인하기'}
+                        </button>
+                    </div>
+                </section>
+            </main>
+        )
+    }
+
     return (
         <div className="flex h-full w-full flex-col">
+            {inviteCode && inviteMode === 'guest' && (
+                <button
+                    type="button"
+                    onClick={handleLoginChoice}
+                    className="absolute right-7 top-7 z-40 rounded-xl bg-brand px-4 py-2.5 text-sm font-extrabold text-white shadow-lg transition hover:bg-brand-700"
+                >
+                    {currentUser ? '여행방 참여하기' : '로그인하고 참여하기'}
+                </button>
+            )}
             <div className="relative flex min-h-0 flex-1 flex-row">
                 <div className="relative min-w-0 flex-1">
                     <MapCanvas
@@ -347,6 +467,45 @@ export function TripRoom() {
                             void loadTrips()
                         }}
                     />
+                )}
+                {inviteCode && inviteMode === 'join-confirm' && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-5 backdrop-blur-sm">
+                        <section className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-2xl">
+                            <p className="text-sm font-extrabold text-brand-700">
+                                여행방 참여
+                            </p>
+                            <h2 className="mt-2 text-xl font-black text-slate-900">
+                                {room?.title}에 참여하시겠습니까?
+                            </h2>
+                            <p className="mt-3 text-sm leading-6 text-slate-500">
+                                참여하면 현재 로그인한 계정에 여행방이 추가되며,
+                                일정과 장소를 자유롭게 편집할 수 있습니다.
+                            </p>
+                            {joinError && (
+                                <p className="mt-3 text-sm font-semibold text-red-500">
+                                    {joinError}
+                                </p>
+                            )}
+                            <div className="mt-6 flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setInviteMode('guest')}
+                                    disabled={isJoining}
+                                    className="h-11 flex-1 rounded-xl bg-slate-100 text-sm font-bold text-slate-600 hover:bg-slate-200 disabled:opacity-60"
+                                >
+                                    나중에
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleJoinTrip()}
+                                    disabled={isJoining}
+                                    className="h-11 flex-1 rounded-xl bg-brand text-sm font-extrabold text-white hover:bg-brand-700 disabled:opacity-60"
+                                >
+                                    {isJoining ? '참여 중...' : '참여하기'}
+                                </button>
+                            </div>
+                        </section>
+                    </div>
                 )}
             </div>
         </div>

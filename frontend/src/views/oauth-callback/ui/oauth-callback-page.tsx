@@ -32,7 +32,11 @@ export function OAuthCallback() {
                 }
             })
             .finally(() => {
-                navigate('/app', { replace: true })
+                const returnPath = sessionStorage.getItem(
+                    'postLoginReturnPath',
+                )
+                sessionStorage.removeItem('postLoginReturnPath')
+                navigate(returnPath ?? '/app', { replace: true })
             })
     }, [navigate, setCurrentUser])
 

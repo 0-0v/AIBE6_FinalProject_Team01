@@ -27,14 +27,13 @@ public class TripAccessChecker {
             if (tripAccessRepository.canView(tripId, memberId)) {
                 return memberId;
             }
-        } else {
-            String guestToken = guestToken();
-            if (guestToken == null) {
-                throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
-            }
-            if (guestTripAccessService.canView(tripId, guestToken)) {
-                return null;
-            }
+        }
+        String guestToken = guestToken();
+        if (guestToken == null && principal.isEmpty()) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED);
+        }
+        if (guestTripAccessService.canView(tripId, guestToken)) {
+            return null;
         }
         throw new BusinessException(CommonErrorCode.FORBIDDEN);
     }

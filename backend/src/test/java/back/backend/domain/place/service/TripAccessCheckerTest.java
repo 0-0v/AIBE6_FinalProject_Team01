@@ -85,4 +85,18 @@ class TripAccessCheckerTest {
                         exception -> assertThat(exception.getErrorCode())
                                 .isEqualTo(CommonErrorCode.FORBIDDEN));
     }
+
+    @Test
+    @DisplayName("t5 여행방 회원이 아닌 로그인 사용자도 유효한 게스트 쿠키가 있으면 조회할 수 있다")
+    void t5_requireViewFallsBackToGuestAccessForAuthenticatedNonMember() {
+        MemberPrincipal principal = new MemberPrincipal(
+                1L, "user@example.com", List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        when(securityContextAccessor.getCurrentPrincipal()).thenReturn(Optional.of(principal));
+        when(tripAccessRepository.canView(10L, 1L)).thenReturn(false);
+        when(request.getCookies()).thenReturn(
+                new Cookie[]{new Cookie(GuestAccessCookieProvider.COOKIE_NAME, "guest-token")});
+        when(guestTripAccessService.canView(10L, "guest-token")).thenReturn(true);
+
+        assertThat(checker.requireView(10L)).isNull();
+    }
 }

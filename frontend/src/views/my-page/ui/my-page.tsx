@@ -1,15 +1,16 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
-    LockIcon,
-    UnlockIcon,
     PencilIcon,
     AlertTriangleIcon,
     CameraIcon,
+    ChevronRightIcon,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { useProfileStore } from '@/features/manage-profile'
+import { useTripStore } from '@/features/manage-trip'
 
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
 const ALLOWED_PROFILE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp']
@@ -22,9 +23,11 @@ const PROVIDER_LABEL: Record<string, string> = {
 }
 
 export function MyPage() {
+    const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const { changeNickname, changeProfileImage, isUploadingImage } =
         useProfileStore()
+    const { trips, isLoading, error: tripError, loadTrips } = useTripStore()
     const me = {
         name: currentUser?.nickname ?? '게스트',
         avatarColor: DEFAULT_AVATAR_COLOR,
@@ -38,9 +41,10 @@ export function MyPage() {
     const [error, setError] = useState('')
     const [imageError, setImageError] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const [trips, setTrips] = useState<
-        { id: string; title: string; role: string; isPublic: boolean }[]
-    >([])
+
+    useEffect(() => {
+        if (currentUser) void loadTrips()
+    }, [currentUser, loadTrips])
 
     async function saveNickname() {
         const v = draft.trim()
@@ -202,52 +206,59 @@ export function MyPage() {
                         내가 참여 중인 여행방
                     </h2>
                     <div className="divide-y divide-slate-100 overflow-hidden rounded-[22px] border border-slate-100 bg-white shadow-sm">
-                        {trips.map((t) => (
-                            <div
-                                key={t.id}
-                                className="flex items-center gap-3 px-5 py-4"
-                            >
-                                <div className="flex-1">
-                                    <div className="font-medium">{t.title}</div>
-                                    <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                                        {t.role}
-                                    </span>
-                                </div>
-                                {t.role === 'OWNER' ? (
-                                    <button
-                                        onClick={() =>
-                                            setTrips((prev) =>
-                                                prev.map((x) =>
-                                                    x.id === t.id
-                                                        ? {
-                                                              ...x,
-                                                              isPublic:
-                                                                  !x.isPublic,
-                                                          }
-                                                        : x,
-                                                ),
-                                            )
-                                        }
-                                        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                                            t.isPublic
-                                                ? 'bg-brand-50 text-brand-700'
-                                                : 'bg-slate-100 text-slate-500'
-                                        }`}
-                                    >
-                                        {t.isPublic ? (
-                                            <UnlockIcon size={13} />
-                                        ) : (
-                                            <LockIcon size={13} />
-                                        )}
-                                        {t.isPublic ? '공개' : '비공개'}
-                                    </button>
-                                ) : (
-                                    <span className="flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-400">
-                                        <LockIcon size={13} /> 방장만 설정
-                                    </span>
-                                )}
+                        {isLoading && (
+                            <p className="px-5 py-8 text-center text-sm font-medium text-slate-400">
+                                여행방을 불러오는 중입니다.
+                            </p>
+                        )}
+                        {!isLoading && tripError && (
+                            <div className="px-5 py-8 text-center">
+                                <p className="text-sm font-medium text-red-500">
+                                    {tripError}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => void loadTrips()}
+                                    className="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                                >
+                                    다시 시도
+                                </button>
                             </div>
-                        ))}
+                        )}
+                        {!isLoading && !tripError && trips.length === 0 && (
+                            <p className="px-5 py-8 text-center text-sm font-medium text-slate-400">
+                                참여 중인 여행방이 없습니다.
+                            </p>
+                        )}
+                        {!isLoading &&
+                            !tripError &&
+                            trips.map((trip) => (
+                                <div
+                                    key={trip.id}
+                                    className="flex items-center gap-3 px-5 py-4"
+                                >
+                                    <div className="flex-1">
+                                        <div className="font-medium">
+                                            {trip.title}
+                                        </div>
+                                        <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                                            {trip.ownerId === currentUser?.id
+                                                ? '방장'
+                                                : '참여 멤버'}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            navigate(`/app/room/${trip.id}`)
+                                        }
+                                        className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold text-brand-700 hover:bg-brand-50"
+                                    >
+                                        여행방 열기
+                                        <ChevronRightIcon size={14} />
+                                    </button>
+                                </div>
+                            ))}
                     </div>
                 </section>
 

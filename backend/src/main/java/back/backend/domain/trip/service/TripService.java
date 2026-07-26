@@ -72,7 +72,7 @@ public class TripService {
     }
 
     public List<TripResponse> getMyTrips(Long memberId) {
-        return tripRepository.findAllByOwnerIdAndStatusNotOrderByCreatedAtDesc(memberId, TripStatus.CANCELLED).stream()
+        return tripRepository.findAllAccessibleByMemberIdAndStatusNot(memberId, TripStatus.CANCELLED).stream()
                 .map(TripResponse::from)
                 .toList();
     }

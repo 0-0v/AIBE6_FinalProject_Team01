@@ -121,3 +121,7 @@ export function fetchInvitedTrip(inviteCode: string): Promise<TripResponse> {
     pendingInvitedTripRequests.set(inviteCode, request)
     return request
 }
+
+export async function claimGuestTripAccess(): Promise<void> {
+    await apiClient.post<ApiResponse<null>>('/api/trip-invitations/claim', {})
+}

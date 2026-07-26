@@ -56,13 +56,8 @@ public class TripInvitationController {
             @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken
     ) {
         GuestAccessGrant grant = guestTripAccessService.accept(inviteCode, guestToken);
-        boolean claimed = securityContextAccessor.getCurrentPrincipal()
-                .map(principal -> guestTripAccessService.claimIfPresent(principal.getMemberId(), grant.token()))
-                .orElse(false);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .header(HttpHeaders.SET_COOKIE, (claimed
-                        ? guestAccessCookieProvider.expire()
-                        : guestAccessCookieProvider.create(grant.token())).toString())
+                .header(HttpHeaders.SET_COOKIE, guestAccessCookieProvider.create(grant.token()).toString())
                 .body(ApiResponse.success(grant.trip()));
     }
 
