@@ -8,7 +8,6 @@ import {
 import {
     Place,
     Room,
-    TravelRecord,
     addTripPlace,
     deleteTripPlace,
     startTripPlaceVote,
@@ -28,7 +27,6 @@ import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
-import { useCurrentUserStore } from '@/shared/model'
 import { ItineraryPanel } from './itinerary-panel'
 import { PlaceCard } from './place-card'
 import { RecordPanel } from './record-panel'
@@ -75,11 +73,9 @@ export function RoomDetailPanel({
     showBackButton = true,
     guestView = false,
 }: Props) {
-    const currentUserId = String(
-        useCurrentUserStore((state) => state.currentUser?.id) ?? '',
+    const [mode, setMode] = useState<Mode>(
+        room.lifecycleStatus === 'COMPLETED' ? 'record' : 'plan',
     )
-    const [records, setRecords] = useState<TravelRecord[]>([])
-    const [mode, setMode] = useState<Mode>('plan')
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -97,6 +93,8 @@ export function RoomDetailPanel({
     const [dateAvailabilityDirty, setDateAvailabilityDirty] = useState(false)
 
     const canWrite = canManage
+    const canPlanWrite =
+        canWrite && room.lifecycleStatus !== 'COMPLETED'
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const { setComments, addComment, removeComment } = useCommentStore()
@@ -277,8 +275,8 @@ export function RoomDetailPanel({
                 title={room.title}
                 subtitle={`#${room.location} · ${room.date}`}
                 isPublic={isPublic}
-                isOwner={canWrite}
-                canWrite={canWrite}
+                isOwner={canPlanWrite}
+                canWrite={canPlanWrite}
                 onTogglePublic={() => setIsPublic((value) => !value)}
                 onInvite={() => setInviteOpen(true)}
                 onBack={onBack}
@@ -373,7 +371,7 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
-                        {canWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
                         {(loadError || placeError) && (
                             <p
                                 role="alert"
@@ -394,7 +392,7 @@ export function RoomDetailPanel({
                                     key={place.id}
                                     place={place}
                                     selected={selectedId === place.id}
-                                    canWrite={canWrite}
+                                    canWrite={canPlanWrite}
                                     onSelect={() => onSelectPlace(place.id)}
                                     onVote={(value) =>
                                         handleVote(place.id, value)
@@ -432,7 +430,7 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'itinerary' && (
                 <ItineraryPanel
                     tripId={tripId}
-                    canWrite={canWrite}
+                    canWrite={canPlanWrite}
                     onDirtyChange={setDateAvailabilityDirty}
                     onCollaborationChanged={refreshCollaborationData}
                     onTripDatesChanged={onTripDatesChanged}
@@ -440,21 +438,14 @@ export function RoomDetailPanel({
             )}
             {mode === 'record' && recordTab === 'records' && (
                 <RecordPanel
-                    records={records}
+                    tripId={tripId}
                     places={places}
                     canWrite={canWrite}
-                    onAdd={(record) => {
-                        setRecords((current) => [
-                            {
-                                ...record,
-                                id: `r${Date.now()}`,
-                                memberId: currentUserId,
-                                createdAt: new Date().toISOString(),
-                            },
-                            ...current,
-                        ])
-                    }}
+                    startDate={room.startDate}
+                    endDate={room.endDate}
                     onPlaceClick={focusPlace}
+                    onChanged={refreshCollaborationData}
+                    guestView={guestView}
                 />
             )}
             {mode === 'record' && recordTab === 'expenses' && (

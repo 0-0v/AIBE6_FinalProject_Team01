@@ -39,6 +39,8 @@ export function toRoom(trip: TripResponse): Room {
         apiTripId: trip.id,
         title: trip.title,
         date,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
         location: trip.destination ?? '장소 미정',
         dday,
         members: trip.memberCount,
@@ -46,6 +48,7 @@ export function toRoom(trip: TripResponse): Room {
         cover:
             trip.coverImageUrl ?? '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
         status: statusLabel,
+        lifecycleStatus: trip.status,
         color: '#e7657a',
     }
 }

@@ -32,7 +32,12 @@ springdoc:
 
 app:
   file-storage:
+    type: ${FILE_STORAGE_TYPE:local}
     upload-dir: ${FILE_UPLOAD_DIR:uploads}
+    s3:
+      bucket: ${AWS_S3_BUCKET:}
+      region: ${AWS_REGION:ap-northeast-2}
+      public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
   auth:
     jwt:
       secret: ${JWT_SECRET}
@@ -51,8 +56,3 @@ app:
       api-key: ${AI_API_KEY}
       base-url: ${AI_API_BASE_URL}
       model: ${AI_MODEL}
-    aws:
-      access-key-id: ${AWS_ACCESS_KEY_ID}
-      secret-access-key: ${AWS_SECRET_ACCESS_KEY}
-      region: ${AWS_REGION:ap-northeast-2}
-      s3-bucket: ${AWS_S3_BUCKET}

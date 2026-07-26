@@ -50,28 +50,25 @@ export type Place = {
     duplicateOf?: string
 }
 
-export type TravelRecord = {
-    id: string
-    memberId: string
-    day: 1 | 2 | 3
-    time: string
-    createdAt: string
-    memo?: string
-    placeId?: string
-    images: string[]
-}
-
 export type Room = {
     id: string
     apiTripId?: number
     title: string
     date: string
+    startDate: string | null
+    endDate: string | null
     location: string
     dday: string
     members: number
     progress: number
     cover: string
     status: string
+    lifecycleStatus:
+        | 'PLANNING'
+        | 'CONFIRMED'
+        | 'IN_PROGRESS'
+        | 'COMPLETED'
+        | 'CANCELLED'
     color: string
 }
 
