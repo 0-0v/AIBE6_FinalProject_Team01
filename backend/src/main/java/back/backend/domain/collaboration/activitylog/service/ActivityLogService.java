@@ -50,6 +50,13 @@ public class ActivityLogService {
         if (!tripMemberAccessChecker.isMember(tripId, memberId)) {
             throw new BusinessException(ActivityLogErrorCode.TRIP_ACCESS_DENIED);
         }
+        return getActivityLogsForAuthorizedViewer(tripId, pageable);
+    }
+
+    public PageResponse<ActivityLogResponse> getActivityLogsForAuthorizedViewer(
+            Long tripId,
+            Pageable pageable
+    ) {
         return PageResponse.from(activityLogRepository.findAllByTripIdOrderByCreatedAtDescIdDesc(tripId, pageable)
                 .map(ActivityLogResponse::from));
     }

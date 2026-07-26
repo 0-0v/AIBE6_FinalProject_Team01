@@ -53,6 +53,8 @@ type Props = {
     tripId: number
     initialActivityOpen?: boolean
     onTripDatesChanged?: () => void
+    showBackButton?: boolean
+    guestView?: boolean
 }
 
 export function RoomDetailPanel({
@@ -70,6 +72,8 @@ export function RoomDetailPanel({
     tripId,
     initialActivityOpen = false,
     onTripDatesChanged,
+    showBackButton = true,
+    guestView = false,
 }: Props) {
     const currentUserId = String(
         useCurrentUserStore((state) => state.currentUser?.id) ?? '',
@@ -277,12 +281,9 @@ export function RoomDetailPanel({
                 canWrite={canWrite}
                 onTogglePublic={() => setIsPublic((value) => !value)}
                 onInvite={() => setInviteOpen(true)}
-                onBack={() => {
-                    if (confirmDiscardDateChanges()) onBack()
-                }}
-                onManage={() => {
-                    if (confirmDiscardDateChanges()) onManage()
-                }}
+                onBack={onBack}
+                onManage={onManage}
+                showBackButton={showBackButton}
             />
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
                 <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold">
@@ -478,7 +479,10 @@ export function RoomDetailPanel({
                         </button>
                     </div>
                     <div className="mp-scroll flex-1 overflow-y-auto">
-                        <ActivityLogPanel tripId={room.apiTripId} />
+                        <ActivityLogPanel
+                            tripId={room.apiTripId}
+                            allowGuest={guestView}
+                        />
                     </div>
                 </div>
             )}

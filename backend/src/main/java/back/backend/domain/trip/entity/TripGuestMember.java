@@ -11,8 +11,8 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "trip_members")
-public class TripMember {
+@Table(name = "trip_guest_members")
+public class TripGuestMember {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,8 +21,8 @@ public class TripMember {
     @Column(name = "trip_id", nullable = false)
     private Long tripId;
 
-    @Column(name = "member_id", nullable = false)
-    private Long memberId;
+    @Column(name = "guest_session_id", nullable = false)
+    private Long guestSessionId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -31,27 +31,23 @@ public class TripMember {
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt;
 
-    protected TripMember() {
+    protected TripGuestMember() {
     }
 
-    private TripMember(Long tripId, Long memberId, TripMemberRole role) {
+    private TripGuestMember(Long tripId, Long guestSessionId) {
         this.tripId = tripId;
-        this.memberId = memberId;
-        this.role = role;
+        this.guestSessionId = guestSessionId;
+        this.role = TripMemberRole.VIEWER;
         this.joinedAt = LocalDateTime.now();
     }
 
-    public static TripMember owner(Long tripId, Long memberId) {
-        return new TripMember(tripId, memberId, TripMemberRole.OWNER);
-    }
-
-    public static TripMember viewer(Long tripId, Long memberId) {
-        return new TripMember(tripId, memberId, TripMemberRole.VIEWER);
+    public static TripGuestMember viewer(Long tripId, Long guestSessionId) {
+        return new TripGuestMember(tripId, guestSessionId);
     }
 
     public Long getId() { return id; }
     public Long getTripId() { return tripId; }
-    public Long getMemberId() { return memberId; }
+    public Long getGuestSessionId() { return guestSessionId; }
     public TripMemberRole getRole() { return role; }
     public LocalDateTime getJoinedAt() { return joinedAt; }
 }

@@ -38,6 +38,9 @@ class TripPlaceSecurityIntegrationTest {
     @Test
     @DisplayName("t1 인증 정보 없이 여행 장소를 조회하면 401을 반환한다")
     void t1_unauthenticatedRequestReturnsUnauthorized() throws Exception {
+        given(tripPlaceService.getPlaces(1L, null))
+                .willThrow(new BusinessException(CommonErrorCode.UNAUTHORIZED));
+
         mockMvc.perform(get("/api/trips/1/places"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_401"));

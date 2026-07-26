@@ -12,6 +12,7 @@ import { useCurrentUserStore } from '@/shared/model'
 
 type Props = {
     tripId?: number
+    allowGuest?: boolean
 }
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
@@ -37,7 +38,7 @@ function targetLabel(log: ActivityLog) {
     return null
 }
 
-export function ActivityLogPanel({ tripId }: Props) {
+export function ActivityLogPanel({ tripId, allowGuest = false }: Props) {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const {
         logs,
@@ -50,19 +51,19 @@ export function ActivityLogPanel({ tripId }: Props) {
     } = useActivityLogStore()
 
     useEffect(() => {
-        if (currentUser && tripId !== undefined) {
+        if ((currentUser || allowGuest) && tripId !== undefined) {
             void loadActivityLogs(tripId)
         } else {
             resetActivityLogs()
         }
 
         return resetActivityLogs
-    }, [currentUser, loadActivityLogs, resetActivityLogs, tripId])
+    }, [allowGuest, currentUser, loadActivityLogs, resetActivityLogs, tripId])
 
     if (tripId === undefined) {
         return <EmptyMessage message="연결된 여행 정보가 없습니다." />
     }
-    if (!currentUser) {
+    if (!currentUser && !allowGuest) {
         return <EmptyMessage message="활동 로그를 보려면 로그인해 주세요." />
     }
     if (isLoading && logs.length === 0) {

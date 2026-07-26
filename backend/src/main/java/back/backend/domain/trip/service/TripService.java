@@ -72,13 +72,19 @@ public class TripService {
     }
 
     public List<TripResponse> getMyTrips(Long memberId) {
-        return tripRepository.findAllByOwnerIdAndStatusNotOrderByCreatedAtDesc(memberId, TripStatus.CANCELLED).stream()
+        return tripRepository.findAllAccessibleByMemberIdAndStatusNot(memberId, TripStatus.CANCELLED).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     public TripResponse get(Long memberId, Long tripId) {
-        return toResponse(findOwnedTrip(memberId, tripId));
+        Trip trip = tripRepository.findByIdAndStatusNot(tripId, TripStatus.CANCELLED)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+        if (trip.getOwnerId().equals(memberId)
+                || tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
+            return toResponse(trip);
+        }
+        throw new BusinessException(TripErrorCode.TRIP_NOT_FOUND);
     }
 
     @Transactional
