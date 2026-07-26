@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ArrowDownUpIcon,
     BookHeartIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
     ImagePlusIcon,
     MapPinIcon,
     PlusIcon,
@@ -400,25 +402,95 @@ function DayNavigation({
     isNewestFirst: boolean
     onToggleOrder: () => void
 }) {
+    const scrollRef = useRef<HTMLDivElement>(null)
+    const [canScrollLeft, setCanScrollLeft] = useState(false)
+    const [canScrollRight, setCanScrollRight] = useState(false)
+
+    const updateScrollButtons = useCallback(() => {
+        const element = scrollRef.current
+        if (!element) return
+        const maxScrollLeft = element.scrollWidth - element.clientWidth
+        setCanScrollLeft(element.scrollLeft > 1)
+        setCanScrollRight(element.scrollLeft < maxScrollLeft - 1)
+    }, [])
+
+    useEffect(() => {
+        const element = scrollRef.current
+        if (!element) return
+        updateScrollButtons()
+        const observer = new ResizeObserver(updateScrollButtons)
+        observer.observe(element)
+        return () => observer.disconnect()
+    }, [days.length, updateScrollButtons])
+
+    function scrollDays(direction: -1 | 1) {
+        scrollRef.current?.scrollBy({
+            left: direction * 180,
+            behavior: 'smooth',
+        })
+    }
+
     return (
         <div className="flex items-center gap-2 border-b border-slate-100 bg-white px-4 py-3">
-            <div className="mp-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-                {days.map((item) => (
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+                {canScrollLeft && (
                     <button
-                        key={item.day}
-                        onClick={() => onSelect(item.day)}
-                        className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold ${
-                            selectedDay === item.day
-                                ? 'bg-brand text-white'
-                                : 'bg-slate-100 text-slate-500'
-                        }`}
+                        type="button"
+                        onClick={() => scrollDays(-1)}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700"
+                        aria-label="이전 DAY 보기"
                     >
-                        DAY {item.day}
-                        <span className="ml-1 opacity-75">
-                            {item.date.slice(5).replace('-', '.')}
-                        </span>
+                        <ChevronLeftIcon size={15} />
                     </button>
-                ))}
+                )}
+                <div
+                    ref={scrollRef}
+                    onScroll={updateScrollButtons}
+                    onWheel={(event) => {
+                        const element = scrollRef.current
+                        if (
+                            !element ||
+                            element.scrollWidth <= element.clientWidth
+                        ) {
+                            return
+                        }
+                        event.preventDefault()
+                        element.scrollBy({
+                            left:
+                                Math.abs(event.deltaY) > Math.abs(event.deltaX)
+                                    ? event.deltaY
+                                    : event.deltaX,
+                        })
+                    }}
+                    className="mp-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
+                >
+                    {days.map((item) => (
+                        <button
+                            key={item.day}
+                            onClick={() => onSelect(item.day)}
+                            className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold ${
+                                selectedDay === item.day
+                                    ? 'bg-brand text-white'
+                                    : 'bg-slate-100 text-slate-500'
+                            }`}
+                        >
+                            DAY {item.day}
+                            <span className="ml-1 opacity-75">
+                                {item.date.slice(5).replace('-', '.')}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+                {canScrollRight && (
+                    <button
+                        type="button"
+                        onClick={() => scrollDays(1)}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-brand-50 hover:text-brand-700"
+                        aria-label="다음 DAY 보기"
+                    >
+                        <ChevronRightIcon size={15} />
+                    </button>
+                )}
             </div>
             <button
                 onClick={onToggleOrder}
