@@ -13,6 +13,7 @@ import back.backend.domain.place.dto.request.ReorderPlaceCategoriesRequest;
 import back.backend.domain.place.dto.response.PlaceCategoryResponse;
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
+import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceCategoryRepository;
@@ -76,7 +77,7 @@ class PlaceCategoryServiceTest {
 
         PlaceCategoryResponse result = categoryService.create(
                 1L,
-                new CreatePlaceCategoryRequest("야경", "#112233", "🌃")
+                new CreatePlaceCategoryRequest("야경", "#112233", PlaceMarkerIcon.STAR)
         );
 
         assertThat(result.categoryType()).isEqualTo(PlaceCategoryType.CUSTOM);
@@ -93,7 +94,8 @@ class PlaceCategoryServiceTest {
         PlaceCategory result = categoryService.recommend(
                 1L,
                 "벳푸 라멘",
-                "ramen_restaurant"
+                "ramen_restaurant",
+                List.of("ramen_restaurant")
         );
 
         assertThat(result).isEqualTo(food);
@@ -153,19 +155,49 @@ class PlaceCategoryServiceTest {
                 .willReturn(Optional.of(lodging));
 
         List<PlaceCategory> results = List.of(
-                categoryService.recommend(1L, "제주 에어비앤비", null),
-                categoryService.recommend(1L, "바다 전망 펜션", null),
-                categoryService.recommend(1L, "성산 게스트하우스", "guest_house"),
-                categoryService.recommend(1L, "숲속 글램핑", "campground"),
-                categoryService.recommend(1L, "도심형 숙박시설", "extended_stay_hotel")
+                categoryService.recommend(1L, "제주 에어비앤비", null, List.of()),
+                categoryService.recommend(1L, "바다 전망 펜션", null, List.of()),
+                categoryService.recommend(1L, "성산 게스트하우스", "guest_house", List.of("guest_house")),
+                categoryService.recommend(1L, "숲속 글램핑", "campground", List.of("campground")),
+                categoryService.recommend(1L, "도심형 숙박시설", "extended_stay_hotel",
+                        List.of("extended_stay_hotel"))
         );
 
         assertThat(results).containsOnly(lodging);
     }
 
     @Test
-    @DisplayName("t7 카테고리가 없는 여행방은 기본 카테고리를 자동 생성한다")
-    void t7_emptyTripCreatesDefaultCategories() {
+    @DisplayName("t8 술집, 교통, 액티비티 장소 유형을 각각의 기본 카테고리로 추천한다")
+    void t8_recommendCategoryRecognizesTravelCategoryTypes() {
+        PlaceCategory bar = category(4L, "술집", PlaceCategoryType.BAR, 2);
+        PlaceCategory transport = category(5L, "교통", PlaceCategoryType.TRANSPORT, 3);
+        PlaceCategory activity = category(6L, "액티비티", PlaceCategoryType.ACTIVITY, 4);
+        given(categoryRepository.countByTripId(1L)).willReturn(10L);
+        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.BAR))
+                .willReturn(Optional.of(bar));
+        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.TRANSPORT))
+                .willReturn(Optional.of(transport));
+        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.ACTIVITY))
+                .willReturn(Optional.of(activity));
+
+        assertThat(categoryService.recommend(1L, "루프탑 펍", "bar", List.of("bar")))
+                .isEqualTo(bar);
+        assertThat(categoryService.recommend(1L, "제주 국제공항", "airport", List.of("airport")))
+                .isEqualTo(transport);
+        assertThat(categoryService.recommend(
+                1L, "오션 워터파크", "water_park", List.of("water_park")))
+                .isEqualTo(activity);
+        assertThat(categoryService.recommend(
+                1L,
+                "유니버설 스튜디오 재팬",
+                "amusement_center",
+                List.of("amusement_center")
+        )).isEqualTo(activity);
+    }
+
+    @Test
+    @DisplayName("t9 카테고리가 없는 여행방은 확장된 기본 카테고리를 자동 생성한다")
+    void t9_emptyTripCreatesDefaultCategories() {
         given(categoryRepository.countByTripId(1L)).willReturn(0L);
 
         categoryService.ensureDefaults(1L);
@@ -175,9 +207,11 @@ class PlaceCategoryServiceTest {
                     List<PlaceCategory> saved = java.util.stream.StreamSupport
                             .stream(categories.spliterator(), false)
                             .toList();
-                    return saved.size() == 7
+                    return saved.size() == 10
                             && saved.get(0).getCategoryType() == PlaceCategoryType.FOOD
-                            && saved.get(6).getCategoryType() == PlaceCategoryType.OTHER;
+                            && saved.get(2).getCategoryType() == PlaceCategoryType.BAR
+                            && saved.get(7).getCategoryType() == PlaceCategoryType.ACTIVITY
+                            && saved.get(9).getCategoryType() == PlaceCategoryType.OTHER;
                 })
         );
     }
@@ -193,7 +227,7 @@ class PlaceCategoryServiceTest {
                 .name(name)
                 .categoryType(type)
                 .markerColor("#123456")
-                .markerIcon("📍")
+                .markerIcon(PlaceMarkerIcon.MAP_PIN)
                 .sortOrder(sortOrder)
                 .build();
         ReflectionTestUtils.setField(category, "id", id);

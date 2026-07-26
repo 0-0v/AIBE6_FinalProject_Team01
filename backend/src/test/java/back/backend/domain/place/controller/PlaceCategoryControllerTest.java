@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.place.dto.response.PlaceCategoryResponse;
 import back.backend.domain.place.entity.PlaceCategoryType;
+import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.service.PlaceCategoryService;
 import back.backend.global.exception.GlobalExceptionHandler;
 import java.util.List;
@@ -38,7 +39,7 @@ class PlaceCategoryControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
         category = new PlaceCategoryResponse(
-                3L, "음식점", PlaceCategoryType.FOOD, "#dc2626", "🍽️", 0);
+                3L, "음식점", PlaceCategoryType.FOOD, "#dc2626", PlaceMarkerIcon.UTENSILS, 0);
     }
 
     @Test
@@ -59,7 +60,7 @@ class PlaceCategoryControllerTest {
         mockMvc.perform(post("/api/trips/1/categories")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"야경","markerColor":"#112233","markerIcon":"🌃"}
+                                {"name":"야경","markerColor":"#112233","markerIcon":"STAR"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.categoryId").value(3));
@@ -71,7 +72,7 @@ class PlaceCategoryControllerTest {
         mockMvc.perform(post("/api/trips/1/categories")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"야경","markerColor":"red","markerIcon":"🌃"}
+                                {"name":"야경","markerColor":"red","markerIcon":"STAR"}
                                 """))
                 .andExpect(status().isBadRequest());
     }
@@ -84,7 +85,7 @@ class PlaceCategoryControllerTest {
         mockMvc.perform(put("/api/trips/1/categories/3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"음식점","markerColor":"#dc2626","markerIcon":"🍽️"}
+                                {"name":"음식점","markerColor":"#dc2626","markerIcon":"UTENSILS"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("음식점"));
@@ -107,5 +108,16 @@ class PlaceCategoryControllerTest {
                         .content("{\"categoryIds\":[3]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].categoryId").value(3));
+    }
+
+    @Test
+    @DisplayName("t7 허용되지 않은 마커 아이콘 키는 400을 반환한다")
+    void t7_invalidMarkerIconReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/trips/1/categories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"위험","markerColor":"#112233","markerIcon":"<svg>"}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 }

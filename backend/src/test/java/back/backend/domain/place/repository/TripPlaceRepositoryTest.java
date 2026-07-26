@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
+import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.global.config.JpaConfig;
@@ -103,7 +104,7 @@ class TripPlaceRepositoryTest {
                 .name("기타")
                 .categoryType(PlaceCategoryType.OTHER)
                 .markerColor("#64748b")
-                .markerIcon("📍")
+                .markerIcon(PlaceMarkerIcon.MAP_PIN)
                 .sortOrder(0)
                 .build();
     }

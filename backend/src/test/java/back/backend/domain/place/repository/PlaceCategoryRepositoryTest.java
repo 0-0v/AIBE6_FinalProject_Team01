@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
+import back.backend.domain.place.entity.PlaceMarkerIcon;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,7 +61,7 @@ class PlaceCategoryRepositoryTest {
                 .name(name)
                 .categoryType(type)
                 .markerColor("#64748b")
-                .markerIcon("📍")
+                .markerIcon(PlaceMarkerIcon.MAP_PIN)
                 .sortOrder(sortOrder)
                 .build();
     }

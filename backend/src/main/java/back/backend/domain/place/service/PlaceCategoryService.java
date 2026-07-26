@@ -8,12 +8,12 @@ import back.backend.domain.place.dto.request.UpdatePlaceCategoryRequest;
 import back.backend.domain.place.dto.response.PlaceCategoryResponse;
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
+import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceCategoryRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -29,13 +29,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class PlaceCategoryService {
 
     private static final List<DefaultCategory> DEFAULT_CATEGORIES = List.of(
-            new DefaultCategory("음식점", PlaceCategoryType.FOOD, "#dc2626", "🍽️"),
-            new DefaultCategory("카페", PlaceCategoryType.CAFE, "#b45309", "☕️"),
-            new DefaultCategory("명소", PlaceCategoryType.ATTRACTION, "#7c3aed", "🏛️"),
-            new DefaultCategory("자연", PlaceCategoryType.NATURE, "#0f766e", "🌿"),
-            new DefaultCategory("숙소", PlaceCategoryType.LODGING, "#0891b2", "🏨"),
-            new DefaultCategory("쇼핑", PlaceCategoryType.SHOPPING, "#2563eb", "🛍️"),
-            new DefaultCategory("기타", PlaceCategoryType.OTHER, "#64748b", "📍")
+            new DefaultCategory("음식점", PlaceCategoryType.FOOD, "#dc2626", PlaceMarkerIcon.UTENSILS),
+            new DefaultCategory("카페", PlaceCategoryType.CAFE, "#b45309", PlaceMarkerIcon.COFFEE),
+            new DefaultCategory("술집", PlaceCategoryType.BAR, "#be123c", PlaceMarkerIcon.BEER),
+            new DefaultCategory("명소", PlaceCategoryType.ATTRACTION, "#7c3aed", PlaceMarkerIcon.LANDMARK),
+            new DefaultCategory("자연", PlaceCategoryType.NATURE, "#0f766e", PlaceMarkerIcon.TREES),
+            new DefaultCategory("숙소", PlaceCategoryType.LODGING, "#0891b2", PlaceMarkerIcon.HOTEL),
+            new DefaultCategory("쇼핑", PlaceCategoryType.SHOPPING, "#2563eb", PlaceMarkerIcon.SHOPPING_BAG),
+            new DefaultCategory("액티비티", PlaceCategoryType.ACTIVITY, "#ea580c", PlaceMarkerIcon.STAR),
+            new DefaultCategory("교통", PlaceCategoryType.TRANSPORT, "#475569", PlaceMarkerIcon.PLANE),
+            new DefaultCategory("기타", PlaceCategoryType.OTHER, "#64748b", PlaceMarkerIcon.MAP_PIN)
     );
 
     private final PlaceCategoryRepository categoryRepository;
@@ -65,7 +68,7 @@ public class PlaceCategoryService {
                 .name(name)
                 .categoryType(PlaceCategoryType.CUSTOM)
                 .markerColor(request.markerColor().toLowerCase(Locale.ROOT))
-                .markerIcon(request.markerIcon().trim())
+                .markerIcon(request.markerIcon())
                 .sortOrder(sortOrder)
                 .build());
         record(tripId, memberId, "PLACE_CATEGORY_CREATED", category, "장소 카테고리가 생성됐습니다.");
@@ -85,7 +88,7 @@ public class PlaceCategoryService {
         category.update(
                 name,
                 request.markerColor().toLowerCase(Locale.ROOT),
-                request.markerIcon().trim()
+                request.markerIcon()
         );
         record(tripId, memberId, "PLACE_CATEGORY_UPDATED", category, "장소 카테고리가 수정됐습니다.");
         return PlaceCategoryResponse.from(category);
@@ -147,8 +150,22 @@ public class PlaceCategoryService {
 
     @Transactional
     public PlaceCategory recommend(Long tripId, String placeName, String placeType) {
+        return recommend(tripId, placeName, placeType, List.of());
+    }
+
+    @Transactional
+    public PlaceCategory recommend(
+            Long tripId,
+            String placeName,
+            String placeType,
+            List<String> placeTypes
+    ) {
         ensureDefaults(tripId);
-        PlaceCategoryType type = recommendType(placeName, placeType);
+        PlaceCategoryType type = PlaceCategoryClassifier.classify(
+                placeType,
+                placeTypes == null ? List.of() : placeTypes,
+                placeName
+        );
         return categoryRepository.findFirstByTripIdAndCategoryType(tripId, type)
                 .orElseGet(() -> findByType(tripId, PlaceCategoryType.OTHER));
     }
@@ -195,33 +212,6 @@ public class PlaceCategoryService {
                 });
     }
 
-    private PlaceCategoryType recommendType(String placeName, String placeType) {
-        String normalized = ((placeName == null ? "" : placeName) + " "
-                + (placeType == null ? "" : placeType)).toLowerCase(Locale.ROOT);
-        if (containsAny(normalized, "cafe", "coffee", "카페", "커피")) return PlaceCategoryType.CAFE;
-        if (containsAny(normalized, "restaurant", "food", "ramen", "noodle", "bakery",
-                "bar", "pub", "맛집", "라멘", "국수", "식당", "빵집")) return PlaceCategoryType.FOOD;
-        if (containsAny(normalized,
-                "hotel", "lodging", "resort", "motel", "hostel", "guest_house",
-                "bed_and_breakfast", "campground", "rv_park", "extended_stay",
-                "호텔", "숙소", "숙박", "리조트", "에어비앤비", "airbnb",
-                "펜션", "풀빌라", "민박", "모텔", "호스텔", "게스트하우스",
-                "콘도", "레지던스", "캠핑장", "글램핑"))
-            return PlaceCategoryType.LODGING;
-        if (containsAny(normalized, "park", "garden", "beach", "natural_feature",
-                "mountain", "공원", "정원", "해변", "산")) return PlaceCategoryType.NATURE;
-        if (containsAny(normalized, "shopping", "store", "market", "mall",
-                "쇼핑", "시장", "백화점")) return PlaceCategoryType.SHOPPING;
-        if (containsAny(normalized, "museum", "gallery", "tourist_attraction",
-                "temple", "shrine", "airport", "박물관", "미술관", "명소"))
-            return PlaceCategoryType.ATTRACTION;
-        return PlaceCategoryType.OTHER;
-    }
-
-    private boolean containsAny(String value, String... keywords) {
-        return Arrays.stream(keywords).anyMatch(value::contains);
-    }
-
     private void record(
             Long tripId,
             Long memberId,
@@ -246,7 +236,7 @@ public class PlaceCategoryService {
             String name,
             PlaceCategoryType type,
             String color,
-            String icon
+            PlaceMarkerIcon icon
     ) {
     }
 }

@@ -40,12 +40,13 @@ public class PlaceCategory {
     private String markerColor;
 
     @Column(name = "marker_icon", nullable = false, length = 50)
-    private String markerIcon;
+    @Enumerated(EnumType.STRING)
+    private PlaceMarkerIcon markerIcon;
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
-    public void update(String name, String markerColor, String markerIcon) {
+    public void update(String name, String markerColor, PlaceMarkerIcon markerIcon) {
         this.name = name;
         this.markerColor = markerColor;
         this.markerIcon = markerIcon;
