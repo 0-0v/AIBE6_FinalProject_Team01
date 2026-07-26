@@ -2,6 +2,12 @@ export * from './model/types'
 export * from './model/place-presentation'
 export { exploreCards } from './model/explore-cards'
 export { RoomCard } from './ui/room-card'
+export { CategoryIcon } from './ui/category-icon'
+export {
+    PLACE_MARKER_ICONS,
+    PLACE_MARKER_ICON_OPTIONS,
+} from './model/place-marker-icon'
+export type { PlaceMarkerIcon } from './model/place-marker-icon'
 export {
     addTripPlace,
     getTripPlaces,

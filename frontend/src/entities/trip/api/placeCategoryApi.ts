@@ -1,27 +1,21 @@
 import { apiClient } from '@/shared/api/client'
 import type { ApiResponse } from '@/shared/api/client'
+import type { PlaceMarkerIcon } from '../model/place-marker-icon'
+import type { PlaceCategoryType } from '../model/types'
 
 export type PlaceCategoryInfo = {
     categoryId: number
     name: string
-    categoryType:
-        | 'FOOD'
-        | 'CAFE'
-        | 'ATTRACTION'
-        | 'NATURE'
-        | 'LODGING'
-        | 'SHOPPING'
-        | 'OTHER'
-        | 'CUSTOM'
+    categoryType: PlaceCategoryType
     markerColor: string
-    markerIcon: string
+    markerIcon: PlaceMarkerIcon
     sortOrder: number
 }
 
 export type PlaceCategoryInput = {
     name: string
     markerColor: string
-    markerIcon: string
+    markerIcon: PlaceMarkerIcon
 }
 
 export async function getPlaceCategories(
