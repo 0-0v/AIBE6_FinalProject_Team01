@@ -7,11 +7,14 @@ import {
     XIcon,
 } from 'lucide-react'
 import {
+    CategoryIcon,
+    PLACE_MARKER_ICON_OPTIONS,
     createPlaceCategory,
     deletePlaceCategory,
     reorderPlaceCategories,
     updatePlaceCategory,
     type PlaceCategoryInfo,
+    type PlaceMarkerIcon,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 
@@ -23,7 +26,7 @@ type Props = {
 }
 
 const DEFAULT_COLOR = '#64748b'
-const DEFAULT_ICON = '📍'
+const DEFAULT_ICON: PlaceMarkerIcon = 'MAP_PIN'
 
 export function CategoryManager({
     tripId,
@@ -45,7 +48,7 @@ export function CategoryManager({
             const created = await createPlaceCategory(tripId, {
                 name: name.trim(),
                 markerColor: color,
-                markerIcon: icon.trim() || DEFAULT_ICON,
+                markerIcon: icon,
             })
             onChange([...categories, created])
             setName('')
@@ -136,7 +139,12 @@ export function CategoryManager({
                 )}
                 {categories.map((category, index) => (
                     <CategoryRow
-                        key={category.categoryId}
+                        key={[
+                            category.categoryId,
+                            category.name,
+                            category.markerColor,
+                            category.markerIcon,
+                        ].join(':')}
                         tripId={tripId}
                         category={category}
                         first={index === 0}
@@ -163,13 +171,11 @@ export function CategoryManager({
                 <p className="mb-2 text-xs font-extrabold text-slate-600">
                     새 카테고리
                 </p>
-                <div className="grid grid-cols-[48px_48px_1fr] gap-2">
-                    <input
+                <div className="grid grid-cols-[120px_48px_1fr] gap-2">
+                    <IconPicker
                         aria-label="새 카테고리 아이콘"
                         value={icon}
-                        maxLength={10}
-                        onChange={(event) => setIcon(event.target.value)}
-                        className="rounded-lg border border-slate-200 px-2 py-2 text-center text-sm"
+                        onChange={setIcon}
                     />
                     <input
                         aria-label="새 카테고리 색상"
@@ -225,15 +231,16 @@ function CategoryRow({
 }) {
     const [name, setName] = useState(category.name)
     const [color, setColor] = useState(category.markerColor)
-    const [icon, setIcon] = useState(category.markerIcon)
+    const [icon, setIcon] = useState<PlaceMarkerIcon>(category.markerIcon)
     const [saving, setSaving] = useState(false)
+
     const changed =
         name.trim() !== category.name ||
         color !== category.markerColor ||
-        icon.trim() !== category.markerIcon
+        icon !== category.markerIcon
 
     async function save() {
-        if (!changed || !name.trim() || !icon.trim()) return
+        if (!changed || !name.trim()) return
         setSaving(true)
         onError(null)
         try {
@@ -241,7 +248,7 @@ function CategoryRow({
                 await updatePlaceCategory(tripId, category.categoryId, {
                     name: name.trim(),
                     markerColor: color,
-                    markerIcon: icon.trim(),
+                    markerIcon: icon,
                 }),
             )
         } catch (cause) {
@@ -256,12 +263,11 @@ function CategoryRow({
     return (
         <div className="rounded-xl border border-slate-100 p-2.5">
             <div className="flex items-center gap-2">
-                <input
+                <IconPicker
                     aria-label={`${category.name} 아이콘`}
                     value={icon}
-                    maxLength={10}
-                    onChange={(event) => setIcon(event.target.value)}
-                    className="h-8 w-10 rounded-lg border border-slate-200 text-center text-sm"
+                    onChange={setIcon}
+                    compact
                 />
                 <input
                     aria-label={`${category.name} 색상`}
@@ -279,7 +285,7 @@ function CategoryRow({
                 />
                 <button
                     type="button"
-                    disabled={!changed || saving || !name.trim() || !icon.trim()}
+                    disabled={!changed || saving || !name.trim()}
                     onClick={() => void save()}
                     className="rounded-lg bg-slate-900 px-2 py-1.5 text-[10px] font-bold text-white disabled:opacity-30"
                 >
@@ -316,5 +322,41 @@ function CategoryRow({
                 </button>
             </div>
         </div>
+    )
+}
+
+function IconPicker({
+    value,
+    onChange,
+    compact = false,
+    'aria-label': ariaLabel,
+}: {
+    value: PlaceMarkerIcon
+    onChange: (icon: PlaceMarkerIcon) => void
+    compact?: boolean
+    'aria-label': string
+}) {
+    return (
+        <label
+            className={`flex items-center rounded-lg border border-slate-200 bg-white ${
+                compact ? 'h-8 w-24 px-1.5' : 'h-9 px-2'
+            }`}
+        >
+            <CategoryIcon icon={value} size={14} className="shrink-0" />
+            <select
+                aria-label={ariaLabel}
+                value={value}
+                onChange={(event) =>
+                    onChange(event.target.value as PlaceMarkerIcon)
+                }
+                className="min-w-0 flex-1 bg-transparent px-1 text-[11px] outline-none"
+            >
+                {PLACE_MARKER_ICON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+        </label>
     )
 }
