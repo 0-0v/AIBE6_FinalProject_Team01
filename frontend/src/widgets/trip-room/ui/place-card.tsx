@@ -7,7 +7,7 @@ import {
     Trash2Icon,
 } from 'lucide-react'
 import {
-    CATEGORY_META,
+    CategoryIcon,
     Place,
     type PlaceCategoryInfo,
 } from '@/entities/trip'
@@ -39,7 +39,6 @@ export function PlaceCard({
     categories,
     onCategoryChange,
 }: Props) {
-    const meta = CATEGORY_META[place.category]
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isMe = place.addedBy === String(currentUser?.id)
     const adderName = isMe ? (currentUser?.nickname ?? '나') : '멤버'
@@ -89,33 +88,41 @@ export function PlaceCard({
                             </p>
                         </div>
                         {canWrite ? (
-                            <select
-                                aria-label={`${place.name} 카테고리`}
-                                value={place.categoryId ?? ''}
-                                disabled={changingCategory}
-                                onClick={(event) => event.stopPropagation()}
-                                onChange={(event) => {
-                                    setChangingCategory(true)
-                                    void onCategoryChange(
-                                        Number(event.target.value),
-                                    ).finally(() =>
-                                        setChangingCategory(false),
-                                    )
-                                }}
-                                className="max-w-36 shrink-0 rounded-full border-0 px-2 py-1 text-[10px] font-bold text-white outline-none disabled:opacity-50"
+                            <div
+                                className="flex shrink-0 items-center rounded-full pl-2 text-white"
                                 style={{
                                     backgroundColor: place.categoryColor,
                                 }}
                             >
-                                {categories.map((category) => (
-                                    <option
-                                        key={category.categoryId}
-                                        value={category.categoryId}
-                                    >
-                                        {category.markerIcon} {category.name}
-                                    </option>
-                                ))}
-                            </select>
+                                <CategoryIcon
+                                    icon={place.categoryIcon}
+                                    size={12}
+                                />
+                                <select
+                                    aria-label={`${place.name} 카테고리`}
+                                    value={place.categoryId ?? ''}
+                                    disabled={changingCategory}
+                                    onClick={(event) => event.stopPropagation()}
+                                    onChange={(event) => {
+                                        setChangingCategory(true)
+                                        void onCategoryChange(
+                                            Number(event.target.value),
+                                        ).finally(() =>
+                                            setChangingCategory(false),
+                                        )
+                                    }}
+                                    className="max-w-32 rounded-full border-0 bg-transparent py-1 pl-1 pr-2 text-[10px] font-bold text-white outline-none disabled:opacity-50"
+                                >
+                                    {categories.map((category) => (
+                                        <option
+                                            key={category.categoryId}
+                                            value={category.categoryId}
+                                        >
+                                            {category.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         ) : (
                             <span
                                 className="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold text-white"
@@ -123,7 +130,11 @@ export function PlaceCard({
                                     backgroundColor: place.categoryColor,
                                 }}
                             >
-                                {place.categoryIcon ?? meta.emoji}{' '}
+                                <CategoryIcon
+                                    icon={place.categoryIcon}
+                                    size={12}
+                                    className="inline-block"
+                                />{' '}
                                 {place.categoryName}
                             </span>
                         )}
@@ -215,11 +226,7 @@ export function PlaceCard({
                     )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <Avatar
-                        name={adderName}
-                        color={adderColor}
-                        size={20}
-                    />
+                    <Avatar name={adderName} color={adderColor} size={20} />
                     <span className="text-[11px] text-slate-400">
                         {adderName} 등록
                     </span>

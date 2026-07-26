@@ -8,7 +8,7 @@ import {
     useMap,
 } from '@vis.gl/react-google-maps'
 import { MessageCircleIcon } from 'lucide-react'
-import { CATEGORY_META, Place } from '@/entities/trip'
+import { CategoryIcon, Place } from '@/entities/trip'
 
 const JEJU_CENTER = { lat: 33.489, lng: 126.4983 }
 const DEFAULT_ZOOM = 10
@@ -70,7 +70,6 @@ function GoogleMapCanvas({
         >
             <MapController places={places} selectedId={selectedId} />
             {places.map((place) => {
-                const meta = CATEGORY_META[place.category]
                 const isSelected = place.id === selectedId
                 const isHovered = place.id === hoveredId
                 return (
@@ -137,10 +136,12 @@ function GoogleMapCanvas({
                                     backgroundColor: place.categoryColor,
                                 }}
                             >
-                                {place.categoryIcon ??
-                                    place.markerEmoji ??
-                                    meta?.emoji ??
-                                    '📍'}
+                                <CategoryIcon
+                                    icon={place.categoryIcon}
+                                    size={isSelected ? 20 : 16}
+                                    className="text-white"
+                                    strokeWidth={2.3}
+                                />
                             </div>
                             {isSelected && (
                                 <div className="mt-1 whitespace-nowrap rounded-lg bg-white px-2.5 py-1 text-xs font-semibold shadow-md">

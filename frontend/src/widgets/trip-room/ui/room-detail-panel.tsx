@@ -301,7 +301,6 @@ export function RoomDetailPanel({
                 categoryName: mapped.categoryName,
                 categoryColor: mapped.categoryColor,
                 categoryIcon: mapped.categoryIcon,
-                markerEmoji: mapped.markerEmoji,
             }))
             refreshCollaborationData()
         } catch (error) {
