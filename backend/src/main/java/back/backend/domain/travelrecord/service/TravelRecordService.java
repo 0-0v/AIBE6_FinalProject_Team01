@@ -9,6 +9,7 @@ import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.travelrecord.dto.*;
 import back.backend.domain.travelrecord.entity.*;
 import back.backend.domain.travelrecord.exception.TravelRecordErrorCode;
+import back.backend.domain.travelrecord.port.TravelPhotoStorage;
 import back.backend.domain.travelrecord.repository.*;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripRepository;
@@ -19,6 +20,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Transactional(readOnly = true)
@@ -32,6 +34,7 @@ public class TravelRecordService {
     private final MemberRepository memberRepository;
     private final TripAccessChecker accessChecker;
     private final ActivityLogService activityLogService;
+    private final TravelPhotoStorage travelPhotoStorage;
 
     public TravelRecordService(
             TravelRecordRepository recordRepository,
@@ -41,7 +44,8 @@ public class TravelRecordService {
             TripPlaceRepository tripPlaceRepository,
             MemberRepository memberRepository,
             TripAccessChecker accessChecker,
-            ActivityLogService activityLogService
+            ActivityLogService activityLogService,
+            TravelPhotoStorage travelPhotoStorage
     ) {
         this.recordRepository = recordRepository;
         this.photoRepository = photoRepository;
@@ -51,6 +55,13 @@ public class TravelRecordService {
         this.memberRepository = memberRepository;
         this.accessChecker = accessChecker;
         this.activityLogService = activityLogService;
+        this.travelPhotoStorage = travelPhotoStorage;
+    }
+
+    public TravelPhotoUploadResponse uploadPhoto(Long tripId, MultipartFile file) {
+        Long memberId = accessChecker.requireEdit(tripId);
+        getTrip(tripId);
+        return new TravelPhotoUploadResponse(travelPhotoStorage.store(tripId, memberId, file));
     }
 
     @Transactional

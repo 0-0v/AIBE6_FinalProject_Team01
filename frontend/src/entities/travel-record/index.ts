@@ -3,6 +3,7 @@ export {
     getMyRetrospective,
     getTravelRecords,
     saveMyRetrospective,
+    uploadTravelPhoto,
 } from './api/travel-record-api'
 export type {
     Retrospective,

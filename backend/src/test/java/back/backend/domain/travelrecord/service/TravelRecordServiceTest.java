@@ -9,6 +9,7 @@ import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.travelrecord.dto.TravelRecordCreateRequest;
 import back.backend.domain.travelrecord.exception.TravelRecordErrorCode;
+import back.backend.domain.travelrecord.port.TravelPhotoStorage;
 import back.backend.domain.travelrecord.repository.*;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripRepository;
@@ -32,6 +33,7 @@ class TravelRecordServiceTest {
     @Mock MemberRepository memberRepository;
     @Mock TripAccessChecker accessChecker;
     @Mock ActivityLogService activityLogService;
+    @Mock TravelPhotoStorage travelPhotoStorage;
 
     private TravelRecordService service;
 
@@ -40,7 +42,7 @@ class TravelRecordServiceTest {
         service = new TravelRecordService(
                 recordRepository, photoRepository, retrospectiveRepository,
                 tripRepository, tripPlaceRepository, memberRepository,
-                accessChecker, activityLogService
+                accessChecker, activityLogService, travelPhotoStorage
         );
     }
 

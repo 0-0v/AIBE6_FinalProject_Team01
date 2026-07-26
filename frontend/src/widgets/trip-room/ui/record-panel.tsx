@@ -14,10 +14,11 @@ import {
     getMyRetrospective,
     getTravelRecords,
     saveMyRetrospective,
+    uploadTravelPhoto,
     type Retrospective,
     type TravelRecord,
 } from '@/entities/travel-record'
-import { getApiErrorMessage } from '@/shared/api/client'
+import { getApiErrorMessage, resolveMediaUrl } from '@/shared/api/client'
 
 type Props = {
     tripId: number
@@ -58,6 +59,7 @@ export function RecordPanel({
     const [summary, setSummary] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
+    const [isUploading, setIsUploading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     const days = useMemo(() => createDays(startDate, endDate), [
@@ -165,6 +167,24 @@ export function RecordPanel({
             )
         } finally {
             setIsSaving(false)
+        }
+    }
+
+    async function uploadPhoto(file: File) {
+        setIsUploading(true)
+        setError(null)
+        try {
+            const imageUrl = await uploadTravelPhoto(tripId, file)
+            setSelectedImages((current) => [...current, imageUrl])
+        } catch (uploadError) {
+            setError(
+                getApiErrorMessage(
+                    uploadError,
+                    '사진을 업로드하지 못했습니다.',
+                ),
+            )
+        } finally {
+            setIsUploading(false)
         }
     }
 
@@ -335,6 +355,8 @@ export function RecordPanel({
                         )
                     }
                     isSaving={isSaving}
+                    isUploading={isUploading}
+                    onFileSelect={(file: File) => void uploadPhoto(file)}
                     onClose={() => setComposerOpen(false)}
                     onSave={() => void addRecord()}
                 />
@@ -355,7 +377,7 @@ export function RecordPanel({
                         <XIcon size={20} />
                     </button>
                     <img
-                        src={previewImage}
+                        src={displayImageUrl(previewImage)}
                         alt="확대된 여행 기록"
                         className="max-h-full max-w-full rounded-2xl object-contain"
                     />
@@ -420,6 +442,8 @@ function RecordComposer({
     selectedImages,
     onImageToggle,
     isSaving,
+    isUploading,
+    onFileSelect,
     onClose,
     onSave,
 }: {
@@ -432,6 +456,8 @@ function RecordComposer({
     selectedImages: string[]
     onImageToggle: (image: string) => void
     isSaving: boolean
+    isUploading: boolean
+    onFileSelect: (file: File) => void
     onClose: () => void
     onSave: () => void
 }) {
@@ -509,7 +535,7 @@ function RecordComposer({
                             aria-label="여행 기록 사진 선택"
                         >
                             <img
-                                src={image}
+                                src={displayImageUrl(image)}
                                 alt="여행 기록에 사용할 테스트 사진"
                                 className="h-full w-full object-cover"
                             />
@@ -519,9 +545,52 @@ function RecordComposer({
                         </button>
                     ))}
                 </div>
+                <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-brand-200 bg-brand-50 py-3 text-xs font-extrabold text-brand-700 hover:bg-brand-100">
+                    <ImagePlusIcon size={15} />
+                    {isUploading ? '사진 업로드 중...' : '내 사진 업로드'}
+                    <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        disabled={isUploading}
+                        className="sr-only"
+                        onChange={(event) => {
+                            const file = event.target.files?.[0]
+                            if (file) onFileSelect(file)
+                            event.target.value = ''
+                        }}
+                    />
+                </label>
+                {selectedImages.some(
+                    (image) => !SAMPLE_IMAGES.includes(image),
+                ) && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                        {selectedImages
+                            .filter(
+                                (image) => !SAMPLE_IMAGES.includes(image),
+                            )
+                            .map((image) => (
+                                <button
+                                    key={image}
+                                    onClick={() => onImageToggle(image)}
+                                    className="relative h-20 overflow-hidden rounded-xl"
+                                    aria-label="업로드한 사진 선택 해제"
+                                >
+                                    <img
+                                        src={displayImageUrl(image)}
+                                        alt="업로드한 여행 기록 사진"
+                                        className="h-full w-full object-cover"
+                                    />
+                                    <span className="absolute right-1 top-1 rounded-full bg-slate-950/60 p-1 text-white">
+                                        <XIcon size={11} />
+                                    </span>
+                                </button>
+                            ))}
+                    </div>
+                )}
                 <button
                     disabled={
                         isSaving ||
+                        isUploading ||
                         !tripPlaceId ||
                         (!memo.trim() && selectedImages.length === 0)
                     }
@@ -676,7 +745,7 @@ function PhotoGrid({
                     aria-label="여행 기록 사진 크게 보기"
                 >
                     <img
-                        src={image}
+                        src={displayImageUrl(image)}
                         alt="여행 기록 사진"
                         className="h-full w-full object-cover"
                     />
@@ -741,4 +810,10 @@ function formatDateTime(value: string) {
         hour: '2-digit',
         minute: '2-digit',
     }).format(date)
+}
+
+function displayImageUrl(imageUrl: string) {
+    return imageUrl.startsWith('/uploads/')
+        ? (resolveMediaUrl(imageUrl) ?? imageUrl)
+        : imageUrl
 }

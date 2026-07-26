@@ -6,6 +6,8 @@ import back.backend.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,6 +27,18 @@ public class TravelRecordController {
             @Valid @RequestBody TravelRecordCreateRequest request
     ) {
         return ApiResponse.success(travelRecordService.create(tripId, request));
+    }
+
+    @PostMapping(
+            value = "/travel-record-photos",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<TravelPhotoUploadResponse> uploadPhoto(
+            @PathVariable Long tripId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        return ApiResponse.success(travelRecordService.uploadPhoto(tripId, file));
     }
 
     @GetMapping("/travel-records")

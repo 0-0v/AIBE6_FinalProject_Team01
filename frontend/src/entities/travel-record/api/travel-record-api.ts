@@ -56,6 +56,15 @@ export async function createTravelRecord(
     return response.data
 }
 
+export async function uploadTravelPhoto(tripId: number, file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.postForm<
+        ApiResponse<{ imageUrl: string }>
+    >(`/api/trips/${tripId}/travel-record-photos`, formData)
+    return response.data.imageUrl
+}
+
 export async function getMyRetrospective(tripId: number) {
     const response = await apiClient.get<ApiResponse<Retrospective | null>>(
         `/api/trips/${tripId}/retrospective/me`,

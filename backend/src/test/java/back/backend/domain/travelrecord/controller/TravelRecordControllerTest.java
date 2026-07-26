@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -115,5 +116,20 @@ class TravelRecordControllerTest {
                                 {"rating": 5.5, "summary": "범위를 벗어난 별점"}
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("t6 여행 사진을 업로드하면 배포 가능한 저장 URL을 반환한다")
+    void t6_uploadTravelPhotoReturnsStoredUrl() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "record.png", "image/png", "image-content".getBytes());
+        given(travelRecordService.uploadPhoto(eq(1L), any()))
+                .willReturn(new TravelPhotoUploadResponse(
+                        "https://cdn.example.com/travel-records/1/photo.png"));
+
+        mockMvc.perform(multipart("/api/trips/1/travel-record-photos").file(file))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.imageUrl")
+                        .value("https://cdn.example.com/travel-records/1/photo.png"));
     }
 }
