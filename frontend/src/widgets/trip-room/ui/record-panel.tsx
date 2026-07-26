@@ -462,7 +462,7 @@ function DayNavigation({
                                     : event.deltaX,
                         })
                     }}
-                    className="mp-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
+                    className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                     {days.map((item) => (
                         <button
