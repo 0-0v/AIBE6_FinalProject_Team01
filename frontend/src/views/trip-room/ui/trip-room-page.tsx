@@ -106,12 +106,7 @@ export function TripRoom() {
             setVerifiedInviteCode(inviteCode)
             setInviteMode('join-confirm')
         })
-    }, [
-        inviteCode,
-        isReturningFromLogin,
-        loadInvitedTrip,
-        verifiedInviteCode,
-    ])
+    }, [inviteCode, isReturningFromLogin, loadInvitedTrip, verifiedInviteCode])
 
     useEffect(() => {
         if (!activeRoomId || !tripId) return
@@ -347,7 +342,9 @@ export function TripRoom() {
                             onClick={handleLoginChoice}
                             className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-sm font-extrabold text-white transition hover:bg-brand-700"
                         >
-                            {currentUser ? '로그인 계정으로 참여' : '로그인하기'}
+                            {currentUser
+                                ? '로그인 계정으로 참여'
+                                : '로그인하기'}
                         </button>
                     </div>
                 </section>
@@ -423,6 +420,7 @@ export function TripRoom() {
                                 initialActivityOpen={
                                     searchParams.get('activity') === 'open'
                                 }
+                                onTripDatesChanged={() => void loadTrips()}
                                 showBackButton={!inviteCode}
                                 guestView={Boolean(inviteCode)}
                             />

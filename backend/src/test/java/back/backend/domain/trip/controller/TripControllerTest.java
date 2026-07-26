@@ -73,7 +73,8 @@ class TripControllerTest {
 
         mockMvc.perform(get("/api/trips"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(10));
+                .andExpect(jsonPath("$.data[0].id").value(10))
+                .andExpect(jsonPath("$.data[0].memberCount").value(1));
     }
 
     @Test
@@ -129,6 +130,7 @@ class TripControllerTest {
 
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
-                Set.of(TravelStyle.FOOD), null, null, null, TripStatus.PLANNING, null, null);
+                Set.of(TravelStyle.FOOD), null, null, null, null, 1L,
+                TripStatus.PLANNING, null, null);
     }
 }

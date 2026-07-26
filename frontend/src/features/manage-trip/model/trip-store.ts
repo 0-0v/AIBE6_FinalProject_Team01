@@ -32,6 +32,7 @@ export function toRoom(trip: TripResponse): Room {
         COMPLETED: '완료',
         CANCELLED: '취소',
     }[trip.status]
+    const dday = calculateDday(trip.startDate, trip.endDate)
 
     return {
         id: String(trip.id),
@@ -39,13 +40,26 @@ export function toRoom(trip: TripResponse): Room {
         title: trip.title,
         date,
         location: trip.destination ?? '장소 미정',
-        dday: '일정 미정',
-        members: 1,
+        dday,
+        members: trip.memberCount,
         progress: 0,
-        cover: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
+        cover:
+            trip.coverImageUrl ?? '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
         status: statusLabel,
         color: '#e7657a',
     }
+}
+
+function calculateDday(startDate: string | null, endDate: string | null) {
+    if (!startDate || !endDate) return '일정 미정'
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const start = new Date(`${startDate}T00:00:00`)
+    const end = new Date(`${endDate}T00:00:00`)
+    if (today > end) return '여행 종료'
+    if (today >= start) return '여행 중'
+    const days = Math.ceil((start.getTime() - today.getTime()) / 86_400_000)
+    return `D-${days}`
 }
 
 export const useTripStore = create<TripState>()(

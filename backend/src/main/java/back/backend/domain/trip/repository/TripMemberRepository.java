@@ -10,6 +10,8 @@ public interface TripMemberRepository extends JpaRepository<TripMember, Long> {
 
     boolean existsByTripIdAndMemberId(Long tripId, Long memberId);
 
+    long countByTripId(Long tripId);
+
     @Query("select tm.memberId from TripMember tm where tm.tripId = :tripId")
     List<Long> findMemberIdsByTripId(Long tripId);
 }

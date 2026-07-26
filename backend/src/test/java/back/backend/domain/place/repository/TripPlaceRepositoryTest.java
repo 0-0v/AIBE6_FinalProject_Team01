@@ -68,6 +68,18 @@ class TripPlaceRepositoryTest {
                 .containsExactly("ChIJsaved1", "ChIJsaved2");
     }
 
+    @Test
+    @DisplayName("t3 같은 장소라도 다른 여행방에는 등록되지 않은 것으로 조회한다")
+    void t3_findByTripAndPlaceSeparatesTrips() {
+        Place place = placeRepository.save(place("ChIJshared"));
+        tripPlaceRepository.save(tripPlace(1L, place, TripPlaceStatus.SAVED));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(tripPlaceRepository.findByTripIdAndPlaceId(1L, place.getId())).isPresent();
+        assertThat(tripPlaceRepository.findByTripIdAndPlaceId(2L, place.getId())).isEmpty();
+    }
+
     private Place place(String googlePlaceId) {
         return Place.builder()
                 .googlePlaceId(googlePlaceId)
@@ -78,8 +90,12 @@ class TripPlaceRepositoryTest {
     }
 
     private TripPlace tripPlace(Place place, TripPlaceStatus status) {
+        return tripPlace(1L, place, status);
+    }
+
+    private TripPlace tripPlace(Long tripId, Place place, TripPlaceStatus status) {
         return TripPlace.builder()
-                .tripId(1L)
+                .tripId(tripId)
                 .place(place)
                 .addedBy(1L)
                 .status(status)

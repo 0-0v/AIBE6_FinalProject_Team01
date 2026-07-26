@@ -17,14 +17,16 @@ public record TripResponse(
         String destination,
         LocalDate startDate,
         LocalDate endDate,
+        String coverImageUrl,
+        long memberCount,
         TripStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    public static TripResponse from(Trip trip) {
+    public static TripResponse from(Trip trip, long memberCount) {
         return new TripResponse(
                 trip.getId(), trip.getOwnerId(), trip.getTitle(), trip.getCompanionType(),
                 trip.getTravelStyles(), trip.getDestination(), trip.getStartDate(), trip.getEndDate(),
-                trip.getStatus(), trip.getCreatedAt(), trip.getUpdatedAt());
+                trip.getCoverImageUrl(), memberCount, trip.getStatus(), trip.getCreatedAt(), trip.getUpdatedAt());
     }
 }

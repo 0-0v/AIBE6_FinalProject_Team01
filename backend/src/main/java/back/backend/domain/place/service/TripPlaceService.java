@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,8 +52,16 @@ public class TripPlaceService {
                         .googlePhotoName(request.photoName())
                         .build()));
 
-        if (tripPlaceRepository.existsByTripIdAndPlaceId(tripId, place.getId())) {
-            throw new BusinessException(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS);
+        Optional<TripPlace> existingTripPlace =
+                tripPlaceRepository.findByTripIdAndPlaceId(tripId, place.getId());
+        if (existingTripPlace.isPresent()) {
+            TripPlace tripPlace = existingTripPlace.get();
+            if (tripPlace.getStatus() != TripPlaceStatus.REJECTED) {
+                throw new BusinessException(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS);
+            }
+            tripPlace.updateStatus(TripPlaceStatus.SAVED);
+            recordPlaceAdded(tripId, memberId, tripPlace, request.name());
+            return TripPlaceResponse.from(tripPlace);
         }
 
         TripPlace tripPlace = tripPlaceRepository.save(TripPlace.builder()
@@ -62,18 +71,27 @@ public class TripPlaceService {
                 .status(TripPlaceStatus.SAVED)
                 .build());
 
+        recordPlaceAdded(tripId, memberId, tripPlace, request.name());
+        return TripPlaceResponse.from(tripPlace);
+    }
+
+    private void recordPlaceAdded(
+            Long tripId,
+            Long memberId,
+            TripPlace tripPlace,
+            String placeName
+    ) {
         collaborationEventService.record(
                 tripId,
                 memberId,
                 "PLACE_ADDED",
                 "TRIP_PLACE",
                 tripPlace.getId(),
-                request.name() + " 장소가 등록됐습니다.",
-                Map.of("placeName", request.name()),
+                placeName + " 장소가 등록됐습니다.",
+                Map.of("placeName", placeName),
                 NotificationType.PLACE,
                 "장소 등록"
         );
-        return TripPlaceResponse.from(tripPlace);
     }
 
     public List<TripPlaceResponse> getPlaces(Long tripId, TripPlaceStatus status) {

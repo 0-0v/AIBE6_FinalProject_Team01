@@ -52,6 +52,7 @@ type Props = {
     canManage: boolean
     tripId: number
     initialActivityOpen?: boolean
+    onTripDatesChanged?: () => void
     showBackButton?: boolean
     guestView?: boolean
 }
@@ -70,6 +71,7 @@ export function RoomDetailPanel({
     canManage,
     tripId,
     initialActivityOpen = false,
+    onTripDatesChanged,
     showBackButton = true,
     guestView = false,
 }: Props) {
@@ -433,6 +435,7 @@ export function RoomDetailPanel({
                     canWrite={canWrite}
                     onDirtyChange={setDateAvailabilityDirty}
                     onCollaborationChanged={refreshCollaborationData}
+                    onTripDatesChanged={onTripDatesChanged}
                 />
             )}
             {mode === 'record' && recordTab === 'records' && (

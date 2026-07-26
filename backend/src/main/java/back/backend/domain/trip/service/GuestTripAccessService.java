@@ -69,7 +69,7 @@ public class GuestTripAccessService {
                 tripGuestMemberRepository.save(TripGuestMember.viewer(trip.getId(), existingSession.getId()));
             }
             return new GuestAccessGrant(
-                    TripResponse.from(trip), existingToken, existingSession.getExpiresAt());
+                    toResponse(trip), existingToken, existingSession.getExpiresAt());
         }
 
         String token = generateToken();
@@ -77,7 +77,7 @@ public class GuestTripAccessService {
                 GuestSession.create(tokenHasher.hash(token), invitation.getExpiresAt()));
         tripGuestMemberRepository.save(TripGuestMember.viewer(trip.getId(), session.getId()));
 
-        return new GuestAccessGrant(TripResponse.from(trip), token, session.getExpiresAt());
+        return new GuestAccessGrant(toResponse(trip), token, session.getExpiresAt());
     }
 
     public TripResponse getTrip(Long tripId, String token) {
@@ -85,7 +85,7 @@ public class GuestTripAccessService {
         if (!tripGuestMemberRepository.existsByTripIdAndGuestSessionId(tripId, session.getId())) {
             throw new BusinessException(TripErrorCode.GUEST_ACCESS_DENIED);
         }
-        return TripResponse.from(findActiveTrip(tripId));
+        return toResponse(findActiveTrip(tripId));
     }
 
     public boolean canView(Long tripId, String token) {
@@ -142,6 +142,10 @@ public class GuestTripAccessService {
     private Trip findActiveTrip(Long tripId) {
         return tripRepository.findByIdAndStatusNot(tripId, TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+    }
+
+    private TripResponse toResponse(Trip trip) {
+        return TripResponse.from(trip, tripMemberRepository.countByTripId(trip.getId()));
     }
 
     private String generateToken() {

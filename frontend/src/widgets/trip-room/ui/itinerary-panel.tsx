@@ -39,6 +39,7 @@ type Props = {
     canWrite: boolean
     onDirtyChange?: (dirty: boolean) => void
     onCollaborationChanged?: () => void
+    onTripDatesChanged?: () => void
 }
 type SelectionGesture = {
     anchor: string
@@ -53,6 +54,7 @@ export function ItineraryPanel({
     canWrite,
     onDirtyChange,
     onCollaborationChanged,
+    onTripDatesChanged,
 }: Props) {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const memberId = currentUser?.id
@@ -713,8 +715,7 @@ export function ItineraryPanel({
                         !canWrite ||
                         !startDate ||
                         !endDate ||
-                        selectionIsCurrentProposal ||
-                        proposal?.status === 'CONFIRMED'
+                        selectionIsCurrentProposal
                     }
                     onClick={async () => {
                         setError(null)
@@ -737,11 +738,14 @@ export function ItineraryPanel({
                     }}
                     className="mt-2 w-full rounded-lg bg-slate-900 py-2 text-xs font-bold text-white disabled:opacity-40"
                 >
-                    {proposal?.status === 'CONFIRMED'
-                        ? '여행 기간 확정됨'
-                        : selectionIsCurrentProposal
-                          ? '현재 제안된 기간'
-                          : '이 기간 제안하기'}
+                    {proposal?.status === 'CONFIRMED' &&
+                    selectionIsCurrentProposal
+                        ? '현재 확정된 기간'
+                        : proposal?.status === 'CONFIRMED'
+                          ? '기간 변경 제안하기'
+                          : selectionIsCurrentProposal
+                            ? '현재 제안된 기간'
+                            : '이 기간 제안하기'}
                 </button>
                 {proposal && (
                     <div className="mt-3 rounded-lg bg-slate-50 p-2 text-xs">
@@ -772,6 +776,12 @@ export function ItineraryPanel({
                                                             choice,
                                                         )
                                                     setProposal(nextProposal)
+                                                    if (
+                                                        nextProposal.status ===
+                                                        'CONFIRMED'
+                                                    ) {
+                                                        onTripDatesChanged?.()
+                                                    }
                                                     onCollaborationChanged?.()
                                                 } catch (cause) {
                                                     setError(

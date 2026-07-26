@@ -22,6 +22,8 @@ export type TripResponse = {
     destination: string | null
     startDate: string | null
     endDate: string | null
+    coverImageUrl: string | null
+    memberCount: number
     status: 'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
     createdAt: string
     updatedAt: string
