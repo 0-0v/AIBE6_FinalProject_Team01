@@ -149,11 +149,6 @@ public class PlaceCategoryService {
     }
 
     @Transactional
-    public PlaceCategory recommend(Long tripId, String placeName, String placeType) {
-        return recommend(tripId, placeName, placeType, List.of());
-    }
-
-    @Transactional
     public PlaceCategory recommend(
             Long tripId,
             String placeName,

@@ -83,20 +83,12 @@ public class GlobalExceptionHandler {
     }
 
     private boolean isKnownDuplicateConstraint(Throwable throwable) {
-        Throwable current = throwable;
-        while (current != null) {
-            String message = current.getMessage();
-            if (message != null) {
-                String normalized = message.toLowerCase();
-                if (normalized.contains("uk_trip_places_trip_place")
-                        || normalized.contains("uk_places_google_place_id")
-                        || normalized.contains("uk_place_vote_responses_request_member")) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
+        return DataIntegrityConstraintMatcher.containsConstraint(
+                throwable,
+                "uk_trip_places_trip_place",
+                "uk_places_google_place_id",
+                "uk_place_vote_responses_request_member"
+        );
     }
 
     @ExceptionHandler(Exception.class)

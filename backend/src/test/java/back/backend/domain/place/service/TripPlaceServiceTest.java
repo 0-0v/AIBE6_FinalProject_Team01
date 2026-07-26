@@ -6,6 +6,7 @@ import back.backend.domain.place.dto.response.TripPlaceResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
+import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
@@ -24,6 +25,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +34,7 @@ import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -93,11 +96,11 @@ class TripPlaceServiceTest {
                 .name("음식점")
                 .categoryType(PlaceCategoryType.FOOD)
                 .markerColor("#dc2626")
-                .markerIcon("🍽️")
+                .markerIcon(PlaceMarkerIcon.UTENSILS)
                 .sortOrder(0)
                 .build();
         ReflectionTestUtils.setField(foodCategory, "id", 3L);
-        lenient().when(categoryService.recommend(any(), any(), any()))
+        lenient().when(categoryService.recommend(any(), any(), any(), any()))
                 .thenReturn(foodCategory);
 
         savedTripPlace = TripPlace.builder()
@@ -115,13 +118,13 @@ class TripPlaceServiceTest {
     void t1_새장소추가시places저장후tripplaces등록() {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null);
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.empty());
         given(placeRepository.save(any(Place.class))).willReturn(savedPlace);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.empty());
-        given(tripPlaceRepository.save(any(TripPlace.class))).willReturn(savedTripPlace);
+        given(tripPlaceRepository.saveAndFlush(any(TripPlace.class))).willReturn(savedTripPlace);
 
         TripPlaceResponse result = tripPlaceService.addPlace(1L, request);
 
@@ -129,7 +132,7 @@ class TripPlaceServiceTest {
         assertThat(result.name()).isEqualTo("오설록 티 뮤지엄");
         assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
         then(placeRepository).should().save(any(Place.class));
-        then(tripPlaceRepository).should().save(any(TripPlace.class));
+        then(tripPlaceRepository).should().saveAndFlush(any(TripPlace.class));
         then(collaborationEventService).should().record(
                 org.mockito.ArgumentMatchers.eq(1L),
                 org.mockito.ArgumentMatchers.eq(1L),
@@ -148,17 +151,17 @@ class TripPlaceServiceTest {
     void t2_기존장소추가시places저장생략() {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null);
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.empty());
-        given(tripPlaceRepository.save(any(TripPlace.class))).willReturn(savedTripPlace);
+        given(tripPlaceRepository.saveAndFlush(any(TripPlace.class))).willReturn(savedTripPlace);
 
         tripPlaceService.addPlace(1L, request);
 
         then(placeRepository).should(never()).save(any(Place.class));
-        then(tripPlaceRepository).should().save(any(TripPlace.class));
+        then(tripPlaceRepository).should().saveAndFlush(any(TripPlace.class));
     }
 
     @Test
@@ -166,7 +169,7 @@ class TripPlaceServiceTest {
     void t3_중복장소추가시예외발생() {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null);
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
@@ -176,7 +179,7 @@ class TripPlaceServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS));
-        then(tripPlaceRepository).should(never()).save(any(TripPlace.class));
+        then(tripPlaceRepository).should(never()).saveAndFlush(any(TripPlace.class));
     }
 
     @Test
@@ -244,7 +247,7 @@ class TripPlaceServiceTest {
                 .willThrow(new BusinessException(CommonErrorCode.FORBIDDEN));
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null);
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
 
         assertThatThrownBy(() -> tripPlaceService.addPlace(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -259,7 +262,7 @@ class TripPlaceServiceTest {
         savedTripPlace.updateStatus(TripPlaceStatus.REJECTED);
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null);
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.of(savedTripPlace));
@@ -267,7 +270,7 @@ class TripPlaceServiceTest {
         TripPlaceResponse result = tripPlaceService.addPlace(1L, request);
 
         assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
-        then(tripPlaceRepository).should(never()).save(any(TripPlace.class));
+        then(tripPlaceRepository).should(never()).saveAndFlush(any(TripPlace.class));
     }
 
     @Test
@@ -278,7 +281,7 @@ class TripPlaceServiceTest {
                 .name("카페")
                 .categoryType(PlaceCategoryType.CAFE)
                 .markerColor("#b45309")
-                .markerIcon("☕️")
+                .markerIcon(PlaceMarkerIcon.COFFEE)
                 .sortOrder(1)
                 .build();
         ReflectionTestUtils.setField(cafe, "id", 4L);
@@ -290,6 +293,49 @@ class TripPlaceServiceTest {
 
         assertThat(savedTripPlace.getCategory()).isEqualTo(cafe);
         assertThat(result.category().categoryId()).isEqualTo(4L);
+    }
+
+    @Test
+    @DisplayName("t12 동시 장소 추가로 유니크 제약이 충돌하면 중복 장소 예외로 변환한다")
+    void t12_concurrentDuplicateIsConvertedToBusinessException() {
+        AddTripPlaceRequest request = new AddTripPlaceRequest(
+                "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
+        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
+                .willReturn(Optional.empty());
+        given(tripPlaceRepository.saveAndFlush(any(TripPlace.class)))
+                .willThrow(new DataIntegrityViolationException(
+                        "Duplicate entry for uk_trip_places_trip_place"
+                ));
+
+        assertThatThrownBy(() -> tripPlaceService.addPlace(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(error -> ((BusinessException) error).getErrorCode())
+                .isEqualTo(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS);
+    }
+
+    @Test
+    @DisplayName("t13 검색에서 받은 전체 장소 유형으로 저장 카테고리를 다시 분류한다")
+    void t13_usesPlaceTypesWhenAddingPlace() {
+        AddTripPlaceRequest request = new AddTripPlaceRequest(
+                "ChIJxxx", "오사카 가이유칸", "오사카",
+                34.6545, 135.4289, "point_of_interest", null,
+                List.of("point_of_interest", "aquarium")
+        );
+        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
+                .willReturn(Optional.empty());
+        given(tripPlaceRepository.saveAndFlush(any(TripPlace.class))).willReturn(savedTripPlace);
+
+        tripPlaceService.addPlace(1L, request);
+
+        then(categoryService).should().recommend(
+                eq(1L),
+                eq("오사카 가이유칸"),
+                eq("point_of_interest"),
+                eq(List.of("point_of_interest", "aquarium"))
+        );
     }
 
 }

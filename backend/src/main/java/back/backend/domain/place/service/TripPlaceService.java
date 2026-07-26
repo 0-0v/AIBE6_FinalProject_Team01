@@ -14,8 +14,10 @@ import back.backend.domain.place.repository.PlaceRepository;
 import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.exception.DataIntegrityConstraintMatcher;
 import back.backend.global.security.SecurityContextAccessor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,20 +67,36 @@ public class TripPlaceService {
             return TripPlaceResponse.from(tripPlace);
         }
 
-        TripPlace tripPlace = tripPlaceRepository.save(TripPlace.builder()
-                .tripId(tripId)
-                .place(place)
-                .category(categoryService.recommend(
-                        tripId,
-                        request.name(),
-                        request.placeType()
-                ))
-                .addedBy(memberId)
-                .status(TripPlaceStatus.SAVED)
-                .build());
+        TripPlace tripPlace;
+        try {
+            tripPlace = tripPlaceRepository.saveAndFlush(TripPlace.builder()
+                    .tripId(tripId)
+                    .place(place)
+                    .category(categoryService.recommend(
+                            tripId,
+                            request.name(),
+                            request.placeType(),
+                            request.placeTypes()
+                    ))
+                    .addedBy(memberId)
+                    .status(TripPlaceStatus.SAVED)
+                    .build());
+        } catch (DataIntegrityViolationException exception) {
+            if (isTripPlaceDuplicate(exception)) {
+                throw new BusinessException(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS);
+            }
+            throw exception;
+        }
 
         recordPlaceAdded(tripId, memberId, tripPlace, request.name());
         return TripPlaceResponse.from(tripPlace);
+    }
+
+    private boolean isTripPlaceDuplicate(Throwable throwable) {
+        return DataIntegrityConstraintMatcher.containsConstraint(
+                throwable,
+                "uk_trip_places_trip_place"
+        );
     }
 
     private void recordPlaceAdded(
