@@ -18,6 +18,7 @@ import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.service.TripService;
 import back.backend.domain.trip.service.TripPlanningService;
+import back.backend.domain.trip.service.TripCompletionConfirmationService;
 import back.backend.global.security.SecurityConfig;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.security.jwt.JwtAuthenticationFilter;
@@ -42,6 +43,7 @@ class TripControllerTest {
     @MockitoBean TripService tripService;
     @MockitoBean SecurityContextAccessor securityContextAccessor;
     @MockitoBean TripPlanningService tripPlanningService;
+    @MockitoBean TripCompletionConfirmationService tripCompletionConfirmationService;
 
     @Test
     @DisplayName("t1 인증 회원이 여행방을 생성하면 201 응답을 반환한다")
@@ -126,9 +128,25 @@ class TripControllerTest {
                 .andExpect(jsonPath("$.data.visibility").value("PRIVATE"));
     }
 
+    @Test
+    @DisplayName("t7 소유자가 종료 여행방을 공개로 확인하면 완료 확인 결과를 반환한다")
+    void t7_confirmCompletionReturnsConfirmedTrip() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripCompletionConfirmationService.confirm(any(), any(), any()))
+                .thenReturn(response());
+
+        mockMvc.perform(post("/api/trips/{tripId}/completion-confirmation", 10L)
+                        .contentType("application/json")
+                        .content("""
+                                {"visibility":"PUBLIC","tags":["둘이서"]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(10));
+    }
+
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
                 Set.of(TravelStyle.FOOD), null, null, null, null, 1L,
-                TripStatus.PLANNING, TripVisibility.PRIVATE, null, null);
+                TripStatus.PLANNING, TripVisibility.PRIVATE, false, null, null);
     }
 }

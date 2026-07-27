@@ -22,6 +22,7 @@ public record TripResponse(
         long memberCount,
         TripStatus status,
         TripVisibility visibility,
+        boolean completionConfirmed,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -30,6 +31,6 @@ public record TripResponse(
                 trip.getId(), trip.getOwnerId(), trip.getTitle(), trip.getCompanionType(),
                 trip.getTravelStyles(), trip.getDestination(), trip.getStartDate(), trip.getEndDate(),
                 trip.getCoverImageUrl(), memberCount, trip.getStatus(), trip.getVisibility(),
-                trip.getCreatedAt(), trip.getUpdatedAt());
+                trip.isCompletionConfirmed(), trip.getCreatedAt(), trip.getUpdatedAt());
     }
 }

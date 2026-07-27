@@ -108,6 +108,6 @@ class TripInvitationControllerTest {
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
                 Set.of(TravelStyle.FOOD), null, null, null, null, 1L, TripStatus.PLANNING,
-                TripVisibility.PRIVATE, null, null);
+                TripVisibility.PRIVATE, false, null, null);
     }
 }

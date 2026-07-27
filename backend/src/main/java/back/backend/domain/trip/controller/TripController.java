@@ -3,6 +3,8 @@ package back.backend.domain.trip.controller;
 import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.TripVisibilityRequest;
+import back.backend.domain.trip.dto.TripCompletionConfirmationRequest;
+import back.backend.domain.trip.service.TripCompletionConfirmationService;
 import back.backend.domain.trip.service.TripService;
 import back.backend.domain.trip.service.TripPlanningService;
 import back.backend.domain.trip.dto.DateAvailabilityRequest;
@@ -33,15 +35,18 @@ public class TripController {
     private final TripService tripService;
     private final SecurityContextAccessor securityContextAccessor;
     private final TripPlanningService tripPlanningService;
+    private final TripCompletionConfirmationService tripCompletionConfirmationService;
 
     public TripController(
             TripService tripService,
             SecurityContextAccessor securityContextAccessor,
-            TripPlanningService tripPlanningService
+            TripPlanningService tripPlanningService,
+            TripCompletionConfirmationService tripCompletionConfirmationService
     ) {
         this.tripService = tripService;
         this.securityContextAccessor = securityContextAccessor;
         this.tripPlanningService = tripPlanningService;
+        this.tripCompletionConfirmationService = tripCompletionConfirmationService;
     }
 
     @PostMapping
@@ -76,6 +81,16 @@ public class TripController {
             @Valid @RequestBody TripVisibilityRequest request
     ) {
         return ApiResponse.success(tripService.updateVisibility(
+                securityContextAccessor.getCurrentMemberId(), tripId, request));
+    }
+
+    @PostMapping("/{tripId}/completion-confirmation")
+    @Operation(summary = "종료 여행방 공개 여부 및 태그 확인")
+    public ApiResponse<TripResponse> confirmCompletion(
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripCompletionConfirmationRequest request
+    ) {
+        return ApiResponse.success(tripCompletionConfirmationService.confirm(
                 securityContextAccessor.getCurrentMemberId(), tripId, request));
     }
 
