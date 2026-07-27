@@ -7,6 +7,7 @@ import {
     type TravelStyle,
     type TripResponse,
     updateTrip,
+    updateTripVisibility,
     uploadTripCoverImage,
 } from '../api/trip-api'
 import { TripCoverImageField } from './trip-cover-image-field'
@@ -32,7 +33,9 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [destination, setDestination] = useState(trip.destination ?? '')
     const [startDate, setStartDate] = useState(trip.startDate ?? '')
     const [endDate, setEndDate] = useState(trip.endDate ?? '')
-    const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE')
+    const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>(
+        trip.visibility,
+    )
     const [tags, setTags] = useState('')
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [confirmComplete, setConfirmComplete] = useState(false)
@@ -56,6 +59,9 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                     title: title.trim(), companionType: companionType || null, travelStyles: styles,
                     destination: destination.trim() || null, startDate: startDate || null, endDate: endDate || null,
                 })
+            }
+            if (visibility !== trip.visibility) {
+                await updateTripVisibility(trip.id, visibility)
             }
             if (coverImage) {
                 await uploadTripCoverImage(trip.id, coverImage)
@@ -95,9 +101,81 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                 <label className="mt-4 block text-sm font-bold">여행 장소<input value={destination} maxLength={100} onChange={(event) => setDestination(event.target.value)} className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal" /></label>
                 <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-sm font-bold">시작일<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal" /></label><label className="text-sm font-bold">종료일<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal" /></label></div>
                 {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
-                <button disabled={busy || (trip.status === 'COMPLETED' && !coverImage)} className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50">변경사항 저장</button>
+                <fieldset className="mt-4">
+                    <legend className="text-sm font-bold">여행방 공개 설정</legend>
+                    <p className="mt-1 text-xs text-slate-400">
+                        여행 완료 후에도 공개 여부를 변경할 수 있습니다.
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setVisibility('PRIVATE')}
+                            className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
+                                visibility === 'PRIVATE'
+                                    ? 'border-slate-700 bg-slate-800 text-white'
+                                    : 'border-slate-200 bg-white text-slate-500'
+                            }`}
+                        >
+                            비공개
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setVisibility('PUBLIC')}
+                            className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
+                                visibility === 'PUBLIC'
+                                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                                    : 'border-slate-200 bg-white text-slate-500'
+                            }`}
+                        >
+                            공개
+                        </button>
+                    </div>
+                </fieldset>
+                <button disabled={busy || (trip.status === 'COMPLETED' && !coverImage && visibility === trip.visibility)} className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50">변경사항 저장</button>
 
-                {trip.status !== 'COMPLETED' && <section className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4"><h3 className="flex items-center gap-2 text-sm font-extrabold text-emerald-800"><CheckCircle2Icon size={16} /> 여행 완료</h3><div className="mt-3 flex gap-2"><button type="button" onClick={() => setVisibility('PRIVATE')} className={`rounded-lg px-3 py-2 text-xs font-bold ${visibility === 'PRIVATE' ? 'bg-slate-800 text-white' : 'bg-white'}`}>카드 비공개</button><button type="button" onClick={() => setVisibility('PUBLIC')} className={`rounded-lg px-3 py-2 text-xs font-bold ${visibility === 'PUBLIC' ? 'bg-emerald-600 text-white' : 'bg-white'}`}>카드 공개</button></div><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="#친구와, #액티비티" className="mt-3 w-full rounded-xl border border-emerald-200 px-3 py-2.5 text-sm" />{confirmComplete ? <div className="mt-3 flex gap-2"><button type="button" disabled={busy} onClick={() => void complete()} className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white">완료 확정</button><button type="button" onClick={() => setConfirmComplete(false)} className="rounded-lg bg-white px-3 text-xs font-bold">취소</button></div> : <button type="button" onClick={() => setConfirmComplete(true)} className="mt-3 w-full rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white">여행 완료 처리</button>}</section>}
+                {trip.status !== 'COMPLETED' && (
+                    <section className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                        <h3 className="flex items-center gap-2 text-sm font-extrabold text-emerald-800">
+                            <CheckCircle2Icon size={16} /> 여행 완료
+                        </h3>
+                        <p className="mt-2 text-xs text-emerald-700">
+                            현재 공개 설정으로 여행 카드가 자동 생성됩니다.
+                        </p>
+                        <input
+                            value={tags}
+                            onChange={(event) => setTags(event.target.value)}
+                            placeholder="#친구와, #액티비티"
+                            className="mt-3 w-full rounded-xl border border-emerald-200 px-3 py-2.5 text-sm"
+                        />
+                        {confirmComplete ? (
+                            <div className="mt-3 flex gap-2">
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void complete()}
+                                    className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white"
+                                >
+                                    완료 확정
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmComplete(false)}
+                                    className="rounded-lg bg-white px-3 text-xs font-bold"
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setConfirmComplete(true)}
+                                className="mt-3 w-full rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white"
+                            >
+                                여행 완료 처리
+                            </button>
+                        )}
+                    </section>
+                )}
 
                 <section className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">{confirmDelete ? <div className="flex items-center gap-2"><p className="flex-1 text-xs font-bold text-red-700">삭제하면 목록에서 사라집니다.</p><button type="button" disabled={busy} onClick={() => void remove()} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white">삭제 확정</button><button type="button" onClick={() => setConfirmDelete(false)} className="text-xs font-bold">취소</button></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 text-xs font-bold text-red-600"><Trash2Icon size={14} /> 여행방 삭제</button>}</section>
             </form>

@@ -416,6 +416,11 @@ export function TripRoom() {
                                         : '아직 서버와 연결되지 않은 여행방입니다.'
                                 }
                                 canManage={!inviteCode && canManagePlaces}
+                                isOwner={Boolean(
+                                    currentUser &&
+                                        trip &&
+                                        trip.ownerId === currentUser.id,
+                                )}
                                 tripId={tripId!}
                                 initialActivityOpen={
                                     searchParams.get('activity') === 'open'

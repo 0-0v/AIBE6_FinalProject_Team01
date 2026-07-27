@@ -49,6 +49,7 @@ export function toRoom(trip: TripResponse): Room {
             trip.coverImageUrl ?? '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
         status: statusLabel,
         lifecycleStatus: trip.status,
+        visibility: trip.visibility,
         color: '#e7657a',
     }
 }

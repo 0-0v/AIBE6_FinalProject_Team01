@@ -25,6 +25,7 @@ export type TripResponse = {
     coverImageUrl: string | null
     memberCount: number
     status: 'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+    visibility: 'PRIVATE' | 'PUBLIC'
     createdAt: string
     updatedAt: string
 }
@@ -36,6 +37,7 @@ export type TripRequest = {
     destination?: string | null
     startDate?: string | null
     endDate?: string | null
+    visibility?: 'PRIVATE' | 'PUBLIC'
 }
 
 type ApiResponse<T> = { success: boolean; message: string; data: T }
@@ -65,6 +67,18 @@ export async function updateTrip(id: number, request: TripRequest) {
     const response = await apiClient.patch<ApiResponse<TripResponse>>(
         `/api/trips/${id}`,
         request,
+        { headers: authHeaders() },
+    )
+    return response.data
+}
+
+export async function updateTripVisibility(
+    id: number,
+    visibility: 'PRIVATE' | 'PUBLIC',
+) {
+    const response = await apiClient.patch<ApiResponse<TripResponse>>(
+        `/api/trips/${id}/visibility`,
+        { visibility },
         { headers: authHeaders() },
     )
     return response.data

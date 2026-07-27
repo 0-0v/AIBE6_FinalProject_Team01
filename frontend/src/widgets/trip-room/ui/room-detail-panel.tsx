@@ -24,6 +24,7 @@ import {
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
+import { updateTripVisibility } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
@@ -51,6 +52,7 @@ type Props = {
     onDeletePlace: (id: string) => void
     loadError?: string | null
     canManage: boolean
+    isOwner: boolean
     tripId: number
     initialActivityOpen?: boolean
     onTripDatesChanged?: () => void
@@ -70,6 +72,7 @@ export function RoomDetailPanel({
     onDeletePlace,
     loadError,
     canManage,
+    isOwner,
     tripId,
     initialActivityOpen = false,
     onTripDatesChanged,
@@ -85,7 +88,7 @@ export function RoomDetailPanel({
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
-    const [isPublic, setIsPublic] = useState(true)
+    const isPublic = room.visibility === 'PUBLIC'
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
     )
@@ -334,15 +337,32 @@ export function RoomDetailPanel({
         onSelectPlace(placeId)
     }
 
+    async function toggleVisibility() {
+        const nextVisibility = isPublic ? 'PRIVATE' : 'PUBLIC'
+        try {
+            await updateTripVisibility(tripId, nextVisibility)
+            onTripDatesChanged?.()
+            void loadActivityLogs(tripId)
+            void loadNotifications()
+        } catch (error) {
+            setPlaceError(
+                getApiErrorMessage(
+                    error,
+                    '여행방 공개 설정을 변경하지 못했습니다.',
+                ),
+            )
+        }
+    }
+
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
             <RoomHeader
                 title={room.title}
                 subtitle={`#${room.location} · ${room.date}`}
                 isPublic={isPublic}
-                isOwner={canPlanWrite}
-                canWrite={canPlanWrite}
-                onTogglePublic={() => setIsPublic((value) => !value)}
+                isOwner={isOwner}
+                canWrite={isOwner}
+                onTogglePublic={() => void toggleVisibility()}
                 onInvite={() => setInviteOpen(true)}
                 onBack={onBack}
                 onManage={onManage}
