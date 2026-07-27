@@ -101,26 +101,6 @@ export async function deleteTrip(id: number) {
     })
 }
 
-export async function completeTrip(
-    id: number,
-    visibility: 'PRIVATE' | 'PUBLIC',
-    tags: string[],
-) {
-    const response = await apiClient.post<
-        ApiResponse<{
-            tripId: number
-            cardId: number
-            visibility: 'PRIVATE' | 'PUBLIC'
-            tags: string[]
-        }>
-    >(
-        `/api/trips/${id}/complete`,
-        { visibility, tags },
-        { headers: authHeaders() },
-    )
-    return response.data
-}
-
 export async function createTripInvitation(id: number) {
     const response = await apiClient.post<
         ApiResponse<{ inviteCode: string; expiresAt: string }>

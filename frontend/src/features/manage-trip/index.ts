@@ -5,7 +5,6 @@ export {
     updateTripVisibility,
     uploadTripCoverImage,
     deleteTrip,
-    completeTrip,
     createTripInvitation,
     claimGuestTripAccess,
 } from './api/trip-api'

@@ -1,7 +1,6 @@
 import { FormEvent, useState } from 'react'
-import { CheckCircle2Icon, Trash2Icon, XIcon } from 'lucide-react'
+import { Trash2Icon, XIcon } from 'lucide-react'
 import {
-    completeTrip,
     deleteTrip,
     type CompanionType,
     type TravelStyle,
@@ -36,9 +35,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>(
         trip.visibility,
     )
-    const [tags, setTags] = useState('')
     const [confirmDelete, setConfirmDelete] = useState(false)
-    const [confirmComplete, setConfirmComplete] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
@@ -74,15 +71,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
         setBusy(true); setError(null)
         try { await deleteTrip(trip.id); onChanged() }
         catch (caught) { setError(message(caught)); setBusy(false) }
-    }
-
-    async function complete() {
-        setBusy(true); setError(null)
-        try {
-            const normalizedTags = tags.split(/[#,]/).map((tag) => tag.trim()).filter(Boolean)
-            await completeTrip(trip.id, visibility, normalizedTags)
-            onChanged()
-        } catch (caught) { setError(message(caught)); setBusy(false) }
     }
 
     return (
@@ -132,50 +120,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                     </div>
                 </fieldset>
                 <button disabled={busy || (trip.status === 'COMPLETED' && !coverImage && visibility === trip.visibility)} className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50">변경사항 저장</button>
-
-                {trip.status !== 'COMPLETED' && (
-                    <section className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                        <h3 className="flex items-center gap-2 text-sm font-extrabold text-emerald-800">
-                            <CheckCircle2Icon size={16} /> 여행 완료
-                        </h3>
-                        <p className="mt-2 text-xs text-emerald-700">
-                            현재 공개 설정으로 여행 카드가 자동 생성됩니다.
-                        </p>
-                        <input
-                            value={tags}
-                            onChange={(event) => setTags(event.target.value)}
-                            placeholder="#친구와, #액티비티"
-                            className="mt-3 w-full rounded-xl border border-emerald-200 px-3 py-2.5 text-sm"
-                        />
-                        {confirmComplete ? (
-                            <div className="mt-3 flex gap-2">
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => void complete()}
-                                    className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white"
-                                >
-                                    완료 확정
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setConfirmComplete(false)}
-                                    className="rounded-lg bg-white px-3 text-xs font-bold"
-                                >
-                                    취소
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setConfirmComplete(true)}
-                                className="mt-3 w-full rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white"
-                            >
-                                여행 완료 처리
-                            </button>
-                        )}
-                    </section>
-                )}
 
                 <section className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">{confirmDelete ? <div className="flex items-center gap-2"><p className="flex-1 text-xs font-bold text-red-700">삭제하면 목록에서 사라집니다.</p><button type="button" disabled={busy} onClick={() => void remove()} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white">삭제 확정</button><button type="button" onClick={() => setConfirmDelete(false)} className="text-xs font-bold">취소</button></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 text-xs font-bold text-red-600"><Trash2Icon size={14} /> 여행방 삭제</button>}</section>
             </form>
