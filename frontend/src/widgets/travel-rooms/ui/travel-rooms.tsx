@@ -35,7 +35,9 @@ export function TravelRooms({ embedded = false }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-extrabold text-brand-700">총 {rooms.length}개 여행방</span>
-                    <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white"><PlusIcon size={14} /> 새 여행방</button>
+                    {!embedded && (
+                        <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white"><PlusIcon size={14} /> 새 여행방</button>
+                    )}
                 </div>
             </header>
 

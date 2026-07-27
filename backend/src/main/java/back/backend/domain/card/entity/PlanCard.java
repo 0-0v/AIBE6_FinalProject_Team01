@@ -52,5 +52,12 @@ public class PlanCard {
     public Long getId() { return id; }
     public Long getTripId() { return tripId; }
     public String getTitle() { return title; }
+    public String getSummary() { return summary; }
+    public String getCoverImageUrl() { return coverImageUrl; }
+    public Long getCreatedBy() { return createdBy; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
     public TripVisibility getVisibility() { return visibility; }
+    public void changeVisibility(TripVisibility visibility) {
+        this.visibility = java.util.Objects.requireNonNull(visibility, "visibility must not be null");
+    }
 }

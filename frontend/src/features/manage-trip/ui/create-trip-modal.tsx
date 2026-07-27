@@ -1,6 +1,12 @@
 import { FormEvent, useState } from 'react'
 import { XIcon } from 'lucide-react'
-import { createTrip, type CompanionType, type TravelStyle } from '../api/trip-api'
+import {
+    createTrip,
+    uploadTripCoverImage,
+    type CompanionType,
+    type TravelStyle,
+} from '../api/trip-api'
+import { TripCoverImageField } from './trip-cover-image-field'
 
 const COMPANIONS: { value: CompanionType; label: string }[] = [
     { value: 'ALONE', label: '혼자' },
@@ -33,6 +39,8 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
     const [endDate, setEndDate] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [coverImage, setCoverImage] = useState<File | null>(null)
+    const [createdTripId, setCreatedTripId] = useState<number | null>(null)
 
     function toggleStyle(style: TravelStyle) {
         setTravelStyles((current) =>
@@ -61,14 +69,22 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
         setIsSubmitting(true)
         setError(null)
         try {
-            await createTrip({
-                title: normalizedTitle,
-                companionType: companionType || null,
-                travelStyles,
-                destination: destination.trim() || null,
-                startDate: startDate || null,
-                endDate: endDate || null,
-            })
+            const tripId =
+                createdTripId ??
+                (
+                    await createTrip({
+                        title: normalizedTitle,
+                        companionType: companionType || null,
+                        travelStyles,
+                        destination: destination.trim() || null,
+                        startDate: startDate || null,
+                        endDate: endDate || null,
+                    })
+                ).id
+            setCreatedTripId(tripId)
+            if (coverImage) {
+                await uploadTripCoverImage(tripId, coverImage)
+            }
             onCreated()
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : '여행방을 생성하지 못했습니다.')
@@ -86,6 +102,12 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
                         <XIcon size={18} />
                     </button>
                 </div>
+
+                <TripCoverImageField
+                    file={coverImage}
+                    disabled={isSubmitting}
+                    onFileChange={setCoverImage}
+                />
 
                 <label className="mt-5 block text-sm font-bold">
                     여행방 이름 <span className="text-brand">*</span>

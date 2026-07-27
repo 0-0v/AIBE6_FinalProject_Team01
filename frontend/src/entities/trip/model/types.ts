@@ -96,6 +96,7 @@ export type Room = {
         | 'IN_PROGRESS'
         | 'COMPLETED'
         | 'CANCELLED'
+    visibility: 'PRIVATE' | 'PUBLIC'
     color: string
 }
 
