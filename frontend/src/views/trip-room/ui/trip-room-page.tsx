@@ -13,6 +13,7 @@ import { useCommentStore } from '@/features/comment-place'
 import {
     claimGuestTripAccess,
     ManageTripModal,
+    TripCompletionConfirmationModal,
     useTripStore,
 } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
@@ -471,6 +472,17 @@ export function TripRoom() {
                         }}
                     />
                 )}
+                {trip &&
+                    currentUser &&
+                    trip.ownerId === currentUser.id &&
+                    trip.status === 'COMPLETED' &&
+                    !trip.completionConfirmed && (
+                        <TripCompletionConfirmationModal
+                            tripId={trip.id}
+                            tripTitle={trip.title}
+                            onConfirmed={() => void loadTrips()}
+                        />
+                    )}
                 {inviteCode && inviteMode === 'join-confirm' && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-5 backdrop-blur-sm">
                         <section className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-2xl">

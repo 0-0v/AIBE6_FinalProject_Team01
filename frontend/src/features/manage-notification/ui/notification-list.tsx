@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BellIcon, RotateCwIcon } from 'lucide-react'
+import type { Notification } from '@/entities/notification'
 import { useCurrentUserStore } from '@/shared/model'
 import {
     formatNotificationDate,
@@ -8,6 +10,7 @@ import {
 import { useNotificationStore } from '../model/notification-store'
 
 export function NotificationList() {
+    const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const notifications = useNotificationStore((state) => state.notifications)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
@@ -28,6 +31,16 @@ export function NotificationList() {
             void loadNotifications()
         }
     }, [currentUser, loadNotifications])
+
+    async function openNotification(notification: Notification) {
+        await readNotification(notification.id)
+        if (
+            notification.targetType === 'TRIP_COMPLETION_CONFIRMATION' &&
+            notification.targetId
+        ) {
+            navigate(`/app/room/${notification.targetId}`)
+        }
+    }
 
     if (!currentUser) {
         return <ListMessage message="로그인하면 알림을 확인할 수 있어요." />
@@ -90,7 +103,7 @@ export function NotificationList() {
                     <button
                         type="button"
                         key={notification.id}
-                        onClick={() => void readNotification(notification.id)}
+                        onClick={() => void openNotification(notification)}
                         className={`flex w-full items-start gap-4 border-b border-slate-100 p-5 text-left transition last:border-0 hover:bg-slate-50 ${notification.read ? 'opacity-50' : ''}`}
                     >
                         <span

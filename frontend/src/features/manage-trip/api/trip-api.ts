@@ -26,6 +26,7 @@ export type TripResponse = {
     memberCount: number
     status: 'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
     visibility: 'PRIVATE' | 'PUBLIC'
+    completionConfirmed: boolean
     createdAt: string
     updatedAt: string
 }
@@ -79,6 +80,19 @@ export async function updateTripVisibility(
     const response = await apiClient.patch<ApiResponse<TripResponse>>(
         `/api/trips/${id}/visibility`,
         { visibility },
+        { headers: authHeaders() },
+    )
+    return response.data
+}
+
+export async function confirmTripCompletion(
+    id: number,
+    visibility: 'PRIVATE' | 'PUBLIC',
+    tags: string[],
+) {
+    const response = await apiClient.post<ApiResponse<TripResponse>>(
+        `/api/trips/${id}/completion-confirmation`,
+        { visibility, tags },
         { headers: authHeaders() },
     )
     return response.data
