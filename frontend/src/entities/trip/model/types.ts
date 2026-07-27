@@ -108,3 +108,59 @@ export type Expense = {
     paidBy: string
     participantCount: number
 }
+
+export type ItineraryDayStatus = 'DRAFT' | 'CONFIRMED'
+
+export type ItineraryItem = {
+    id: string
+    tripPlaceId: string | null
+    placeName: string | null
+    placeAddress: string | null
+    categoryName: string | null
+    categoryColor: string | null
+    categoryIcon: string | null
+    lat: number
+    lng: number
+    startTime: string | null
+    endTime: string | null
+    sortOrder: number
+    transportMinutes: number | null
+    transportMeters: number | null
+    memo: string | null
+}
+
+export type ItineraryDay = {
+    id: string
+    itineraryDate: string
+    dayNumber: number
+    title: string | null
+    status: ItineraryDayStatus
+    items: ItineraryItem[]
+}
+
+export type RoutePlanItem = {
+    tripPlaceId: number
+    placeName: string
+    categoryName: string
+    categoryColor: string
+    startTime: string | null
+    endTime: string | null
+    transportMinutes: number | null
+    transportMeters: number | null
+    reason: string
+}
+
+export type RoutePlanDay = {
+    dayId: number
+    dayNumber: number
+    itineraryDate: string
+    totalDistanceMeters: number
+    items: RoutePlanItem[]
+}
+
+export type RoutePlanPreview = {
+    summary: string
+    totalPlaceCount: number
+    totalDistanceMeters: number
+    days: RoutePlanDay[]
+}

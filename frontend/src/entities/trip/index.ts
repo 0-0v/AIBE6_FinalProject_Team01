@@ -38,3 +38,14 @@ export {
     getPlaceCategories,
 } from './api/placeCategoryApi'
 export type { PlaceCategoryInfo } from './api/placeCategoryApi'
+export {
+    getItinerary,
+    addItineraryItem,
+    removeItineraryItem,
+    updateItineraryItem,
+    moveItineraryItem,
+    reorderItineraryItems,
+    updateItineraryDayStatus,
+    previewItineraryRoutePlan,
+    applyItineraryRoutePlan,
+} from './api/itineraryApi'
