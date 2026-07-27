@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.trip.dto.DateAvailabilityResponse;
 import back.backend.domain.trip.dto.DateProposalResponse;
-import back.backend.domain.trip.dto.TripCompleteResponse;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TripStatus;
@@ -79,25 +78,8 @@ class TripControllerTest {
     }
 
     @Test
-    @DisplayName("t4 소유자가 여행방 완료 정보와 태그를 요청하면 여행 카드 결과를 반환한다")
-    void t4_completeTripReturnsCreatedCard() throws Exception {
-        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
-        when(tripService.complete(any(), any(), any()))
-                .thenReturn(new TripCompleteResponse(10L, 20L, TripVisibility.PUBLIC, List.of("친구와")));
-
-        mockMvc.perform(post("/api/trips/{tripId}/complete", 10L)
-                        .contentType("application/json")
-                        .content("""
-                                {"visibility":"PUBLIC","tags":["친구와"]}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.cardId").value(20))
-                .andExpect(jsonPath("$.data.tags[0]").value("친구와"));
-    }
-
-    @Test
-    @DisplayName("t5 여행 멤버가 유효한 날짜 범위를 제안하면 제안 결과를 반환한다")
-    void t5_proposeDatesReturnsProposal() throws Exception {
+    @DisplayName("t4 여행 멤버가 유효한 날짜 범위를 제안하면 제안 결과를 반환한다")
+    void t4_proposeDatesReturnsProposal() throws Exception {
         when(tripPlanningService.propose(any(), any())).thenReturn(new DateProposalResponse(
                 30L, java.time.LocalDate.of(2026, 8, 12), java.time.LocalDate.of(2026, 8, 15),
                 "OPEN", 0, 0, 2, null));
@@ -113,8 +95,8 @@ class TripControllerTest {
     }
 
     @Test
-    @DisplayName("t6 여행 멤버의 가능 날짜를 조회하면 멤버 정보와 날짜 목록을 반환한다")
-    void t6_getDateAvailabilityReturnsMemberHeatmapData() throws Exception {
+    @DisplayName("t5 여행 멤버의 가능 날짜를 조회하면 멤버 정보와 날짜 목록을 반환한다")
+    void t5_getDateAvailabilityReturnsMemberHeatmapData() throws Exception {
         when(tripPlanningService.getAvailability(10L)).thenReturn(List.of(
                 new DateAvailabilityResponse(
                         1L,
@@ -130,8 +112,8 @@ class TripControllerTest {
     }
 
     @Test
-    @DisplayName("t7 소유자가 여행방 공개 범위를 변경하면 변경된 공개 범위를 반환한다")
-    void t7_updateVisibilityReturnsUpdatedVisibility() throws Exception {
+    @DisplayName("t6 소유자가 여행방 공개 범위를 변경하면 변경된 공개 범위를 반환한다")
+    void t6_updateVisibilityReturnsUpdatedVisibility() throws Exception {
         when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
         when(tripService.updateVisibility(any(), any(), any())).thenReturn(response());
 

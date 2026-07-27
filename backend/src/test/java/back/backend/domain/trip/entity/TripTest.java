@@ -74,25 +74,27 @@ class TripTest {
     }
 
     @Test
-    @DisplayName("t5 계획 중인 여행방을 완료하면 완료 상태와 카드 공개 범위를 반영한다")
-    void t5_completeTripUpdatesStatusAndVisibility() {
-        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
+    @DisplayName("t5 종료일 다음 날 자동 완료하면 완료 상태로 변경한다")
+    void t5_completeExpiredTripUpdatesStatus() {
+        Trip trip = Trip.create(
+                1L, "제주 여행", null, Set.of(), null,
+                LocalDate.of(2026, 7, 28), LocalDate.of(2026, 7, 31));
 
-        trip.complete(TripVisibility.PUBLIC);
+        trip.completeAutomatically(LocalDate.of(2026, 8, 1));
 
         assertThat(trip.getStatus()).isEqualTo(TripStatus.COMPLETED);
-        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
     }
 
     @Test
-    @DisplayName("t6 완료된 여행방을 다시 완료하면 유효성 예외가 발생한다")
-    void t6_completeTripRejectsAlreadyCompletedTrip() {
-        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
-        trip.complete(TripVisibility.PRIVATE);
+    @DisplayName("t6 종료일 당일에는 자동 완료할 수 없다")
+    void t6_completeTripRejectsEndDate() {
+        Trip trip = Trip.create(
+                1L, "제주 여행", null, Set.of(), null,
+                LocalDate.of(2026, 7, 28), LocalDate.of(2026, 7, 31));
 
-        assertThatThrownBy(() -> trip.complete(TripVisibility.PUBLIC))
+        assertThatThrownBy(() -> trip.completeAutomatically(LocalDate.of(2026, 7, 31)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("이미 완료되었거나 취소된 여행방입니다.");
+                .hasMessage("종료일이 지나지 않은 여행방은 완료할 수 없습니다.");
     }
 
     @Test
@@ -108,8 +110,10 @@ class TripTest {
     @Test
     @DisplayName("t8 완료된 여행방의 공개 범위를 변경하면 완료 상태를 유지하고 공개 범위만 변경한다")
     void t8_changeVisibilityUpdatesCompletedTripVisibility() {
-        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
-        trip.complete(TripVisibility.PRIVATE);
+        Trip trip = Trip.create(
+                1L, "제주 여행", null, Set.of(), null,
+                LocalDate.of(2026, 7, 28), LocalDate.of(2026, 7, 31));
+        trip.completeAutomatically(LocalDate.of(2026, 8, 1));
 
         trip.changeVisibility(TripVisibility.PUBLIC);
 

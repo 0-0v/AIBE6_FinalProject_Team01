@@ -2,18 +2,12 @@ package back.backend.domain.trip.service;
 
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.card.entity.PlanCard;
-import back.backend.domain.card.entity.PlanCardTag;
-import back.backend.domain.card.entity.TripTag;
 import back.backend.domain.card.repository.PlanCardRepository;
-import back.backend.domain.card.repository.PlanCardTagRepository;
-import back.backend.domain.card.repository.TripTagRepository;
 import back.backend.domain.collaboration.activitylog.dto.ActivityLogCreateCommand;
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.collaboration.notification.dto.NotificationCreateCommand;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.notification.service.NotificationService;
-import back.backend.domain.trip.dto.TripCompleteRequest;
-import back.backend.domain.trip.dto.TripCompleteResponse;
 import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.TripVisibilityRequest;
@@ -26,7 +20,6 @@ import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import java.util.List;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,24 +34,18 @@ public class TripService {
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
     private final PlanCardRepository planCardRepository;
-    private final TripTagRepository tripTagRepository;
-    private final PlanCardTagRepository planCardTagRepository;
 
     public TripService(TripRepository tripRepository, TripMemberRepository tripMemberRepository,
                        MemberRepository memberRepository,
                        ActivityLogService activityLogService,
                        NotificationService notificationService,
-                       PlanCardRepository planCardRepository,
-                       TripTagRepository tripTagRepository,
-                       PlanCardTagRepository planCardTagRepository) {
+                       PlanCardRepository planCardRepository) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.memberRepository = memberRepository;
         this.activityLogService = activityLogService;
         this.notificationService = notificationService;
         this.planCardRepository = planCardRepository;
-        this.tripTagRepository = tripTagRepository;
-        this.planCardTagRepository = planCardTagRepository;
     }
 
     @Transactional
@@ -127,28 +114,6 @@ public class TripService {
         recordEvent(trip, memberId, "TRIP_DELETED", "여행방을 삭제했습니다.");
     }
 
-    @Transactional
-    public TripCompleteResponse complete(Long memberId, Long tripId, TripCompleteRequest request) {
-        Trip trip = findOwnedTrip(memberId, tripId);
-        if (planCardRepository.existsByTripId(tripId)) {
-            throw new BusinessException(TripErrorCode.TRIP_CARD_ALREADY_EXISTS);
-        }
-        try {
-            trip.complete(request.visibility());
-        } catch (IllegalStateException exception) {
-            throw new BusinessException(TripErrorCode.TRIP_ALREADY_FINISHED);
-        }
-
-        PlanCard card = planCardRepository.save(PlanCard.create(tripId, trip.getTitle(), request.visibility(), memberId));
-        List<String> tags = normalizeTags(request.tags());
-        for (int index = 0; index < tags.size(); index++) {
-            TripTag tag = tripTagRepository.save(TripTag.create(tripId, tags.get(index), memberId, index));
-            planCardTagRepository.save(PlanCardTag.create(card.getId(), tag.getId()));
-        }
-        recordEvent(trip, memberId, "TRIP_COMPLETED", "여행방을 완료하고 여행 카드를 생성했습니다.");
-        return new TripCompleteResponse(tripId, card.getId(), request.visibility(), tags);
-    }
-
     private Trip saveValidTrip(Long memberId, TripRequest request) {
         try {
             return tripRepository.save(Trip.create(memberId, request.title(), request.companionType(),
@@ -166,18 +131,6 @@ public class TripService {
 
     private TripResponse toResponse(Trip trip) {
         return TripResponse.from(trip, tripMemberRepository.countByTripId(trip.getId()));
-    }
-
-    private List<String> normalizeTags(List<String> requestedTags) {
-        if (requestedTags == null) return List.of();
-        LinkedHashSet<String> tags = new LinkedHashSet<>();
-        for (String tag : requestedTags) {
-            if (tag == null || tag.isBlank()) continue;
-            String normalized = tag.trim();
-            if (normalized.startsWith("#")) normalized = normalized.substring(1);
-            if (!normalized.isBlank()) tags.add(normalized);
-        }
-        return List.copyOf(tags);
     }
 
     private void recordEvent(Trip trip, Long actorId, String actionType, String description) {

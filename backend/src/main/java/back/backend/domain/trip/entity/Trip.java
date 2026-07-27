@@ -171,10 +171,12 @@ public class Trip {
         this.endDate = endDate;
     }
 
-    public void complete(TripVisibility visibility) {
+    public void completeAutomatically(LocalDate today) {
         ensureMutable();
+        if (endDate == null || !endDate.isBefore(Objects.requireNonNull(today, "today must not be null"))) {
+            throw new IllegalStateException("종료일이 지나지 않은 여행방은 완료할 수 없습니다.");
+        }
         this.status = TripStatus.COMPLETED;
-        this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
     }
 
     public void changeVisibility(TripVisibility visibility) {
