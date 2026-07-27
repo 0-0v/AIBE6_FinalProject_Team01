@@ -212,10 +212,9 @@ public class ItineraryService {
         return getDayResponseById(tripId, dayId);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public RoutePlanPreviewResponse previewRoutePlan(Long tripId) {
-        accessChecker.requireEdit(tripId);
-        synchronizeItineraryDays(tripId);
+        accessChecker.requireView(tripId);
         return createRoutePlan(tripId);
     }
 
