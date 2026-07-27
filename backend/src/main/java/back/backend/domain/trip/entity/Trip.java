@@ -249,6 +249,13 @@ public class Trip {
         return coverImageUrl;
     }
 
+    public void changeCoverImage(String coverImageUrl) {
+        this.coverImageUrl = Objects.requireNonNull(
+                coverImageUrl,
+                "coverImageUrl must not be null"
+        );
+    }
+
     public String getTransportType() {
         return transportType;
     }
