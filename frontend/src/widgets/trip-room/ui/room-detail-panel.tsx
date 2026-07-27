@@ -4,7 +4,6 @@ import {
     HistoryIcon,
     ListIcon,
     ReceiptTextIcon,
-    Settings2Icon,
 } from 'lucide-react'
 import {
     Place,
@@ -26,7 +25,6 @@ import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { PlaceSearch } from '@/features/search-place'
-import { CategoryManager } from '@/features/manage-place-category'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
@@ -95,9 +93,17 @@ export function RoomDetailPanel({
         (state) => state.loadNotifications,
     )
     const [placeError, setPlaceError] = useState<string | null>(null)
+    const [categoryError, setCategoryError] = useState<string | null>(null)
     const [dateAvailabilityDirty, setDateAvailabilityDirty] = useState(false)
-    const [categories, setCategories] = useState<PlaceCategoryInfo[]>([])
-    const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
+    const [categoryState, setCategoryState] = useState<{
+        tripId: number
+        items: PlaceCategoryInfo[]
+        loading: boolean
+    }>({ tripId, items: [], loading: true })
+    const categories =
+        categoryState.tripId === tripId ? categoryState.items : []
+    const categoriesLoading =
+        categoryState.tripId !== tripId || categoryState.loading
 
     const canWrite = canManage
     const canPlanWrite =
@@ -109,10 +115,18 @@ export function RoomDetailPanel({
     useEffect(() => {
         const controller = new AbortController()
         getPlaceCategories(tripId, controller.signal)
-            .then(setCategories)
+            .then((nextCategories) => {
+                setCategoryState({
+                    tripId,
+                    items: nextCategories,
+                    loading: false,
+                })
+                setCategoryError(null)
+            })
             .catch((error: unknown) => {
                 if (controller.signal.aborted) return
-                setPlaceError(
+                setCategoryState({ tripId, items: [], loading: false })
+                setCategoryError(
                     getApiErrorMessage(
                         error,
                         '장소 카테고리를 불러오지 못했습니다.',
@@ -313,29 +327,6 @@ export function RoomDetailPanel({
         }
     }
 
-    function syncCategories(nextCategories: PlaceCategoryInfo[]) {
-        setCategories(nextCategories)
-        const fallback =
-            nextCategories.find(
-                (category) => category.categoryType === 'OTHER',
-            ) ?? nextCategories[0]
-        places.forEach((place) => {
-            const category =
-                nextCategories.find(
-                    (item) => item.categoryId === place.categoryId,
-                ) ?? fallback
-            if (!category) return
-            onUpdatePlace(place.id, (current) => ({
-                ...current,
-                categoryId: category.categoryId,
-                categoryName: category.name,
-                categoryColor: category.markerColor,
-                categoryIcon: category.markerIcon,
-            }))
-        })
-        refreshCollaborationData()
-    }
-
     function focusPlace(placeId: string) {
         setMode('plan')
         setPlanTab('places')
@@ -445,29 +436,13 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
-                        {canPlanWrite && (
-                            <>
-                                <div className="flex justify-end px-3 pt-3">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setCategoryManagerOpen(true)
-                                        }
-                                        className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-200"
-                                    >
-                                        <Settings2Icon size={13} />
-                                        카테고리 관리
-                                    </button>
-                                </div>
-                                <PlaceSearch onAdd={handleAdd} />
-                            </>
-                        )}
-                        {(loadError || placeError) && (
+                        {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {(loadError || categoryError || placeError) && (
                             <p
                                 role="alert"
                                 className="mx-3 mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"
                             >
-                                {placeError ?? loadError}
+                                {placeError ?? categoryError ?? loadError}
                             </p>
                         )}
                     </div>
@@ -512,6 +487,7 @@ export function RoomDetailPanel({
                                         void openCommentSheet(place.id)
                                     }
                                     categories={categories}
+                                    categoriesLoading={categoriesLoading}
                                     onCategoryChange={(categoryId) =>
                                         handleCategoryChange(
                                             place.id,
@@ -573,14 +549,6 @@ export function RoomDetailPanel({
                         />
                     </div>
                 </div>
-            )}
-            {categoryManagerOpen && (
-                <CategoryManager
-                    tripId={tripId}
-                    categories={categories}
-                    onChange={syncCategories}
-                    onClose={() => setCategoryManagerOpen(false)}
-                />
             )}
             {commentPlace && (
                 <CommentSheet

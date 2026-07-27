@@ -60,7 +60,7 @@ export const CATEGORY_META: Record<PlaceCategory, PlacePresentation> = {
     },
     other: {
         category: 'other',
-        label: '장소',
+        label: '기타',
         color: '#64748b',
         icon: 'MAP_PIN',
     },
@@ -83,5 +83,7 @@ const API_CATEGORY_MAP: Record<PlaceCategoryType, PlaceCategory> = {
 export function resolvePlaceCategoryPresentation(
     categoryType: PlaceCategoryType | null | undefined,
 ): PlacePresentation {
-    return CATEGORY_META[categoryType ? API_CATEGORY_MAP[categoryType] : 'other']
+    return CATEGORY_META[
+        categoryType ? API_CATEGORY_MAP[categoryType] : 'other'
+    ]
 }

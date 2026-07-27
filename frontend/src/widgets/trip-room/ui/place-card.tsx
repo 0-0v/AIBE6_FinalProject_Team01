@@ -6,13 +6,9 @@ import {
     ThumbsUpIcon,
     Trash2Icon,
 } from 'lucide-react'
-import {
-    CategoryIcon,
-    Place,
-    type PlaceCategoryInfo,
-} from '@/entities/trip'
+import { CategoryIcon, Place, type PlaceCategoryInfo } from '@/entities/trip'
 import { useCurrentUserStore } from '@/shared/model'
-import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
+import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
 
 type Props = {
     place: Place
@@ -24,6 +20,7 @@ type Props = {
     onDelete: () => void
     onOpenComments: () => void
     categories: PlaceCategoryInfo[]
+    categoriesLoading: boolean
     onCategoryChange: (categoryId: number) => Promise<void>
 }
 
@@ -37,6 +34,7 @@ export function PlaceCard({
     onDelete,
     onOpenComments,
     categories,
+    categoriesLoading,
     onCategoryChange,
 }: Props) {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
@@ -54,6 +52,26 @@ export function PlaceCard({
         : 0
     const [submittingVote, setSubmittingVote] = useState(false)
     const [changingCategory, setChangingCategory] = useState(false)
+    const categoryOptions =
+        categories.length > 0
+            ? categories.map((category) => ({
+                  value: String(category.categoryId),
+                  label: category.name,
+                  leading: (
+                      <CategoryIcon icon={category.markerIcon} size={12} />
+                  ),
+              }))
+            : place.categoryId != null
+              ? [
+                    {
+                        value: String(place.categoryId),
+                        label: place.categoryName,
+                        leading: (
+                            <CategoryIcon icon={place.categoryIcon} size={12} />
+                        ),
+                    },
+                ]
+              : []
 
     async function submitVote(action: () => Promise<void>) {
         setSubmittingVote(true)
@@ -89,39 +107,33 @@ export function PlaceCard({
                         </div>
                         {canWrite ? (
                             <div
-                                className="flex shrink-0 items-center rounded-full pl-2 text-white"
+                                className="shrink-0 rounded-full text-white"
                                 style={{
                                     backgroundColor: place.categoryColor,
                                 }}
+                                onClick={(event) => event.stopPropagation()}
                             >
-                                <CategoryIcon
-                                    icon={place.categoryIcon}
-                                    size={12}
-                                />
-                                <select
+                                <Select
                                     aria-label={`${place.name} 카테고리`}
-                                    value={place.categoryId ?? ''}
-                                    disabled={changingCategory}
-                                    onClick={(event) => event.stopPropagation()}
-                                    onChange={(event) => {
+                                    value={String(place.categoryId ?? '')}
+                                    disabled={
+                                        changingCategory ||
+                                        categories.length === 0
+                                    }
+                                    loading={
+                                        changingCategory || categoriesLoading
+                                    }
+                                    onChange={(value) => {
                                         setChangingCategory(true)
                                         void onCategoryChange(
-                                            Number(event.target.value),
+                                            Number(value),
                                         ).finally(() =>
                                             setChangingCategory(false),
                                         )
                                     }}
-                                    className="max-w-32 rounded-full border-0 bg-transparent py-1 pl-1 pr-2 text-[10px] font-bold text-white outline-none disabled:opacity-50"
-                                >
-                                    {categories.map((category) => (
-                                        <option
-                                            key={category.categoryId}
-                                            value={category.categoryId}
-                                        >
-                                            {category.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    className="w-32"
+                                    options={categoryOptions}
+                                />
                             </div>
                         ) : (
                             <span

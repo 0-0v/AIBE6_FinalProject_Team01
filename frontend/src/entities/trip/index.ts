@@ -37,12 +37,5 @@ export {
 export type { DateAvailability, DateProposal } from './api/tripPlanningApi'
 export {
     getPlaceCategories,
-    createPlaceCategory,
-    updatePlaceCategory,
-    deletePlaceCategory,
-    reorderPlaceCategories,
 } from './api/placeCategoryApi'
-export type {
-    PlaceCategoryInfo,
-    PlaceCategoryInput,
-} from './api/placeCategoryApi'
+export type { PlaceCategoryInfo } from './api/placeCategoryApi'
