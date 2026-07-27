@@ -66,8 +66,8 @@ export function useItineraryItemEditor({
         if (!force && overlappingItem) {
             setOverlapWarning(
                 `${overlappingItem.placeName ?? '다른 장소'}의 ${
-                    overlappingItem.startTime
-                }~${overlappingItem.endTime} 일정과 시간이 겹칩니다.`,
+                    overlappingItem.startTime ?? ''
+                }~${overlappingItem.endTime ?? ''} 일정과 시간이 겹칩니다.`,
             )
             return
         }

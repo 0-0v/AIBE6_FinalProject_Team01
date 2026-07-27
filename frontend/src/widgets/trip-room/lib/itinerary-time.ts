@@ -1,8 +1,9 @@
 import type { ItineraryItem } from '@/entities/trip'
 
 function toMinutes(value: string): number {
-    const [hour = 0, minute = 0] = value.split(':').map(Number)
-    return hour * 60 + minute
+    const [h, m] = value.split(':').map(Number)
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return 0
+    return h * 60 + m
 }
 
 export function formatTimeRange(

@@ -27,9 +27,10 @@ public record ItineraryItemResponse(
     public static ItineraryItemResponse from(ItineraryItem item, TripPlace tripPlace) {
         String placeName = tripPlace != null ? tripPlace.getPlace().getName() : null;
         String placeAddress = tripPlace != null ? tripPlace.getPlace().getAddress() : null;
-        String catName = tripPlace != null ? tripPlace.getCategory().getName() : null;
-        String catColor = tripPlace != null ? tripPlace.getCategory().getMarkerColor() : null;
-        String catIcon = tripPlace != null ? tripPlace.getCategory().getMarkerIcon().name() : null;
+        var cat = tripPlace != null ? tripPlace.getCategory() : null;
+        String catName = cat != null ? cat.getName() : null;
+        String catColor = cat != null ? cat.getMarkerColor() : null;
+        String catIcon = cat != null && cat.getMarkerIcon() != null ? cat.getMarkerIcon().name() : null;
         double lat = tripPlace != null ? tripPlace.getPlace().getLatitude().doubleValue() : 0;
         double lng = tripPlace != null ? tripPlace.getPlace().getLongitude().doubleValue() : 0;
 
