@@ -88,6 +88,9 @@ public class Trip {
     @Column(nullable = false, length = 20)
     private TripVisibility visibility;
 
+    @Column(name = "completion_confirmed_at")
+    private LocalDateTime completionConfirmedAt;
+
     @Column(name = "view_count", nullable = false)
     private long viewCount;
 
@@ -109,7 +112,8 @@ public class Trip {
             Set<TravelStyle> travelStyles,
             String destination,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            TripVisibility visibility
     ) {
         this.ownerId = Objects.requireNonNull(ownerId, "ownerId must not be null");
         this.title = validateTitle(title);
@@ -121,8 +125,21 @@ public class Trip {
         this.endDate = endDate;
         this.status = TripStatus.PLANNING;
         this.currency = "KRW";
-        this.visibility = TripVisibility.PRIVATE;
+        this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
         this.viewCount = 0L;
+    }
+
+    public static Trip create(
+            Long ownerId,
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate,
+            TripVisibility visibility
+    ) {
+        return new Trip(ownerId, title, companionType, travelStyles, destination, startDate, endDate, visibility);
     }
 
     public static Trip create(
@@ -134,7 +151,8 @@ public class Trip {
             LocalDate startDate,
             LocalDate endDate
     ) {
-        return new Trip(ownerId, title, companionType, travelStyles, destination, startDate, endDate);
+        return create(ownerId, title, companionType, travelStyles, destination, startDate, endDate,
+                TripVisibility.PRIVATE);
     }
 
     public void update(
@@ -156,9 +174,26 @@ public class Trip {
         this.endDate = endDate;
     }
 
-    public void complete(TripVisibility visibility) {
+    public void completeAutomatically(LocalDate today) {
         ensureMutable();
+        if (endDate == null || !endDate.isBefore(Objects.requireNonNull(today, "today must not be null"))) {
+            throw new IllegalStateException("종료일이 지나지 않은 여행방은 완료할 수 없습니다.");
+        }
         this.status = TripStatus.COMPLETED;
+        this.visibility = TripVisibility.PRIVATE;
+        this.completionConfirmedAt = null;
+    }
+
+    public void confirmCompletion(TripVisibility visibility, LocalDateTime confirmedAt) {
+        if (status != TripStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 여행방만 완료 확인할 수 있습니다.");
+        }
+        this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
+        this.completionConfirmedAt =
+                Objects.requireNonNull(confirmedAt, "confirmedAt must not be null");
+    }
+
+    public void changeVisibility(TripVisibility visibility) {
         this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
     }
 
@@ -290,6 +325,10 @@ public class Trip {
 
     public TripVisibility getVisibility() {
         return visibility;
+    }
+
+    public boolean isCompletionConfirmed() {
+        return completionConfirmedAt != null;
     }
 
     public long getViewCount() {

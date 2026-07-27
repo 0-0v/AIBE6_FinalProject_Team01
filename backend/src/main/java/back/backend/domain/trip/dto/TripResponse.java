@@ -4,6 +4,7 @@ import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TripStatus;
+import back.backend.domain.trip.entity.TripVisibility;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -20,6 +21,8 @@ public record TripResponse(
         String coverImageUrl,
         long memberCount,
         TripStatus status,
+        TripVisibility visibility,
+        boolean completionConfirmed,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -27,6 +30,7 @@ public record TripResponse(
         return new TripResponse(
                 trip.getId(), trip.getOwnerId(), trip.getTitle(), trip.getCompanionType(),
                 trip.getTravelStyles(), trip.getDestination(), trip.getStartDate(), trip.getEndDate(),
-                trip.getCoverImageUrl(), memberCount, trip.getStatus(), trip.getCreatedAt(), trip.getUpdatedAt());
+                trip.getCoverImageUrl(), memberCount, trip.getStatus(), trip.getVisibility(),
+                trip.isCompletionConfirmed(), trip.getCreatedAt(), trip.getUpdatedAt());
     }
 }

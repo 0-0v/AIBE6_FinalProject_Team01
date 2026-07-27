@@ -44,11 +44,12 @@ export function toRoom(trip: TripResponse): Room {
         location: trip.destination ?? '장소 미정',
         dday,
         members: trip.memberCount,
-        progress: 0,
+        progress: trip.status === 'COMPLETED' ? 100 : 0,
         cover:
             trip.coverImageUrl ?? '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
         status: statusLabel,
         lifecycleStatus: trip.status,
+        visibility: trip.visibility,
         color: '#e7657a',
     }
 }

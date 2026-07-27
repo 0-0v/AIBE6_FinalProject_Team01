@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BellIcon } from 'lucide-react'
+import type { Notification } from '@/entities/notification'
 import { useCurrentUserStore } from '@/shared/model'
 import {
     formatNotificationDate,
@@ -13,6 +15,7 @@ type Props = {
 }
 
 export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
+    const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const notifications = useNotificationStore((state) => state.notifications)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
@@ -32,6 +35,16 @@ export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
         notifications.length - displayedNotifications.length,
         0,
     )
+
+    async function openNotification(notification: Notification) {
+        await readNotification(notification.id)
+        if (
+            notification.targetType === 'TRIP_COMPLETION_CONFIRMATION' &&
+            notification.targetId
+        ) {
+            navigate(`/app/room/${notification.targetId}`)
+        }
+    }
 
     useEffect(() => {
         if (currentUser) {
@@ -96,9 +109,7 @@ export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
                             <button
                                 type="button"
                                 key={notification.id}
-                                onClick={() =>
-                                    void readNotification(notification.id)
-                                }
+                                onClick={() => void openNotification(notification)}
                                 className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-50 ${notification.read ? 'opacity-50' : ''}`}
                             >
                                 <span

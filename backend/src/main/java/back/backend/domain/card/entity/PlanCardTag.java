@@ -23,4 +23,6 @@ public class PlanCardTag {
         this.createdAt = LocalDateTime.now();
     }
     public static PlanCardTag create(Long planCardId, Long tagId) { return new PlanCardTag(planCardId, tagId); }
+    public Long getPlanCardId() { return planCardId; }
+    public Long getTagId() { return tagId; }
 }

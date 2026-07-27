@@ -24,7 +24,6 @@ export type TravelRecordCreateBody = {
 export type Retrospective = {
     id: number
     memberId: number
-    rating: number
     goodPoints: string | null
     improvements: string | null
     summary: string | null
@@ -32,7 +31,6 @@ export type Retrospective = {
 }
 
 export type RetrospectiveBody = {
-    rating: number
     goodPoints: string | null
     improvements: string | null
     summary: string | null

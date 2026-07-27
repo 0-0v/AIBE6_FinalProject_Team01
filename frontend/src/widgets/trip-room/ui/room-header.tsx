@@ -13,7 +13,6 @@ type Props = {
     isPublic: boolean
     isOwner: boolean
     canWrite: boolean
-    onTogglePublic: () => void
     onInvite: () => void
     onBack: () => void
     onManage: () => void
@@ -26,7 +25,6 @@ export function RoomHeader({
     isPublic,
     isOwner,
     canWrite,
-    onTogglePublic,
     onInvite,
     onBack,
     onManage,
@@ -50,8 +48,8 @@ export function RoomHeader({
                             {title}
                         </h1>
                         {isOwner && (
-                            <button
-                                onClick={onTogglePublic}
+                            <span
+                                aria-label={`여행방 공개 상태: ${isPublic ? '공개' : '비공개'}`}
                                 className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
                                     isPublic
                                         ? 'bg-brand-50 text-brand-700'
@@ -64,7 +62,7 @@ export function RoomHeader({
                                     <LockIcon size={11} />
                                 )}
                                 {isPublic ? '공개' : '비공개'}
-                            </button>
+                            </span>
                         )}
                     </div>
                     <p className="truncate text-xs text-slate-400">

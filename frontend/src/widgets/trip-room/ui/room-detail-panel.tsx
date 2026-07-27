@@ -51,6 +51,7 @@ type Props = {
     onDeletePlace: (id: string) => void
     loadError?: string | null
     canManage: boolean
+    isOwner: boolean
     tripId: number
     initialActivityOpen?: boolean
     onTripDatesChanged?: () => void
@@ -70,6 +71,7 @@ export function RoomDetailPanel({
     onDeletePlace,
     loadError,
     canManage,
+    isOwner,
     tripId,
     initialActivityOpen = false,
     onTripDatesChanged,
@@ -85,7 +87,7 @@ export function RoomDetailPanel({
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
-    const [isPublic, setIsPublic] = useState(true)
+    const isPublic = room.visibility === 'PUBLIC'
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
     )
@@ -340,9 +342,8 @@ export function RoomDetailPanel({
                 title={room.title}
                 subtitle={`#${room.location} · ${room.date}`}
                 isPublic={isPublic}
-                isOwner={canPlanWrite}
-                canWrite={canPlanWrite}
-                onTogglePublic={() => setIsPublic((value) => !value)}
+                isOwner={isOwner}
+                canWrite={isOwner}
                 onInvite={() => setInviteOpen(true)}
                 onBack={onBack}
                 onManage={onManage}

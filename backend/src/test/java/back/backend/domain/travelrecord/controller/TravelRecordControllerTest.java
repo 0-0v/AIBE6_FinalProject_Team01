@@ -10,7 +10,6 @@ import back.backend.domain.travelrecord.dto.*;
 import back.backend.domain.travelrecord.service.TravelRecordService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.*;
@@ -90,31 +89,29 @@ class TravelRecordControllerTest {
     }
 
     @Test
-    @DisplayName("t4 회고를 저장하면 별점과 작성 내용을 반환한다")
+    @DisplayName("t4 회고를 저장하면 작성 내용을 반환한다")
     void t4_saveRetrospectiveReturnsSavedContent() throws Exception {
         given(travelRecordService.saveMyRetrospective(eq(1L), any())).willReturn(
                 new RetrospectiveResponse(
-                        5L, 1L, new BigDecimal("4.5"), "좋았던 점",
+                        5L, 1L, "좋았던 점",
                         "개선할 점", "전체 회고", LocalDateTime.of(2026, 7, 26, 12, 0))
         );
 
         mockMvc.perform(put("/api/trips/1/retrospective")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new RetrospectiveRequest(
-                                new BigDecimal("4.5"), "좋았던 점", "개선할 점", "전체 회고"))))
+                                "좋았던 점", "개선할 점", "전체 회고"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.rating").value(4.5))
                 .andExpect(jsonPath("$.data.summary").value("전체 회고"));
     }
 
     @Test
-    @DisplayName("t5 회고 별점이 범위를 벗어나면 저장 요청을 거절한다")
-    void t5_saveRetrospectiveWithInvalidRatingReturnsBadRequest() throws Exception {
+    @DisplayName("t5 회고 내용이 최대 길이를 넘으면 저장 요청을 거절한다")
+    void t5_saveRetrospectiveWithTooLongSummaryReturnsBadRequest() throws Exception {
         mockMvc.perform(put("/api/trips/1/retrospective")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"rating": 5.5, "summary": "범위를 벗어난 별점"}
-                                """))
+                        .content(objectMapper.writeValueAsString(
+                                new RetrospectiveRequest(null, null, "a".repeat(5001)))))
                 .andExpect(status().isBadRequest());
     }
 

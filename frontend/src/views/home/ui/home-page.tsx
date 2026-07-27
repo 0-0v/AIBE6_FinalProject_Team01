@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     CalendarDaysIcon,
+    BookmarkIcon,
     CheckCircle2Icon,
     ChevronRightIcon,
     CreditCardIcon,
@@ -24,6 +25,10 @@ import {
     type TripResponse,
 } from '@/features/manage-trip'
 import { NotificationPanel } from '@/features/manage-notification'
+import {
+    fetchBookmarkedCards,
+    type PublicCard,
+} from '@/features/explore-card'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
@@ -90,6 +95,7 @@ export function Home() {
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
     const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
     const [dashboardError, setDashboardError] = useState<string | null>(null)
+    const [bookmarkedCards, setBookmarkedCards] = useState<PublicCard[]>([])
     const activeTripData =
         trips.find((trip) => String(trip.id) === activeTripId) ?? trips[0]
     const [calendarCursor, setCalendarCursor] = useState<{
@@ -187,6 +193,16 @@ export function Home() {
         return () => controller.abort()
     }, [activeTrip.apiTripId, activeTripData, currentUser])
 
+    useEffect(() => {
+        if (!currentUser) {
+            Promise.resolve().then(() => setBookmarkedCards([]))
+            return
+        }
+        void fetchBookmarkedCards()
+            .then(setBookmarkedCards)
+            .catch(() => setBookmarkedCards([]))
+    }, [currentUser])
+
     const progress = calculatePreparationProgress({
         trip: activeTripData,
         placeCount,
@@ -267,8 +283,43 @@ export function Home() {
             )}
 
             {view === 'list' ? (
-                <div className="mx-auto mt-6 max-w-[1440px] px-1">
+                <div className="mx-auto mt-6 max-w-[1440px] space-y-8 px-1">
                     <TravelRooms embedded />
+                    <section>
+                        <SectionTitle title="북마크한 여행 카드" />
+                        {bookmarkedCards.length === 0 ? (
+                            <div className="rounded-2xl border border-dashed bg-white py-10 text-center text-sm text-slate-400">
+                                둘러보기에서 저장한 여행 카드가 없습니다.
+                            </div>
+                        ) : (
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                {bookmarkedCards.map((card) => (
+                                    <article
+                                        key={card.id}
+                                        className="rounded-2xl border bg-white p-4 shadow-sm"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <h3 className="font-extrabold text-slate-900">
+                                                    {card.title}
+                                                </h3>
+                                                <p className="mt-1 text-xs text-slate-400">
+                                                    {card.authorNickname} ·{' '}
+                                                    {card.destination ??
+                                                        '여행지 미정'}
+                                                </p>
+                                            </div>
+                                            <BookmarkIcon
+                                                size={18}
+                                                fill="currentColor"
+                                                className="text-brand-700"
+                                            />
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
+                    </section>
                 </div>
             ) : (
                 <main className="mx-auto mt-6 grid max-w-[1440px] gap-6 xl:grid-cols-[minmax(0,1fr)_318px]">
@@ -882,6 +933,7 @@ function calculatePreparationProgress({
     expenseCount: number
 }) {
     if (!trip) return 0
+    if (trip.status === 'COMPLETED') return 100
     const completed = [
         Boolean(trip.destination),
         Boolean(trip.startDate && trip.endDate),

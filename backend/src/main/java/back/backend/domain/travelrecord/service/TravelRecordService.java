@@ -151,7 +151,6 @@ public class TravelRecordService {
                 .findByTripIdAndMemberId(tripId, memberId)
                 .orElseGet(() -> TripRetrospective.create(tripId, memberId));
         retrospective.update(
-                request.rating(),
                 request.goodPoints(),
                 request.improvements(),
                 request.summary()
@@ -165,7 +164,7 @@ public class TravelRecordService {
                 "TRIP_RETROSPECTIVE",
                 saved.getId(),
                 "여행 회고를 저장했습니다.",
-                Map.of("rating", request.rating())
+                Map.of()
         ));
         return toResponse(saved);
     }
@@ -245,7 +244,6 @@ public class TravelRecordService {
         return new RetrospectiveResponse(
                 retrospective.getId(),
                 retrospective.getMemberId(),
-                retrospective.getRating(),
                 retrospective.getGoodPoints(),
                 retrospective.getImprovements(),
                 retrospective.getSummary(),

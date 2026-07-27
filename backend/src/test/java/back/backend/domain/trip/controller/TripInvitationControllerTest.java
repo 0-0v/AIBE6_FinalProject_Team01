@@ -13,6 +13,7 @@ import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TripStatus;
+import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.domain.trip.service.TripInvitationService;
@@ -106,6 +107,7 @@ class TripInvitationControllerTest {
 
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
-                Set.of(TravelStyle.FOOD), null, null, null, null, 1L, TripStatus.PLANNING, null, null);
+                Set.of(TravelStyle.FOOD), null, null, null, null, 1L, TripStatus.PLANNING,
+                TripVisibility.PRIVATE, false, null, null);
     }
 }

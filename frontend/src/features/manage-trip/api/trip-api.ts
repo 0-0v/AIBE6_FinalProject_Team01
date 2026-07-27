@@ -25,6 +25,8 @@ export type TripResponse = {
     coverImageUrl: string | null
     memberCount: number
     status: 'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+    visibility: 'PRIVATE' | 'PUBLIC'
+    completionConfirmed: boolean
     createdAt: string
     updatedAt: string
 }
@@ -70,6 +72,31 @@ export async function updateTrip(id: number, request: TripRequest) {
     return response.data
 }
 
+export async function updateTripVisibility(
+    id: number,
+    visibility: 'PRIVATE' | 'PUBLIC',
+) {
+    const response = await apiClient.patch<ApiResponse<TripResponse>>(
+        `/api/trips/${id}/visibility`,
+        { visibility },
+        { headers: authHeaders() },
+    )
+    return response.data
+}
+
+export async function confirmTripCompletion(
+    id: number,
+    visibility: 'PRIVATE' | 'PUBLIC',
+    tags: string[],
+) {
+    const response = await apiClient.post<ApiResponse<TripResponse>>(
+        `/api/trips/${id}/completion-confirmation`,
+        { visibility, tags },
+        { headers: authHeaders() },
+    )
+    return response.data
+}
+
 export async function uploadTripCoverImage(id: number, file: File) {
     const formData = new FormData()
     formData.append('file', file)
@@ -85,26 +112,6 @@ export async function deleteTrip(id: number) {
     await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}`, {
         headers: authHeaders(),
     })
-}
-
-export async function completeTrip(
-    id: number,
-    visibility: 'PRIVATE' | 'PUBLIC',
-    tags: string[],
-) {
-    const response = await apiClient.post<
-        ApiResponse<{
-            tripId: number
-            cardId: number
-            visibility: 'PRIVATE' | 'PUBLIC'
-            tags: string[]
-        }>
-    >(
-        `/api/trips/${id}/complete`,
-        { visibility, tags },
-        { headers: authHeaders() },
-    )
-    return response.data
 }
 
 export async function createTripInvitation(id: number) {

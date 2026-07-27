@@ -3,6 +3,7 @@ package back.backend.domain.trip.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -10,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.trip.dto.DateAvailabilityResponse;
 import back.backend.domain.trip.dto.DateProposalResponse;
-import back.backend.domain.trip.dto.TripCompleteResponse;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TripStatus;
@@ -18,6 +18,7 @@ import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.service.TripService;
 import back.backend.domain.trip.service.TripPlanningService;
+import back.backend.domain.trip.service.TripCompletionConfirmationService;
 import back.backend.global.security.SecurityConfig;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.security.jwt.JwtAuthenticationFilter;
@@ -42,6 +43,7 @@ class TripControllerTest {
     @MockitoBean TripService tripService;
     @MockitoBean SecurityContextAccessor securityContextAccessor;
     @MockitoBean TripPlanningService tripPlanningService;
+    @MockitoBean TripCompletionConfirmationService tripCompletionConfirmationService;
 
     @Test
     @DisplayName("t1 인증 회원이 여행방을 생성하면 201 응답을 반환한다")
@@ -78,25 +80,8 @@ class TripControllerTest {
     }
 
     @Test
-    @DisplayName("t4 소유자가 여행방 완료 정보와 태그를 요청하면 여행 카드 결과를 반환한다")
-    void t4_completeTripReturnsCreatedCard() throws Exception {
-        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
-        when(tripService.complete(any(), any(), any()))
-                .thenReturn(new TripCompleteResponse(10L, 20L, TripVisibility.PUBLIC, List.of("친구와")));
-
-        mockMvc.perform(post("/api/trips/{tripId}/complete", 10L)
-                        .contentType("application/json")
-                        .content("""
-                                {"visibility":"PUBLIC","tags":["친구와"]}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.cardId").value(20))
-                .andExpect(jsonPath("$.data.tags[0]").value("친구와"));
-    }
-
-    @Test
-    @DisplayName("t5 여행 멤버가 유효한 날짜 범위를 제안하면 제안 결과를 반환한다")
-    void t5_proposeDatesReturnsProposal() throws Exception {
+    @DisplayName("t4 여행 멤버가 유효한 날짜 범위를 제안하면 제안 결과를 반환한다")
+    void t4_proposeDatesReturnsProposal() throws Exception {
         when(tripPlanningService.propose(any(), any())).thenReturn(new DateProposalResponse(
                 30L, java.time.LocalDate.of(2026, 8, 12), java.time.LocalDate.of(2026, 8, 15),
                 "OPEN", 0, 0, 2, null));
@@ -112,8 +97,8 @@ class TripControllerTest {
     }
 
     @Test
-    @DisplayName("t6 여행 멤버의 가능 날짜를 조회하면 멤버 정보와 날짜 목록을 반환한다")
-    void t6_getDateAvailabilityReturnsMemberHeatmapData() throws Exception {
+    @DisplayName("t5 여행 멤버의 가능 날짜를 조회하면 멤버 정보와 날짜 목록을 반환한다")
+    void t5_getDateAvailabilityReturnsMemberHeatmapData() throws Exception {
         when(tripPlanningService.getAvailability(10L)).thenReturn(List.of(
                 new DateAvailabilityResponse(
                         1L,
@@ -128,9 +113,40 @@ class TripControllerTest {
                 .andExpect(jsonPath("$.data[0].availableDates[0]").value("2026-08-12"));
     }
 
+    @Test
+    @DisplayName("t6 소유자가 여행방 공개 범위를 변경하면 변경된 공개 범위를 반환한다")
+    void t6_updateVisibilityReturnsUpdatedVisibility() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripService.updateVisibility(any(), any(), any())).thenReturn(response());
+
+        mockMvc.perform(patch("/api/trips/{tripId}/visibility", 10L)
+                        .contentType("application/json")
+                        .content("""
+                                {"visibility":"PRIVATE"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.visibility").value("PRIVATE"));
+    }
+
+    @Test
+    @DisplayName("t7 소유자가 종료 여행방을 공개로 확인하면 완료 확인 결과를 반환한다")
+    void t7_confirmCompletionReturnsConfirmedTrip() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripCompletionConfirmationService.confirm(any(), any(), any()))
+                .thenReturn(response());
+
+        mockMvc.perform(post("/api/trips/{tripId}/completion-confirmation", 10L)
+                        .contentType("application/json")
+                        .content("""
+                                {"visibility":"PUBLIC","tags":["둘이서"]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(10));
+    }
+
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
                 Set.of(TravelStyle.FOOD), null, null, null, null, 1L,
-                TripStatus.PLANNING, null, null);
+                TripStatus.PLANNING, TripVisibility.PRIVATE, false, null, null);
     }
 }
