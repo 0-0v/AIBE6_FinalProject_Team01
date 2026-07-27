@@ -44,8 +44,8 @@ public class ItineraryRoutePlanner {
     private final ObjectMapper objectMapper;
 
     /**
-     * 여행 스타일을 반영한 2가지 동선 옵션을 반환합니다.
-     * Gemini 호출에 실패하면 휴리스틱 2가지로 폴백합니다.
+     * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 1개)
+     * Gemini 호출에 실패하면 휴리스틱으로 폴백합니다.
      */
     public List<RoutePlanOption> planMulti(
             List<ItineraryDay> itineraryDays,
@@ -128,19 +128,34 @@ public class ItineraryRoutePlanner {
 
         String placeJson = objectMapper.writeValueAsString(placeData);
 
-        String styleLabel = travelStyles.isEmpty()
-                ? "없음"
+        // 스타일 없으면 균형 잡힌 코스 1개, 있으면 스타일 수만큼
+        List<String> styleLabels = travelStyles.isEmpty()
+                ? List.of()
                 : travelStyles.stream()
                         .map(s -> STYLE_LABEL.getOrDefault(s, s.name()))
-                        .collect(Collectors.joining(", "));
+                        .toList();
 
-        String route1Description = travelStyles.isEmpty()
-                ? "이동 거리를 최소화하여 효율적으로 구성하세요."
-                : "여행 스타일(%s)을 반영하여 관련 카테고리 장소에 충분한 시간을 배분하고 해당 스타일 중심으로 구성하세요.".formatted(styleLabel);
+        // 경로 요청 설명 (프롬프트 본문)
+        String routeRequests;
+        if (styleLabels.isEmpty()) {
+            routeRequests = "- Route 1 (균형 잡힌 코스): 이동 거리를 최소화하고 관광·식당·카페 등 다양한 카테고리가 골고루 포함되도록 구성하세요.";
+        } else {
+            routeRequests = java.util.stream.IntStream.range(0, styleLabels.size())
+                    .mapToObj(i -> "- Route %d (%s 코스): %s 스타일을 반영하여 관련 카테고리 장소에 충분한 시간을 배분하고 해당 스타일 중심으로 구성하세요."
+                            .formatted(i + 1, styleLabels.get(i), styleLabels.get(i)))
+                    .collect(Collectors.joining("\n"));
+        }
 
-        String route1Label = travelStyles.isEmpty()
-                ? "거리 최적화 코스"
-                : styleLabel + " 코스";
+        // JSON 출력 템플릿
+        List<String> routeLabels = styleLabels.isEmpty()
+                ? List.of("균형 잡힌 코스")
+                : styleLabels.stream().map(l -> l + " 코스").toList();
+        String jsonTemplate = buildJsonTemplate(routeLabels);
+
+        int routeCount = routeLabels.size();
+        String styleDescription = styleLabels.isEmpty()
+                ? "없음"
+                : String.join(", ", styleLabels);
 
         return """
                 당신은 여행 일정 전문가입니다. 다음 장소들을 %d일 여행 일정으로 구성해 주세요.
@@ -150,9 +165,8 @@ public class ItineraryRoutePlanner {
                 장소 목록 (%d개):
                 %s
 
-                아래 2가지 서로 다른 동선을 제안해 주세요.
-                - Route 1 (%s): %s
-                - Route 2 (균형 잡힌 코스): 이동 거리를 최소화하고 관광·식당·카페 등 다양한 카테고리가 골고루 포함되도록 구성하세요.
+                아래 %d가지 서로 다른 동선을 제안해 주세요.
+                %s
 
                 공통 조건:
                 1. 위도/경도 기준 가까운 장소끼리 같은 날에 묶어 이동 거리를 최소화하세요.
@@ -167,40 +181,39 @@ public class ItineraryRoutePlanner {
                 5. 모든 장소를 빠짐없이 포함하세요.
                 6. reason은 한국어 15자 이내로 작성하세요.
                 7. startTime과 endTime은 "HH:mm" 형식으로 작성하세요.
-                8. 두 경로는 장소 배치 순서나 날짜 구성이 서로 달라야 합니다.
+                8. 각 경로는 장소 배치 순서나 날짜 구성이 서로 달라야 합니다.
 
                 반드시 아래 JSON 형식만 출력하세요:
-                {
-                  "routes": [
-                    {
-                      "routeLabel": "%s",
-                      "summary": "전체 여행 동선 한 줄 요약",
-                      "days": [
+                %s
+                """.formatted(
+                days.size(), styleDescription, places.size(), placeJson,
+                routeCount, routeRequests,
+                jsonTemplate
+        );
+    }
+
+    private String buildJsonTemplate(List<String> routeLabels) {
+        String routeEntries = routeLabels.stream()
+                .map(label -> """
                         {
-                          "dayIndex": 0,
-                          "places": [
+                          "routeLabel": "%s",
+                          "summary": "전체 여행 동선 한 줄 요약",
+                          "days": [
                             {
-                              "id": <장소 id 숫자>,
-                              "startTime": "09:00",
-                              "endTime": "10:30",
-                              "reason": "방문 이유"
+                              "dayIndex": 0,
+                              "places": [
+                                {
+                                  "id": <장소 id 숫자>,
+                                  "startTime": "09:00",
+                                  "endTime": "10:30",
+                                  "reason": "방문 이유"
+                                }
+                              ]
                             }
                           ]
-                        }
-                      ]
-                    },
-                    {
-                      "routeLabel": "균형 잡힌 코스",
-                      "summary": "전체 여행 동선 한 줄 요약",
-                      "days": [...]
-                    }
-                  ]
-                }
-                """.formatted(
-                days.size(), styleLabel, places.size(), placeJson,
-                route1Label, route1Description,
-                route1Label
-        );
+                        }""".formatted(label))
+                .collect(Collectors.joining(",\n"));
+        return "{\n  \"routes\": [\n" + routeEntries + "\n  ]\n}";
     }
 
     // ── 휴리스틱 복수 동선 계획 (폴백) ────────────────────────────────────────
@@ -210,25 +223,33 @@ public class ItineraryRoutePlanner {
             List<TripPlace> tripPlaces,
             Set<TravelStyle> travelStyles
     ) {
-        String label1 = travelStyles.isEmpty()
-                ? "거리 최적화 코스"
-                : travelStyles.stream()
-                        .map(s -> STYLE_LABEL.getOrDefault(s, s.name()))
-                        .collect(Collectors.joining("·")) + " 코스";
+        // 스타일 없으면 균형 잡힌 코스 1개
+        if (travelStyles.isEmpty()) {
+            return List.of(new RoutePlanOption(
+                    "균형 잡힌 코스",
+                    planWithHeuristic(itineraryDays, tripPlaces, 0)
+            ));
+        }
 
-        RoutePlanPreviewResponse plan1 = planWithHeuristic(itineraryDays, tripPlaces, false);
-        RoutePlanPreviewResponse plan2 = planWithHeuristic(itineraryDays, tripPlaces, true);
+        // 스타일 수만큼 경로 생성 — 시작 장소를 달리해 경로 다양성 확보
+        List<TravelStyle> styleList = new ArrayList<>(travelStyles);
+        int n = styleList.size();
+        int placeCount = tripPlaces.isEmpty() ? 1 : tripPlaces.size();
 
-        return List.of(
-                new RoutePlanOption(label1, plan1),
-                new RoutePlanOption("균형 잡힌 코스", plan2)
-        );
+        List<RoutePlanOption> options = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            String label = STYLE_LABEL.getOrDefault(styleList.get(i), styleList.get(i).name()) + " 코스";
+            int startIndex = (i * placeCount) / n;
+            options.add(new RoutePlanOption(label,
+                    planWithHeuristic(itineraryDays, tripPlaces, startIndex)));
+        }
+        return options;
     }
 
     private RoutePlanPreviewResponse planWithHeuristic(
             List<ItineraryDay> itineraryDays,
             List<TripPlace> tripPlaces,
-            boolean reverseStart
+            int startIndex
     ) {
         List<ItineraryDay> days = itineraryDays.stream()
                 .sorted(Comparator.comparingInt(ItineraryDay::getDayNumber))
@@ -238,7 +259,7 @@ public class ItineraryRoutePlanner {
             return emptyResponse(days, tripPlaces);
         }
 
-        List<TripPlace> orderedPlaces = orderByNearestNeighbor(tripPlaces, reverseStart);
+        List<TripPlace> orderedPlaces = orderByNearestNeighbor(tripPlaces, startIndex);
         List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
         int offset = 0;
         int totalDistanceMeters = 0;
@@ -256,9 +277,7 @@ public class ItineraryRoutePlanner {
         }
 
         return new RoutePlanPreviewResponse(
-                reverseStart
-                        ? String.format("저장한 장소 %d곳을 카테고리 다양성 중심으로 %d일에 나눴어요.", tripPlaces.size(), days.size())
-                        : String.format("저장한 장소 %d곳을 %d일에 나누고 가까운 장소끼리 연결했어요.", tripPlaces.size(), days.size()),
+                String.format("저장한 장소 %d곳을 %d일에 나누고 가까운 장소끼리 연결했어요.", tripPlaces.size(), days.size()),
                 tripPlaces.size(),
                 totalDistanceMeters,
                 plannedDays
@@ -389,12 +408,11 @@ public class ItineraryRoutePlanner {
         );
     }
 
-    private List<TripPlace> orderByNearestNeighbor(List<TripPlace> places, boolean reverseStart) {
+    private List<TripPlace> orderByNearestNeighbor(List<TripPlace> places, int startIndex) {
         List<TripPlace> remaining = new ArrayList<>(places);
         List<TripPlace> ordered = new ArrayList<>();
-        TripPlace current = reverseStart
-                ? remaining.removeLast()
-                : remaining.removeFirst();
+        int clampedIndex = Math.max(0, Math.min(startIndex, remaining.size() - 1));
+        TripPlace current = remaining.remove(clampedIndex);
         ordered.add(current);
 
         while (!remaining.isEmpty()) {

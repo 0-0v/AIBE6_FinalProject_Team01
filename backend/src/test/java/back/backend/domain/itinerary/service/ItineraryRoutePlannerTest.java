@@ -110,25 +110,13 @@ class ItineraryRoutePlannerTest {
     void t4_returnsGeminiPlanWhenGeminiSucceeds() throws Exception {
         when(geminiClient.isConfigured()).thenReturn(true);
 
+        // plan()은 스타일 없이 호출 → 균형 잡힌 코스 1개만 요청
         String geminiJson = """
                 {
                   "routes": [
                     {
-                      "routeLabel": "여행 스타일 코스",
-                      "summary": "AI가 추천하는 최적 동선입니다.",
-                      "days": [
-                        {
-                          "dayIndex": 0,
-                          "places": [
-                            {"id": 10, "startTime": "09:00", "endTime": "10:30", "reason": "첫 방문지"},
-                            {"id": 11, "startTime": "11:00", "endTime": "12:00", "reason": "근처 카페"}
-                          ]
-                        }
-                      ]
-                    },
-                    {
                       "routeLabel": "균형 잡힌 코스",
-                      "summary": "균형 잡힌 동선입니다.",
+                      "summary": "AI가 추천하는 최적 동선입니다.",
                       "days": [
                         {
                           "dayIndex": 0,
