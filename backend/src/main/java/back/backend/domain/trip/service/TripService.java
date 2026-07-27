@@ -16,6 +16,7 @@ import back.backend.domain.trip.dto.TripCompleteRequest;
 import back.backend.domain.trip.dto.TripCompleteResponse;
 import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripVisibilityRequest;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TripMember;
 import back.backend.domain.trip.entity.TripStatus;
@@ -103,6 +104,19 @@ public class TripService {
     }
 
     @Transactional
+    public TripResponse updateVisibility(Long memberId, Long tripId, TripVisibilityRequest request) {
+        Trip trip = findOwnedTrip(memberId, tripId);
+        trip.changeVisibility(request.visibility());
+        if (trip.getStatus() == TripStatus.COMPLETED) {
+            PlanCard card = planCardRepository.findByTripId(tripId)
+                    .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_CARD_NOT_FOUND));
+            card.changeVisibility(request.visibility());
+        }
+        recordEvent(trip, memberId, "TRIP_VISIBILITY_UPDATED", "여행방 공개 설정을 변경했습니다.");
+        return toResponse(trip);
+    }
+
+    @Transactional
     public void delete(Long memberId, Long tripId) {
         Trip trip = findOwnedTrip(memberId, tripId);
         try {
@@ -138,7 +152,8 @@ public class TripService {
     private Trip saveValidTrip(Long memberId, TripRequest request) {
         try {
             return tripRepository.save(Trip.create(memberId, request.title(), request.companionType(),
-                    request.normalizedTravelStyles(), request.destination(), request.startDate(), request.endDate()));
+                    request.normalizedTravelStyles(), request.destination(), request.startDate(), request.endDate(),
+                    request.normalizedVisibility()));
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         }

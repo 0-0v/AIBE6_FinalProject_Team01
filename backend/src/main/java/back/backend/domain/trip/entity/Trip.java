@@ -109,7 +109,8 @@ public class Trip {
             Set<TravelStyle> travelStyles,
             String destination,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            TripVisibility visibility
     ) {
         this.ownerId = Objects.requireNonNull(ownerId, "ownerId must not be null");
         this.title = validateTitle(title);
@@ -121,8 +122,21 @@ public class Trip {
         this.endDate = endDate;
         this.status = TripStatus.PLANNING;
         this.currency = "KRW";
-        this.visibility = TripVisibility.PRIVATE;
+        this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
         this.viewCount = 0L;
+    }
+
+    public static Trip create(
+            Long ownerId,
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate,
+            TripVisibility visibility
+    ) {
+        return new Trip(ownerId, title, companionType, travelStyles, destination, startDate, endDate, visibility);
     }
 
     public static Trip create(
@@ -134,7 +148,8 @@ public class Trip {
             LocalDate startDate,
             LocalDate endDate
     ) {
-        return new Trip(ownerId, title, companionType, travelStyles, destination, startDate, endDate);
+        return create(ownerId, title, companionType, travelStyles, destination, startDate, endDate,
+                TripVisibility.PRIVATE);
     }
 
     public void update(
@@ -159,6 +174,10 @@ public class Trip {
     public void complete(TripVisibility visibility) {
         ensureMutable();
         this.status = TripStatus.COMPLETED;
+        this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
+    }
+
+    public void changeVisibility(TripVisibility visibility) {
         this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
     }
 

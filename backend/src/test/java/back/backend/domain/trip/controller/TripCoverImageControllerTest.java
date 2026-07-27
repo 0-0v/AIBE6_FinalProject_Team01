@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.entity.TripStatus;
+import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.service.TripCoverImageService;
 import back.backend.global.security.SecurityContextAccessor;
 import java.util.Set;
@@ -45,7 +46,7 @@ class TripCoverImageControllerTest {
                 .willReturn(new TripResponse(
                         10L, 1L, "후쿠오카", null, Set.of(), "후쿠오카",
                         null, null, "/uploads/trip-cover-images/10/cover.png",
-                        2L, TripStatus.PLANNING, null, null
+                        2L, TripStatus.PLANNING, TripVisibility.PRIVATE, null, null
                 ));
 
         mockMvc.perform(multipart("/api/trips/10/cover-image").file(file))

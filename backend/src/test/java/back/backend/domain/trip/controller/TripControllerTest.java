@@ -3,6 +3,7 @@ package back.backend.domain.trip.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -128,9 +129,24 @@ class TripControllerTest {
                 .andExpect(jsonPath("$.data[0].availableDates[0]").value("2026-08-12"));
     }
 
+    @Test
+    @DisplayName("t7 소유자가 여행방 공개 범위를 변경하면 변경된 공개 범위를 반환한다")
+    void t7_updateVisibilityReturnsUpdatedVisibility() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripService.updateVisibility(any(), any(), any())).thenReturn(response());
+
+        mockMvc.perform(patch("/api/trips/{tripId}/visibility", 10L)
+                        .contentType("application/json")
+                        .content("""
+                                {"visibility":"PRIVATE"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.visibility").value("PRIVATE"));
+    }
+
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
                 Set.of(TravelStyle.FOOD), null, null, null, null, 1L,
-                TripStatus.PLANNING, null, null);
+                TripStatus.PLANNING, TripVisibility.PRIVATE, null, null);
     }
 }

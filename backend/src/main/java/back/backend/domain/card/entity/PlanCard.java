@@ -53,4 +53,7 @@ public class PlanCard {
     public Long getTripId() { return tripId; }
     public String getTitle() { return title; }
     public TripVisibility getVisibility() { return visibility; }
+    public void changeVisibility(TripVisibility visibility) {
+        this.visibility = java.util.Objects.requireNonNull(visibility, "visibility must not be null");
+    }
 }

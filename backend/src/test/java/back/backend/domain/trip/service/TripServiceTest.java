@@ -14,6 +14,7 @@ import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.collaboration.notification.service.NotificationService;
 import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripCompleteRequest;
+import back.backend.domain.trip.dto.TripVisibilityRequest;
 import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.card.entity.PlanCard;
 import back.backend.domain.card.entity.TripTag;
@@ -131,9 +132,48 @@ class TripServiceTest {
         verify(notificationService).create(any());
     }
 
+    @Test
+    @DisplayName("t6 공개 여행방을 생성하면 요청한 공개 범위를 저장한다")
+    void t6_createTripSavesRequestedVisibility() {
+        when(memberRepository.existsById(1L)).thenReturn(true);
+        when(tripRepository.save(any(Trip.class))).thenAnswer(invocation -> {
+            Trip savedTrip = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedTrip, "id", 10L);
+            return savedTrip;
+        });
+
+        TripRequest request = new TripRequest(
+                "제주 여행", CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
+                null, null, TripVisibility.PUBLIC);
+
+        var response = tripService.create(1L, request);
+
+        assertThat(response.visibility()).isEqualTo(TripVisibility.PUBLIC);
+    }
+
+    @Test
+    @DisplayName("t7 완료된 여행방의 공개 범위를 변경하면 자동 생성된 카드 공개 범위도 함께 변경한다")
+    void t7_updateVisibilitySynchronizesCompletedTripCard() {
+        Trip trip = trip("제주 여행");
+        ReflectionTestUtils.setField(trip, "id", 10L);
+        trip.complete(TripVisibility.PRIVATE);
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PRIVATE, 1L);
+        when(tripRepository.findByIdAndOwnerIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(planCardRepository.findByTripId(10L)).thenReturn(Optional.of(card));
+
+        var response = tripService.updateVisibility(
+                1L, 10L, new TripVisibilityRequest(TripVisibility.PUBLIC));
+
+        assertThat(response.visibility()).isEqualTo(TripVisibility.PUBLIC);
+        assertThat(card.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
+        verify(activityLogService).create(any());
+        verify(notificationService).create(any());
+    }
+
     private TripRequest request(String title) {
         return new TripRequest(title, CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
-                LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15));
+                LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15), TripVisibility.PRIVATE);
     }
 
     private Trip trip(String title) {

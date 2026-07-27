@@ -9,6 +9,7 @@ import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.dto.TripRequest;
+import back.backend.domain.trip.entity.TripVisibility;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ class TripEventIntegrationTest {
                 "trip-owner@example.com", "여행방장", null, AuthProvider.KAKAO, "trip-owner-provider"));
 
         var trip = tripService.create(member.getId(), new TripRequest(
-                "제주 여행", null, Set.of(), null, null, null));
+                "제주 여행", null, Set.of(), null, null, null, TripVisibility.PRIVATE));
 
         var activityLogs = activityLogRepository.findAllByTripIdOrderByCreatedAtDescIdDesc(
                 trip.id(), PageRequest.of(0, 10));

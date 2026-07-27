@@ -4,6 +4,7 @@ import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.TripCompleteRequest;
 import back.backend.domain.trip.dto.TripCompleteResponse;
+import back.backend.domain.trip.dto.TripVisibilityRequest;
 import back.backend.domain.trip.service.TripService;
 import back.backend.domain.trip.service.TripPlanningService;
 import back.backend.domain.trip.dto.DateAvailabilityRequest;
@@ -68,6 +69,16 @@ public class TripController {
     @Operation(summary = "여행방 수정")
     public ApiResponse<TripResponse> update(@PathVariable Long tripId, @Valid @RequestBody TripRequest request) {
         return ApiResponse.success(tripService.update(securityContextAccessor.getCurrentMemberId(), tripId, request));
+    }
+
+    @PatchMapping("/{tripId}/visibility")
+    @Operation(summary = "여행방 공개 설정 변경")
+    public ApiResponse<TripResponse> updateVisibility(
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripVisibilityRequest request
+    ) {
+        return ApiResponse.success(tripService.updateVisibility(
+                securityContextAccessor.getCurrentMemberId(), tripId, request));
     }
 
     @DeleteMapping("/{tripId}")

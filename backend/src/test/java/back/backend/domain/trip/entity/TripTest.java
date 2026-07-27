@@ -104,4 +104,16 @@ class TripTest {
 
         assertThat(trip.getStatus()).isEqualTo(TripStatus.CANCELLED);
     }
+
+    @Test
+    @DisplayName("t8 완료된 여행방의 공개 범위를 변경하면 완료 상태를 유지하고 공개 범위만 변경한다")
+    void t8_changeVisibilityUpdatesCompletedTripVisibility() {
+        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
+        trip.complete(TripVisibility.PRIVATE);
+
+        trip.changeVisibility(TripVisibility.PUBLIC);
+
+        assertThat(trip.getStatus()).isEqualTo(TripStatus.COMPLETED);
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
+    }
 }
