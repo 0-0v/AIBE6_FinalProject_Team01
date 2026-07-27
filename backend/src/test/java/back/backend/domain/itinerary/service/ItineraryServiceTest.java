@@ -406,7 +406,7 @@ class ItineraryServiceTest {
                 itineraryService.previewRoutePlan(TRIP_ID);
 
         assertThat(result).isSameAs(preview);
-        then(accessChecker).should().requireEdit(TRIP_ID);
+        then(accessChecker).should().requireView(TRIP_ID);
     }
 
     @Test
@@ -573,47 +573,22 @@ class ItineraryServiceTest {
     }
 
     @Test
-    @DisplayName("t24 여행 기간이 줄면 범위 밖 Day를 제거하고 AI에는 유효한 Day만 전달한다")
-    void t24_previewRoutePlanRemovesDaysOutsideTripRange() {
-        ItineraryDay secondDay = ItineraryDay.create(
-                TRIP_ID,
-                LocalDate.of(2026, 8, 2),
-                2
-        );
-        ItineraryDay staleThirdDay = ItineraryDay.create(
-                TRIP_ID,
-                LocalDate.of(2026, 8, 3),
-                3
-        );
-        ReflectionTestUtils.setField(secondDay, "id", 101L);
-        ReflectionTestUtils.setField(staleThirdDay, "id", 102L);
-
-        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
-        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 2));
-        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
-                .willReturn(new ArrayList<>(List.of(day, secondDay, staleThirdDay)));
+    @DisplayName("t24 AI 동선 미리보기는 Day를 변경하지 않고 현재 상태 그대로 계획기에 전달한다")
+    void t24_previewRoutePlanDoesNotModifyDays() {
         given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
-                .willReturn(List.of(day, secondDay));
+                .willReturn(List.of(day));
         given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.plan(List.of(day, secondDay), List.of(savedTripPlace)))
-                .willReturn(new RoutePlanPreviewResponse(
-                        "2일 추천",
-                        1,
-                        0,
-                        List.of()
-                ));
+        given(routePlanner.plan(List.of(day), List.of(savedTripPlace)))
+                .willReturn(new RoutePlanPreviewResponse("추천 동선", 1, 0, List.of()));
 
         itineraryService.previewRoutePlan(TRIP_ID);
 
-        then(dayRepository).should().deleteAll(List.of(staleThirdDay));
-        then(dayRepository).should().flush();
-        then(routePlanner).should().plan(
-                List.of(day, secondDay),
-                List.of(savedTripPlace)
-        );
+        then(dayRepository).should(never()).deleteAll(any());
+        then(dayRepository).should(never()).flush();
+        then(tripRepository).should(never()).findByIdForItineraryInitialization(any());
     }
 
     @Test
