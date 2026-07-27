@@ -11,6 +11,7 @@ public enum ItineraryErrorCode implements ErrorCode {
     ITINERARY_ITEM_ALREADY_EXISTS(HttpStatus.CONFLICT, "ITINERARY_ITEM_ALREADY_EXISTS", "일정에 이미 배치된 장소입니다."),
     ITINERARY_SORT_ORDER_CONFLICT(HttpStatus.CONFLICT, "ITINERARY_SORT_ORDER_CONFLICT", "해당 순서에 이미 일정 항목이 있습니다."),
     ITINERARY_INVALID_ITEM_ORDER(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_ITEM_ORDER", "일정 항목 순서가 올바르지 않습니다."),
+    ITINERARY_INVALID_ROUTE_PLAN(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_ROUTE_PLAN", "적용할 AI 동선 계획이 올바르지 않습니다."),
     ITINERARY_INVALID_TIME(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_TIME", "시간 형식이 올바르지 않습니다."),
     ITINERARY_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_TIME_RANGE", "종료 시간은 시작 시간보다 빠를 수 없습니다.");
 

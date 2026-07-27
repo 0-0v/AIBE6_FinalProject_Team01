@@ -25,6 +25,13 @@ public class ItineraryController {
         return ApiResponse.success(itineraryService.getItinerary(tripId));
     }
 
+    @PostMapping("/initialize")
+    public ApiResponse<List<ItineraryDayResponse>> initializeItinerary(
+            @PathVariable Long tripId
+    ) {
+        return ApiResponse.success(itineraryService.initializeItinerary(tripId));
+    }
+
     @PostMapping("/days/{dayId}/items")
     public ApiResponse<ItineraryDayResponse> addItem(
             @PathVariable Long tripId,
@@ -73,7 +80,7 @@ public class ItineraryController {
         return ApiResponse.success(itineraryService.updateDayStatus(tripId, dayId, request));
     }
 
-    @GetMapping("/route-plan/preview")
+    @PostMapping("/route-plan/preview")
     public ApiResponse<RoutePlanPreviewResponse> previewRoutePlan(
             @PathVariable Long tripId
     ) {
@@ -82,8 +89,9 @@ public class ItineraryController {
 
     @PostMapping("/route-plan/apply")
     public ApiResponse<List<ItineraryDayResponse>> applyRoutePlan(
-            @PathVariable Long tripId
+            @PathVariable Long tripId,
+            @RequestBody @Valid RoutePlanPreviewResponse plan
     ) {
-        return ApiResponse.success(itineraryService.applyRoutePlan(tripId));
+        return ApiResponse.success(itineraryService.applyRoutePlan(tripId, plan));
     }
 }

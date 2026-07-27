@@ -3,6 +3,8 @@ package back.backend.domain.itinerary.service;
 import back.backend.domain.itinerary.dto.request.*;
 import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanItemResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.*;
 import back.backend.domain.itinerary.exception.ItineraryErrorCode;
@@ -41,10 +43,16 @@ public class ItineraryService {
     private final ItineraryTravelEstimator travelEstimator;
     private final EntityManager entityManager;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ItineraryDayResponse> getItinerary(Long tripId) {
         accessChecker.requireView(tripId);
-        initializeMissingDays(tripId);
+        return buildDayResponses(tripId);
+    }
+
+    @Transactional
+    public List<ItineraryDayResponse> initializeItinerary(Long tripId) {
+        accessChecker.requireEdit(tripId);
+        synchronizeItineraryDays(tripId);
         return buildDayResponses(tripId);
     }
 
@@ -129,20 +137,34 @@ public class ItineraryService {
         )) {
             throw new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_ALREADY_EXISTS);
         }
-        if (itemRepository.existsByItineraryDayAndSortOrderAndIdNot(
-                targetDay,
-                request.sortOrder(),
-                item.getId()
-        )) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_SORT_ORDER_CONFLICT);
+
+        List<ItineraryItem> sourceItems =
+                new ArrayList<>(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(sourceDay));
+        List<ItineraryItem> targetItems = sourceDay.getId().equals(targetDay.getId())
+                ? sourceItems
+                : new ArrayList<>(
+                        itemRepository.findAllByItineraryDayOrderBySortOrderAsc(targetDay)
+                );
+        sourceItems.removeIf(candidate -> candidate.getId().equals(item.getId()));
+        if (sourceDay.getId().equals(targetDay.getId())) {
+            targetItems = sourceItems;
+        }
+        if (request.sortOrder() > targetItems.size()) {
+            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ITEM_ORDER);
         }
 
         item.updateDay(targetDay);
-        item.updateSortOrder(request.sortOrder());
-        itemRepository.flush();
-        recalculateDay(sourceDay);
+        targetItems.add(request.sortOrder(), item);
+        updateSortOrders(sourceItems);
+        updateSortOrders(targetItems);
+        if (!sourceItems.isEmpty() && !sourceDay.getId().equals(targetDay.getId())) {
+            itemRepository.saveAllAndFlush(sourceItems);
+        }
+        itemRepository.saveAllAndFlush(targetItems);
+
+        recalculateItems(sourceItems);
         if (!sourceDay.getId().equals(targetDay.getId())) {
-            recalculateDay(targetDay);
+            recalculateItems(targetItems);
         }
 
         TripPlace tp = item.getTripPlaceId() != null
@@ -193,20 +215,20 @@ public class ItineraryService {
     @Transactional
     public RoutePlanPreviewResponse previewRoutePlan(Long tripId) {
         accessChecker.requireEdit(tripId);
-        initializeMissingDays(tripId);
+        synchronizeItineraryDays(tripId);
         return createRoutePlan(tripId);
     }
 
     @Transactional
-    public List<ItineraryDayResponse> applyRoutePlan(Long tripId) {
+    public List<ItineraryDayResponse> applyRoutePlan(
+            Long tripId,
+            RoutePlanPreviewResponse plan
+    ) {
         accessChecker.requireEdit(tripId);
-        initializeMissingDays(tripId);
+        synchronizeItineraryDays(tripId);
 
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
-        RoutePlanPreviewResponse plan = routePlanner.plan(
-                days,
-                findSavedTripPlaces(tripId)
-        );
+        validateRoutePlan(plan, days, findSavedTripPlaces(tripId));
         Map<Long, ItineraryDay> dayById = days.stream()
                 .collect(Collectors.toMap(ItineraryDay::getId, day -> day));
         List<ItineraryItem> existingItems = days.stream()
@@ -316,8 +338,62 @@ public class ItineraryService {
         }
     }
 
-    private void initializeMissingDays(Long tripId) {
-        tripRepository.findById(tripId).ifPresent(trip -> {
+    private void validateRoutePlan(
+            RoutePlanPreviewResponse plan,
+            List<ItineraryDay> days,
+            List<TripPlace> savedPlaces
+    ) {
+        if (plan == null
+                || plan.days() == null
+                || plan.days().stream().anyMatch(Objects::isNull)) {
+            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
+        }
+
+        Set<Long> validDayIds = days.stream()
+                .map(ItineraryDay::getId)
+                .collect(Collectors.toSet());
+        Set<Long> requestedDayIds = plan.days().stream()
+                .map(RoutePlanDayResponse::dayId)
+                .collect(Collectors.toSet());
+        if (requestedDayIds.size() != plan.days().size()
+                || !validDayIds.containsAll(requestedDayIds)) {
+            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
+        }
+
+        if (plan.days().stream().anyMatch(day ->
+                day.dayId() == null
+                        || day.items() == null
+                        || day.items().stream().anyMatch(Objects::isNull))) {
+            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
+        }
+        List<RoutePlanItemResponse> plannedItems = plan.days().stream()
+                .flatMap(day -> day.items().stream())
+                .toList();
+        Set<Long> savedPlaceIds = savedPlaces.stream()
+                .map(TripPlace::getId)
+                .collect(Collectors.toSet());
+        Set<Long> plannedPlaceIds = plannedItems.stream()
+                .map(RoutePlanItemResponse::tripPlaceId)
+                .collect(Collectors.toSet());
+        if (plannedPlaceIds.size() != plannedItems.size()
+                || !savedPlaceIds.equals(plannedPlaceIds)
+                || plannedItems.stream().anyMatch(item ->
+                        (item.transportMinutes() != null && item.transportMinutes() < 0)
+                                || (item.transportMeters() != null && item.transportMeters() < 0))) {
+            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
+        }
+
+        for (RoutePlanItemResponse item : plannedItems) {
+            LocalTime startTime = parseTime(item.startTime());
+            LocalTime endTime = parseTime(item.endTime());
+            if (startTime != null && endTime != null && endTime.isBefore(startTime)) {
+                throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
+            }
+        }
+    }
+
+    private void synchronizeItineraryDays(Long tripId) {
+        tripRepository.findByIdForItineraryInitialization(tripId).ifPresent(trip -> {
             LocalDate startDate = trip.getStartDate();
             LocalDate endDate = trip.getEndDate();
             if (startDate == null || endDate == null) return;
@@ -325,22 +401,39 @@ public class ItineraryService {
             List<LocalDate> dates = startDate.datesUntil(endDate.plusDays(1)).toList();
             List<ItineraryDay> allDays =
                     dayRepository.findAllByTripIdOrderByItineraryDateAsc(tripId);
-            Set<LocalDate> existingDates = allDays.stream()
+            Set<LocalDate> targetDates = new HashSet<>(dates);
+            List<ItineraryDay> obsoleteDays = allDays.stream()
+                    .filter(day -> !targetDates.contains(day.getItineraryDate()))
+                    .toList();
+            if (!obsoleteDays.isEmpty()) {
+                dayRepository.deleteAll(obsoleteDays);
+                dayRepository.flush();
+            }
+
+            List<ItineraryDay> activeDays = allDays.stream()
+                    .filter(day -> targetDates.contains(day.getItineraryDate()))
+                    .collect(Collectors.toCollection(ArrayList::new));
+            Set<LocalDate> existingDates = activeDays.stream()
                     .map(ItineraryDay::getItineraryDate)
                     .collect(Collectors.toSet());
-            List<ItineraryDay> toCreate = new ArrayList<>();
             for (LocalDate date : dates) {
                 if (!existingDates.contains(date)) {
-                    toCreate.add(ItineraryDay.create(tripId, date, 0));
+                    activeDays.add(ItineraryDay.create(tripId, date, 0));
                 }
             }
-            if (!toCreate.isEmpty()) {
-                allDays.addAll(toCreate);
-                allDays.sort(Comparator.comparing(ItineraryDay::getItineraryDate));
-                for (int index = 0; index < allDays.size(); index++) {
-                    allDays.get(index).updateDayNumber(index + 1);
+
+            activeDays.sort(Comparator.comparing(ItineraryDay::getItineraryDate));
+            boolean dayNumbersChanged = false;
+            for (int index = 0; index < activeDays.size(); index++) {
+                int dayNumber = index + 1;
+                if (activeDays.get(index).getDayNumber() != dayNumber) {
+                    activeDays.get(index).updateDayNumber(dayNumber);
+                    dayNumbersChanged = true;
                 }
-                dayRepository.saveAll(allDays);
+            }
+            boolean daysCreated = activeDays.size() > allDays.size() - obsoleteDays.size();
+            if (daysCreated || dayNumbersChanged) {
+                dayRepository.saveAll(activeDays);
             }
         });
     }
@@ -363,6 +456,12 @@ public class ItineraryService {
         recalculateItems(
                 itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day)
         );
+    }
+
+    private void updateSortOrders(List<ItineraryItem> items) {
+        for (int index = 0; index < items.size(); index++) {
+            items.get(index).updateSortOrder(index);
+        }
     }
 
     private void recalculateItems(List<ItineraryItem> items) {

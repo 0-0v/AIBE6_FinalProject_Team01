@@ -14,7 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "itinerary_days")
+@Table(
+        name = "itinerary_days",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_itinerary_days_trip_date",
+                columnNames = {"trip_id", "itinerary_date"}
+        )
+)
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
