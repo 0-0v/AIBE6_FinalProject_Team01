@@ -39,5 +39,6 @@ public class TripTag {
         return new TripTag(tripId, name, createdBy, sortOrder);
     }
     public Long getId() { return id; }
+    public Long getTripId() { return tripId; }
     public String getName() { return name; }
 }

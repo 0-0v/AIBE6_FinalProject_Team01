@@ -7,7 +7,6 @@ import {
     ImagePlusIcon,
     MapPinIcon,
     PlusIcon,
-    StarIcon,
     XIcon,
 } from 'lucide-react'
 import type { Place } from '@/entities/trip'
@@ -69,7 +68,6 @@ export function RecordPanel({
     const [selectedLocalPhotos, setSelectedLocalPhotos] = useState<
         LocalPhoto[]
     >([])
-    const [rating, setRating] = useState(5)
     const [goodPoints, setGoodPoints] = useState('')
     const [improvements, setImprovements] = useState('')
     const [summary, setSummary] = useState('')
@@ -106,7 +104,6 @@ export function RecordPanel({
                 setRecords(nextRecords)
                 setRetrospective(nextRetrospective)
                 if (nextRetrospective) {
-                    setRating(nextRetrospective.rating)
                     setGoodPoints(nextRetrospective.goodPoints ?? '')
                     setImprovements(nextRetrospective.improvements ?? '')
                     setSummary(nextRetrospective.summary ?? '')
@@ -199,7 +196,6 @@ export function RecordPanel({
         setError(null)
         try {
             const saved = await saveMyRetrospective(tripId, {
-                rating,
                 goodPoints: goodPoints.trim() || null,
                 improvements: improvements.trim() || null,
                 summary: summary.trim() || null,
@@ -374,8 +370,6 @@ export function RecordPanel({
                 </>
             ) : (
                 <RetrospectiveForm
-                    rating={rating}
-                    onRatingChange={setRating}
                     goodPoints={goodPoints}
                     onGoodPointsChange={setGoodPoints}
                     improvements={improvements}
@@ -758,8 +752,6 @@ function RecordComposer({
 }
 
 function RetrospectiveForm({
-    rating,
-    onRatingChange,
     goodPoints,
     onGoodPointsChange,
     improvements,
@@ -771,8 +763,6 @@ function RetrospectiveForm({
     saved,
     onSave,
 }: {
-    rating: number
-    onRatingChange: (value: number) => void
     goodPoints: string
     onGoodPointsChange: (value: string) => void
     improvements: string
@@ -790,27 +780,6 @@ function RetrospectiveForm({
                 <p className="text-sm font-extrabold text-slate-800">
                     이번 여행은 어땠나요?
                 </p>
-                <div className="mt-3 flex gap-1">
-                    {[1, 2, 3, 4, 5].map((value) => (
-                        <button
-                            key={value}
-                            type="button"
-                            disabled={!canWrite}
-                            onClick={() => onRatingChange(value)}
-                            aria-label={`${value}점`}
-                            className={
-                                value <= rating
-                                    ? 'text-amber-400'
-                                    : 'text-slate-200'
-                            }
-                        >
-                            <StarIcon
-                                size={26}
-                                fill={value <= rating ? 'currentColor' : 'none'}
-                            />
-                        </button>
-                    ))}
-                </div>
                 <RetrospectiveField
                     label="좋았던 점"
                     value={goodPoints}

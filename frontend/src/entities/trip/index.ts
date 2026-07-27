@@ -1,6 +1,5 @@
 export * from './model/types'
 export * from './model/place-presentation'
-export { exploreCards } from './model/explore-cards'
 export { RoomCard } from './ui/room-card'
 export { CategoryIcon } from './ui/category-icon'
 export {

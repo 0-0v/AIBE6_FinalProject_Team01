@@ -1,7 +1,6 @@
 package back.backend.domain.travelrecord.entity;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -24,9 +23,6 @@ public class TripRetrospective {
 
     @Column(name = "member_id", nullable = false)
     private Long memberId;
-
-    @Column(nullable = false, precision = 2, scale = 1)
-    private BigDecimal rating;
 
     @Column(name = "good_points", columnDefinition = "TEXT")
     private String goodPoints;
@@ -52,8 +48,7 @@ public class TripRetrospective {
         return retrospective;
     }
 
-    public void update(BigDecimal rating, String goodPoints, String improvements, String summary) {
-        this.rating = rating;
+    public void update(String goodPoints, String improvements, String summary) {
         this.goodPoints = normalize(goodPoints);
         this.improvements = normalize(improvements);
         this.summary = normalize(summary);
