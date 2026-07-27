@@ -69,7 +69,8 @@ class ItineraryServiceTest {
         trip = mock(Trip.class);
         lenient().when(trip.getStartDate()).thenReturn(null);
         lenient().when(trip.getEndDate()).thenReturn(null);
-        lenient().when(tripRepository.findById(TRIP_ID)).thenReturn(Optional.of(trip));
+        lenient().when(tripRepository.findByIdForItineraryInitialization(TRIP_ID))
+                .thenReturn(Optional.of(trip));
 
         day = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 1), 1);
         ReflectionTestUtils.setField(day, "id", DAY_ID);
@@ -118,14 +119,14 @@ class ItineraryServiceTest {
 
     @Test
     @DisplayName("t2 여행 날짜가 확정되면 없는 날짜의 Day를 자동 생성하고 dayNumber를 재부여한다")
-    void t2_getItineraryAutoCreatesMissingDays() {
+    void t2_initializeItineraryAutoCreatesMissingDays() {
         given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
         given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 2));
         given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID)).willReturn(new ArrayList<>());
         given(dayRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
         given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
 
-        itineraryService.getItinerary(TRIP_ID);
+        itineraryService.initializeItinerary(TRIP_ID);
 
         ArgumentCaptor<Iterable<ItineraryDay>> daysCaptor = ArgumentCaptor.forClass(Iterable.class);
         then(dayRepository).should().saveAll(daysCaptor.capture());
@@ -136,10 +137,10 @@ class ItineraryServiceTest {
 
     @Test
     @DisplayName("t3 여행 날짜가 없으면 Day를 자동 생성하지 않는다")
-    void t3_getItinerarySkipsAutoCreateWhenNoDates() {
+    void t3_initializeItinerarySkipsAutoCreateWhenNoDates() {
         given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
 
-        itineraryService.getItinerary(TRIP_ID);
+        itineraryService.initializeItinerary(TRIP_ID);
 
         then(dayRepository).should(never()).saveAll(any());
     }
@@ -440,13 +441,12 @@ class ItineraryServiceTest {
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.plan(List.of(day), List.of(savedTripPlace)))
-                .willReturn(preview);
         given(itemRepository.saveAllAndFlush(anyList()))
                 .willAnswer(invocation -> invocation.getArgument(0));
 
-        itineraryService.applyRoutePlan(TRIP_ID);
+        itineraryService.applyRoutePlan(TRIP_ID, preview);
 
+        then(routePlanner).shouldHaveNoInteractions();
         then(itemRepository).should().saveAllAndFlush(argThat(items -> {
             ItineraryItem saved = items.iterator().next();
             return saved.getItineraryDay().equals(day)
@@ -480,5 +480,225 @@ class ItineraryServiceTest {
         assertThat(item.getTransportMinutes()).isEqualTo(25);
         assertThat(item.getTransportMeters()).isEqualTo(3200);
         assertThat(item.getMemo()).isEqualTo("수정 메모");
+    }
+
+    @Test
+    @DisplayName("t20 일정 조회는 Day를 생성하지 않는다")
+    void t20_getItineraryDoesNotCreateDays() {
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of(day));
+
+        itineraryService.getItinerary(TRIP_ID);
+
+        then(tripRepository).shouldHaveNoInteractions();
+        then(dayRepository).should(never()).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("t21 일정 초기화는 여행 기간에 누락된 Day를 생성한다")
+    void t21_initializeItineraryCreatesMissingDays() {
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 2));
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(new ArrayList<>());
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        then(dayRepository).should().saveAll(argThat(days ->
+                ((List<ItineraryDay>) days).size() == 2
+                        && ((List<ItineraryDay>) days).get(0).getDayNumber() == 1
+                        && ((List<ItineraryDay>) days).get(1).getDayNumber() == 2
+        ));
+    }
+
+    @Test
+    @DisplayName("t22 미리보기 이후 저장 장소가 바뀌면 오래된 AI 계획을 적용하지 않는다")
+    void t22_applyRoutePlanRejectsStalePreview() {
+        RoutePlanPreviewResponse stalePreview = new RoutePlanPreviewResponse(
+                "오래된 추천",
+                1,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        0,
+                        List.of(new RoutePlanItemResponse(
+                                999L,
+                                "삭제된 장소",
+                                "관광",
+                                "#f97316",
+                                "09:00",
+                                "10:00",
+                                null,
+                                null,
+                                "추천"
+                        ))
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
+                TRIP_ID,
+                TripPlaceStatus.SAVED
+        )).willReturn(List.of(savedTripPlace));
+
+        assertThatThrownBy(() ->
+                itineraryService.applyRoutePlan(TRIP_ID, stalePreview))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(
+                        ((BusinessException) error).getErrorCode()
+                ).isEqualTo(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN));
+
+        then(itemRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("t23 일정 초기화는 Trip 행을 잠근 후 기존 Day를 조회한다")
+    void t23_initializeItineraryLocksTripBeforeReadingDays() {
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(List.of(day));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        var ordered = inOrder(tripRepository, dayRepository);
+        ordered.verify(tripRepository)
+                .findByIdForItineraryInitialization(TRIP_ID);
+        ordered.verify(dayRepository)
+                .findAllByTripIdOrderByItineraryDateAsc(TRIP_ID);
+    }
+
+    @Test
+    @DisplayName("t24 여행 기간이 줄면 범위 밖 Day를 제거하고 AI에는 유효한 Day만 전달한다")
+    void t24_previewRoutePlanRemovesDaysOutsideTripRange() {
+        ItineraryDay secondDay = ItineraryDay.create(
+                TRIP_ID,
+                LocalDate.of(2026, 8, 2),
+                2
+        );
+        ItineraryDay staleThirdDay = ItineraryDay.create(
+                TRIP_ID,
+                LocalDate.of(2026, 8, 3),
+                3
+        );
+        ReflectionTestUtils.setField(secondDay, "id", 101L);
+        ReflectionTestUtils.setField(staleThirdDay, "id", 102L);
+
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 2));
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(new ArrayList<>(List.of(day, secondDay, staleThirdDay)));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day, secondDay));
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
+                TRIP_ID,
+                TripPlaceStatus.SAVED
+        )).willReturn(List.of(savedTripPlace));
+        given(routePlanner.plan(List.of(day, secondDay), List.of(savedTripPlace)))
+                .willReturn(new RoutePlanPreviewResponse(
+                        "2일 추천",
+                        1,
+                        0,
+                        List.of()
+                ));
+
+        itineraryService.previewRoutePlan(TRIP_ID);
+
+        then(dayRepository).should().deleteAll(List.of(staleThirdDay));
+        then(dayRepository).should().flush();
+        then(routePlanner).should().plan(
+                List.of(day, secondDay),
+                List.of(savedTripPlace)
+        );
+    }
+
+    @Test
+    @DisplayName("t25 다른 Day의 원하는 위치로 이동하면 양쪽 Day 순서를 한 번에 재정렬한다")
+    void t25_moveItemInsertsAtRequestedPositionAndReordersBothDays() {
+        ItineraryDay targetDay = ItineraryDay.create(
+                TRIP_ID,
+                LocalDate.of(2026, 8, 2),
+                2
+        );
+        ReflectionTestUtils.setField(targetDay, "id", 101L);
+        ItineraryItem targetFirst = ItineraryItem.create(targetDay, 301L, 0);
+        ItineraryItem targetSecond = ItineraryItem.create(targetDay, 302L, 1);
+        ReflectionTestUtils.setField(targetFirst, "id", 201L);
+        ReflectionTestUtils.setField(targetSecond, "id", 202L);
+        ReflectionTestUtils.setField(day, "items", new ArrayList<>(List.of(item)));
+        ReflectionTestUtils.setField(
+                targetDay,
+                "items",
+                new ArrayList<>(List.of(targetFirst, targetSecond))
+        );
+
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+        given(dayRepository.findByIdAndTripId(101L, TRIP_ID))
+                .willReturn(Optional.of(targetDay));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(item));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(targetDay))
+                .willReturn(List.of(targetFirst, targetSecond));
+        given(itemRepository.saveAllAndFlush(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+        given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
+                .willReturn(Optional.of(savedTripPlace));
+
+        itineraryService.moveItem(
+                TRIP_ID,
+                ITEM_ID,
+                new MoveItineraryItemRequest(101L, 1)
+        );
+
+        assertThat(item.getItineraryDay()).isEqualTo(targetDay);
+        assertThat(targetFirst.getSortOrder()).isZero();
+        assertThat(item.getSortOrder()).isEqualTo(1);
+        assertThat(targetSecond.getSortOrder()).isEqualTo(2);
+        then(itemRepository).should().saveAllAndFlush(
+                argThat(items -> ((List<ItineraryItem>) items).equals(
+                        List.of(targetFirst, item, targetSecond)
+                ))
+        );
+    }
+
+    @Test
+    @DisplayName("t26 AI 계획에 null Day가 포함되면 잘못된 계획 예외를 반환한다")
+    void t26_applyRoutePlanRejectsNullDay() {
+        RoutePlanPreviewResponse invalidPlan = new RoutePlanPreviewResponse(
+                "잘못된 추천",
+                1,
+                0,
+                java.util.Arrays.asList((RoutePlanDayResponse) null)
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
+                TRIP_ID,
+                TripPlaceStatus.SAVED
+        )).willReturn(List.of(savedTripPlace));
+
+        assertThatThrownBy(() ->
+                itineraryService.applyRoutePlan(TRIP_ID, invalidPlan))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(
+                        ((BusinessException) error).getErrorCode()
+                ).isEqualTo(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN));
+    }
+
+    @Test
+    @DisplayName("t27 일정 초기화는 편집 권한을 확인한다")
+    void t27_initializeItineraryRequiresEditPermission() {
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of());
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        then(accessChecker).should().requireEdit(TRIP_ID);
+        then(accessChecker).should(never()).requireView(TRIP_ID);
     }
 }

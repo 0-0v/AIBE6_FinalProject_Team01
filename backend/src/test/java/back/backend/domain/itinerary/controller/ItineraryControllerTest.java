@@ -209,7 +209,7 @@ class ItineraryControllerTest {
                 )
         );
 
-        mockMvc.perform(get("/api/trips/1/itinerary/route-plan/preview"))
+        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/preview"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalPlaceCount").value(2))
                 .andExpect(jsonPath("$.data.days[0].dayNumber").value(1));
@@ -218,10 +218,47 @@ class ItineraryControllerTest {
     @Test
     @DisplayName("t13 AI 동선을 승인하면 적용된 일정 목록을 반환한다")
     void t13_applyRoutePlanReturnsUpdatedItinerary() throws Exception {
-        given(itineraryService.applyRoutePlan(1L)).willReturn(List.of(dayResponse));
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "추천 동선",
+                0,
+                0,
+                List.of()
+        );
+        given(itineraryService.applyRoutePlan(eq(1L), any(RoutePlanPreviewResponse.class)))
+                .willReturn(List.of(dayResponse));
 
-        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/apply"))
+        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(preview)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value(100));
+    }
+
+    @Test
+    @DisplayName("t14 일정을 초기화하면 생성된 Day 목록을 반환한다")
+    void t14_initializeItineraryReturnsDays() throws Exception {
+        given(itineraryService.initializeItinerary(1L)).willReturn(List.of(dayResponse));
+
+        mockMvc.perform(post("/api/trips/1/itinerary/initialize"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(100));
+    }
+
+    @Test
+    @DisplayName("t15 AI 계획에 null Day가 포함되면 400을 반환한다")
+    void t15_applyRoutePlanRejectsNullDay() throws Exception {
+        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "summary": "잘못된 계획",
+                                  "totalPlaceCount": 1,
+                                  "totalDistanceMeters": 0,
+                                  "days": [null]
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        then(itineraryService).shouldHaveNoInteractions();
     }
 }
