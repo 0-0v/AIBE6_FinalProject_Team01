@@ -164,3 +164,8 @@ export type RoutePlanPreview = {
     totalDistanceMeters: number
     days: RoutePlanDay[]
 }
+
+export type RouteOption = {
+    routeLabel: string
+    plan: RoutePlanPreview
+}

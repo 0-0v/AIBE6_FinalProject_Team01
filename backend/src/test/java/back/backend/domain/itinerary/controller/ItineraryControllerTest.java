@@ -4,6 +4,7 @@ import back.backend.domain.itinerary.dto.request.*;
 import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.ItineraryDayStatus;
 import back.backend.domain.itinerary.service.ItineraryService;
@@ -192,27 +193,43 @@ class ItineraryControllerTest {
     }
 
     @Test
-    @DisplayName("t12 AI 동선 미리보기를 조회하면 추천 계획을 반환한다")
-    void t12_previewRoutePlanReturnsSuggestion() throws Exception {
+    @DisplayName("t12 AI 동선 미리보기를 조회하면 경로 옵션 목록을 반환한다")
+    void t12_previewRoutePlanReturnsRouteOptions() throws Exception {
         given(itineraryService.previewRoutePlan(1L)).willReturn(
-                new RoutePlanPreviewResponse(
-                        "장소를 가까운 순서로 연결했어요.",
-                        2,
-                        1500,
-                        List.of(new RoutePlanDayResponse(
-                                100L,
-                                1,
-                                LocalDate.of(2026, 8, 1),
-                                1500,
-                                List.of()
-                        ))
+                List.of(
+                        new RoutePlanOption(
+                                "거리 최적화 코스",
+                                new RoutePlanPreviewResponse(
+                                        "장소를 가까운 순서로 연결했어요.",
+                                        2,
+                                        1500,
+                                        List.of(new RoutePlanDayResponse(
+                                                100L,
+                                                1,
+                                                LocalDate.of(2026, 8, 1),
+                                                1500,
+                                                List.of()
+                                        ))
+                                )
+                        ),
+                        new RoutePlanOption(
+                                "균형 잡힌 코스",
+                                new RoutePlanPreviewResponse(
+                                        "카테고리를 균형 있게 구성했어요.",
+                                        2,
+                                        1800,
+                                        List.of()
+                                )
+                        )
                 )
         );
 
         mockMvc.perform(post("/api/trips/1/itinerary/route-plan/preview"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalPlaceCount").value(2))
-                .andExpect(jsonPath("$.data.days[0].dayNumber").value(1));
+                .andExpect(jsonPath("$.data[0].routeLabel").value("거리 최적화 코스"))
+                .andExpect(jsonPath("$.data[0].plan.totalPlaceCount").value(2))
+                .andExpect(jsonPath("$.data[0].plan.days[0].dayNumber").value(1))
+                .andExpect(jsonPath("$.data[1].routeLabel").value("균형 잡힌 코스"));
     }
 
     @Test

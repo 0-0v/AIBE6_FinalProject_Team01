@@ -5,6 +5,7 @@ import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.*;
 import back.backend.domain.itinerary.exception.ItineraryErrorCode;
@@ -213,9 +214,16 @@ public class ItineraryService {
     }
 
     @Transactional(readOnly = true)
-    public RoutePlanPreviewResponse previewRoutePlan(Long tripId) {
+    public List<RoutePlanOption> previewRoutePlan(Long tripId) {
         accessChecker.requireView(tripId);
-        return createRoutePlan(tripId);
+        var travelStyles = tripRepository.findById(tripId)
+                .map(trip -> trip.getTravelStyles())
+                .orElse(Set.of());
+        return routePlanner.planMulti(
+                dayRepository.findAllWithItemsByTripId(tripId),
+                findSavedTripPlaces(tripId),
+                travelStyles
+        );
     }
 
     @Transactional
@@ -437,12 +445,7 @@ public class ItineraryService {
         });
     }
 
-    private RoutePlanPreviewResponse createRoutePlan(Long tripId) {
-        return routePlanner.plan(
-                dayRepository.findAllWithItemsByTripId(tripId),
-                findSavedTripPlaces(tripId)
-        );
-    }
+
 
     private List<TripPlace> findSavedTripPlaces(Long tripId) {
         return tripPlaceRepository.findAllOrderedByTripIdAndStatus(

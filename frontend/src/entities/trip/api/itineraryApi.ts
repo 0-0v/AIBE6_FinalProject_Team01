@@ -5,6 +5,7 @@ import type {
     ItineraryDayStatus,
     ItineraryItem,
     RoutePlanPreview,
+    RouteOption,
 } from '../model/types'
 
 type UpdateItineraryItemData = {
@@ -52,8 +53,8 @@ export async function initializeItinerary(
 
 export async function previewItineraryRoutePlan(
     tripId: number,
-): Promise<RoutePlanPreview> {
-    const res = await apiClient.post<ApiResponse<RoutePlanPreview>>(
+): Promise<RouteOption[]> {
+    const res = await apiClient.post<ApiResponse<RouteOption[]>>(
         `/api/trips/${tripId}/itinerary/route-plan/preview`,
         {},
     )

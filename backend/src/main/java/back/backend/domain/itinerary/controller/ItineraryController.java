@@ -3,6 +3,7 @@ package back.backend.domain.itinerary.controller;
 import back.backend.domain.itinerary.dto.request.*;
 import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.service.ItineraryService;
 import back.backend.global.response.ApiResponse;
@@ -81,7 +82,7 @@ public class ItineraryController {
     }
 
     @PostMapping("/route-plan/preview")
-    public ApiResponse<RoutePlanPreviewResponse> previewRoutePlan(
+    public ApiResponse<List<RoutePlanOption>> previewRoutePlan(
             @PathVariable Long tripId
     ) {
         return ApiResponse.success(itineraryService.previewRoutePlan(tripId));

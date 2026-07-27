@@ -5,6 +5,7 @@ import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.*;
 import back.backend.domain.itinerary.exception.ItineraryErrorCode;
@@ -32,6 +33,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -71,6 +73,9 @@ class ItineraryServiceTest {
         lenient().when(trip.getEndDate()).thenReturn(null);
         lenient().when(tripRepository.findByIdForItineraryInitialization(TRIP_ID))
                 .thenReturn(Optional.of(trip));
+        lenient().when(tripRepository.findById(TRIP_ID))
+                .thenReturn(Optional.of(trip));
+        lenient().when(trip.getTravelStyles()).thenReturn(Set.of());
 
         day = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 1), 1);
         ReflectionTestUtils.setField(day, "id", DAY_ID);
@@ -385,27 +390,28 @@ class ItineraryServiceTest {
     }
 
     @Test
-    @DisplayName("t17 AI 동선 미리보기는 저장 장소와 Day를 계획기에 전달한다")
+    @DisplayName("t17 AI 동선 미리보기는 저장 장소와 Day를 계획기에 전달하고 경로 옵션 목록을 반환한다")
     void t17_previewRoutePlanDelegatesSavedPlacesAndDays() {
-        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+        RoutePlanPreviewResponse planResponse = new RoutePlanPreviewResponse(
                 "추천 동선",
                 1,
                 0,
                 List.of()
         );
+        RoutePlanOption option = new RoutePlanOption("거리 최적화 코스", planResponse);
         given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
                 .willReturn(List.of(day));
         given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.plan(List.of(day), List.of(savedTripPlace)))
-                .willReturn(preview);
+        given(routePlanner.planMulti(List.of(day), List.of(savedTripPlace), Set.of()))
+                .willReturn(List.of(option));
 
-        RoutePlanPreviewResponse result =
-                itineraryService.previewRoutePlan(TRIP_ID);
+        List<RoutePlanOption> result = itineraryService.previewRoutePlan(TRIP_ID);
 
-        assertThat(result).isSameAs(preview);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0)).isSameAs(option);
         then(accessChecker).should().requireView(TRIP_ID);
     }
 
@@ -581,8 +587,11 @@ class ItineraryServiceTest {
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.plan(List.of(day), List.of(savedTripPlace)))
-                .willReturn(new RoutePlanPreviewResponse("추천 동선", 1, 0, List.of()));
+        given(routePlanner.planMulti(List.of(day), List.of(savedTripPlace), Set.of()))
+                .willReturn(List.of(new RoutePlanOption(
+                        "거리 최적화 코스",
+                        new RoutePlanPreviewResponse("추천 동선", 1, 0, List.of())
+                )));
 
         itineraryService.previewRoutePlan(TRIP_ID);
 
