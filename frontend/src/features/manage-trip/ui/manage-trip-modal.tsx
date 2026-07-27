@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react'
 import { Trash2Icon, XIcon } from 'lucide-react'
 import {
     deleteTrip,
+    confirmTripCompletion,
     type CompanionType,
     type TravelStyle,
     type TripResponse,
@@ -36,6 +37,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
         trip.visibility,
     )
     const [confirmDelete, setConfirmDelete] = useState(false)
+    const [tags, setTags] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
@@ -49,6 +51,18 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
         if (!title.trim()) return setError('여행방 이름을 입력해 주세요.')
         if ((startDate && !endDate) || (!startDate && endDate)) return setError('여행 기간을 함께 입력해 주세요.')
         if (startDate && endDate < startDate) return setError('종료일은 시작일보다 빠를 수 없습니다.')
+        const normalizedTags = tags
+            .split(/[#,]/)
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+        if (
+            trip.status === 'COMPLETED' &&
+            visibility === 'PUBLIC' &&
+            trip.visibility === 'PRIVATE' &&
+            normalizedTags.length === 0
+        ) {
+            return setError('공개할 여행방의 태그를 한 개 이상 입력해 주세요.')
+        }
         setBusy(true); setError(null)
         try {
             if (trip.status !== 'COMPLETED') {
@@ -58,7 +72,15 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                 })
             }
             if (visibility !== trip.visibility) {
-                await updateTripVisibility(trip.id, visibility)
+                if (trip.status === 'COMPLETED' && visibility === 'PUBLIC') {
+                    await confirmTripCompletion(
+                        trip.id,
+                        visibility,
+                        normalizedTags,
+                    )
+                } else {
+                    await updateTripVisibility(trip.id, visibility)
+                }
             }
             if (coverImage) {
                 await uploadTripCoverImage(trip.id, coverImage)
@@ -119,6 +141,19 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                         </button>
                     </div>
                 </fieldset>
+                {trip.status === 'COMPLETED' &&
+                    visibility === 'PUBLIC' &&
+                    trip.visibility === 'PRIVATE' && (
+                        <label className="mt-4 block text-sm font-bold">
+                            여행방 태그
+                            <input
+                                value={tags}
+                                onChange={(event) => setTags(event.target.value)}
+                                placeholder="#둘이서, #힐링여행"
+                                className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
+                            />
+                        </label>
+                    )}
                 <button disabled={busy || (trip.status === 'COMPLETED' && !coverImage && visibility === trip.visibility)} className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50">변경사항 저장</button>
 
                 <section className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">{confirmDelete ? <div className="flex items-center gap-2"><p className="flex-1 text-xs font-bold text-red-700">삭제하면 목록에서 사라집니다.</p><button type="button" disabled={busy} onClick={() => void remove()} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white">삭제 확정</button><button type="button" onClick={() => setConfirmDelete(false)} className="text-xs font-bold">취소</button></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 text-xs font-bold text-red-600"><Trash2Icon size={14} /> 여행방 삭제</button>}</section>

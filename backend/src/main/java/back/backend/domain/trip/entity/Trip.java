@@ -188,9 +188,6 @@ public class Trip {
         if (status != TripStatus.COMPLETED) {
             throw new IllegalStateException("완료된 여행방만 완료 확인할 수 있습니다.");
         }
-        if (completionConfirmedAt != null) {
-            throw new IllegalStateException("이미 완료 확인된 여행방입니다.");
-        }
         this.visibility = Objects.requireNonNull(visibility, "visibility must not be null");
         this.completionConfirmedAt =
                 Objects.requireNonNull(confirmedAt, "confirmedAt must not be null");

@@ -98,9 +98,18 @@ public class TripCompletionConfirmationService {
 
     private void saveTags(Trip trip, PlanCard card, List<String> tags) {
         for (int index = 0; index < tags.size(); index++) {
-            TripTag tag = tripTagRepository.save(
-                    TripTag.create(trip.getId(), tags.get(index), trip.getOwnerId(), index));
-            planCardTagRepository.save(PlanCardTag.create(card.getId(), tag.getId()));
+            int sortOrder = index;
+            TripTag tag = tripTagRepository.findByTripIdAndName(trip.getId(), tags.get(index))
+                    .orElseGet(() -> tripTagRepository.save(
+                            TripTag.create(
+                                    trip.getId(),
+                                    tags.get(sortOrder),
+                                    trip.getOwnerId(),
+                                    sortOrder
+                            )));
+            if (!planCardTagRepository.existsByPlanCardIdAndTagId(card.getId(), tag.getId())) {
+                planCardTagRepository.save(PlanCardTag.create(card.getId(), tag.getId()));
+            }
         }
     }
 }
