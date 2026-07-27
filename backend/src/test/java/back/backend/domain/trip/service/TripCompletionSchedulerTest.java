@@ -1,5 +1,8 @@
 package back.backend.domain.trip.service;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 import java.time.Clock;
@@ -32,5 +35,24 @@ class TripCompletionSchedulerTest {
         scheduler.completeExpiredTrips();
 
         verify(tripCompletionService).completeExpiredTrips(LocalDate.of(2026, 8, 1));
+    }
+
+    @Test
+    @DisplayName("t2 서버 시작 시 자동 완료 처리에 실패해도 애플리케이션 시작을 중단하지 않는다")
+    void t2_startupCompletionFailureDoesNotStopApplication() {
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-07-31T15:05:00Z"),
+                ZoneId.of("Asia/Seoul")
+        );
+        TripCompletionScheduler scheduler = new TripCompletionScheduler(
+                tripCompletionService,
+                clock
+        );
+        doThrow(new IllegalStateException("temporary failure"))
+                .when(tripCompletionService)
+                .completeExpiredTrips(any());
+
+        assertThatCode(scheduler::completeMissedTripsOnStartup)
+                .doesNotThrowAnyException();
     }
 }

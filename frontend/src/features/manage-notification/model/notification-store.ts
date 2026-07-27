@@ -35,7 +35,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     loadNotifications: async () => {
         const revision = notificationRevision
-        set({ isLoading: true, error: null })
+        set({ isLoading: get().notifications.length === 0, error: null })
         try {
             const [notifications, unreadCount] = await Promise.all([
                 fetchNotifications(),

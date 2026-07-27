@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BellIcon, RotateCwIcon } from 'lucide-react'
 import type { Notification } from '@/entities/notification'
@@ -25,12 +24,6 @@ export function NotificationList() {
     const readAllNotifications = useNotificationStore(
         (state) => state.readAllNotifications,
     )
-
-    useEffect(() => {
-        if (currentUser) {
-            void loadNotifications()
-        }
-    }, [currentUser, loadNotifications])
 
     async function openNotification(notification: Notification) {
         await readNotification(notification.id)
