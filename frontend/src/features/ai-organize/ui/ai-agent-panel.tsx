@@ -44,10 +44,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
             setPreview(await previewItineraryRoutePlan(tripId))
         } catch (requestError) {
             setError(
-                getApiErrorMessage(
-                    requestError,
-                    '동선 분석에 실패했습니다.',
-                ),
+                getApiErrorMessage(requestError, '동선 분석에 실패했습니다.'),
             )
         } finally {
             setLoading(false)
@@ -58,7 +55,8 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
         setApplying(true)
         setError(null)
         try {
-            const days = await applyItineraryRoutePlan(tripId)
+            if (!preview) return
+            const days = await applyItineraryRoutePlan(tripId, preview)
             onApplied(days)
             setApplied(true)
         } catch (requestError) {
@@ -81,7 +79,9 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                         <SparklesIcon size={16} />
                     </span>
                     <div>
-                        <p className="text-sm font-extrabold">AI 동선 코파일럿</p>
+                        <p className="text-sm font-extrabold">
+                            AI 동선 코파일럿
+                        </p>
                         <p className="text-[10px] text-slate-400">
                             승인 전에는 일정을 변경하지 않아요
                         </p>
@@ -141,7 +141,10 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                                     장소 {preview.totalPlaceCount}곳
                                 </span>
                                 <span className="rounded-full bg-white px-2 py-1">
-                                    예상 이동 {formatDistance(preview.totalDistanceMeters)}
+                                    예상 이동{' '}
+                                    {formatDistance(
+                                        preview.totalDistanceMeters,
+                                    )}
                                 </span>
                             </div>
                         </div>
@@ -161,7 +164,9 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                                         </span>
                                     </div>
                                     <span className="text-[10px] text-slate-400">
-                                        {formatDistance(day.totalDistanceMeters)}
+                                        {formatDistance(
+                                            day.totalDistanceMeters,
+                                        )}
                                     </span>
                                 </div>
 
@@ -183,7 +188,8 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                                                         </p>
                                                     </div>
                                                     <span className="shrink-0 text-[10px] font-bold text-slate-500">
-                                                        {item.startTime && item.endTime
+                                                        {item.startTime &&
+                                                        item.endTime
                                                             ? `${item.startTime}–${item.endTime}`
                                                             : '시간 미정'}
                                                     </span>
@@ -192,8 +198,12 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                                             {index < day.items.length - 1 && (
                                                 <div className="flex items-center gap-1 py-1 pl-3 text-[10px] text-slate-400">
                                                     <ArrowDownIcon size={11} />
-                                                    이동 {item.transportMinutes}분 ·{' '}
-                                                    {formatDistance(item.transportMeters ?? 0)}
+                                                    이동 {item.transportMinutes}
+                                                    분 ·{' '}
+                                                    {formatDistance(
+                                                        item.transportMeters ??
+                                                            0,
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -231,7 +241,9 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                                     size={15}
                                 />
                             )}
-                            {applying ? '적용 중...' : '이 동선으로 일정 만들기'}
+                            {applying
+                                ? '적용 중...'
+                                : '이 동선으로 일정 만들기'}
                         </button>
                     )}
                     <button

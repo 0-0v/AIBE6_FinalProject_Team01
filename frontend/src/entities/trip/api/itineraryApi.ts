@@ -15,6 +15,11 @@ type UpdateItineraryItemData = {
     transportMeters?: number | null
 }
 
+const itineraryInitializationRequests = new Map<
+    number,
+    Promise<ItineraryDay[]>
+>()
+
 export async function getItinerary(tripId: number): Promise<ItineraryDay[]> {
     const res = await apiClient.get<ApiResponse<ItineraryDay[]>>(
         `/api/trips/${tripId}/itinerary`,
@@ -22,21 +27,46 @@ export async function getItinerary(tripId: number): Promise<ItineraryDay[]> {
     return res.data
 }
 
+export async function initializeItinerary(
+    tripId: number,
+): Promise<ItineraryDay[]> {
+    const pendingRequest = itineraryInitializationRequests.get(tripId)
+    if (pendingRequest) return pendingRequest
+
+    const request = apiClient
+        .post<ApiResponse<ItineraryDay[]>>(
+            `/api/trips/${tripId}/itinerary/initialize`,
+            {},
+        )
+        .then((response) => response.data)
+    itineraryInitializationRequests.set(tripId, request)
+    const clearRequest = () => {
+        if (itineraryInitializationRequests.get(tripId) === request) {
+            itineraryInitializationRequests.delete(tripId)
+        }
+    }
+    void request.then(clearRequest, clearRequest)
+
+    return request
+}
+
 export async function previewItineraryRoutePlan(
     tripId: number,
 ): Promise<RoutePlanPreview> {
-    const res = await apiClient.get<ApiResponse<RoutePlanPreview>>(
+    const res = await apiClient.post<ApiResponse<RoutePlanPreview>>(
         `/api/trips/${tripId}/itinerary/route-plan/preview`,
+        {},
     )
     return res.data
 }
 
 export async function applyItineraryRoutePlan(
     tripId: number,
+    plan: RoutePlanPreview,
 ): Promise<ItineraryDay[]> {
     const res = await apiClient.post<ApiResponse<ItineraryDay[]>>(
         `/api/trips/${tripId}/itinerary/route-plan/apply`,
-        {},
+        plan,
     )
     return res.data
 }
