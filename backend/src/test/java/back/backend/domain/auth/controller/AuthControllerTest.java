@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.auth.dto.TokenResponse;
 import back.backend.domain.auth.service.AuthService;
+import back.backend.domain.auth.service.EmailVerificationService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityConfig;
@@ -47,6 +48,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private RefreshTokenCookieProvider refreshTokenCookieProvider;
+
+    @MockitoBean
+    private EmailVerificationService emailVerificationService;
 
     @Test
     @DisplayName("t1 유효한 리프레시 토큰 쿠키로 재발급을 요청하면 200과 새 액세스 토큰, 새 리프레시 토큰 쿠키를 반환한다")

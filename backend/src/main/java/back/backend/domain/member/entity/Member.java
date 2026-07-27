@@ -43,6 +43,12 @@ public class Member {
     @Column(name = "provider_id", nullable = false, length = 255)
     private String providerId;
 
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MemberStatus status;
@@ -82,6 +88,13 @@ public class Member {
         return new Member(email, nickname, profileImageUrl, provider, providerId);
     }
 
+    public static Member createLocal(String email, String nickname, String passwordHash) {
+        Member member = new Member(email, nickname, null, AuthProvider.LOCAL, email);
+        member.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
+        member.emailVerifiedAt = LocalDateTime.now();
+        return member;
+    }
+
     public Long getId() {
         return id;
     }
@@ -104,6 +117,14 @@ public class Member {
 
     public String getProviderId() {
         return providerId;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public LocalDateTime getEmailVerifiedAt() {
+        return emailVerifiedAt;
     }
 
     public MemberStatus getStatus() {
@@ -136,5 +157,12 @@ public class Member {
 
     public void changeProfileImage(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public void changePassword(String passwordHash) {
+        if (provider != AuthProvider.LOCAL) {
+            throw new IllegalStateException("로컬 회원만 비밀번호를 변경할 수 있습니다.");
+        }
+        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
     }
 }
