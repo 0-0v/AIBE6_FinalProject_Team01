@@ -38,16 +38,14 @@ class PlaceCategoryRepositoryTest {
     }
 
     @Test
-    @DisplayName("t2 여행방과 기본 유형이 모두 일치하는 카테고리를 조회한다")
-    void t2_findByTripAndTypeDoesNotLeakOtherTripCategory() {
-        categoryRepository.save(category(1L, "맛집", PlaceCategoryType.FOOD, 0));
-        categoryRepository.save(category(2L, "다른 맛집", PlaceCategoryType.FOOD, 0));
+    @DisplayName("t2 카테고리 ID가 같아도 다른 여행방에서는 조회되지 않는다")
+    void t2_findByIdAndTripDoesNotLeakOtherTripCategory() {
+        PlaceCategory saved =
+                categoryRepository.save(category(1L, "음식점", PlaceCategoryType.FOOD, 0));
 
-        PlaceCategory result = categoryRepository
-                .findFirstByTripIdAndCategoryType(2L, PlaceCategoryType.FOOD)
-                .orElseThrow();
-
-        assertThat(result.getName()).isEqualTo("다른 맛집");
+        assertThat(categoryRepository.findByIdAndTripId(saved.getId(), 2L)).isEmpty();
+        assertThat(categoryRepository.findByIdAndTripId(saved.getId(), 1L))
+                .contains(saved);
     }
 
     private PlaceCategory category(

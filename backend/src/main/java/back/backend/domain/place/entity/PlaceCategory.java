@@ -46,13 +46,4 @@ public class PlaceCategory {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
-    public void update(String name, String markerColor, PlaceMarkerIcon markerIcon) {
-        this.name = name;
-        this.markerColor = markerColor;
-        this.markerIcon = markerIcon;
-    }
-
-    public void updateSortOrder(int sortOrder) {
-        this.sortOrder = sortOrder;
-    }
 }

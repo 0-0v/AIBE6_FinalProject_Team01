@@ -9,20 +9,15 @@ public record PlaceCategoryResponse(
         String name,
         PlaceCategoryType categoryType,
         String markerColor,
-        PlaceMarkerIcon markerIcon,
-        int sortOrder
+        PlaceMarkerIcon markerIcon
 ) {
     public static PlaceCategoryResponse from(PlaceCategory category) {
-        if (category == null) {
-            return null;
-        }
         return new PlaceCategoryResponse(
                 category.getId(),
                 category.getName(),
                 category.getCategoryType(),
                 category.getMarkerColor(),
-                category.getMarkerIcon(),
-                category.getSortOrder()
+                category.getMarkerIcon()
         );
     }
 }

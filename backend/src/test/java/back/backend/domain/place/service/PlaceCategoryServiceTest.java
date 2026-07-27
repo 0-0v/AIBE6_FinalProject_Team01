@@ -1,26 +1,19 @@
 package back.backend.domain.place.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 
-import back.backend.domain.collaboration.service.CollaborationEventService;
-import back.backend.domain.place.dto.request.CreatePlaceCategoryRequest;
-import back.backend.domain.place.dto.request.ReorderPlaceCategoriesRequest;
 import back.backend.domain.place.dto.response.PlaceCategoryResponse;
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceMarkerIcon;
-import back.backend.domain.place.entity.TripPlace;
-import back.backend.domain.place.exception.PlaceErrorCode;
+import back.backend.domain.place.repository.PlaceCategoryInitializationLockRepository;
 import back.backend.domain.place.repository.PlaceCategoryRepository;
-import back.backend.domain.place.repository.TripPlaceRepository;
-import back.backend.global.exception.BusinessException;
+import java.util.EnumMap;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,9 +27,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class PlaceCategoryServiceTest {
 
     @Mock PlaceCategoryRepository categoryRepository;
-    @Mock TripPlaceRepository tripPlaceRepository;
+    @Mock PlaceCategoryInitializationLockRepository initializationLockRepository;
     @Mock TripAccessChecker accessChecker;
-    @Mock CollaborationEventService collaborationEventService;
     @InjectMocks PlaceCategoryService categoryService;
 
     private PlaceCategory food;
@@ -52,45 +44,25 @@ class PlaceCategoryServiceTest {
     @Test
     @DisplayName("t1 여행방 카테고리를 정렬 순서대로 조회한다")
     void t1_getCategoriesReturnsOrderedCategories() {
-        given(categoryRepository.countByTripId(1L)).willReturn(2L);
         given(categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(1L))
-                .willReturn(List.of(food, other));
+                .willReturn(completeCategories());
 
         List<PlaceCategoryResponse> result = categoryService.getCategories(1L);
 
         assertThat(result).extracting(PlaceCategoryResponse::name)
-                .containsExactly("음식점", "기타");
+                .containsExactly(
+                        "음식점", "카페", "술집", "명소", "자연",
+                        "숙소", "쇼핑", "액티비티", "교통", "기타"
+                );
+        then(initializationLockRepository).should(never()).lockTrip(1L);
+        then(categoryRepository).should().findAllByTripIdOrderBySortOrderAscIdAsc(1L);
     }
 
     @Test
-    @DisplayName("t2 사용자 카테고리를 생성하면 마지막 정렬 순서로 저장한다")
-    void t2_createCustomCategoryUsesLastSortOrder() {
-        given(accessChecker.requireEdit(1L)).willReturn(10L);
-        given(categoryRepository.countByTripId(1L)).willReturn(2L);
+    @DisplayName("t2 Google 장소 유형에 맞는 기본 카테고리를 추천한다")
+    void t2_recommendCategoryUsesGooglePlaceType() {
         given(categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(1L))
-                .willReturn(List.of(food, other));
-        given(categoryRepository.save(any(PlaceCategory.class))).willAnswer(invocation -> {
-            PlaceCategory saved = invocation.getArgument(0);
-            ReflectionTestUtils.setField(saved, "id", 3L);
-            return saved;
-        });
-
-        PlaceCategoryResponse result = categoryService.create(
-                1L,
-                new CreatePlaceCategoryRequest("야경", "#112233", PlaceMarkerIcon.STAR)
-        );
-
-        assertThat(result.categoryType()).isEqualTo(PlaceCategoryType.CUSTOM);
-        assertThat(result.sortOrder()).isEqualTo(2);
-    }
-
-    @Test
-    @DisplayName("t3 Google 장소 유형에 맞는 기본 카테고리를 추천한다")
-    void t3_recommendCategoryUsesGooglePlaceType() {
-        given(categoryRepository.countByTripId(1L)).willReturn(2L);
-        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.FOOD))
-                .willReturn(Optional.of(food));
-
+                .willReturn(completeCategories());
         PlaceCategory result = categoryService.recommend(
                 1L,
                 "벳푸 라멘",
@@ -99,60 +71,15 @@ class PlaceCategoryServiceTest {
         );
 
         assertThat(result).isEqualTo(food);
+        then(initializationLockRepository).should(never()).lockTrip(1L);
     }
 
     @Test
-    @DisplayName("t4 카테고리 삭제 시 연결된 장소를 기타 카테고리로 이동한다")
-    void t4_deleteCategoryMovesPlacesToOther() {
-        given(accessChecker.requireEdit(1L)).willReturn(10L);
-        TripPlace tripPlace = TripPlace.builder().tripId(1L).category(food).build();
-        given(categoryRepository.findByIdAndTripId(1L, 1L)).willReturn(Optional.of(food));
-        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.OTHER))
-                .willReturn(Optional.of(other));
-        given(tripPlaceRepository.findAllByTripIdAndCategory(1L, food))
-                .willReturn(List.of(tripPlace));
-
-        categoryService.delete(1L, 1L);
-
-        assertThat(tripPlace.getCategory()).isEqualTo(other);
-        then(categoryRepository).should().delete(food);
-    }
-
-    @Test
-    @DisplayName("t5 기타 카테고리는 삭제할 수 없다")
-    void t5_otherCategoryCannotBeDeleted() {
-        given(accessChecker.requireEdit(1L)).willReturn(10L);
-        given(categoryRepository.findByIdAndTripId(2L, 1L)).willReturn(Optional.of(other));
-
-        assertThatThrownBy(() -> categoryService.delete(1L, 2L))
-                .isInstanceOf(BusinessException.class)
-                .extracting(error -> ((BusinessException) error).getErrorCode())
-                .isEqualTo(PlaceErrorCode.PLACE_CATEGORY_REQUIRED);
-    }
-
-    @Test
-    @DisplayName("t6 전체 카테고리 ID가 아니면 정렬 순서 변경을 거부한다")
-    void t6_reorderRequiresEveryCategoryId() {
-        given(accessChecker.requireEdit(1L)).willReturn(10L);
-        given(categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(1L))
-                .willReturn(List.of(food, other));
-
-        assertThatThrownBy(() -> categoryService.reorder(
-                1L,
-                new ReorderPlaceCategoriesRequest(List.of(1L))
-        ))
-                .isInstanceOf(BusinessException.class)
-                .extracting(error -> ((BusinessException) error).getErrorCode())
-                .isEqualTo(PlaceErrorCode.PLACE_CATEGORY_ORDER_INVALID);
-    }
-
-    @Test
-    @DisplayName("t7 다양한 숙박 명칭과 Google 장소 유형을 숙소로 추천한다")
-    void t7_recommendCategoryRecognizesLodgingVariants() {
+    @DisplayName("t3 다양한 숙박 명칭과 Google 장소 유형을 숙소로 추천한다")
+    void t3_recommendCategoryRecognizesLodgingVariants() {
         PlaceCategory lodging = category(3L, "숙소", PlaceCategoryType.LODGING, 2);
-        given(categoryRepository.countByTripId(1L)).willReturn(2L);
-        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.LODGING))
-                .willReturn(Optional.of(lodging));
+        given(categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(1L))
+                .willReturn(completeCategories(lodging));
 
         List<PlaceCategory> results = List.of(
                 categoryService.recommend(1L, "제주 에어비앤비", null, List.of()),
@@ -167,18 +94,13 @@ class PlaceCategoryServiceTest {
     }
 
     @Test
-    @DisplayName("t8 술집, 교통, 액티비티 장소 유형을 각각의 기본 카테고리로 추천한다")
-    void t8_recommendCategoryRecognizesTravelCategoryTypes() {
+    @DisplayName("t4 술집, 교통, 액티비티 장소 유형을 각각의 기본 카테고리로 추천한다")
+    void t4_recommendCategoryRecognizesTravelCategoryTypes() {
         PlaceCategory bar = category(4L, "술집", PlaceCategoryType.BAR, 2);
         PlaceCategory transport = category(5L, "교통", PlaceCategoryType.TRANSPORT, 3);
         PlaceCategory activity = category(6L, "액티비티", PlaceCategoryType.ACTIVITY, 4);
-        given(categoryRepository.countByTripId(1L)).willReturn(10L);
-        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.BAR))
-                .willReturn(Optional.of(bar));
-        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.TRANSPORT))
-                .willReturn(Optional.of(transport));
-        given(categoryRepository.findFirstByTripIdAndCategoryType(1L, PlaceCategoryType.ACTIVITY))
-                .willReturn(Optional.of(activity));
+        given(categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(1L))
+                .willReturn(completeCategories(bar, transport, activity));
 
         assertThat(categoryService.recommend(1L, "루프탑 펍", "bar", List.of("bar")))
                 .isEqualTo(bar);
@@ -196,14 +118,16 @@ class PlaceCategoryServiceTest {
     }
 
     @Test
-    @DisplayName("t9 카테고리가 없는 여행방은 확장된 기본 카테고리를 자동 생성한다")
-    void t9_emptyTripCreatesDefaultCategories() {
-        given(categoryRepository.countByTripId(1L)).willReturn(0L);
+    @DisplayName("t5 카테고리가 없는 여행방은 확장된 기본 카테고리를 자동 생성한다")
+    void t5_emptyTripCreatesDefaultCategories() {
+        given(categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(1L))
+                .willReturn(List.of());
 
         categoryService.ensureDefaults(1L);
 
+        then(initializationLockRepository).should().lockTrip(1L);
         then(categoryRepository).should().saveAll(
-                org.mockito.ArgumentMatchers.argThat(categories -> {
+                org.mockito.ArgumentMatchers.<Iterable<PlaceCategory>>argThat(categories -> {
                     List<PlaceCategory> saved = java.util.stream.StreamSupport
                             .stream(categories.spliterator(), false)
                             .toList();
@@ -212,6 +136,29 @@ class PlaceCategoryServiceTest {
                             && saved.get(2).getCategoryType() == PlaceCategoryType.BAR
                             && saved.get(7).getCategoryType() == PlaceCategoryType.ACTIVITY
                             && saved.get(9).getCategoryType() == PlaceCategoryType.OTHER;
+                })
+        );
+    }
+
+    @Test
+    @DisplayName("t6 일부 기본 카테고리만 있으면 누락된 유형만 생성한다")
+    void t6_partialCategoriesCreateOnlyMissingDefaults() {
+        given(categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(1L))
+                .willReturn(List.of(food, other));
+
+        categoryService.ensureDefaults(1L);
+
+        then(initializationLockRepository).should().lockTrip(1L);
+        then(categoryRepository).should().saveAll(
+                org.mockito.ArgumentMatchers.<Iterable<PlaceCategory>>argThat(categories -> {
+                    List<PlaceCategory> saved = java.util.stream.StreamSupport
+                            .stream(categories.spliterator(), false)
+                            .toList();
+                    return saved.size() == 8
+                            && saved.stream().noneMatch(category ->
+                            category.getCategoryType() == PlaceCategoryType.FOOD)
+                            && saved.stream().noneMatch(category ->
+                            category.getCategoryType() == PlaceCategoryType.OTHER);
                 })
         );
     }
@@ -232,5 +179,50 @@ class PlaceCategoryServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "id", id);
         return category;
+    }
+
+    private List<PlaceCategory> completeCategories(PlaceCategory... replacements) {
+        EnumMap<PlaceCategoryType, PlaceCategory> categories =
+                new EnumMap<>(PlaceCategoryType.class);
+        categories.put(PlaceCategoryType.FOOD, food);
+        categories.put(PlaceCategoryType.CAFE, category(20L, "카페", PlaceCategoryType.CAFE, 1));
+        categories.put(PlaceCategoryType.BAR, category(21L, "술집", PlaceCategoryType.BAR, 2));
+        categories.put(
+                PlaceCategoryType.ATTRACTION,
+                category(22L, "명소", PlaceCategoryType.ATTRACTION, 3)
+        );
+        categories.put(PlaceCategoryType.NATURE, category(23L, "자연", PlaceCategoryType.NATURE, 4));
+        categories.put(
+                PlaceCategoryType.LODGING,
+                category(24L, "숙소", PlaceCategoryType.LODGING, 5)
+        );
+        categories.put(
+                PlaceCategoryType.SHOPPING,
+                category(25L, "쇼핑", PlaceCategoryType.SHOPPING, 6)
+        );
+        categories.put(
+                PlaceCategoryType.ACTIVITY,
+                category(26L, "액티비티", PlaceCategoryType.ACTIVITY, 7)
+        );
+        categories.put(
+                PlaceCategoryType.TRANSPORT,
+                category(27L, "교통", PlaceCategoryType.TRANSPORT, 8)
+        );
+        categories.put(PlaceCategoryType.OTHER, other);
+        for (PlaceCategory replacement : replacements) {
+            categories.put(replacement.getCategoryType(), replacement);
+        }
+        return List.of(
+                categories.get(PlaceCategoryType.FOOD),
+                categories.get(PlaceCategoryType.CAFE),
+                categories.get(PlaceCategoryType.BAR),
+                categories.get(PlaceCategoryType.ATTRACTION),
+                categories.get(PlaceCategoryType.NATURE),
+                categories.get(PlaceCategoryType.LODGING),
+                categories.get(PlaceCategoryType.SHOPPING),
+                categories.get(PlaceCategoryType.ACTIVITY),
+                categories.get(PlaceCategoryType.TRANSPORT),
+                categories.get(PlaceCategoryType.OTHER)
+        );
     }
 }
