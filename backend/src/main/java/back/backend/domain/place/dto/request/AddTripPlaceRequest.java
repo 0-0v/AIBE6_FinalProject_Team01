@@ -2,6 +2,7 @@ package back.backend.domain.place.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 public record AddTripPlaceRequest(
         @NotBlank String googlePlaceId,
@@ -10,5 +11,6 @@ public record AddTripPlaceRequest(
         @NotNull Double latitude,
         @NotNull Double longitude,
         String placeType,
-        String photoName
+        String photoName,
+        List<String> placeTypes
 ) {}

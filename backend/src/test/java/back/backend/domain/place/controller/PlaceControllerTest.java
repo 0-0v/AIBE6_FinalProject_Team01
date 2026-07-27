@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
+import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.service.PlaceSearchService;
 import back.backend.domain.place.service.PlacePhotoService;
@@ -50,7 +51,8 @@ class PlaceControllerTest {
                         "ChIJxxx", "카멜리아힐",
                         "제주특별자치도 서귀포시 안덕면 병악로 166",
                         33.291, 126.373,
-                        "tourist_attraction", null,
+                        "tourist_attraction", List.of("tourist_attraction"),
+                        PlaceCategoryType.ATTRACTION, null,
                         null, null, null, null, null, null, null, null, null, null, null
                 )
         );
@@ -62,6 +64,7 @@ class PlaceControllerTest {
                 .andExpect(jsonPath("$.data[0].googlePlaceId").value("ChIJxxx"))
                 .andExpect(jsonPath("$.data[0].name").value("카멜리아힐"))
                 .andExpect(jsonPath("$.data[0].placeType").value("tourist_attraction"))
+                .andExpect(jsonPath("$.data[0].recommendedCategoryType").value("ATTRACTION"))
                 .andExpect(jsonPath("$.data[0].photoName", nullValue()));
     }
 

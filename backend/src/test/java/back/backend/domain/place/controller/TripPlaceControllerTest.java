@@ -2,6 +2,7 @@ package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
+import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.service.TripPlaceService;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
@@ -50,7 +52,7 @@ class TripPlaceControllerTest {
         sampleResponse = new TripPlaceResponse(
                 10L, "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 new BigDecimal("33.3065000"), new BigDecimal("126.2897000"),
-                "tourist_attraction", null, TripPlaceStatus.SAVED, 1L, 0);
+                "tourist_attraction", null, null, TripPlaceStatus.SAVED, 1L, 0);
     }
 
     @Test
@@ -58,7 +60,7 @@ class TripPlaceControllerTest {
     void t1_장소추가성공() throws Exception {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null);
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
 
         given(tripPlaceService.addPlace(eq(1L), any())).willReturn(sampleResponse);
 
@@ -77,7 +79,7 @@ class TripPlaceControllerTest {
     void t2_중복장소추가시409반환() throws Exception {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
-                33.3065, 126.2897, "tourist_attraction", null);
+                33.3065, 126.2897, "tourist_attraction", null, List.of());
 
         given(tripPlaceService.addPlace(eq(1L), any()))
                 .willThrow(new BusinessException(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS));
@@ -146,6 +148,42 @@ class TripPlaceControllerTest {
         mockMvc.perform(get("/api/trips/1/places").param("status", "INVALID"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_400"));
+    }
+
+    @Test
+    @DisplayName("t9 장소 추가 요청의 전체 장소 유형을 서비스에 전달한다")
+    void t9_placeTypesArePassedToService() throws Exception {
+        given(tripPlaceService.addPlace(
+                eq(1L),
+                argThat(request ->
+                        request.placeTypes().equals(List.of("point_of_interest", "aquarium")))
+        )).willReturn(sampleResponse);
+
+        mockMvc.perform(post("/api/trips/1/places")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "googlePlaceId": "ChIJxxx",
+                                  "name": "오사카 가이유칸",
+                                  "latitude": 34.6545,
+                                  "longitude": 135.4289,
+                                  "placeType": "point_of_interest",
+                                  "placeTypes": ["point_of_interest", "aquarium"]
+                                }
+                                """))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("t10 장소 카테고리를 변경하면 변경된 장소 정보를 반환한다")
+    void t10_updateCategoryReturnsUpdatedPlace() throws Exception {
+        given(tripPlaceService.updateCategory(1L, 10L, 3L)).willReturn(sampleResponse);
+
+        mockMvc.perform(put("/api/trips/1/places/10/category")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryId\":3}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tripPlaceId").value(10));
     }
 
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     CalendarDaysIcon,
     HistoryIcon,
@@ -17,6 +17,9 @@ import {
     getPlaceComments,
     addPlaceComment,
     deletePlaceComment,
+    getPlaceCategories,
+    updateTripPlaceCategory,
+    type PlaceCategoryInfo,
 } from '@/entities/trip'
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -90,7 +93,17 @@ export function RoomDetailPanel({
         (state) => state.loadNotifications,
     )
     const [placeError, setPlaceError] = useState<string | null>(null)
+    const [categoryError, setCategoryError] = useState<string | null>(null)
     const [dateAvailabilityDirty, setDateAvailabilityDirty] = useState(false)
+    const [categoryState, setCategoryState] = useState<{
+        tripId: number
+        items: PlaceCategoryInfo[]
+        loading: boolean
+    }>({ tripId, items: [], loading: true })
+    const categories =
+        categoryState.tripId === tripId ? categoryState.items : []
+    const categoriesLoading =
+        categoryState.tripId !== tripId || categoryState.loading
 
     const canWrite = canManage
     const canPlanWrite =
@@ -98,6 +111,30 @@ export function RoomDetailPanel({
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const { setComments, addComment, removeComment } = useCommentStore()
+
+    useEffect(() => {
+        const controller = new AbortController()
+        getPlaceCategories(tripId, controller.signal)
+            .then((nextCategories) => {
+                setCategoryState({
+                    tripId,
+                    items: nextCategories,
+                    loading: false,
+                })
+                setCategoryError(null)
+            })
+            .catch((error: unknown) => {
+                if (controller.signal.aborted) return
+                setCategoryState({ tripId, items: [], loading: false })
+                setCategoryError(
+                    getApiErrorMessage(
+                        error,
+                        '장소 카테고리를 불러오지 못했습니다.',
+                    ),
+                )
+            })
+        return () => controller.abort()
+    }, [tripId])
 
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
@@ -262,6 +299,34 @@ export function RoomDetailPanel({
         }
     }
 
+    async function handleCategoryChange(placeId: string, categoryId: number) {
+        setPlaceError(null)
+        try {
+            const updated = await updateTripPlaceCategory(
+                tripId,
+                Number(placeId),
+                categoryId,
+            )
+            const mapped = fromApiToPlace(updated, room.id)
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                category: mapped.category,
+                categoryId: mapped.categoryId,
+                categoryName: mapped.categoryName,
+                categoryColor: mapped.categoryColor,
+                categoryIcon: mapped.categoryIcon,
+            }))
+            refreshCollaborationData()
+        } catch (error) {
+            setPlaceError(
+                getApiErrorMessage(
+                    error,
+                    '장소 카테고리를 변경하지 못했습니다.',
+                ),
+            )
+        }
+    }
+
     function focusPlace(placeId: string) {
         setMode('plan')
         setPlanTab('places')
@@ -372,12 +437,12 @@ export function RoomDetailPanel({
                 <>
                     <div className="border-b border-slate-100">
                         {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
-                        {(loadError || placeError) && (
+                        {(loadError || categoryError || placeError) && (
                             <p
                                 role="alert"
                                 className="mx-3 mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600"
                             >
-                                {placeError ?? loadError}
+                                {placeError ?? categoryError ?? loadError}
                             </p>
                         )}
                     </div>
@@ -420,6 +485,14 @@ export function RoomDetailPanel({
                                     }}
                                     onOpenComments={() =>
                                         void openCommentSheet(place.id)
+                                    }
+                                    categories={categories}
+                                    categoriesLoading={categoriesLoading}
+                                    onCategoryChange={(categoryId) =>
+                                        handleCategoryChange(
+                                            place.id,
+                                            categoryId,
+                                        )
                                     }
                                 />
                             ))

@@ -6,9 +6,9 @@ import {
     ThumbsUpIcon,
     Trash2Icon,
 } from 'lucide-react'
-import { CATEGORY_META, Place } from '@/entities/trip'
+import { CategoryIcon, Place, type PlaceCategoryInfo } from '@/entities/trip'
 import { useCurrentUserStore } from '@/shared/model'
-import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
+import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
 
 type Props = {
     place: Place
@@ -19,6 +19,9 @@ type Props = {
     onVote: (value: 'up' | 'down') => Promise<void>
     onDelete: () => void
     onOpenComments: () => void
+    categories: PlaceCategoryInfo[]
+    categoriesLoading: boolean
+    onCategoryChange: (categoryId: number) => Promise<void>
 }
 
 export function PlaceCard({
@@ -30,8 +33,10 @@ export function PlaceCard({
     onVote,
     onDelete,
     onOpenComments,
+    categories,
+    categoriesLoading,
+    onCategoryChange,
 }: Props) {
-    const meta = CATEGORY_META[place.category]
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isMe = place.addedBy === String(currentUser?.id)
     const adderName = isMe ? (currentUser?.nickname ?? '나') : '멤버'
@@ -46,6 +51,27 @@ export function PlaceCard({
         ? Math.round((vote.agreeCount / vote.responseCount) * 100)
         : 0
     const [submittingVote, setSubmittingVote] = useState(false)
+    const [changingCategory, setChangingCategory] = useState(false)
+    const categoryOptions =
+        categories.length > 0
+            ? categories.map((category) => ({
+                  value: String(category.categoryId),
+                  label: category.name,
+                  leading: (
+                      <CategoryIcon icon={category.markerIcon} size={12} />
+                  ),
+              }))
+            : place.categoryId != null
+              ? [
+                    {
+                        value: String(place.categoryId),
+                        label: place.categoryName,
+                        leading: (
+                            <CategoryIcon icon={place.categoryIcon} size={12} />
+                        ),
+                    },
+                ]
+              : []
 
     async function submitVote(action: () => Promise<void>) {
         setSubmittingVote(true)
@@ -79,12 +105,51 @@ export function PlaceCard({
                                 {place.address}
                             </p>
                         </div>
-                        <span
-                            className="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold text-white"
-                            style={{ backgroundColor: meta.color }}
-                        >
-                            {place.markerEmoji ?? meta.emoji} {meta.label}
-                        </span>
+                        {canWrite ? (
+                            <div
+                                className="shrink-0 rounded-full text-white"
+                                style={{
+                                    backgroundColor: place.categoryColor,
+                                }}
+                                onClick={(event) => event.stopPropagation()}
+                            >
+                                <Select
+                                    aria-label={`${place.name} 카테고리`}
+                                    value={String(place.categoryId ?? '')}
+                                    disabled={
+                                        changingCategory ||
+                                        categories.length === 0
+                                    }
+                                    loading={
+                                        changingCategory || categoriesLoading
+                                    }
+                                    onChange={(value) => {
+                                        setChangingCategory(true)
+                                        void onCategoryChange(
+                                            Number(value),
+                                        ).finally(() =>
+                                            setChangingCategory(false),
+                                        )
+                                    }}
+                                    className="w-32"
+                                    options={categoryOptions}
+                                />
+                            </div>
+                        ) : (
+                            <span
+                                className="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold text-white"
+                                style={{
+                                    backgroundColor: place.categoryColor,
+                                }}
+                            >
+                                <CategoryIcon
+                                    icon={place.categoryIcon}
+                                    size={12}
+                                    className="inline-block"
+                                />{' '}
+                                {place.categoryName}
+                            </span>
+                        )}
                     </div>
                     {voteOpen ? (
                         <span className="mt-2 inline-flex rounded-full bg-orange-50 px-2 py-1 text-[10px] font-extrabold text-orange-600">
@@ -173,11 +238,7 @@ export function PlaceCard({
                     )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <Avatar
-                        name={adderName}
-                        color={adderColor}
-                        size={20}
-                    />
+                    <Avatar name={adderName} color={adderColor} size={20} />
                     <span className="text-[11px] text-slate-400">
                         {adderName} 등록
                     </span>

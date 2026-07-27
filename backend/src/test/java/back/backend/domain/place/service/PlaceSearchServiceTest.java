@@ -175,4 +175,47 @@ class PlaceSearchServiceTest {
         assertThat(result).isEmpty();
         refererServer.verify();
     }
+
+    @Test
+    @DisplayName("t8 도시 유형은 여행 장소 검색 결과에서 제외한다")
+    void t8_localityIsExcludedFromSearchResults() {
+        String responseJson = """
+                {"places":[{
+                  "id":"ChIJcity",
+                  "displayName":{"text":"오사카시"},
+                  "location":{"latitude":34.6937,"longitude":135.5023},
+                  "primaryType":"locality",
+                  "types":["locality","political"]
+                }]}
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        assertThat(service.search("오사카시")).isEmpty();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t9 검색 결과에 백엔드가 판별한 추천 카테고리를 포함한다")
+    void t9_searchResultContainsRecommendedCategory() {
+        String responseJson = """
+                {"places":[{
+                  "id":"ChIJcastle",
+                  "displayName":{"text":"오사카 성"},
+                  "location":{"latitude":34.6873,"longitude":135.5262},
+                  "primaryType":"castle",
+                  "types":["castle","tourist_attraction"]
+                }]}
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        PlaceSearchResponse result = service.search("오사카 성").get(0);
+
+        assertThat(result.recommendedCategoryType()).isEqualTo(
+                back.backend.domain.place.entity.PlaceCategoryType.ATTRACTION
+        );
+        assertThat(result.placeTypes()).containsExactly("castle", "tourist_attraction");
+        server.verify();
+    }
 }

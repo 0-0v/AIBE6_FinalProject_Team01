@@ -2,6 +2,7 @@ package back.backend.domain.place.repository;
 
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
+import back.backend.domain.place.entity.PlaceCategory;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -15,6 +16,7 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, Long> {
     @Query("""
             SELECT tp FROM TripPlace tp
             JOIN FETCH tp.place
+            LEFT JOIN FETCH tp.category
             WHERE tp.tripId = :tripId
             ORDER BY tp.id ASC
             """)
@@ -23,6 +25,7 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, Long> {
     @Query("""
             SELECT tp FROM TripPlace tp
             JOIN FETCH tp.place
+            LEFT JOIN FETCH tp.category
             WHERE tp.tripId = :tripId AND tp.status = :status
             ORDER BY tp.id ASC
             """)
@@ -32,6 +35,7 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, Long> {
     );
     Optional<TripPlace> findByTripIdAndPlaceId(Long tripId, Long placeId);
     Optional<TripPlace> findByIdAndTripId(Long id, Long tripId);
+    List<TripPlace> findAllByTripIdAndCategory(Long tripId, PlaceCategory category);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tp FROM TripPlace tp JOIN FETCH tp.place WHERE tp.id = :id AND tp.tripId = :tripId")
     Optional<TripPlace> findByIdAndTripIdForUpdate(

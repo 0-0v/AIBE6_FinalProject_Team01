@@ -12,7 +12,10 @@ import {
     ClockIcon,
     BookOpenIcon,
 } from 'lucide-react'
-import { resolvePlacePresentation } from '@/entities/trip'
+import {
+    CategoryIcon,
+    resolvePlaceCategoryPresentation,
+} from '@/entities/trip'
 import { searchPlaces } from '../api/placeApi'
 import type { PlaceSearchResult } from '../model/types'
 import { resolveGooglePlacePhotoUrl } from '@/shared/api/client'
@@ -27,6 +30,7 @@ export function PlaceSearch({ onAdd }: Props) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [added, setAdded] = useState<string[]>([])
+    const [adding, setAdding] = useState<string[]>([])
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const requestId = useRef(0)
 
@@ -120,10 +124,13 @@ export function PlaceSearch({ onAdd }: Props) {
                             !error &&
                             results.map((r) => {
                                 const isAdded = added.includes(r.googlePlaceId)
-                                const presentation = resolvePlacePresentation(
-                                    r.name,
-                                    r.placeType,
+                                const isAdding = adding.includes(
+                                    r.googlePlaceId,
                                 )
+                                const presentation =
+                                    resolvePlaceCategoryPresentation(
+                                        r.recommendedCategoryType,
+                                    )
                                 return (
                                     <div
                                         key={r.googlePlaceId}
@@ -132,8 +139,21 @@ export function PlaceSearch({ onAdd }: Props) {
                                         <Tooltip.Root>
                                             <Tooltip.Trigger asChild>
                                                 <div className="flex min-w-0 flex-1 cursor-default items-center gap-3">
-                                                    <span className="text-lg">
-                                                        {presentation.emoji}
+                                                    <span
+                                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                                                        style={{
+                                                            backgroundColor:
+                                                                presentation.color +
+                                                                '18',
+                                                            color: presentation.color,
+                                                        }}
+                                                    >
+                                                        <CategoryIcon
+                                                            icon={
+                                                                presentation.icon
+                                                            }
+                                                            size={16}
+                                                        />
                                                     </span>
                                                     <div className="min-w-0 flex-1">
                                                         <div className="truncate text-sm font-medium">
@@ -366,26 +386,47 @@ export function PlaceSearch({ onAdd }: Props) {
                                             </Tooltip.Portal>
                                         </Tooltip.Root>
                                         <button
-                                            disabled={isAdded}
+                                            disabled={isAdded || isAdding}
                                             onClick={async () => {
+                                                if (isAdded || isAdding) return
+                                                setAdding((prev) => [
+                                                    ...prev,
+                                                    r.googlePlaceId,
+                                                ])
                                                 try {
                                                     await onAdd(r)
-                                                    setAdded((prev) => [
-                                                        ...prev,
-                                                        r.googlePlaceId,
-                                                    ])
+                                                    setAdded((prev) =>
+                                                        prev.includes(
+                                                            r.googlePlaceId,
+                                                        )
+                                                            ? prev
+                                                            : [
+                                                                  ...prev,
+                                                                  r.googlePlaceId,
+                                                              ],
+                                                    )
                                                 } catch {
                                                     // 호출부에서 사용자 오류 UI를 처리한다.
+                                                } finally {
+                                                    setAdding((prev) =>
+                                                        prev.filter(
+                                                            (placeId) =>
+                                                                placeId !==
+                                                                r.googlePlaceId,
+                                                        ),
+                                                    )
                                                 }
                                             }}
                                             className={`shrink-0 flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-                                                isAdded
+                                                isAdded || isAdding
                                                     ? 'bg-slate-100 text-slate-400'
                                                     : 'bg-brand text-white hover:bg-brand-700'
                                             }`}
                                         >
                                             {isAdded ? (
                                                 '추가됨'
+                                            ) : isAdding ? (
+                                                '추가 중...'
                                             ) : (
                                                 <>
                                                     <PlusIcon size={13} />{' '}
