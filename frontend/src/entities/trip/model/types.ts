@@ -147,6 +147,7 @@ export type RoutePlanItem = {
     endTime: string | null
     transportMinutes: number | null
     transportMeters: number | null
+    transportMode: string | null
     reason: string
 }
 

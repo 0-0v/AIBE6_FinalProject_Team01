@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import {
     ArrowDownIcon,
+    BusIcon,
+    CarIcon,
     CheckIcon,
+    FootprintsIcon,
     LoaderCircleIcon,
     MapPinnedIcon,
     RotateCcwIcon,
@@ -23,6 +26,13 @@ type Props = {
     tripId: number
     onClose: () => void
     onApplied: (days: ItineraryDay[]) => void
+}
+
+function TransportModeIcon({ mode }: { mode: string | null }) {
+    if (mode === '도보') return <FootprintsIcon size={10} />
+    if (mode === '대중교통') return <BusIcon size={10} />
+    if (mode === '자동차') return <CarIcon size={10} />
+    return null
 }
 
 function formatDistance(meters: number): string {
@@ -93,7 +103,9 @@ function RoutePlanView({ plan }: { plan: RoutePlanPreview }) {
                                 {index < day.items.length - 1 && (
                                     <div className="flex items-center gap-1 py-1 pl-3 text-[10px] text-slate-400">
                                         <ArrowDownIcon size={11} />
-                                        이동 {item.transportMinutes}분 ·{' '}
+                                        <TransportModeIcon mode={item.transportMode} />
+                                        {item.transportMode ?? '이동'}{' '}
+                                        {item.transportMinutes}분 ·{' '}
                                         {formatDistance(item.transportMeters ?? 0)}
                                     </div>
                                 )}
@@ -219,7 +231,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                 {options.length > 0 && !loading && (
                     <div className="space-y-3">
                         {/* 경로 선택 탭 */}
-                        <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+                        <div className="flex gap-1 rounded-xl bg-slate-100 p-1 overflow-x-auto scrollbar-hide">
                             {options.map((opt, i) => (
                                 <button
                                     key={i}
@@ -228,7 +240,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                                         setSelectedIndex(i)
                                         setApplied(false)
                                     }}
-                                    className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition ${
+                                    className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition whitespace-nowrap ${
                                         selectedIndex === i
                                             ? 'bg-white text-slate-800 shadow-sm'
                                             : 'text-slate-500 hover:text-slate-700'

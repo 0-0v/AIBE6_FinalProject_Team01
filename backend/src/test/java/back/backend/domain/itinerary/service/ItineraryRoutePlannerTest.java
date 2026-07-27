@@ -16,12 +16,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.ObjectMapper;
+import java.util.Optional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +32,8 @@ class ItineraryRoutePlannerTest {
 
     @Mock
     private GeminiClient geminiClient;
+    @Mock
+    private GoogleDirectionsClient directionsClient;
 
     private ItineraryRoutePlanner planner;
 
@@ -37,7 +41,11 @@ class ItineraryRoutePlannerTest {
     void setUp() {
         // Gemini 미설정 상태로 휴리스틱 폴백 테스트
         when(geminiClient.isConfigured()).thenReturn(false);
-        planner = new ItineraryRoutePlanner(geminiClient, new ObjectMapper());
+        // Directions API 미설정 → Haversine 폴백
+        when(directionsClient.getRouteInfo(
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyString()))
+                .thenReturn(Optional.empty());
+        planner = new ItineraryRoutePlanner(geminiClient, directionsClient, new ObjectMapper());
     }
 
     @Test

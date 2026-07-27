@@ -41,6 +41,7 @@ public class ItineraryRoutePlanner {
     );
 
     private final GeminiClient geminiClient;
+    private final GoogleDirectionsClient directionsClient;
     private final ObjectMapper objectMapper;
 
     /**
@@ -182,6 +183,11 @@ public class ItineraryRoutePlanner {
                 6. reason은 한국어 15자 이내로 작성하세요.
                 7. startTime과 endTime은 "HH:mm" 형식으로 작성하세요.
                 8. 각 경로는 장소 배치 순서나 날짜 구성이 서로 달라야 합니다.
+                9. transportMode는 다음 장소로 이동하는 수단입니다. 직선 거리 기준으로 판단하세요.
+                   - 500m 미만: 도보
+                   - 500m 이상 ~ 5km 미만: 대중교통
+                   - 5km 이상: 자동차
+                   마지막 장소는 transportMode를 null로 설정하세요.
 
                 반드시 아래 JSON 형식만 출력하세요:
                 %s
@@ -206,6 +212,7 @@ public class ItineraryRoutePlanner {
                                   "id": <장소 id 숫자>,
                                   "startTime": "09:00",
                                   "endTime": "10:30",
+                                  "transportMode": "도보|대중교통|자동차 중 하나",
                                   "reason": "방문 이유"
                                 }
                               ]
@@ -345,14 +352,14 @@ public class ItineraryRoutePlanner {
                         ? placeById.get(geminiPlaces.get(j + 1).id())
                         : null;
 
-                Integer distMeters = next != null
-                        ? (int) Math.round(distanceMeters(current, next))
-                        : null;
-                Integer transportMins = distMeters != null
-                        ? estimateTransportMinutes(distMeters)
-                        : null;
-
-                if (distMeters != null) dayDistanceMeters += distMeters;
+                RouteResult route = null;
+                if (next != null) {
+                    String modeHint = gp.transportMode() != null
+                            ? gp.transportMode()
+                            : inferTransportMode((int) Math.round(distanceMeters(current, next)));
+                    route = resolveRoute(current, next, modeHint);
+                    dayDistanceMeters += route.distanceMeters();
+                }
 
                 items.add(new RoutePlanItemResponse(
                         current.getId(),
@@ -361,8 +368,9 @@ public class ItineraryRoutePlanner {
                         current.getCategory().getMarkerColor(),
                         gp.startTime(),
                         gp.endTime(),
-                        transportMins,
-                        distMeters,
+                        route != null ? route.durationMinutes() : null,
+                        route != null ? route.distanceMeters() : null,
+                        route != null ? route.transportMode() : null,
                         gp.reason()
                 ));
             }
@@ -437,12 +445,11 @@ public class ItineraryRoutePlanner {
             int endMinutes = cursorMinutes + DEFAULT_STAY_MINUTES;
             boolean fitsInDay = endMinutes < MINUTES_PER_DAY;
 
-            Integer distanceMeters = next == null
-                    ? null
-                    : (int) Math.round(distanceMeters(current, next));
-            Integer transportMinutes = distanceMeters == null
-                    ? null
-                    : estimateTransportMinutes(distanceMeters);
+            RouteResult route = null;
+            if (next != null) {
+                int haversineMeters = (int) Math.round(distanceMeters(current, next));
+                route = resolveRoute(current, next, inferTransportMode(haversineMeters));
+            }
 
             items.add(new RoutePlanItemResponse(
                     current.getId(),
@@ -451,8 +458,9 @@ public class ItineraryRoutePlanner {
                     current.getCategory().getMarkerColor(),
                     fitsInDay ? formatMinutes(cursorMinutes) : null,
                     fitsInDay ? formatMinutes(endMinutes) : null,
-                    transportMinutes,
-                    distanceMeters,
+                    route != null ? route.durationMinutes() : null,
+                    route != null ? route.distanceMeters() : null,
+                    route != null ? route.transportMode() : null,
                     !fitsInDay
                             ? "하루 일정이 길어 방문 시간은 직접 조정해 주세요."
                             : index == 0
@@ -460,10 +468,10 @@ public class ItineraryRoutePlanner {
                             : "이전 장소와 가까워 이동 부담이 적어요."
             ));
 
-            if (distanceMeters != null) {
-                totalDistanceMeters += distanceMeters;
+            if (route != null) {
+                totalDistanceMeters += route.distanceMeters();
                 if (fitsInDay) {
-                    cursorMinutes = endMinutes + transportMinutes;
+                    cursorMinutes = endMinutes + route.durationMinutes();
                 }
             }
         }
@@ -482,6 +490,41 @@ public class ItineraryRoutePlanner {
         int remainder = placeCount % dayCount;
         return base + (dayIndex < remainder ? 1 : 0);
     }
+
+    private String inferTransportMode(int distanceMeters) {
+        if (distanceMeters < 500) return "도보";
+        if (distanceMeters < 5_000) return "대중교통";
+        return "자동차";
+    }
+
+    private static String toDirectionsMode(String transportMode) {
+        return switch (transportMode) {
+            case "도보" -> "walking";
+            case "대중교통" -> "transit";
+            default -> "driving";
+        };
+    }
+
+    /**
+     * Directions API로 실제 거리/시간 조회. 실패 시 Haversine 폴백.
+     */
+    private RouteResult resolveRoute(TripPlace from, TripPlace to, String transportMode) {
+        double fromLat = from.getPlace().getLatitude().doubleValue();
+        double fromLng = from.getPlace().getLongitude().doubleValue();
+        double toLat   = to.getPlace().getLatitude().doubleValue();
+        double toLng   = to.getPlace().getLongitude().doubleValue();
+
+        return directionsClient
+                .getRouteInfo(fromLat, fromLng, toLat, toLng, toDirectionsMode(transportMode))
+                .map(info -> new RouteResult(info.distanceMeters(), info.durationMinutes(), transportMode))
+                .orElseGet(() -> {
+                    int haversineMeters = (int) Math.round(distanceMeters(from, to));
+                    String mode = inferTransportMode(haversineMeters);
+                    return new RouteResult(haversineMeters, estimateTransportMinutes(haversineMeters), mode);
+                });
+    }
+
+    private record RouteResult(int distanceMeters, int durationMinutes, String transportMode) {}
 
     private int estimateTransportMinutes(int distanceMeters) {
         double minutes = distanceMeters / 1000.0 / AVERAGE_SPEED_KMH * 60.0;
@@ -524,6 +567,6 @@ public class ItineraryRoutePlanner {
         record GeminiDay(int dayIndex, List<GeminiPlace> places) {}
 
         @JsonIgnoreProperties(ignoreUnknown = true)
-        record GeminiPlace(long id, String startTime, String endTime, String reason) {}
+        record GeminiPlace(long id, String startTime, String endTime, String transportMode, String reason) {}
     }
 }

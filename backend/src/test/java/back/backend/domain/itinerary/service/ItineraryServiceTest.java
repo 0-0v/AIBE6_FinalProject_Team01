@@ -427,6 +427,7 @@ class ItineraryServiceTest {
                 "10:30",
                 null,
                 null,
+                null,
                 "첫 장소"
         );
         RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
@@ -536,6 +537,7 @@ class ItineraryServiceTest {
                                 "#f97316",
                                 "09:00",
                                 "10:00",
+                                null,
                                 null,
                                 null,
                                 "추천"

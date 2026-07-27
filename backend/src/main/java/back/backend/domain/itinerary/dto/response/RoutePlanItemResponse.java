@@ -12,6 +12,7 @@ public record RoutePlanItemResponse(
         String endTime,
         @PositiveOrZero Integer transportMinutes,
         @PositiveOrZero Integer transportMeters,
+        String transportMode,
         String reason
 ) {
 }
