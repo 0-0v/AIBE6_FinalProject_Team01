@@ -39,13 +39,14 @@ public class TripPlaceService {
     private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
     private final PlaceCategoryService categoryService;
+    private final PlacePersistenceService placePersistenceService;
     private final CollaborationEventService collaborationEventService;
 
     @Transactional
     public TripPlaceResponse addPlace(Long tripId, AddTripPlaceRequest request) {
         Long memberId = accessChecker.requireEdit(tripId);
         Place place = placeRepository.findByGooglePlaceId(request.googlePlaceId())
-                .orElseGet(() -> placeRepository.save(Place.builder()
+                .orElseGet(() -> placePersistenceService.findOrCreate(Place.builder()
                         .googlePlaceId(request.googlePlaceId())
                         .name(request.name())
                         .address(request.address())

@@ -67,6 +67,9 @@ class TripPlaceServiceTest {
     @Mock
     private PlaceCategoryService categoryService;
 
+    @Mock
+    private PlacePersistenceService placePersistenceService;
+
     @InjectMocks
     private TripPlaceService tripPlaceService;
 
@@ -121,7 +124,7 @@ class TripPlaceServiceTest {
                 33.3065, 126.2897, "tourist_attraction", null, List.of());
 
         given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.empty());
-        given(placeRepository.save(any(Place.class))).willReturn(savedPlace);
+        given(placePersistenceService.findOrCreate(any(Place.class))).willReturn(savedPlace);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.empty());
         given(tripPlaceRepository.saveAndFlush(any(TripPlace.class))).willReturn(savedTripPlace);
@@ -131,7 +134,7 @@ class TripPlaceServiceTest {
         assertThat(result.googlePlaceId()).isEqualTo("ChIJxxx");
         assertThat(result.name()).isEqualTo("오설록 티 뮤지엄");
         assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
-        then(placeRepository).should().save(any(Place.class));
+        then(placePersistenceService).should().findOrCreate(any(Place.class));
         then(tripPlaceRepository).should().saveAndFlush(any(TripPlace.class));
         then(collaborationEventService).should().record(
                 org.mockito.ArgumentMatchers.eq(1L),
@@ -160,7 +163,7 @@ class TripPlaceServiceTest {
 
         tripPlaceService.addPlace(1L, request);
 
-        then(placeRepository).should(never()).save(any(Place.class));
+        then(placePersistenceService).shouldHaveNoInteractions();
         then(tripPlaceRepository).should().saveAndFlush(any(TripPlace.class));
     }
 
