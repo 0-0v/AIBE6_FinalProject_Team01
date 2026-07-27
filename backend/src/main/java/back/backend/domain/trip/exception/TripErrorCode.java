@@ -16,7 +16,11 @@ public enum TripErrorCode implements ErrorCode {
             "가능 날짜는 2000년부터 2100년 사이에서 최대 366개까지 선택할 수 있습니다."
     ),
     DATE_PROPOSAL_NOT_FOUND(HttpStatus.NOT_FOUND, "TRIP_DATE_PROPOSAL_404", "날짜 제안을 찾을 수 없습니다."),
-    DATE_PROPOSAL_CLOSED(HttpStatus.CONFLICT, "TRIP_DATE_PROPOSAL_409", "이미 종료된 날짜 제안입니다.");
+    DATE_PROPOSAL_CLOSED(HttpStatus.CONFLICT, "TRIP_DATE_PROPOSAL_409", "이미 종료된 날짜 제안입니다."),
+    EMPTY_COVER_IMAGE(HttpStatus.BAD_REQUEST, "TRIP_COVER_400_1", "여행방 이미지를 선택해 주세요."),
+    INVALID_COVER_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "TRIP_COVER_400_2", "JPG, PNG, WEBP 이미지만 등록할 수 있습니다."),
+    COVER_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "TRIP_COVER_400_3", "여행방 이미지는 10MB 이하여야 합니다."),
+    COVER_IMAGE_STORAGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "TRIP_COVER_500_1", "여행방 이미지 저장에 실패했습니다.");
 
     private final HttpStatus status;
     private final String code;

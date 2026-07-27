@@ -18,7 +18,11 @@ import {
     type ExpenseResponse,
     type SettlementSummary,
 } from '@/features/manage-expense'
-import { useTripStore, type TripResponse } from '@/features/manage-trip'
+import {
+    CreateTripModal,
+    useTripStore,
+    type TripResponse,
+} from '@/features/manage-trip'
 import { NotificationPanel } from '@/features/manage-notification'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { resolveMediaUrl } from '@/shared/api/client'
@@ -80,6 +84,7 @@ export function Home() {
     const { logs, loadActivityLogs, resetActivityLogs } = useActivityLogStore()
     const [tasks, setTasks] = useState(initialTasks)
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
+    const [createTripOpen, setCreateTripOpen] = useState(false)
     const [placeCount, setPlaceCount] = useState(0)
     const [pendingVoteCount, setPendingVoteCount] = useState(0)
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
@@ -244,7 +249,7 @@ export function Home() {
                         </button>
                     </div>
                     <button
-                        onClick={() => navigate('/app/room')}
+                        onClick={() => setCreateTripOpen(true)}
                         className="flamingo-gradient flamingo-glow hidden items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 sm:flex"
                     >
                         <PlusIcon size={16} /> 새 여행방
@@ -754,6 +759,15 @@ export function Home() {
                         </div>
                     </aside>
                 </main>
+            )}
+            {createTripOpen && (
+                <CreateTripModal
+                    onClose={() => setCreateTripOpen(false)}
+                    onCreated={() => {
+                        setCreateTripOpen(false)
+                        void loadTrips()
+                    }}
+                />
             )}
         </div>
     )

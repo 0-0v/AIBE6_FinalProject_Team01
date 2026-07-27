@@ -70,6 +70,17 @@ export async function updateTrip(id: number, request: TripRequest) {
     return response.data
 }
 
+export async function uploadTripCoverImage(id: number, file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.postForm<ApiResponse<TripResponse>>(
+        `/api/trips/${id}/cover-image`,
+        formData,
+        { headers: authHeaders() },
+    )
+    return response.data
+}
+
 export async function deleteTrip(id: number) {
     await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}`, {
         headers: authHeaders(),

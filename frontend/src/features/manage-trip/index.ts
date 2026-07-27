@@ -2,6 +2,7 @@ export { useTripStore } from './model/trip-store'
 export {
     createTrip,
     updateTrip,
+    uploadTripCoverImage,
     deleteTrip,
     completeTrip,
     createTripInvitation,
