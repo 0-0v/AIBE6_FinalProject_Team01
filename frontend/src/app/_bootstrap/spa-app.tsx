@@ -23,12 +23,46 @@ import { Landing } from '@/views/landing'
 import { restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { useCurrentUserStore } from '@/shared/model'
+import { useNotificationStore } from '@/features/manage-notification'
 
 function AppShell() {
     const location = useLocation()
     const isRoom = location.pathname.startsWith('/app/room')
     const isGuestInvite = location.pathname.startsWith('/app/room/invite/')
     const isInitialized = useCurrentUserStore((state) => state.isInitialized)
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const loadNotifications = useNotificationStore(
+        (state) => state.loadNotifications,
+    )
+    const resetNotifications = useNotificationStore(
+        (state) => state.resetNotifications,
+    )
+
+    useEffect(() => {
+        if (!currentUser) {
+            resetNotifications()
+            return
+        }
+
+        const refreshNotifications = () => {
+            if (document.visibilityState === 'visible') {
+                void loadNotifications()
+            }
+        }
+        void loadNotifications()
+        const intervalId = window.setInterval(refreshNotifications, 30_000)
+        window.addEventListener('focus', refreshNotifications)
+        document.addEventListener('visibilitychange', refreshNotifications)
+
+        return () => {
+            window.clearInterval(intervalId)
+            window.removeEventListener('focus', refreshNotifications)
+            document.removeEventListener(
+                'visibilitychange',
+                refreshNotifications,
+            )
+        }
+    }, [currentUser, loadNotifications, resetNotifications])
 
     // 세션 복원(리프레시 토큰 -> 내 정보 조회)이 끝나기 전에 그리면
     // 이전 currentUser 값(게스트 또는 직전 닉네임/사진)이 잠깐 보였다가

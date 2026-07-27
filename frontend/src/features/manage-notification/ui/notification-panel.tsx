@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BellIcon } from 'lucide-react'
 import type { Notification } from '@/entities/notification'
@@ -45,12 +44,6 @@ export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
             navigate(`/app/room/${notification.targetId}`)
         }
     }
-
-    useEffect(() => {
-        if (currentUser) {
-            void loadNotifications()
-        }
-    }, [currentUser, loadNotifications])
 
     return (
         <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
