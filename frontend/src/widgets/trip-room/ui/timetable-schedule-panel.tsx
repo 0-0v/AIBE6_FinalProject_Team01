@@ -195,15 +195,14 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
     const selectedDay = days.find(
         (day) => String(day.id) === effectiveSelectedDayId,
     )
-    const timedItems =
-        selectedDay?.items.filter((i) => i.startTime != null) ?? []
-    const untimedItems =
-        selectedDay?.items.filter((i) => i.startTime == null) ?? []
+    const timedItems = selectedDay?.items.filter((i) => !!i.startTime) ?? []
+    const untimedItems = selectedDay?.items.filter((i) => !i.startTime) ?? []
 
     const scheduledTripPlaceIds = new Set(
         days
             .flatMap((d) => d.items.map((i) => i.tripPlaceId))
-            .filter((id): id is string => id != null),
+            .filter((id) => id != null)
+            .map(String),
     )
     const unscheduledPlaces = places.filter(
         (p) => p.status === 'saved' && !scheduledTripPlaceIds.has(String(p.id)),

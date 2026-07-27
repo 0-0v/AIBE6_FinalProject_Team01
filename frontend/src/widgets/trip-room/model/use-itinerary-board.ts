@@ -147,7 +147,7 @@ export function useItineraryBoard(
                 await removeItineraryItem(tripId, Number(activeId))
                 setDays(await getItinerary(tripId))
             } catch (error) {
-                await refresh()
+                try { await refresh() } catch { /* refresh 실패 시 내부에서 에러 상태 처리됨 */ }
                 setDndError(
                     getApiErrorMessage(
                         error,
@@ -201,7 +201,7 @@ export function useItineraryBoard(
                 )
                 setDays(await getItinerary(tripId))
             } catch (error) {
-                await refresh()
+                try { await refresh() } catch { /* refresh 실패 시 내부에서 에러 상태 처리됨 */ }
                 setDndError(getApiErrorMessage(error, '이동에 실패했습니다.'))
             }
             return
@@ -235,7 +235,7 @@ export function useItineraryBoard(
             )
             setDays(await getItinerary(tripId))
         } catch (error) {
-            await refresh()
+            try { await refresh() } catch { /* refresh 실패 시 내부에서 에러 상태 처리됨 */ }
             setDndError(getApiErrorMessage(error, '순서 변경에 실패했습니다.'))
         }
     }
