@@ -1,13 +1,18 @@
 package back.backend.domain.travelrecord.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.*;
 
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.member.repository.MemberRepository;
+import back.backend.domain.place.entity.Place;
+import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.travelrecord.dto.TravelRecordCreateRequest;
+import back.backend.domain.travelrecord.entity.TravelRecord;
 import back.backend.domain.travelrecord.exception.TravelRecordErrorCode;
 import back.backend.domain.travelrecord.port.TravelPhotoStorage;
 import back.backend.domain.travelrecord.repository.*;
@@ -86,5 +91,47 @@ class TravelRecordServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(TravelRecordErrorCode.EMPTY_RECORD);
+    }
+
+    @Test
+    @DisplayName("t3 업로드된 사진 URL로 기록을 생성하면 모든 사진을 기록에 연결한다")
+    void t3_createRecordConnectsUploadedPhotoUrls() {
+        Trip trip = Trip.create(
+                1L, "후쿠오카", null, Set.of(), "후쿠오카",
+                LocalDate.of(2026, 7, 23), LocalDate.of(2026, 7, 28)
+        );
+        Place place = mock(Place.class);
+        TripPlace tripPlace = mock(TripPlace.class);
+        TravelRecord savedRecord = mock(TravelRecord.class);
+        given(accessChecker.requireEdit(1L)).willReturn(1L);
+        given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
+        given(tripPlaceRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(java.util.Optional.of(tripPlace));
+        given(tripPlace.getPlace()).willReturn(place);
+        given(place.getId()).willReturn(20L);
+        given(recordRepository.save(any(TravelRecord.class))).willReturn(savedRecord);
+        given(savedRecord.getId()).willReturn(30L);
+        given(savedRecord.getRecordedBy()).willReturn(1L);
+        given(savedRecord.getVisitedAt()).willReturn(LocalDateTime.of(2026, 7, 24, 10, 0));
+
+        List<String> imageUrls = List.of(
+                "/uploads/travel-records/1/first.png",
+                "/uploads/travel-records/1/second.png"
+        );
+        var response = service.create(1L, new TravelRecordCreateRequest(
+                10L, null, LocalDateTime.of(2026, 7, 24, 10, 0),
+                "사진 기록", imageUrls
+        ));
+
+        assertThat(response.imageUrls()).containsExactlyElementsOf(imageUrls);
+        verify(photoRepository).saveAll(argThat(photos -> {
+            var iterator = photos.iterator();
+            int count = 0;
+            while (iterator.hasNext()) {
+                assertThat(iterator.next().getImageUrl()).isIn(imageUrls);
+                count++;
+            }
+            return count == 2;
+        }));
     }
 }

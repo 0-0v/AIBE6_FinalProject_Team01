@@ -21,6 +21,10 @@ import {
     type TravelRecord,
 } from '@/entities/travel-record'
 import { getApiErrorMessage, resolveMediaUrl } from '@/shared/api/client'
+import {
+    mergeTravelRecordPhotoUrls,
+    uploadTravelRecordPhotos,
+} from '../lib/travel-record-photos'
 
 type Props = {
     tripId: number
@@ -34,6 +38,11 @@ type Props = {
 }
 
 const SAMPLE_IMAGES = ['/trip-record-2.png', '/trip-record-1.png']
+type LocalPhoto = {
+    id: string
+    file: File
+    previewUrl: string
+}
 
 export function RecordPanel({
     tripId,
@@ -57,6 +66,9 @@ export function RecordPanel({
     const [memo, setMemo] = useState('')
     const [tripPlaceId, setTripPlaceId] = useState('')
     const [selectedImages, setSelectedImages] = useState<string[]>([])
+    const [selectedLocalPhotos, setSelectedLocalPhotos] = useState<
+        LocalPhoto[]
+    >([])
     const [rating, setRating] = useState(5)
     const [goodPoints, setGoodPoints] = useState('')
     const [improvements, setImprovements] = useState('')
@@ -118,30 +130,55 @@ export function RecordPanel({
     }, [guestView, tripId])
 
     async function addRecord() {
-        if (!tripPlaceId || (!memo.trim() && selectedImages.length === 0)) {
+        if (
+            !tripPlaceId ||
+            (!memo.trim() &&
+                selectedImages.length === 0 &&
+                selectedLocalPhotos.length === 0)
+        ) {
             return
         }
         const selectedDate = days[effectiveSelectedDay - 1]?.date
         if (!selectedDate) return
 
         setIsSaving(true)
+        setIsUploading(selectedLocalPhotos.length > 0)
         setError(null)
         try {
             const now = new Date()
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(
                 now.getMinutes(),
             ).padStart(2, '0')}:00`
+            const uploadedImageUrls = await uploadTravelRecordPhotos(
+                selectedLocalPhotos.map((photo) => photo.file),
+                (file) => uploadTravelPhoto(tripId, file),
+            )
+            if (uploadedImageUrls.length > 0) {
+                selectedLocalPhotos.forEach((photo) =>
+                    URL.revokeObjectURL(photo.previewUrl),
+                )
+                setSelectedLocalPhotos([])
+                setSelectedImages((current) => [
+                    ...current,
+                    ...uploadedImageUrls,
+                ])
+            }
+            const recordImageUrls = mergeTravelRecordPhotoUrls(
+                selectedImages,
+                uploadedImageUrls,
+            )
             const created = await createTravelRecord(tripId, {
                 tripPlaceId: Number(tripPlaceId),
                 itineraryItemId: null,
                 visitedAt: `${selectedDate}T${time}`,
                 memo: memo.trim() || null,
-                imageUrls: selectedImages,
+                imageUrls: recordImageUrls,
             })
             setRecords((current) => [created, ...current])
             setMemo('')
             setTripPlaceId('')
             setSelectedImages([])
+            setSelectedLocalPhotos([])
             setComposerOpen(false)
             onChanged?.()
         } catch (saveError) {
@@ -153,6 +190,7 @@ export function RecordPanel({
             )
         } finally {
             setIsSaving(false)
+            setIsUploading(false)
         }
     }
 
@@ -177,22 +215,28 @@ export function RecordPanel({
         }
     }
 
-    async function uploadPhoto(file: File) {
-        setIsUploading(true)
-        setError(null)
-        try {
-            const imageUrl = await uploadTravelPhoto(tripId, file)
-            setSelectedImages((current) => [...current, imageUrl])
-        } catch (uploadError) {
-            setError(
-                getApiErrorMessage(
-                    uploadError,
-                    '사진을 업로드하지 못했습니다.',
-                ),
-            )
-        } finally {
-            setIsUploading(false)
+    function addLocalPhoto(file: File) {
+        if (selectedImages.length + selectedLocalPhotos.length >= 10) {
+            setError('사진은 기록 하나에 최대 10장까지 등록할 수 있습니다.')
+            return
         }
+        setError(null)
+        setSelectedLocalPhotos((current) => [
+            ...current,
+            {
+                id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+                file,
+                previewUrl: URL.createObjectURL(file),
+            },
+        ])
+    }
+
+    function removeLocalPhoto(photoId: string) {
+        setSelectedLocalPhotos((current) => {
+            const removed = current.find((photo) => photo.id === photoId)
+            if (removed) URL.revokeObjectURL(removed.previewUrl)
+            return current.filter((photo) => photo.id !== photoId)
+        })
     }
 
     if (!startDate || !endDate) {
@@ -354,6 +398,7 @@ export function RecordPanel({
                     tripPlaceId={tripPlaceId}
                     onTripPlaceChange={setTripPlaceId}
                     selectedImages={selectedImages}
+                    selectedLocalPhotos={selectedLocalPhotos}
                     onImageToggle={(image) =>
                         setSelectedImages((current) =>
                             current.includes(image)
@@ -363,7 +408,8 @@ export function RecordPanel({
                     }
                     isSaving={isSaving}
                     isUploading={isUploading}
-                    onFileSelect={(file: File) => void uploadPhoto(file)}
+                    onFileSelect={addLocalPhoto}
+                    onLocalPhotoRemove={removeLocalPhoto}
                     onClose={() => setComposerOpen(false)}
                     onSave={() => void addRecord()}
                 />
@@ -517,10 +563,12 @@ function RecordComposer({
     tripPlaceId,
     onTripPlaceChange,
     selectedImages,
+    selectedLocalPhotos,
     onImageToggle,
     isSaving,
     isUploading,
     onFileSelect,
+    onLocalPhotoRemove,
     onClose,
     onSave,
 }: {
@@ -531,10 +579,12 @@ function RecordComposer({
     tripPlaceId: string
     onTripPlaceChange: (value: string) => void
     selectedImages: string[]
+    selectedLocalPhotos: LocalPhoto[]
     onImageToggle: (image: string) => void
     isSaving: boolean
     isUploading: boolean
     onFileSelect: (file: File) => void
+    onLocalPhotoRemove: (photoId: string) => void
     onClose: () => void
     onSave: () => void
 }) {
@@ -637,6 +687,29 @@ function RecordComposer({
                         }}
                     />
                 </label>
+                {selectedLocalPhotos.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                        {selectedLocalPhotos.map((photo) => (
+                                <button
+                                    key={photo.id}
+                                    onClick={() =>
+                                        onLocalPhotoRemove(photo.id)
+                                    }
+                                    className="relative h-20 overflow-hidden rounded-xl"
+                                    aria-label="업로드한 사진 선택 해제"
+                                >
+                                    <img
+                                        src={photo.previewUrl}
+                                        alt="업로드한 여행 기록 사진"
+                                        className="h-full w-full object-cover"
+                                    />
+                                    <span className="absolute right-1 top-1 rounded-full bg-slate-950/60 p-1 text-white">
+                                        <XIcon size={11} />
+                                    </span>
+                                </button>
+                            ))}
+                    </div>
+                )}
                 {selectedImages.some(
                     (image) => !SAMPLE_IMAGES.includes(image),
                 ) && (
@@ -669,7 +742,9 @@ function RecordComposer({
                         isSaving ||
                         isUploading ||
                         !tripPlaceId ||
-                        (!memo.trim() && selectedImages.length === 0)
+                        (!memo.trim() &&
+                            selectedImages.length === 0 &&
+                            selectedLocalPhotos.length === 0)
                     }
                     onClick={onSave}
                     className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-slate-200"
