@@ -1,7 +1,8 @@
 'use client'
 
-import { ArrowRightIcon, RotateCcwIcon } from 'lucide-react'
+import { RotateCcwIcon } from 'lucide-react'
 import { Select, type SelectOption } from '@/shared/ui'
+import { formatTimeRange } from '../lib/itinerary-time'
 
 const HOUR_OPTIONS: SelectOption[] = [
     { value: '', label: '시간' },
@@ -52,7 +53,7 @@ function getMinuteOptions(currentMinute: string): SelectOption[] {
 function addOneHour(value: string): string {
     const { hour, minute } = parseTime(value)
     if (!hour) return ''
-    if (Number(hour) >= 23) return `23:59`
+    if (Number(hour) >= 23) return '23:59'
     const nextHour = Number(hour) + 1
     return `${String(nextHour).padStart(2, '0')}:${minute || '00'}`
 }
@@ -77,7 +78,9 @@ export function TimeRangeFields({
     return (
         <div className="space-y-1.5">
             <div className="grid grid-cols-[28px_1fr_1fr] items-center gap-1.5">
-                <span className="text-[10px] font-medium text-slate-400">시작</span>
+                <span className="text-[10px] font-medium text-slate-400">
+                    시작
+                </span>
                 <Select
                     value={start.hour}
                     options={HOUR_OPTIONS}
@@ -98,7 +101,9 @@ export function TimeRangeFields({
             </div>
 
             <div className="grid grid-cols-[28px_1fr_1fr] items-center gap-1.5">
-                <span className="text-[10px] font-medium text-slate-400">종료</span>
+                <span className="text-[10px] font-medium text-slate-400">
+                    종료
+                </span>
                 <Select
                     value={end.hour}
                     options={HOUR_OPTIONS}
@@ -124,9 +129,7 @@ export function TimeRangeFields({
 
             <div className="flex items-center justify-between px-0.5">
                 <span className="flex items-center gap-1 text-[10px] text-slate-400">
-                    {startTime || '--:--'}
-                    <ArrowRightIcon size={10} aria-hidden />
-                    {endTime || '--:--'}
+                    {formatTimeRange(startTime, endTime)}
                 </span>
                 {(startTime || endTime) && (
                     <button
