@@ -1,12 +1,15 @@
 package back.backend.domain.itinerary.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.util.List;
 
 @Slf4j
@@ -18,18 +21,49 @@ public class GeminiClient {
     private final String model;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public GeminiClient(
             @Value("${app.integrations.ai.api-key:}") String apiKey,
             @Value("${app.integrations.ai.base-url:https://generativelanguage.googleapis.com}") String baseUrl,
             @Value("${app.integrations.ai.model:gemini-2.0-flash}") String model,
+            @Value("${app.integrations.ai.connect-timeout:3s}") Duration connectTimeout,
+            @Value("${app.integrations.ai.read-timeout:30s}") Duration readTimeout,
+            ObjectMapper objectMapper
+    ) {
+        this(
+                createRestClientBuilder(connectTimeout, readTimeout),
+                apiKey,
+                baseUrl,
+                model,
+                objectMapper
+        );
+    }
+
+    GeminiClient(
+            RestClient.Builder builder,
+            String apiKey,
+            String baseUrl,
+            String model,
             ObjectMapper objectMapper
     ) {
         this.apiKey = apiKey;
         this.model = model;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder()
+        this.restClient = builder
                 .baseUrl(baseUrl)
+                .defaultHeader("X-Goog-Api-Key", apiKey)
                 .build();
+    }
+
+    private static RestClient.Builder createRestClientBuilder(
+            Duration connectTimeout,
+            Duration readTimeout
+    ) {
+        SimpleClientHttpRequestFactory requestFactory =
+                new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
+        return RestClient.builder().requestFactory(requestFactory);
     }
 
     public boolean isConfigured() {
@@ -52,7 +86,7 @@ public class GeminiClient {
             String requestBody = objectMapper.writeValueAsString(request);
 
             GeminiApiResponse response = restClient.post()
-                    .uri("/v1beta/models/{model}:generateContent?key={key}", model, apiKey)
+                    .uri("/v1beta/models/{model}:generateContent", model)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
