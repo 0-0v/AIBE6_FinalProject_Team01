@@ -206,7 +206,12 @@ export function Select({
                 ) : (
                     selected?.leading
                 )}
-                <span className="min-w-0 flex-1 truncate">
+                <span
+                    className={cn(
+                        'min-w-0 flex-1 truncate',
+                        value === '' && 'font-medium text-slate-400',
+                    )}
+                >
                     {selected?.label ?? '선택'}
                 </span>
                 <ChevronDownIcon
