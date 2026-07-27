@@ -6,7 +6,8 @@ import type {
     PlaceStatus,
     PlaceVoteSummary,
 } from '../model/types'
-import { resolvePlacePresentation } from '../model/place-presentation'
+import { resolvePlaceCategoryPresentation } from '../model/place-presentation'
+import type { PlaceCategoryInfo } from './placeCategoryApi'
 
 type TripPlaceResponse = {
     tripPlaceId: number
@@ -17,6 +18,7 @@ type TripPlaceResponse = {
     longitude: number
     placeType: string | null
     photoName: string | null
+    category: PlaceCategoryInfo
     status: 'SAVED' | 'HOLD' | 'REJECTED'
     addedBy: number
     commentCount: number
@@ -30,6 +32,7 @@ type AddTripPlaceBody = {
     longitude: number
     placeType: string | null
     photoName: string | null
+    placeTypes: string[]
 }
 
 export type PlaceVoteSummaryResponse = PlaceVoteSummary & {
@@ -51,9 +54,13 @@ export function apiStatusToPlaceStatus(
 const FALLBACK_IMAGES: Record<PlaceCategory, string> = {
     cafe: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
     nature: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
+    lodging: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     food: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
+    bar: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
     attraction: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     shopping: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
+    activity: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
+    transport: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     other: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
 }
 
@@ -62,7 +69,7 @@ export function fromApiToPlace(
     roomId: string,
     voteSummary?: PlaceVoteSummary,
 ): Place {
-    const presentation = resolvePlacePresentation(tp.name, tp.placeType)
+    const presentation = resolvePlaceCategoryPresentation(tp.category.categoryType)
     const category = presentation.category
     return {
         id: String(tp.tripPlaceId),
@@ -70,7 +77,10 @@ export function fromApiToPlace(
         name: tp.name,
         address: tp.address ?? '',
         category,
-        markerEmoji: presentation.emoji,
+        categoryId: tp.category.categoryId,
+        categoryName: tp.category.name,
+        categoryColor: tp.category.markerColor,
+        categoryIcon: tp.category.markerIcon,
         status: apiStatusToPlaceStatus(tp.status),
         image:
             resolveGooglePlacePhotoUrl(tp.photoName) ??
@@ -82,6 +92,18 @@ export function fromApiToPlace(
         comments: [],
         commentCount: tp.commentCount ?? 0,
     }
+}
+
+export async function updateTripPlaceCategory(
+    tripId: number,
+    tripPlaceId: number,
+    categoryId: number,
+): Promise<TripPlaceResponse> {
+    const response = await apiClient.put<ApiResponse<TripPlaceResponse>>(
+        `/api/trips/${tripId}/places/${tripPlaceId}/category`,
+        { categoryId },
+    )
+    return response.data
 }
 
 export async function getTripPlaceVotes(
@@ -124,7 +146,16 @@ export async function addTripPlace(
 ): Promise<TripPlaceResponse> {
     const res = await apiClient.post<ApiResponse<TripPlaceResponse>>(
         `/api/trips/${tripId}/places`,
-        body,
+        {
+            googlePlaceId: body.googlePlaceId,
+            name: body.name,
+            address: body.address,
+            latitude: body.latitude,
+            longitude: body.longitude,
+            placeType: body.placeType,
+            photoName: body.photoName,
+            placeTypes: body.placeTypes,
+        },
     )
     return res.data
 }

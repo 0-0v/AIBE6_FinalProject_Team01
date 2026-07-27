@@ -14,8 +14,10 @@ import back.backend.domain.place.repository.PlaceRepository;
 import back.backend.domain.place.repository.TripAccessRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.exception.DataIntegrityConstraintMatcher;
 import back.backend.global.security.SecurityContextAccessor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,13 +38,15 @@ public class TripPlaceService {
     private final PlaceCommentRepository placeCommentRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
+    private final PlaceCategoryService categoryService;
+    private final PlacePersistenceService placePersistenceService;
     private final CollaborationEventService collaborationEventService;
 
     @Transactional
     public TripPlaceResponse addPlace(Long tripId, AddTripPlaceRequest request) {
         Long memberId = accessChecker.requireEdit(tripId);
         Place place = placeRepository.findByGooglePlaceId(request.googlePlaceId())
-                .orElseGet(() -> placeRepository.save(Place.builder()
+                .orElseGet(() -> placePersistenceService.findOrCreate(Place.builder()
                         .googlePlaceId(request.googlePlaceId())
                         .name(request.name())
                         .address(request.address())
@@ -64,15 +68,36 @@ public class TripPlaceService {
             return TripPlaceResponse.from(tripPlace);
         }
 
-        TripPlace tripPlace = tripPlaceRepository.save(TripPlace.builder()
-                .tripId(tripId)
-                .place(place)
-                .addedBy(memberId)
-                .status(TripPlaceStatus.SAVED)
-                .build());
+        TripPlace tripPlace;
+        try {
+            tripPlace = tripPlaceRepository.saveAndFlush(TripPlace.builder()
+                    .tripId(tripId)
+                    .place(place)
+                    .category(categoryService.recommend(
+                            tripId,
+                            request.name(),
+                            request.placeType(),
+                            request.placeTypes()
+                    ))
+                    .addedBy(memberId)
+                    .status(TripPlaceStatus.SAVED)
+                    .build());
+        } catch (DataIntegrityViolationException exception) {
+            if (isTripPlaceDuplicate(exception)) {
+                throw new BusinessException(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS);
+            }
+            throw exception;
+        }
 
         recordPlaceAdded(tripId, memberId, tripPlace, request.name());
         return TripPlaceResponse.from(tripPlace);
+    }
+
+    private boolean isTripPlaceDuplicate(Throwable throwable) {
+        return DataIntegrityConstraintMatcher.containsConstraint(
+                throwable,
+                "uk_trip_places_trip_place"
+        );
     }
 
     private void recordPlaceAdded(
@@ -92,6 +117,34 @@ public class TripPlaceService {
                 NotificationType.PLACE,
                 "장소 등록"
         );
+    }
+
+    @Transactional
+    public TripPlaceResponse updateCategory(
+            Long tripId,
+            Long tripPlaceId,
+            Long categoryId
+    ) {
+        Long memberId = accessChecker.requireEdit(tripId);
+        TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
+                .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
+        var category = categoryService.findCategory(tripId, categoryId);
+        tripPlace.updateCategory(category);
+        collaborationEventService.record(
+                tripId,
+                memberId,
+                "TRIP_PLACE_CATEGORY_UPDATED",
+                "TRIP_PLACE",
+                tripPlaceId,
+                tripPlace.getPlace().getName() + " 장소의 카테고리가 변경됐습니다.",
+                Map.of(
+                        "placeName", tripPlace.getPlace().getName(),
+                        "categoryName", category.getName()
+                ),
+                NotificationType.PLACE,
+                "장소 카테고리 변경"
+        );
+        return TripPlaceResponse.from(tripPlace);
     }
 
     public List<TripPlaceResponse> getPlaces(Long tripId, TripPlaceStatus status) {

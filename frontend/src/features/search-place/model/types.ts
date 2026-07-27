@@ -1,3 +1,5 @@
+import type { PlaceCategoryType } from '@/entities/trip'
+
 export type PlaceSearchResult = {
     googlePlaceId: string
     name: string
@@ -5,6 +7,8 @@ export type PlaceSearchResult = {
     latitude: number
     longitude: number
     placeType: string | null
+    placeTypes: string[]
+    recommendedCategoryType: PlaceCategoryType
     photoName: string | null
     rating: number | null
     userRatingCount: number | null

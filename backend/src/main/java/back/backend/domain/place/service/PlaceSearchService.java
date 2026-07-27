@@ -96,6 +96,10 @@ public class PlaceSearchService {
         }
         return response.places().stream()
                 .filter(place -> place.location() != null)
+                .filter(place -> PlaceCategoryClassifier.isSearchable(
+                        place.primaryType(),
+                        place.types()
+                ))
                 .map(this::mapToResponse)
                 .toList();
     }
@@ -107,6 +111,11 @@ public class PlaceSearchService {
         String placeType = StringUtils.hasText(place.primaryType())
                 ? place.primaryType()
                 : firstTypeOrNull(place.types());
+        var recommendedCategoryType = PlaceCategoryClassifier.classify(
+                place.primaryType(),
+                place.types(),
+                name
+        );
         String photoName = resolvePhotoName(place);
 
         Boolean openNow = Optional.ofNullable(place.regularOpeningHours())
@@ -134,6 +143,8 @@ public class PlaceSearchService {
                 latitude,
                 longitude,
                 placeType,
+                place.types() == null ? List.of() : List.copyOf(place.types()),
+                recommendedCategoryType,
                 photoName,
                 place.rating(),
                 place.userRatingCount(),

@@ -1,5 +1,6 @@
 package back.backend.domain.place.dto.response;
 
+import back.backend.domain.place.entity.PlaceCategoryType;
 import java.util.List;
 
 public record PlaceSearchResponse(
@@ -9,6 +10,8 @@ public record PlaceSearchResponse(
         double latitude,
         double longitude,
         String placeType,
+        List<String> placeTypes,
+        PlaceCategoryType recommendedCategoryType,
         String photoName,
         Double rating,
         Integer userRatingCount,

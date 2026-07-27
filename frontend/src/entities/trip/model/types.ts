@@ -1,3 +1,5 @@
+import type { PlaceMarkerIcon } from './place-marker-icon'
+
 export type Role = 'OWNER' | 'EDITOR' | 'VIEWER'
 
 export type Member = {
@@ -8,7 +10,29 @@ export type Member = {
 }
 
 export type PlaceCategory =
-    'cafe' | 'food' | 'attraction' | 'nature' | 'shopping' | 'other'
+    | 'cafe'
+    | 'food'
+    | 'bar'
+    | 'attraction'
+    | 'nature'
+    | 'lodging'
+    | 'shopping'
+    | 'activity'
+    | 'transport'
+    | 'other'
+
+export type PlaceCategoryType =
+    | 'FOOD'
+    | 'CAFE'
+    | 'BAR'
+    | 'ATTRACTION'
+    | 'NATURE'
+    | 'LODGING'
+    | 'SHOPPING'
+    | 'ACTIVITY'
+    | 'TRANSPORT'
+    | 'OTHER'
+    | 'CUSTOM'
 
 export type PlaceStatus = 'saved' | 'hold' | 'rejected'
 
@@ -38,7 +62,10 @@ export type Place = {
     name: string
     address: string
     category: PlaceCategory
-    markerEmoji?: string
+    categoryId: number | null
+    categoryName: string
+    categoryColor: string
+    categoryIcon: PlaceMarkerIcon
     status: PlaceStatus
     image: string
     lat: number
