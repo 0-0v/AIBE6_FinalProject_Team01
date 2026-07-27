@@ -38,7 +38,6 @@ export type TripRequest = {
     destination?: string | null
     startDate?: string | null
     endDate?: string | null
-    visibility?: 'PRIVATE' | 'PUBLIC'
 }
 
 type ApiResponse<T> = { success: boolean; message: string; data: T }

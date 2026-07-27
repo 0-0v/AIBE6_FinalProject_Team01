@@ -111,36 +111,38 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                 <label className="mt-4 block text-sm font-bold">여행 장소<input value={destination} maxLength={100} onChange={(event) => setDestination(event.target.value)} className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal" /></label>
                 <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-sm font-bold">시작일<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal" /></label><label className="text-sm font-bold">종료일<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal" /></label></div>
                 {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
-                <fieldset className="mt-4">
-                    <legend className="text-sm font-bold">여행방 공개 설정</legend>
-                    <p className="mt-1 text-xs text-slate-400">
-                        여행 완료 후에도 공개 여부를 변경할 수 있습니다.
-                    </p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setVisibility('PRIVATE')}
-                            className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
-                                visibility === 'PRIVATE'
-                                    ? 'border-slate-700 bg-slate-800 text-white'
-                                    : 'border-slate-200 bg-white text-slate-500'
-                            }`}
-                        >
-                            비공개
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setVisibility('PUBLIC')}
-                            className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
-                                visibility === 'PUBLIC'
-                                    ? 'border-emerald-600 bg-emerald-600 text-white'
-                                    : 'border-slate-200 bg-white text-slate-500'
-                            }`}
-                        >
-                            공개
-                        </button>
-                    </div>
-                </fieldset>
+                {trip.status === 'COMPLETED' && (
+                    <fieldset className="mt-4">
+                        <legend className="text-sm font-bold">여행방 공개 설정</legend>
+                        <p className="mt-1 text-xs text-slate-400">
+                            완료된 여행방의 공개 여부를 변경할 수 있습니다.
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setVisibility('PRIVATE')}
+                                className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
+                                    visibility === 'PRIVATE'
+                                        ? 'border-slate-700 bg-slate-800 text-white'
+                                        : 'border-slate-200 bg-white text-slate-500'
+                                }`}
+                            >
+                                비공개
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setVisibility('PUBLIC')}
+                                className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
+                                    visibility === 'PUBLIC'
+                                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                                        : 'border-slate-200 bg-white text-slate-500'
+                                }`}
+                            >
+                                공개
+                            </button>
+                        </div>
+                    </fieldset>
+                )}
                 {trip.status === 'COMPLETED' &&
                     visibility === 'PUBLIC' &&
                     trip.visibility === 'PRIVATE' && (

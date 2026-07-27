@@ -96,8 +96,8 @@ class TripServiceTest {
     }
 
     @Test
-    @DisplayName("t5 공개 여행방을 생성하면 요청한 공개 범위를 저장한다")
-    void t5_createTripSavesRequestedVisibility() {
+    @DisplayName("t5 여행방 생성 시 공개 요청이 포함되어도 완료 전에는 비공개로 저장한다")
+    void t5_createTripAlwaysSavesPrivateVisibility() {
         when(memberRepository.existsById(1L)).thenReturn(true);
         when(tripRepository.save(any(Trip.class))).thenAnswer(invocation -> {
             Trip savedTrip = invocation.getArgument(0);
@@ -111,7 +111,7 @@ class TripServiceTest {
 
         var response = tripService.create(1L, request);
 
-        assertThat(response.visibility()).isEqualTo(TripVisibility.PUBLIC);
+        assertThat(response.visibility()).isEqualTo(TripVisibility.PRIVATE);
     }
 
     @Test
@@ -134,6 +134,20 @@ class TripServiceTest {
         assertThat(card.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
         verify(activityLogService).create(any());
         verify(notificationService).create(any());
+    }
+
+    @Test
+    @DisplayName("t7 완료되지 않은 여행방의 공개 범위를 변경하면 예외가 발생한다")
+    void t7_updateVisibilityRejectsTripBeforeCompletion() {
+        Trip trip = trip("제주 여행");
+        when(tripRepository.findByIdAndOwnerIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> tripService.updateVisibility(
+                1L, 10L, new TripVisibilityRequest(TripVisibility.PUBLIC)))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_VISIBILITY_NOT_AVAILABLE));
     }
 
     private TripRequest request(String title) {

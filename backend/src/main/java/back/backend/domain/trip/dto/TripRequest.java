@@ -3,6 +3,7 @@ package back.backend.domain.trip.dto;
 import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TripVisibility;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
@@ -18,13 +19,10 @@ public record TripRequest(
         String destination,
         LocalDate startDate,
         LocalDate endDate,
+        @Schema(hidden = true)
         TripVisibility visibility
 ) {
     public Set<TravelStyle> normalizedTravelStyles() {
         return travelStyles == null ? Set.of() : Set.copyOf(travelStyles);
-    }
-
-    public TripVisibility normalizedVisibility() {
-        return visibility == null ? TripVisibility.PRIVATE : visibility;
     }
 }

@@ -24,7 +24,6 @@ import {
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
-import { updateTripVisibility } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
@@ -337,23 +336,6 @@ export function RoomDetailPanel({
         onSelectPlace(placeId)
     }
 
-    async function toggleVisibility() {
-        const nextVisibility = isPublic ? 'PRIVATE' : 'PUBLIC'
-        try {
-            await updateTripVisibility(tripId, nextVisibility)
-            onTripDatesChanged?.()
-            void loadActivityLogs(tripId)
-            void loadNotifications()
-        } catch (error) {
-            setPlaceError(
-                getApiErrorMessage(
-                    error,
-                    '여행방 공개 설정을 변경하지 못했습니다.',
-                ),
-            )
-        }
-    }
-
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
             <RoomHeader
@@ -362,7 +344,6 @@ export function RoomDetailPanel({
                 isPublic={isPublic}
                 isOwner={isOwner}
                 canWrite={isOwner}
-                onTogglePublic={() => void toggleVisibility()}
                 onInvite={() => setInviteOpen(true)}
                 onBack={onBack}
                 onManage={onManage}

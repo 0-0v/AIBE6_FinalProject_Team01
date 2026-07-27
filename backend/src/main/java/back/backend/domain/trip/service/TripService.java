@@ -93,12 +93,13 @@ public class TripService {
     @Transactional
     public TripResponse updateVisibility(Long memberId, Long tripId, TripVisibilityRequest request) {
         Trip trip = findOwnedTrip(memberId, tripId);
-        trip.changeVisibility(request.visibility());
-        if (trip.getStatus() == TripStatus.COMPLETED) {
-            PlanCard card = planCardRepository.findByTripId(tripId)
-                    .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_CARD_NOT_FOUND));
-            card.changeVisibility(request.visibility());
+        if (trip.getStatus() != TripStatus.COMPLETED) {
+            throw new BusinessException(TripErrorCode.TRIP_VISIBILITY_NOT_AVAILABLE);
         }
+        trip.changeVisibility(request.visibility());
+        PlanCard card = planCardRepository.findByTripId(tripId)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_CARD_NOT_FOUND));
+        card.changeVisibility(request.visibility());
         recordEvent(trip, memberId, "TRIP_VISIBILITY_UPDATED", "여행방 공개 설정을 변경했습니다.");
         return toResponse(trip);
     }
@@ -117,8 +118,7 @@ public class TripService {
     private Trip saveValidTrip(Long memberId, TripRequest request) {
         try {
             return tripRepository.save(Trip.create(memberId, request.title(), request.companionType(),
-                    request.normalizedTravelStyles(), request.destination(), request.startDate(), request.endDate(),
-                    request.normalizedVisibility()));
+                    request.normalizedTravelStyles(), request.destination(), request.startDate(), request.endDate()));
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         }

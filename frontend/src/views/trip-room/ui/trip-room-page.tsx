@@ -1,5 +1,12 @@
 import React, { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { ChevronLeftIcon, ChevronRightIcon, SparklesIcon } from 'lucide-react'
+import {
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    Globe2Icon,
+    LockIcon,
+    Settings2Icon,
+    SparklesIcon,
+} from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
     Place,
@@ -371,6 +378,44 @@ export function TripRoom() {
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                     />
+                    {!inviteCode &&
+                        trip &&
+                        currentUser &&
+                        trip.ownerId === currentUser.id &&
+                        trip.status === 'COMPLETED' && (
+                            <button
+                                type="button"
+                                onClick={() => setManageOpen(true)}
+                                className="absolute left-5 top-5 z-20 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/95 px-4 py-3 text-left shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:shadow-xl"
+                                aria-label="완료된 여행방 공개 설정 열기"
+                            >
+                                <span
+                                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                                        trip.visibility === 'PUBLIC'
+                                            ? 'bg-brand-50 text-brand-700'
+                                            : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                >
+                                    {trip.visibility === 'PUBLIC' ? (
+                                        <Globe2Icon size={18} />
+                                    ) : (
+                                        <LockIcon size={18} />
+                                    )}
+                                </span>
+                                <span>
+                                    <span className="block text-xs font-bold text-slate-400">
+                                        완료 여행방 ·{' '}
+                                        {trip.visibility === 'PUBLIC'
+                                            ? '공개'
+                                            : '비공개'}
+                                    </span>
+                                    <span className="mt-0.5 flex items-center gap-1 text-sm font-extrabold text-slate-800">
+                                        공개 설정 열기
+                                        <Settings2Icon size={14} />
+                                    </span>
+                                </span>
+                            </button>
+                        )}
                     {!inviteCode && !aiOpen && (
                         <button
                             onClick={() => setAiOpen(true)}

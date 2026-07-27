@@ -37,7 +37,6 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
     const [destination, setDestination] = useState('')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
-    const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE')
     const [error, setError] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
@@ -80,7 +79,6 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
                         destination: destination.trim() || null,
                         startDate: startDate || null,
                         endDate: endDate || null,
-                        visibility,
                     })
                 ).id
             setCreatedTripId(tripId)
@@ -110,37 +108,6 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
                     disabled={isSubmitting}
                     onFileChange={setCoverImage}
                 />
-
-                <fieldset className="mt-4">
-                    <legend className="text-sm font-bold">여행방 공개 설정</legend>
-                    <p className="mt-1 text-xs text-slate-400">
-                        공개 여행방은 다른 사용자가 둘러볼 수 있습니다.
-                    </p>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setVisibility('PRIVATE')}
-                            className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
-                                visibility === 'PRIVATE'
-                                    ? 'border-slate-700 bg-slate-800 text-white'
-                                    : 'border-slate-200 bg-white text-slate-500'
-                            }`}
-                        >
-                            비공개
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setVisibility('PUBLIC')}
-                            className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
-                                visibility === 'PUBLIC'
-                                    ? 'border-emerald-600 bg-emerald-600 text-white'
-                                    : 'border-slate-200 bg-white text-slate-500'
-                            }`}
-                        >
-                            공개
-                        </button>
-                    </div>
-                </fieldset>
 
                 <label className="mt-5 block text-sm font-bold">
                     여행방 이름 <span className="text-brand">*</span>
