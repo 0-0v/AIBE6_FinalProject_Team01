@@ -1,4 +1,5 @@
 export { Avatar, DEFAULT_AVATAR_COLOR } from './avatar'
+export { Badge } from './badge'
 export { Button, buttonVariants } from './button'
 export { GlobalModal } from './global-modal'
 export { Select } from './select'
