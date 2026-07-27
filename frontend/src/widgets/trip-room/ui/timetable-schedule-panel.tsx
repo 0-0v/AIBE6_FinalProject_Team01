@@ -1,17 +1,16 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { getItinerary, updateItineraryItem, CategoryIcon } from '@/entities/trip'
+import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
-import { getApiErrorMessage } from '@/shared/api/client'
 import { Badge, Button } from '@/shared/ui'
 import { useItineraryDays } from '../model/use-itinerary-days'
+import { useItineraryItemEditor } from '../model/use-itinerary-item-editor'
 import { TimeRangeFields } from './time-range-fields'
-import { findOverlappingItem } from '../lib/itinerary-time'
 
-const HOUR_HEIGHT = 64   // px per hour
-const START_HOUR = 6     // 06:00
-const END_HOUR = 24      // 24:00
+const HOUR_HEIGHT = 64 // px per hour
+const START_HOUR = 6 // 06:00
+const END_HOUR = 24 // 24:00
 
 function parseTime(t: string): { h: number; m: number } {
     const parts = t.split(':').map(Number)
@@ -64,47 +63,12 @@ function TimetableItemBlock({
     onUpdate,
     dayItems,
 }: BlockProps) {
-    const [editing, setEditing] = useState(false)
-    const [startTime, setStartTime] = useState(item.startTime ?? '')
-    const [endTime, setEndTime] = useState(item.endTime ?? '')
-    const [memo, setMemo] = useState(item.memo ?? '')
-    const [saving, setSaving] = useState(false)
-    const [saveError, setSaveError] = useState<string | null>(null)
-    const [overlapWarning, setOverlapWarning] = useState<string | null>(null)
-
-    async function handleSave(force = false) {
-        const overlappingItem = findOverlappingItem(
-            item.id,
-            startTime,
-            endTime,
-            dayItems,
-        )
-        if (!force && overlappingItem) {
-            setOverlapWarning(
-                `${overlappingItem.placeName ?? '다른 장소'}의 ${
-                    overlappingItem.startTime
-                }~${overlappingItem.endTime} 일정과 시간이 겹칩니다.`,
-            )
-            return
-        }
-        setOverlapWarning(null)
-        setSaving(true)
-        setSaveError(null)
-        try {
-            await updateItineraryItem(tripId, Number(item.id), {
-                startTime: startTime || null,
-                endTime: endTime || null,
-                memo: memo || null,
-            })
-            const updated = await getItinerary(tripId)
-            onUpdate(updated)
-            setEditing(false)
-        } catch (err) {
-            setSaveError(getApiErrorMessage(err, '저장에 실패했습니다.'))
-        } finally {
-            setSaving(false)
-        }
-    }
+    const editor = useItineraryItemEditor({
+        tripId,
+        item,
+        dayItems,
+        onUpdated: onUpdate,
+    })
 
     return (
         <div
@@ -114,9 +78,9 @@ function TimetableItemBlock({
                 minHeight: height,
                 backgroundColor: (item.categoryColor ?? '#94a3b8') + '18',
                 borderLeft: `3px solid ${item.categoryColor ?? '#94a3b8'}`,
-                zIndex: editing ? 10 : 1,
+                zIndex: editor.editing ? 10 : 1,
             }}
-            onClick={() => canWrite && !editing && setEditing(true)}
+            onClick={() => canWrite && !editor.editing && editor.beginEditing()}
         >
             <div className="px-2 py-1.5">
                 <p
@@ -130,45 +94,43 @@ function TimetableItemBlock({
                     {item.endTime ? ` ~ ${item.endTime}` : ''}
                 </p>
                 {item.memo && height >= HOUR_HEIGHT && (
-                    <p className="truncate text-[10px] text-slate-400">{item.memo}</p>
+                    <p className="truncate text-[10px] text-slate-400">
+                        {item.memo}
+                    </p>
                 )}
             </div>
 
-            {editing && (
+            {editor.editing && (
                 <div
                     className="rounded-b-lg border-t border-slate-100 bg-white px-2 pb-2 pt-1.5"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <TimeRangeFields
-                        startTime={startTime}
-                        endTime={endTime}
-                        onStartTimeChange={(value) => {
-                            setStartTime(value)
-                            setOverlapWarning(null)
-                        }}
-                        onEndTimeChange={(value) => {
-                            setEndTime(value)
-                            setOverlapWarning(null)
-                        }}
+                        startTime={editor.startTime}
+                        endTime={editor.endTime}
+                        onStartTimeChange={editor.changeStartTime}
+                        onEndTimeChange={editor.changeEndTime}
                     />
                     <textarea
-                        value={memo}
-                        onChange={(e) => setMemo(e.target.value)}
+                        value={editor.memo}
+                        onChange={(e) => editor.setMemo(e.target.value)}
                         placeholder="메모..."
                         rows={2}
                         className="mt-1 w-full resize-none rounded border border-slate-200 px-1.5 py-1 text-xs"
                     />
-                    {saveError && (
-                        <p className="mt-0.5 text-[10px] text-red-500">{saveError}</p>
+                    {editor.saveError && (
+                        <p className="mt-0.5 text-[10px] text-red-500">
+                            {editor.saveError}
+                        </p>
                     )}
-                    {overlapWarning && (
+                    {editor.overlapWarning && (
                         <div className="mt-1 rounded-lg bg-amber-50 px-2 py-1.5">
                             <p className="text-[10px] leading-relaxed text-amber-700">
-                                {overlapWarning}
+                                {editor.overlapWarning}
                             </p>
                             <button
                                 type="button"
-                                onClick={() => void handleSave(true)}
+                                onClick={() => void editor.save(true)}
                                 className="mt-1 text-[10px] font-bold text-amber-700 underline underline-offset-2"
                             >
                                 그래도 저장
@@ -181,7 +143,7 @@ function TimetableItemBlock({
                             variant="outline"
                             size="sm"
                             className="h-7 flex-1 text-xs"
-                            onClick={() => setEditing(false)}
+                            onClick={editor.cancelEditing}
                         >
                             취소
                         </Button>
@@ -189,10 +151,10 @@ function TimetableItemBlock({
                             type="button"
                             size="sm"
                             className="h-7 flex-1 text-xs"
-                            onClick={() => void handleSave(false)}
-                            disabled={saving}
+                            onClick={() => void editor.save(false)}
+                            disabled={editor.saving}
                         >
-                            {saving ? '저장 중...' : '저장'}
+                            {editor.saving ? '저장 중...' : '저장'}
                         </Button>
                     </div>
                 </div>
@@ -211,12 +173,17 @@ type Props = {
 }
 
 export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
-    const { days, setDays, loading, error } = useItineraryDays(tripId)
+    const { days, setDays, loading, error } = useItineraryDays(tripId, canWrite)
     const [selectedDayId, setSelectedDayId] = useState<string>('')
-    const [currentTimeTop, setCurrentTimeTop] = useState<number | null>(getCurrentTimeTop)
+    const [currentTimeTop, setCurrentTimeTop] = useState<number | null>(
+        getCurrentTimeTop,
+    )
     // 현재 시각 선 1분마다 갱신
     useEffect(() => {
-        const id = setInterval(() => setCurrentTimeTop(getCurrentTimeTop()), 60_000)
+        const id = setInterval(
+            () => setCurrentTimeTop(getCurrentTimeTop()),
+            60_000,
+        )
         return () => clearInterval(id)
     }, [])
 
@@ -228,8 +195,10 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
     const selectedDay = days.find(
         (day) => String(day.id) === effectiveSelectedDayId,
     )
-    const timedItems = selectedDay?.items.filter((i) => i.startTime != null) ?? []
-    const untimedItems = selectedDay?.items.filter((i) => i.startTime == null) ?? []
+    const timedItems =
+        selectedDay?.items.filter((i) => i.startTime != null) ?? []
+    const untimedItems =
+        selectedDay?.items.filter((i) => i.startTime == null) ?? []
 
     const scheduledTripPlaceIds = new Set(
         days
@@ -240,7 +209,8 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
         (p) => p.status === 'saved' && !scheduledTripPlaceIds.has(String(p.id)),
     )
 
-    const hasUnscheduled = untimedItems.length > 0 || unscheduledPlaces.length > 0
+    const hasUnscheduled =
+        untimedItems.length > 0 || unscheduledPlaces.length > 0
     const gridHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT
 
     // 오늘 날짜 (yyyy-MM-dd 형식)
@@ -277,8 +247,7 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
             {/* Day 탭 */}
             <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-100 bg-white px-3 py-2">
                 {days.map((day) => {
-                    const isSelected =
-                        String(day.id) === effectiveSelectedDayId
+                    const isSelected = String(day.id) === effectiveSelectedDayId
                     const isToday = day.itineraryDate === todayStr
                     return (
                         <button
@@ -292,19 +261,35 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                             }`}
                         >
                             <span>Day {day.dayNumber}</span>
-                            <span className={`font-normal ${isSelected ? 'opacity-80' : 'opacity-60'}`}>
-                                {new Date(day.itineraryDate + 'T00:00:00').toLocaleDateString('ko-KR', {
+                            <span
+                                className={`font-normal ${isSelected ? 'opacity-80' : 'opacity-60'}`}
+                            >
+                                {new Date(
+                                    day.itineraryDate + 'T00:00:00',
+                                ).toLocaleDateString('ko-KR', {
                                     month: 'numeric',
                                     day: 'numeric',
                                 })}
                             </span>
                             {isToday && (
-                                <Badge className={isSelected ? 'bg-white/20 text-white' : 'bg-brand/10 text-brand'}>
+                                <Badge
+                                    className={
+                                        isSelected
+                                            ? 'bg-white/20 text-white'
+                                            : 'bg-brand/10 text-brand'
+                                    }
+                                >
                                     오늘
                                 </Badge>
                             )}
                             {day.items.length > 0 && (
-                                <Badge className={isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}>
+                                <Badge
+                                    className={
+                                        isSelected
+                                            ? 'bg-white/20 text-white'
+                                            : 'bg-slate-100 text-slate-500'
+                                    }
+                                >
                                     {day.items.length}
                                 </Badge>
                             )}
@@ -325,15 +310,23 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                 key={item.id}
                                 className="flex items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-sm"
                                 style={{
-                                    borderColor: (item.categoryColor ?? '#94a3b8') + '60',
+                                    borderColor:
+                                        (item.categoryColor ?? '#94a3b8') +
+                                        '60',
                                     color: item.categoryColor ?? '#64748b',
                                 }}
                             >
                                 {item.categoryIcon && (
-                                    <CategoryIcon icon={item.categoryIcon} size={10} strokeWidth={2.5} />
+                                    <CategoryIcon
+                                        icon={item.categoryIcon}
+                                        size={10}
+                                        strokeWidth={2.5}
+                                    />
                                 )}
                                 {item.placeName}
-                                <Badge className="bg-slate-100 text-slate-400">시간 미정</Badge>
+                                <Badge className="bg-slate-100 text-slate-400">
+                                    시간 미정
+                                </Badge>
                             </div>
                         ))}
                         {unscheduledPlaces.map((place) => (
@@ -341,15 +334,23 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                 key={place.id}
                                 className="flex items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-sm"
                                 style={{
-                                    borderColor: (place.categoryColor ?? '#94a3b8') + '60',
+                                    borderColor:
+                                        (place.categoryColor ?? '#94a3b8') +
+                                        '60',
                                     color: place.categoryColor ?? '#64748b',
                                 }}
                             >
                                 {place.categoryIcon && (
-                                    <CategoryIcon icon={place.categoryIcon} size={10} strokeWidth={2.5} />
+                                    <CategoryIcon
+                                        icon={place.categoryIcon}
+                                        size={10}
+                                        strokeWidth={2.5}
+                                    />
                                 )}
                                 {place.name}
-                                <Badge className="bg-slate-100 text-slate-400">미배치</Badge>
+                                <Badge className="bg-slate-100 text-slate-400">
+                                    미배치
+                                </Badge>
                             </div>
                         ))}
                     </div>
@@ -364,35 +365,49 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                         className="relative w-14 shrink-0 border-r border-slate-100"
                         style={{ height: gridHeight }}
                     >
-                        {Array.from({ length: END_HOUR - START_HOUR }, (_, i) => (
-                            <div
-                                key={i}
-                                className="absolute right-2 text-[10px] text-slate-300"
-                                style={{ top: i * HOUR_HEIGHT - 6 }}
-                            >
-                                {String(START_HOUR + i).padStart(2, '0')}:00
-                            </div>
-                        ))}
+                        {Array.from(
+                            { length: END_HOUR - START_HOUR },
+                            (_, i) => (
+                                <div
+                                    key={i}
+                                    className="absolute right-2 text-[10px] text-slate-300"
+                                    style={{ top: i * HOUR_HEIGHT - 6 }}
+                                >
+                                    {String(START_HOUR + i).padStart(2, '0')}:00
+                                </div>
+                            ),
+                        )}
                     </div>
 
                     {/* 이벤트 그리드 */}
-                    <div className="relative flex-1" style={{ height: gridHeight }}>
+                    <div
+                        className="relative flex-1"
+                        style={{ height: gridHeight }}
+                    >
                         {/* 정시 선 */}
-                        {Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => (
-                            <div
-                                key={i}
-                                className="absolute left-0 right-0 border-t border-slate-100"
-                                style={{ top: i * HOUR_HEIGHT }}
-                            />
-                        ))}
+                        {Array.from(
+                            { length: END_HOUR - START_HOUR + 1 },
+                            (_, i) => (
+                                <div
+                                    key={i}
+                                    className="absolute left-0 right-0 border-t border-slate-100"
+                                    style={{ top: i * HOUR_HEIGHT }}
+                                />
+                            ),
+                        )}
                         {/* 30분 점선 */}
-                        {Array.from({ length: END_HOUR - START_HOUR }, (_, i) => (
-                            <div
-                                key={i}
-                                className="absolute left-0 right-0 border-t border-dashed border-slate-50"
-                                style={{ top: i * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
-                            />
-                        ))}
+                        {Array.from(
+                            { length: END_HOUR - START_HOUR },
+                            (_, i) => (
+                                <div
+                                    key={i}
+                                    className="absolute left-0 right-0 border-t border-dashed border-slate-50"
+                                    style={{
+                                        top: i * HOUR_HEIGHT + HOUR_HEIGHT / 2,
+                                    }}
+                                />
+                            ),
+                        )}
 
                         {/* 현재 시각 표시선 */}
                         {currentTimeTop !== null && (

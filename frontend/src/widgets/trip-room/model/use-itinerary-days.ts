@@ -7,10 +7,14 @@ import {
     useState,
     type SetStateAction,
 } from 'react'
-import { getItinerary, type ItineraryDay } from '@/entities/trip'
+import {
+    getItinerary,
+    initializeItinerary,
+    type ItineraryDay,
+} from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 
-export function useItineraryDays(tripId: number) {
+export function useItineraryDays(tripId: number, canInitialize = true) {
     const [state, setState] = useState<{
         tripId: number
         days: ItineraryDay[]
@@ -22,7 +26,8 @@ export function useItineraryDays(tripId: number) {
     useEffect(() => {
         activeRef.current = true
         let active = true
-        getItinerary(tripId)
+        const loadDays = canInitialize ? initializeItinerary : getItinerary
+        loadDays(tripId)
             .then((days) => {
                 if (!active) return
                 setState({ tripId, days, loading: false, error: null })
@@ -44,7 +49,7 @@ export function useItineraryDays(tripId: number) {
             active = false
             activeRef.current = false
         }
-    }, [tripId])
+    }, [canInitialize, tripId])
 
     const setDays = useCallback(
         (daysOrUpdater: SetStateAction<ItineraryDay[]>) => {
