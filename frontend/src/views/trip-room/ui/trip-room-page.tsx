@@ -95,7 +95,8 @@ export function TripRoom() {
     const handleAddToSchedule = useCallback(
         async (placeId: string, dayId: string) => {
             if (!tripId) return
-            const currentDays = itineraryState.tripId === tripId ? itineraryState.days : []
+            const currentDays =
+                itineraryState.tripId === tripId ? itineraryState.days : []
             const targetDay = currentDays.find((d) => String(d.id) === dayId)
             if (!targetDay) return
             await addItineraryItem(
@@ -440,6 +441,7 @@ export function TripRoom() {
                         places={mapPlaces}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
+                        onDeselect={() => setSelectedId(null)}
                         days={itineraryDays}
                         onAddToSchedule={
                             !inviteCode && canManagePlaces

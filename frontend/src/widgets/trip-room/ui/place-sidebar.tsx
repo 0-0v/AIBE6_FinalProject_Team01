@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react'
 import { GripVertical, MapPinIcon, PlusIcon } from 'lucide-react'
-import { useDraggable } from '@dnd-kit/core'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, Place } from '@/entities/trip'
 import { Badge } from '@/shared/ui'
+import { UNSCHEDULED_DROP_ZONE_ID } from '../model/use-itinerary-board'
+import { DayPickerMenu } from './day-picker-menu'
 
 type PlaceSidebarItemProps = {
     place: Place
@@ -51,11 +53,16 @@ function PlaceSidebarItem({ place, days, onAddToDay }: PlaceSidebarItemProps) {
                     <div
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                         style={{
-                            backgroundColor: (place.categoryColor ?? '#94a3b8') + '20',
+                            backgroundColor:
+                                (place.categoryColor ?? '#94a3b8') + '20',
                         }}
                     >
                         {place.categoryIcon && (
-                            <span style={{ color: place.categoryColor ?? '#94a3b8' }}>
+                            <span
+                                style={{
+                                    color: place.categoryColor ?? '#94a3b8',
+                                }}
+                            >
                                 <CategoryIcon
                                     icon={place.categoryIcon}
                                     size={14}
@@ -71,7 +78,10 @@ function PlaceSidebarItem({ place, days, onAddToDay }: PlaceSidebarItemProps) {
                     <p className="truncate text-xs font-semibold text-slate-700">
                         {place.name}
                     </p>
-                    <Badge color={place.categoryColor} className="mt-0.5 font-medium">
+                    <Badge
+                        color={place.categoryColor}
+                        className="mt-0.5 font-medium"
+                    >
                         {place.categoryName}
                     </Badge>
                 </div>
@@ -91,47 +101,16 @@ function PlaceSidebarItem({ place, days, onAddToDay }: PlaceSidebarItemProps) {
                             <PlusIcon size={12} />
                         </button>
                         {showPicker && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-40"
-                                    onClick={() => setShowPicker(false)}
-                                />
-                                <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-                                    <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                        추가할 Day 선택
-                                    </p>
-                                    <div className="max-h-44 overflow-y-auto">
-                                        {days.map((day) => (
-                                            <button
-                                                key={day.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    onAddToDay(place.id, String(day.id))
-                                                    setShowPicker(false)
-                                                }}
-                                                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
-                                            >
-                                                <span className="text-xs font-bold text-brand">
-                                                    Day {day.dayNumber}
-                                                </span>
-                                                <span className="truncate text-[10px] text-slate-400">
-                                                    {new Date(
-                                                        day.itineraryDate + 'T00:00:00',
-                                                    ).toLocaleDateString('ko-KR', {
-                                                        month: 'numeric',
-                                                        day: 'numeric',
-                                                    })}
-                                                </span>
-                                                {day.items.length > 0 && (
-                                                    <span className="ml-auto shrink-0 text-[10px] text-slate-300">
-                                                        {day.items.length}개
-                                                    </span>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </>
+                            <DayPickerMenu
+                                days={days}
+                                align="right"
+                                widthClassName="w-44"
+                                onClose={() => setShowPicker(false)}
+                                onSelect={(dayId) => {
+                                    onAddToDay(place.id, dayId)
+                                    setShowPicker(false)
+                                }}
+                            />
                         )}
                     </div>
                 </div>
@@ -144,12 +123,31 @@ type Props = {
     places: Place[]
     days: ItineraryDay[]
     canWrite: boolean
+    isDraggingScheduledItem: boolean
     onAddToDay: (placeId: string, dayId: string) => void
 }
 
-export function PlaceSidebar({ places, days, canWrite, onAddToDay }: Props) {
+export function PlaceSidebar({
+    places,
+    days,
+    canWrite,
+    isDraggingScheduledItem,
+    onAddToDay,
+}: Props) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: UNSCHEDULED_DROP_ZONE_ID,
+        disabled: !canWrite,
+    })
+
     return (
-        <aside className="flex w-56 shrink-0 flex-col border-r border-slate-100 bg-slate-50">
+        <aside
+            ref={setNodeRef}
+            className={`flex w-56 shrink-0 flex-col border-r bg-slate-50 transition ${
+                isOver
+                    ? 'border-brand bg-brand/10 ring-2 ring-inset ring-brand/30'
+                    : 'border-slate-100'
+            }`}
+        >
             {/* 헤더 */}
             <div className="shrink-0 border-b border-slate-100 px-3 py-2.5">
                 <div className="flex items-center gap-2">
@@ -160,21 +158,37 @@ export function PlaceSidebar({ places, days, canWrite, onAddToDay }: Props) {
                         {places.length}
                     </span>
                 </div>
-                {canWrite && places.length > 0 && (
+                {canWrite && isDraggingScheduledItem ? (
+                    <p className="mt-0.5 text-[10px] font-bold text-brand">
+                        여기에 놓으면 일정에서 제외
+                    </p>
+                ) : canWrite && places.length > 0 ? (
                     <p className="mt-0.5 text-[10px] text-slate-300">
                         드래그하거나 + 로 추가
                     </p>
-                )}
+                ) : null}
             </div>
 
             {/* 장소 목록 */}
             <div className="flex-1 overflow-y-auto px-2 py-2">
                 {places.length === 0 ? (
                     <div className="flex h-full items-center justify-center py-8 text-center">
-                        <p className="text-xs text-slate-400">
-                            모든 장소가
-                            <br />
-                            일정에 배치됐어요 🎉
+                        <p
+                            className={`text-xs ${
+                                isDraggingScheduledItem
+                                    ? 'font-bold text-brand'
+                                    : 'text-slate-400'
+                            }`}
+                        >
+                            {isDraggingScheduledItem ? (
+                                '여기에 놓아 저장된 장소로 되돌리기'
+                            ) : (
+                                <>
+                                    모든 장소가
+                                    <br />
+                                    일정에 배치됐어요 🎉
+                                </>
+                            )}
                         </p>
                     </div>
                 ) : (
@@ -193,7 +207,11 @@ export function PlaceSidebar({ places, days, canWrite, onAddToDay }: Props) {
                                     className="flex items-center gap-2 rounded-xl border bg-white p-2.5"
                                     style={
                                         place.categoryColor
-                                            ? { borderColor: place.categoryColor + '40' }
+                                            ? {
+                                                  borderColor:
+                                                      place.categoryColor +
+                                                      '40',
+                                              }
                                             : { borderColor: '#e2e8f0' }
                                     }
                                 >
@@ -208,17 +226,22 @@ export function PlaceSidebar({ places, days, canWrite, onAddToDay }: Props) {
                                             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                                             style={{
                                                 backgroundColor:
-                                                    (place.categoryColor ?? '#94a3b8') + '20',
+                                                    (place.categoryColor ??
+                                                        '#94a3b8') + '20',
                                             }}
                                         >
                                             {place.categoryIcon && (
                                                 <span
                                                     style={{
-                                                        color: place.categoryColor ?? '#94a3b8',
+                                                        color:
+                                                            place.categoryColor ??
+                                                            '#94a3b8',
                                                     }}
                                                 >
                                                     <CategoryIcon
-                                                        icon={place.categoryIcon}
+                                                        icon={
+                                                            place.categoryIcon
+                                                        }
                                                         size={12}
                                                         strokeWidth={2}
                                                     />

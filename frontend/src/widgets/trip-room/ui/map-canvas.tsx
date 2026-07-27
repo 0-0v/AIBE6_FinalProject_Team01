@@ -8,11 +8,7 @@ import {
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
-import {
-    ArrowUpIcon,
-    CalendarPlusIcon,
-    MessageCircleIcon,
-} from 'lucide-react'
+import { ArrowUpIcon, CalendarPlusIcon, MessageCircleIcon } from 'lucide-react'
 import { CategoryIcon, Place } from '@/entities/trip'
 import type { ItineraryDay } from '@/entities/trip'
 
@@ -35,11 +31,19 @@ type Props = {
     places: Place[]
     selectedId: string | null
     onSelect: (id: string) => void
+    onDeselect: () => void
     days?: ItineraryDay[]
     onAddToSchedule?: (placeId: string, dayId: string) => Promise<void>
 }
 
-export function MapCanvas({ places, selectedId, onSelect, days, onAddToSchedule }: Props) {
+export function MapCanvas({
+    places,
+    selectedId,
+    onSelect,
+    onDeselect,
+    days,
+    onAddToSchedule,
+}: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
     if (!apiKey) {
@@ -57,6 +61,7 @@ export function MapCanvas({ places, selectedId, onSelect, days, onAddToSchedule 
             places={places}
             selectedId={selectedId}
             onSelect={onSelect}
+            onDeselect={onDeselect}
             days={days}
             onAddToSchedule={onAddToSchedule}
         />
@@ -67,17 +72,30 @@ function GoogleMapCanvas({
     places,
     selectedId,
     onSelect,
+    onDeselect,
     days,
     onAddToSchedule,
-}: Pick<Props, 'places' | 'selectedId' | 'onSelect' | 'days' | 'onAddToSchedule'>) {
+}: Pick<
+    Props,
+    | 'places'
+    | 'selectedId'
+    | 'onSelect'
+    | 'onDeselect'
+    | 'days'
+    | 'onAddToSchedule'
+>) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
     const center = calculateCenter(places)
     const [hoveredId, setHoveredId] = useState<string | null>(null)
-    const [dayPickerPlaceId, setDayPickerPlaceId] = useState<string | null>(null)
+    const [dayPickerPlaceId, setDayPickerPlaceId] = useState<string | null>(
+        null,
+    )
     const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null)
     const [scheduleError, setScheduleError] = useState<string | null>(null)
-    const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(null)
+    const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
+        null,
+    )
 
     const scheduledPlaceMap = useMemo(() => {
         const map = new Map<string, number>()
@@ -166,219 +184,293 @@ function GoogleMapCanvas({
                 gestureHandling="greedy"
                 streetViewControl={false}
                 style={{ width: '100%', height: '100%' }}
+                onClick={() => {
+                    setHoveredId(null)
+                    setDayPickerPlaceId(null)
+                    setScheduleError(null)
+                    onDeselect()
+                }}
             >
                 <MapController places={places} selectedId={selectedId} />
                 <RouteLayer routes={visibleRoutes} />
                 {places.map((place) => {
-                const isSelected = place.id === selectedId
-                const isHovered = place.id === hoveredId
-                const scheduledDayNumber = scheduledPlaceMap.get(place.id)
-                const scheduled = placeOrderMap.get(place.id)
-                const belongsToVisibleRoute =
-                    selectedRouteDay == null ||
-                    scheduled == null ||
-                    scheduled.dayNumber === selectedRouteDay
-                return (
-                    <AdvancedMarker
-                        key={place.id}
-                        position={{ lat: place.lat, lng: place.lng }}
-                        onClick={() => onSelect(place.id)}
-                        zIndex={isHovered ? 20 : isSelected ? 10 : scheduled ? 5 : 1}
-                    >
-                        <div
-                            className={`relative flex flex-col items-center transition-opacity ${
-                                belongsToVisibleRoute ? 'opacity-100' : 'opacity-25'
-                            }`}
-                            onMouseEnter={() => setHoveredId(place.id)}
-                            onMouseLeave={() => setHoveredId(null)}
+                    const isSelected = place.id === selectedId
+                    const isHovered = place.id === hoveredId
+                    const scheduledDayNumber = scheduledPlaceMap.get(place.id)
+                    const scheduled = placeOrderMap.get(place.id)
+                    const belongsToVisibleRoute =
+                        selectedRouteDay == null ||
+                        scheduled == null ||
+                        scheduled.dayNumber === selectedRouteDay
+                    return (
+                        <AdvancedMarker
+                            key={place.id}
+                            position={{ lat: place.lat, lng: place.lng }}
+                            onClick={() => onSelect(place.id)}
+                            zIndex={
+                                isHovered
+                                    ? 20
+                                    : isSelected
+                                      ? 10
+                                      : scheduled
+                                        ? 5
+                                        : 1
+                            }
                         >
-                            {/* 호버 인포카드 */}
-                            {isHovered && !isSelected && (
-                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 overflow-hidden rounded-xl bg-white shadow-xl border border-slate-100 pointer-events-none">
-                                    {place.image && (
-                                        <img
-                                            src={place.image}
-                                            alt={place.name}
-                                            className="h-24 w-full object-cover"
-                                        />
-                                    )}
-                                    <div className="p-2.5">
-                                        <p className="truncate text-xs font-bold text-slate-800">
-                                            {place.name}
-                                        </p>
-                                        <span
-                                            className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                                            style={{
-                                                backgroundColor:
-                                                    place.categoryColor + '20',
-                                                color: place.categoryColor,
-                                            }}
-                                        >
-                                            {place.categoryName}
-                                        </span>
-                                        <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
-                                            {place.address}
-                                        </p>
-                                        {place.commentCount > 0 && (
-                                            <p className="mt-1.5 flex items-center gap-1 text-[10px] text-slate-400">
-                                                <MessageCircleIcon size={10} />
-                                                댓글 {place.commentCount}개
-                                            </p>
-                                        )}
-                                    </div>
-                                    {/* 말풍선 꼬리 */}
-                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-white" />
-                                </div>
-                            )}
-
-                            {/* 마커 */}
                             <div
-                                className={`relative flex items-center justify-center rounded-full border-2 border-white shadow-md transition-transform ${
-                                    isSelected
-                                        ? 'h-10 w-10 scale-125 text-base'
-                                        : isHovered
-                                          ? 'h-8 w-8 scale-110 text-sm'
-                                          : 'h-8 w-8 text-sm'
+                                className={`relative flex flex-col items-center transition-opacity ${
+                                    belongsToVisibleRoute
+                                        ? 'opacity-100'
+                                        : 'opacity-25'
                                 }`}
-                                style={{
-                                    backgroundColor: scheduled
-                                        ? scheduled.color
-                                        : place.categoryColor,
-                                }}
+                                onMouseEnter={() => setHoveredId(place.id)}
+                                onMouseLeave={() => setHoveredId(null)}
                             >
-                                {scheduled ? (
-                                    <span className="font-extrabold text-white">
-                                        {scheduled.order}
-                                    </span>
-                                ) : (
-                                    <CategoryIcon
-                                        icon={place.categoryIcon}
-                                        size={isSelected ? 20 : 16}
-                                        className="text-white"
-                                        strokeWidth={2.3}
-                                    />
-                                )}
-                            </div>
-                            {isSelected && (
-                                <div className="mt-1.5 w-52 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
-                                    {place.image && (
-                                        <img
-                                            src={place.image}
-                                            alt={place.name}
-                                            className="h-20 w-full object-cover"
-                                        />
-                                    )}
-                                    <div className="px-2.5 pb-2.5 pt-2">
-                                        <p className="truncate text-xs font-bold text-slate-800">
-                                            {place.name}
-                                        </p>
-                                        {place.categoryName && (
+                                {/* 호버 인포카드 */}
+                                {isHovered && !isSelected && (
+                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 overflow-hidden rounded-xl bg-white shadow-xl border border-slate-100 pointer-events-none">
+                                        {place.image && (
+                                            <img
+                                                src={place.image}
+                                                alt={place.name}
+                                                className="h-24 w-full object-cover"
+                                            />
+                                        )}
+                                        <div className="p-2.5">
+                                            <p className="truncate text-xs font-bold text-slate-800">
+                                                {place.name}
+                                            </p>
                                             <span
-                                                className="mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                                className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                                                 style={{
-                                                    backgroundColor: place.categoryColor + '20',
+                                                    backgroundColor:
+                                                        place.categoryColor +
+                                                        '20',
                                                     color: place.categoryColor,
                                                 }}
                                             >
                                                 {place.categoryName}
                                             </span>
-                                        )}
-                                        {scheduledDayNumber != null ? (
-                                            <div className="mt-2 flex items-center justify-center rounded-lg bg-green-50 py-1.5 text-[11px] font-bold text-green-600">
-                                                Day {scheduledDayNumber} · 일정 등록됨
-                                            </div>
-                                        ) : onAddToSchedule && days && days.length > 0 ? (
-                                            <div className="relative mt-2">
-                                                <button
-                                                    type="button"
-                                                    disabled={addingPlaceId === place.id}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        setScheduleError(null)
-                                                        setDayPickerPlaceId(
-                                                            dayPickerPlaceId === place.id ? null : place.id
-                                                        )
-                                                    }}
-                                                    className="flex w-full items-center justify-center gap-1 rounded-lg bg-brand py-1.5 text-[11px] font-bold text-white transition hover:bg-brand/90 disabled:cursor-wait disabled:opacity-60"
-                                                >
-                                                    <CalendarPlusIcon size={11} />
-                                                    {addingPlaceId === place.id
-                                                        ? '추가 중...'
-                                                        : '일정에 추가'}
-                                                </button>
-                                                {dayPickerPlaceId === place.id && (
-                                                    <>
-                                                        <div
-                                                            className="fixed inset-0 z-40"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
-                                                                setDayPickerPlaceId(null)
-                                                            }}
-                                                        />
-                                                        <div className="absolute bottom-full left-0 z-50 mb-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-                                                            <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                                                추가할 Day
-                                                            </p>
-                                                            <div className="max-h-40 overflow-y-auto">
-                                                                {days.map((day) => (
-                                                                    <button
-                                                                        key={day.id}
-                                                                        type="button"
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation()
-                                                                            setDayPickerPlaceId(null)
-                                                                            setAddingPlaceId(place.id)
-                                                                            setScheduleError(null)
-                                                                            try {
-                                                                                await onAddToSchedule(
-                                                                                    place.id,
-                                                                                    String(day.id),
-                                                                                )
-                                                                            } catch {
-                                                                                setScheduleError(
-                                                                                    '일정에 추가하지 못했습니다.',
-                                                                                )
-                                                                            } finally {
-                                                                                setAddingPlaceId(null)
-                                                                            }
-                                                                        }}
-                                                                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
-                                                                    >
-                                                                        <span className="text-xs font-bold text-brand">
-                                                                            Day {day.dayNumber}
-                                                                        </span>
-                                                                        <span className="truncate text-[10px] text-slate-400">
-                                                                            {new Date(
-                                                                                day.itineraryDate + 'T00:00:00',
-                                                                            ).toLocaleDateString('ko-KR', {
-                                                                                month: 'numeric',
-                                                                                day: 'numeric',
-                                                                            })}
-                                                                        </span>
-                                                                        {day.items.length > 0 && (
-                                                                            <span className="ml-auto shrink-0 text-[10px] text-slate-300">
-                                                                                {day.items.length}개
-                                                                            </span>
-                                                                        )}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    </>
-                                                )}
-                                                {scheduleError && (
-                                                    <p className="mt-1 text-center text-[10px] font-medium text-red-500">
-                                                        {scheduleError}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ) : null}
+                                            <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
+                                                {place.address}
+                                            </p>
+                                            {place.commentCount > 0 && (
+                                                <p className="mt-1.5 flex items-center gap-1 text-[10px] text-slate-400">
+                                                    <MessageCircleIcon
+                                                        size={10}
+                                                    />
+                                                    댓글 {place.commentCount}개
+                                                </p>
+                                            )}
+                                        </div>
+                                        {/* 말풍선 꼬리 */}
+                                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-white" />
                                     </div>
+                                )}
+
+                                {/* 마커 */}
+                                <div
+                                    className={`relative flex items-center justify-center rounded-full border-2 border-white shadow-md transition-transform ${
+                                        isSelected
+                                            ? 'h-10 w-10 scale-125 text-base'
+                                            : isHovered
+                                              ? 'h-8 w-8 scale-110 text-sm'
+                                              : 'h-8 w-8 text-sm'
+                                    }`}
+                                    style={{
+                                        backgroundColor: scheduled
+                                            ? scheduled.color
+                                            : place.categoryColor,
+                                    }}
+                                >
+                                    {scheduled ? (
+                                        <span className="font-extrabold text-white">
+                                            {scheduled.order}
+                                        </span>
+                                    ) : (
+                                        <CategoryIcon
+                                            icon={place.categoryIcon}
+                                            size={isSelected ? 20 : 16}
+                                            className="text-white"
+                                            strokeWidth={2.3}
+                                        />
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                    </AdvancedMarker>
-                )
+                                {isSelected && (
+                                    <div className="mt-1.5 w-52 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                                        {place.image && (
+                                            <img
+                                                src={place.image}
+                                                alt={place.name}
+                                                className="h-20 w-full object-cover"
+                                            />
+                                        )}
+                                        <div className="px-2.5 pb-2.5 pt-2">
+                                            <p className="truncate text-xs font-bold text-slate-800">
+                                                {place.name}
+                                            </p>
+                                            {place.categoryName && (
+                                                <span
+                                                    className="mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                                    style={{
+                                                        backgroundColor:
+                                                            place.categoryColor +
+                                                            '20',
+                                                        color: place.categoryColor,
+                                                    }}
+                                                >
+                                                    {place.categoryName}
+                                                </span>
+                                            )}
+                                            {scheduledDayNumber != null ? (
+                                                <div className="mt-2 flex items-center justify-center rounded-lg bg-green-50 py-1.5 text-[11px] font-bold text-green-600">
+                                                    Day {scheduledDayNumber} ·
+                                                    일정 등록됨
+                                                </div>
+                                            ) : onAddToSchedule &&
+                                              days &&
+                                              days.length > 0 ? (
+                                                <div className="relative mt-2">
+                                                    <button
+                                                        type="button"
+                                                        disabled={
+                                                            addingPlaceId ===
+                                                            place.id
+                                                        }
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setScheduleError(
+                                                                null,
+                                                            )
+                                                            setDayPickerPlaceId(
+                                                                dayPickerPlaceId ===
+                                                                    place.id
+                                                                    ? null
+                                                                    : place.id,
+                                                            )
+                                                        }}
+                                                        className="flex w-full items-center justify-center gap-1 rounded-lg bg-brand py-1.5 text-[11px] font-bold text-white transition hover:bg-brand/90 disabled:cursor-wait disabled:opacity-60"
+                                                    >
+                                                        <CalendarPlusIcon
+                                                            size={11}
+                                                        />
+                                                        {addingPlaceId ===
+                                                        place.id
+                                                            ? '추가 중...'
+                                                            : '일정에 추가'}
+                                                    </button>
+                                                    {dayPickerPlaceId ===
+                                                        place.id && (
+                                                        <>
+                                                            <div
+                                                                className="fixed inset-0 z-40"
+                                                                onClick={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.stopPropagation()
+                                                                    setDayPickerPlaceId(
+                                                                        null,
+                                                                    )
+                                                                }}
+                                                            />
+                                                            <div className="absolute bottom-full left-0 z-50 mb-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                                                                <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                                                    추가할 Day
+                                                                </p>
+                                                                <div className="max-h-40 overflow-y-auto">
+                                                                    {days.map(
+                                                                        (
+                                                                            day,
+                                                                        ) => (
+                                                                            <button
+                                                                                key={
+                                                                                    day.id
+                                                                                }
+                                                                                type="button"
+                                                                                onClick={async (
+                                                                                    e,
+                                                                                ) => {
+                                                                                    e.stopPropagation()
+                                                                                    setDayPickerPlaceId(
+                                                                                        null,
+                                                                                    )
+                                                                                    setAddingPlaceId(
+                                                                                        place.id,
+                                                                                    )
+                                                                                    setScheduleError(
+                                                                                        null,
+                                                                                    )
+                                                                                    try {
+                                                                                        await onAddToSchedule(
+                                                                                            place.id,
+                                                                                            String(
+                                                                                                day.id,
+                                                                                            ),
+                                                                                        )
+                                                                                    } catch {
+                                                                                        setScheduleError(
+                                                                                            '일정에 추가하지 못했습니다.',
+                                                                                        )
+                                                                                    } finally {
+                                                                                        setAddingPlaceId(
+                                                                                            null,
+                                                                                        )
+                                                                                    }
+                                                                                }}
+                                                                                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
+                                                                            >
+                                                                                <span className="text-xs font-bold text-brand">
+                                                                                    Day{' '}
+                                                                                    {
+                                                                                        day.dayNumber
+                                                                                    }
+                                                                                </span>
+                                                                                <span className="truncate text-[10px] text-slate-400">
+                                                                                    {new Date(
+                                                                                        day.itineraryDate +
+                                                                                            'T00:00:00',
+                                                                                    ).toLocaleDateString(
+                                                                                        'ko-KR',
+                                                                                        {
+                                                                                            month: 'numeric',
+                                                                                            day: 'numeric',
+                                                                                        },
+                                                                                    )}
+                                                                                </span>
+                                                                                {day
+                                                                                    .items
+                                                                                    .length >
+                                                                                    0 && (
+                                                                                    <span className="ml-auto shrink-0 text-[10px] text-slate-300">
+                                                                                        {
+                                                                                            day
+                                                                                                .items
+                                                                                                .length
+                                                                                        }
+
+                                                                                        개
+                                                                                    </span>
+                                                                                )}
+                                                                            </button>
+                                                                        ),
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {scheduleError && (
+                                                        <p className="mt-1 text-center text-[10px] font-medium text-red-500">
+                                                            {scheduleError}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </AdvancedMarker>
+                    )
                 })}
             </GoogleMap>
 
@@ -399,9 +491,7 @@ function GoogleMapCanvas({
                         <button
                             key={route.dayId}
                             type="button"
-                            onClick={() =>
-                                setSelectedRouteDay(route.dayNumber)
-                            }
+                            onClick={() => setSelectedRouteDay(route.dayNumber)}
                             className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition ${
                                 selectedRouteDay === route.dayNumber
                                     ? 'bg-slate-100 text-slate-800'
@@ -478,15 +568,14 @@ function RouteLayer({
                                     onMouseEnter={() =>
                                         setHoveredSegment(segmentId)
                                     }
-                                    onMouseLeave={() =>
-                                        setHoveredSegment(null)
-                                    }
+                                    onMouseLeave={() => setHoveredSegment(null)}
                                 >
                                     <div className="relative">
                                         {hoveredSegment === segmentId && (
                                             <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-center shadow-lg">
                                                 <p className="truncate text-[11px] font-bold text-slate-700">
-                                                    {point.placeName} → {next.placeName}
+                                                    {point.placeName} →{' '}
+                                                    {next.placeName}
                                                 </p>
                                                 <p className="mt-0.5 text-[10px] text-slate-400">
                                                     {formatRouteSegment(point)}
@@ -500,7 +589,10 @@ function RouteLayer({
                                                 transform: `rotate(${angle}deg)`,
                                             }}
                                         >
-                                            <ArrowUpIcon size={15} strokeWidth={4} />
+                                            <ArrowUpIcon
+                                                size={15}
+                                                strokeWidth={4}
+                                            />
                                         </span>
                                     </div>
                                 </AdvancedMarker>
@@ -547,9 +639,7 @@ function getBearing(
     const y = Math.sin(longitudeDelta) * Math.cos(latitude2)
     const x =
         Math.cos(latitude1) * Math.sin(latitude2) -
-        Math.sin(latitude1) *
-            Math.cos(latitude2) *
-            Math.cos(longitudeDelta)
+        Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(longitudeDelta)
     return (Math.atan2(y, x) * 180) / Math.PI
 }
 
