@@ -7,10 +7,14 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.context.annotation.Profile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 @Profile("!test")
 public class TripCompletionScheduler {
+
+    private static final Logger log = LoggerFactory.getLogger(TripCompletionScheduler.class);
 
     private final TripCompletionService tripCompletionService;
     private final Clock clock;
@@ -25,8 +29,13 @@ public class TripCompletionScheduler {
         completeExpiredTrips();
     }
 
-    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
     public void completeExpiredTrips() {
-        tripCompletionService.completeExpiredTrips(LocalDate.now(clock));
+        LocalDate today = LocalDate.now(clock);
+        try {
+            tripCompletionService.completeExpiredTrips(today);
+        } catch (RuntimeException exception) {
+            log.error("Failed to complete expired trips for date={}", today, exception);
+        }
     }
 }
