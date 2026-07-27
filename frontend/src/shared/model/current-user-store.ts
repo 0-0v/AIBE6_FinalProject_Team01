@@ -5,7 +5,7 @@ export type CurrentUser = {
     email: string
     nickname: string
     profileImageUrl: string | null
-    provider: 'GOOGLE' | 'KAKAO' | 'NAVER' | 'APPLE'
+    provider: 'LOCAL' | 'GOOGLE' | 'KAKAO' | 'NAVER' | 'APPLE'
 }
 
 type CurrentUserState = {

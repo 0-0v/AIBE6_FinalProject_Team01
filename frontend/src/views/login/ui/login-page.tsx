@@ -1,6 +1,8 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { type FormEvent, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { SparklesIcon } from 'lucide-react'
+import { login } from '@/features/local-auth'
+import { getApiErrorMessage } from '@/shared/api/client'
 
 const socials = [
     {
@@ -39,6 +41,10 @@ const GOOGLE_LOGIN_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth2/authori
 
 export function Login() {
     const navigate = useNavigate()
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [message, setMessage] = useState('')
+    const [busy, setBusy] = useState(false)
 
     function handleSocialLogin(id: string) {
         if (id === 'kakao') {
@@ -52,6 +58,19 @@ export function Login() {
         navigate('/app')
     }
 
+    async function handleLocalLogin(event: FormEvent) {
+        event.preventDefault()
+        setBusy(true)
+        try {
+            await login(email, password)
+            navigate('/app', { replace: true })
+        } catch (error) {
+            setMessage(getApiErrorMessage(error, '로그인에 실패했습니다.'))
+        } finally {
+            setBusy(false)
+        }
+    }
+
     return (
         <div className="flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
             <div className="w-full max-w-sm">
@@ -63,12 +82,52 @@ export function Login() {
                         Plamingo 시작하기
                     </h1>
                     <p className="mt-2 text-sm text-slate-500">
-                        소셜 계정으로 간편하게 가입하세요.
-                        <br />
-                        닉네임은 계정 이름으로 자동 설정돼요.
+                        이메일 또는 소셜 계정으로 시작하세요.
                     </p>
                 </div>
 
+                <form className="space-y-3" onSubmit={handleLocalLogin}>
+                    <input
+                        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                        type="email"
+                        placeholder="이메일"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                        required
+                    />
+                    <input
+                        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                        type="password"
+                        placeholder="비밀번호"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
+                        required
+                    />
+                    {message && (
+                        <p className="text-sm text-red-600">{message}</p>
+                    )}
+                    <button
+                        disabled={busy}
+                        className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                        이메일로 로그인
+                    </button>
+                </form>
+                <div className="mt-3 flex justify-between text-xs">
+                    <Link className="text-slate-500" to="/password-reset">
+                        비밀번호를 잊으셨나요?
+                    </Link>
+                    <Link className="font-semibold text-brand" to="/signup">
+                        회원가입
+                    </Link>
+                </div>
+                <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
+                    <span className="h-px flex-1 bg-slate-200" />
+                    또는
+                    <span className="h-px flex-1 bg-slate-200" />
+                </div>
                 <div className="space-y-3">
                     {socials.map((s) => (
                         <button
