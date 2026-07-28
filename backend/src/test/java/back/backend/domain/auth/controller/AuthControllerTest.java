@@ -117,4 +117,25 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_401"));
     }
+
+    @Test
+    @DisplayName("t6 사용 가능한 닉네임으로 중복 확인하면 200과 true를 반환한다")
+    void t6_nicknameAvailabilityReturnsTrueForAvailableNickname() throws Exception {
+        when(authService.isNicknameAvailable("여행자")).thenReturn(true);
+
+        mockMvc.perform(post("/api/auth/nickname-availability")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"여행자\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.available").value(true));
+    }
+
+    @Test
+    @DisplayName("t7 형식에 맞지 않는 닉네임으로 중복 확인하면 400을 반환한다")
+    void t7_nicknameAvailabilityRejectsInvalidNickname() throws Exception {
+        mockMvc.perform(post("/api/auth/nickname-availability")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"a\"}"))
+                .andExpect(status().isBadRequest());
+    }
 }

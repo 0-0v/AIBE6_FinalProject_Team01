@@ -89,7 +89,8 @@ public class GlobalExceptionHandler {
                 "uk_places_google_place_id",
                 "uk_place_vote_responses_request_member",
                 "uk_members_email",
-                "uk_members_local_email"
+                "uk_members_local_email",
+                "uk_members_local_nickname"
         );
     }
 

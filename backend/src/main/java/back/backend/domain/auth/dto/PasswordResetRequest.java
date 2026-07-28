@@ -10,8 +10,8 @@ public record PasswordResetRequest(
         String email,
         @NotBlank(message = "새 비밀번호는 필수입니다.")
         @Pattern(
-                regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=])[A-Za-z\\d!@#$%^&*()_+\\-=]{8,64}$",
-                message = "비밀번호는 영문, 숫자, 특수문자를 포함한 8~64자여야 합니다."
+                regexp = "(?s)^(?!.*(.)\\1\\1).{8,64}$",
+                message = "비밀번호는 8~64자이며 동일한 문자를 3번 이상 연속 사용할 수 없습니다."
         )
         String newPassword
 ) {

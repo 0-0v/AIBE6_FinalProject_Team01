@@ -11,12 +11,13 @@ public record SignupRequest(
         String email,
         @NotBlank(message = "비밀번호는 필수입니다.")
         @Pattern(
-                regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=])[A-Za-z\\d!@#$%^&*()_+\\-=]{8,64}$",
-                message = "비밀번호는 영문, 숫자, 특수문자를 포함한 8~64자여야 합니다."
+                regexp = "(?s)^(?!.*(.)\\1\\1).{8,64}$",
+                message = "비밀번호는 8~64자이며 동일한 문자를 3번 이상 연속 사용할 수 없습니다."
         )
         String password,
         @NotBlank(message = "닉네임은 필수입니다.")
-        @Size(min = 2, max = 20, message = "닉네임은 2~20자여야 합니다.")
+        @Size(min = 2, max = 12, message = "닉네임은 2~12자여야 합니다.")
+        @Pattern(regexp = "^[가-힣a-zA-Z0-9_]+$", message = "닉네임은 한글, 영문, 숫자, _만 사용할 수 있습니다.")
         String nickname
 ) {
     @Override

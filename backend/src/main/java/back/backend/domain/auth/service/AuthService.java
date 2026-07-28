@@ -12,6 +12,7 @@ import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.exception.DataIntegrityConstraintMatcher;
 import back.backend.global.security.jwt.JwtProvider;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import back.backend.global.security.jwt.TokenType;
@@ -52,20 +53,36 @@ public class AuthService {
         if (memberRepository.existsByEmail(email)) {
             throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
         }
-        Member member = Member.createLocal(email, request.nickname().strip(), passwordEncoder.encode(request.password()));
+        String nickname = request.nickname().strip();
+        if (!isNicknameAvailable(nickname)) {
+            throw new BusinessException(AuthErrorCode.NICKNAME_ALREADY_EXISTS);
+        }
+        Member member = Member.createLocal(email, nickname, passwordEncoder.encode(request.password()));
         try {
             memberRepository.saveAndFlush(member);
         } catch (DataIntegrityViolationException exception) {
+            if (DataIntegrityConstraintMatcher.containsConstraint(
+                    exception, "uk_members_local_nickname")) {
+                throw new BusinessException(AuthErrorCode.NICKNAME_ALREADY_EXISTS);
+            }
             throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
         }
         emailVerificationService.consumeVerification(email, EmailVerificationPurpose.SIGNUP);
         return issueTokens(member);
     }
 
+    @Transactional(readOnly = true)
+    public boolean isNicknameAvailable(String nickname) {
+        return !memberRepository.existsByNicknameAndProvider(nickname.strip(), AuthProvider.LOCAL);
+    }
+
     @Transactional
     public TokenResponse login(LoginRequest request) {
-        String email = EmailVerificationService.normalize(request.email());
-        Member member = memberRepository.findByEmailAndProvider(email, AuthProvider.LOCAL)
+        String identifier = request.identifier().strip();
+        Member member = (identifier.contains("@")
+                ? memberRepository.findByEmailAndProvider(
+                        EmailVerificationService.normalize(identifier), AuthProvider.LOCAL)
+                : memberRepository.findByNicknameAndProvider(identifier, AuthProvider.LOCAL))
                 .filter(found -> found.getStatus() == MemberStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
         if (!passwordEncoder.matches(request.password(), member.getPasswordHash())) {
@@ -81,6 +98,9 @@ public class AuthService {
         emailVerificationService.requireVerified(email, EmailVerificationPurpose.PASSWORD_RESET);
         Member member = memberRepository.findByEmailAndProvider(email, AuthProvider.LOCAL)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.LOCAL_ACCOUNT_NOT_FOUND));
+        if (passwordEncoder.matches(request.newPassword(), member.getPasswordHash())) {
+            throw new BusinessException(AuthErrorCode.SAME_AS_CURRENT_PASSWORD);
+        }
         member.changePassword(passwordEncoder.encode(request.newPassword()));
         memberRepository.flush();
         refreshTokenRepository.deleteByMemberId(member.getId());

@@ -4,6 +4,8 @@ import back.backend.domain.auth.dto.AccessTokenResponse;
 import back.backend.domain.auth.dto.EmailCodeVerificationRequest;
 import back.backend.domain.auth.dto.EmailRequest;
 import back.backend.domain.auth.dto.LoginRequest;
+import back.backend.domain.auth.dto.NicknameAvailabilityRequest;
+import back.backend.domain.auth.dto.NicknameAvailabilityResponse;
 import back.backend.domain.auth.dto.PasswordResetRequest;
 import back.backend.domain.auth.dto.SignupRequest;
 import back.backend.domain.auth.dto.TokenResponse;
@@ -62,6 +64,15 @@ public class AuthController {
             HttpServletResponse response
     ) {
         return respondWithTokens(authService.signup(request), response);
+    }
+
+    @PostMapping("/nickname-availability")
+    public ApiResponse<NicknameAvailabilityResponse> checkNicknameAvailability(
+            @Valid @RequestBody NicknameAvailabilityRequest request
+    ) {
+        return ApiResponse.success(new NicknameAvailabilityResponse(
+                authService.isNicknameAvailable(request.nickname())
+        ));
     }
 
     @PostMapping("/login")

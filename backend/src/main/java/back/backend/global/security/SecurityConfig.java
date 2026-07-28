@@ -40,6 +40,7 @@ public class SecurityConfig {
             "/api/auth/reissue",
             "/api/auth/signup",
             "/api/auth/login",
+            "/api/auth/nickname-availability",
             "/api/auth/email-verifications/**",
             "/api/auth/password-reset",
             "/uploads/**"
