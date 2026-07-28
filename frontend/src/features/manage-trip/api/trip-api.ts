@@ -39,6 +39,12 @@ export type TripRequest = {
     startDate?: string | null
     endDate?: string | null
 }
+export type TripMember = {
+    memberId: number
+    nickname: string
+    profileImageUrl: string | null
+    online: boolean
+}
 
 type ApiResponse<T> = { success: boolean; message: string; data: T }
 
@@ -49,6 +55,13 @@ function authHeaders(): HeadersInit {
 export async function fetchTrips() {
     const response = await apiClient.get<ApiResponse<TripResponse[]>>(
         '/api/trips',
+        { headers: authHeaders() },
+    )
+    return response.data
+}
+export async function fetchTripMembers(id: number) {
+    const response = await apiClient.get<ApiResponse<TripMember[]>>(
+        `/api/trips/${id}/members`,
         { headers: authHeaders() },
     )
     return response.data
@@ -110,6 +123,12 @@ export async function uploadTripCoverImage(id: number, file: File) {
 
 export async function deleteTrip(id: number) {
     await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}`, {
+        headers: authHeaders(),
+    })
+}
+
+export async function leaveTrip(id: number) {
+    await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}/members/me`, {
         headers: authHeaders(),
     })
 }

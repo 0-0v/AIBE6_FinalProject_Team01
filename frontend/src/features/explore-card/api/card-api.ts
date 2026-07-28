@@ -32,6 +32,15 @@ export type CardComment = {
     mine: boolean
     createdAt: string
 }
+export type CopyTarget = {
+    tripId: number
+    title: string
+    destination: string | null
+    startDate: string
+    endDate: string
+    coverImageUrl: string | null
+    hasItinerary: boolean
+}
 export async function fetchPublicCards(page: number, sort: CardSort, query: string) {
     const params = new URLSearchParams({ page: String(page), size: '9', sort })
     if (query.trim()) params.set('query', query.trim())
@@ -54,4 +63,19 @@ export async function addCardComment(cardId: number, content: string) {
 }
 export async function deleteCardComment(cardId: number, commentId: number) {
     await apiClient.delete(`/api/cards/${cardId}/comments/${commentId}`)
+}
+export async function fetchCopyTargets() {
+    return (
+        await apiClient.get<ApiResponse<CopyTarget[]>>('/api/cards/copy-targets')
+    ).data
+}
+export async function copyCardItinerary(
+    cardId: number,
+    targetTripId: number,
+    mode: 'REPLACE' | 'APPEND',
+) {
+    await apiClient.post(`/api/cards/${cardId}/itinerary-copy`, {
+        targetTripId,
+        mode,
+    })
 }

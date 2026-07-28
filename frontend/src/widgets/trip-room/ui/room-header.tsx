@@ -6,14 +6,17 @@ import {
     UserPlusIcon,
     Settings2Icon,
 } from 'lucide-react'
+import type { TripMember } from '@/features/manage-trip'
+import { resolveMediaUrl } from '@/shared/api/client'
 
 type Props = {
     title: string
     subtitle: string
     isPublic: boolean
-    isOwner: boolean
     canWrite: boolean
+    members: TripMember[]
     onInvite: () => void
+    onJoin?: () => void
     onBack: () => void
     onManage: () => void
     showBackButton?: boolean
@@ -23,9 +26,10 @@ export function RoomHeader({
     title,
     subtitle,
     isPublic,
-    isOwner,
     canWrite,
+    members,
     onInvite,
+    onJoin,
     onBack,
     onManage,
     showBackButton = true,
@@ -47,23 +51,21 @@ export function RoomHeader({
                         <h1 className="truncate text-base font-extrabold tracking-tight">
                             {title}
                         </h1>
-                        {isOwner && (
-                            <span
-                                aria-label={`여행방 공개 상태: ${isPublic ? '공개' : '비공개'}`}
-                                className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
-                                    isPublic
-                                        ? 'bg-brand-50 text-brand-700'
-                                        : 'bg-slate-100 text-slate-500'
-                                }`}
-                            >
-                                {isPublic ? (
-                                    <UnlockIcon size={11} />
-                                ) : (
-                                    <LockIcon size={11} />
-                                )}
-                                {isPublic ? '공개' : '비공개'}
-                            </span>
-                        )}
+                        <span
+                            aria-label={`여행방 공개 상태: ${isPublic ? '공개' : '비공개'}`}
+                            className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
+                                isPublic
+                                    ? 'bg-brand-50 text-brand-700'
+                                    : 'bg-slate-100 text-slate-500'
+                            }`}
+                        >
+                            {isPublic ? (
+                                <UnlockIcon size={11} />
+                            ) : (
+                                <LockIcon size={11} />
+                            )}
+                            {isPublic ? '공개' : '비공개'}
+                        </span>
                     </div>
                     <p className="truncate text-xs text-slate-400">
                         {subtitle}
@@ -76,12 +78,6 @@ export function RoomHeader({
                 >
                     <Settings2Icon size={16} />
                 </button>}
-                {canWrite && <button
-                    onClick={onInvite}
-                    className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-                >
-                    <UserPlusIcon size={15} /> 초대
-                </button>}
             </div>
 
             <div className="mt-2.5 flex items-center justify-between gap-2">
@@ -89,9 +85,56 @@ export function RoomHeader({
                     {canWrite ? '편집 모드' : '조회 전용'}
                 </span>
 
-                <span className="text-xs font-semibold text-slate-400">
-                    멤버 정보 준비 중
-                </span>
+                <div className="flex min-w-0 items-center">
+                    <div className="relative z-30 flex -space-x-2" aria-label={`여행방 멤버 ${members.length}명`}>
+                        {members.slice(0, 3).map((member) => (
+                            <span
+                                key={member.memberId}
+                                title={`${member.nickname} · ${member.online ? '접속 중' : '오프라인'}`}
+                                className={`relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border bg-slate-200 text-[9px] font-extrabold text-slate-600 shadow-sm transition ${
+                                    member.online
+                                        ? 'z-10 border-slate-300 bg-white'
+                                        : 'border-white bg-slate-100 text-slate-300'
+                                }`}
+                            >
+                                {member.profileImageUrl ? (
+                                    <img
+                                        src={resolveMediaUrl(member.profileImageUrl) ?? undefined}
+                                        alt={`${member.nickname} 프로필`}
+                                        className={`h-full w-full object-cover ${
+                                            member.online
+                                                ? ''
+                                                : 'opacity-40 grayscale'
+                                        }`}
+                                    />
+                                ) : (
+                                    member.nickname.slice(0, 1)
+                                )}
+                            </span>
+                        ))}
+                    </div>
+                    {canWrite && (
+                        <button
+                            onClick={onInvite}
+                            className="ml-2 flex h-8 shrink-0 items-center gap-1 rounded-full bg-brand px-3 text-xs font-extrabold text-white shadow-sm hover:bg-brand-700"
+                        >
+                            <UserPlusIcon size={13} /> 일행 초대
+                        </button>
+                    )}
+                    {!canWrite && onJoin && (
+                        <button
+                            onClick={onJoin}
+                            className="ml-2 flex h-8 shrink-0 items-center gap-1 rounded-full bg-brand px-3 text-xs font-extrabold text-white shadow-sm hover:bg-brand-700"
+                        >
+                            <UserPlusIcon size={13} /> 여행 참여하기
+                        </button>
+                    )}
+                    {members.length > 3 && (
+                        <span className="ml-2 whitespace-nowrap text-xs font-bold text-slate-500">
+                            +{members.length - 3}명
+                        </span>
+                    )}
+                </div>
             </div>
         </header>
     )

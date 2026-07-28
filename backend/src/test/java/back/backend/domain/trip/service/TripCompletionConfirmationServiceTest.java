@@ -41,7 +41,7 @@ class TripCompletionConfirmationServiceTest {
     @Mock ActivityLogService activityLogService;
 
     @Test
-    @DisplayName("t1 소유자가 종료 여행방을 공개로 확인하면 태그와 카드 공개 범위를 저장한다")
+    @DisplayName("t1 여행방 멤버가 종료 여행방을 공개로 확인하면 태그와 카드 공개 범위를 저장한다")
     void t1_confirmPublicCompletionSavesTagsAndVisibility() {
         Trip trip = Trip.create(
                 1L, "제주 여행", null, Set.of(), null,
@@ -50,7 +50,7 @@ class TripCompletionConfirmationServiceTest {
         trip.completeAutomatically(LocalDate.of(2026, 8, 1));
         PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PRIVATE, 1L);
         ReflectionTestUtils.setField(card, "id", 20L);
-        when(tripRepository.findByIdAndOwnerIdAndStatusNot(any(), any(), any()))
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(any(), any(), any()))
                 .thenReturn(Optional.of(trip));
         when(planCardRepository.findByTripId(10L)).thenReturn(Optional.of(card));
         when(tripTagRepository.save(any())).thenAnswer(invocation -> {

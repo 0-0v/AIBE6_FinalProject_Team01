@@ -2,6 +2,7 @@ package back.backend.domain.trip.controller;
 
 import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripMemberResponse;
 import back.backend.domain.trip.dto.TripVisibilityRequest;
 import back.backend.domain.trip.dto.TripCompletionConfirmationRequest;
 import back.backend.domain.trip.service.TripCompletionConfirmationService;
@@ -68,6 +69,12 @@ public class TripController {
         return ApiResponse.success(tripService.get(securityContextAccessor.getCurrentMemberId(), tripId));
     }
 
+    @GetMapping("/{tripId}/members")
+    @Operation(summary = "여행방 멤버 및 접속 상태 조회")
+    public ApiResponse<List<TripMemberResponse>> getMembers(@PathVariable Long tripId) {
+        return ApiResponse.success(tripService.getMembers(tripId));
+    }
+
     @PatchMapping("/{tripId}")
     @Operation(summary = "여행방 수정")
     public ApiResponse<TripResponse> update(@PathVariable Long tripId, @Valid @RequestBody TripRequest request) {
@@ -98,6 +105,13 @@ public class TripController {
     @Operation(summary = "여행방 삭제")
     public ApiResponse<Void> delete(@PathVariable Long tripId) {
         tripService.delete(securityContextAccessor.getCurrentMemberId(), tripId);
+        return ApiResponse.ok();
+    }
+
+    @DeleteMapping("/{tripId}/members/me")
+    @Operation(summary = "여행방 나가기")
+    public ApiResponse<Void> leave(@PathVariable Long tripId) {
+        tripService.leave(securityContextAccessor.getCurrentMemberId(), tripId);
         return ApiResponse.ok();
     }
 

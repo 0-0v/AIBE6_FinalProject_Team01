@@ -38,7 +38,7 @@ class TripCoverImageServiceTest {
     }
 
     @Test
-    @DisplayName("t1 소유자가 이미지를 등록하면 여행방 프로필 URL을 변경한다")
+    @DisplayName("t1 여행방 멤버가 이미지를 등록하면 여행방 프로필 URL을 변경한다")
     void t1_ownerUpdatesTripCoverImage() {
         Trip trip = Trip.create(
                 1L, "후쿠오카", null, Set.of(), "후쿠오카",
@@ -47,7 +47,7 @@ class TripCoverImageServiceTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "cover.png", "image/png", "image-content".getBytes());
         String imageUrl = "/uploads/trip-cover-images/10/cover.png";
-        given(tripRepository.findByIdAndOwnerIdAndStatusNot(
+        given(tripRepository.findByIdAndMemberIdAndStatusNot(
                 10L, 1L, TripStatus.CANCELLED)).willReturn(Optional.of(trip));
         given(imageStorage.store(10L, 1L, file)).willReturn(imageUrl);
         given(tripMemberRepository.countByTripId(10L)).willReturn(2L);

@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.card.repository.PlanCardRepository;
+import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.collaboration.notification.service.NotificationService;
 import back.backend.domain.trip.dto.TripRequest;
@@ -42,12 +44,15 @@ class TripServiceTest {
     @Mock ActivityLogService activityLogService;
     @Mock NotificationService notificationService;
     @Mock PlanCardRepository planCardRepository;
+    @Mock TripPresenceService tripPresenceService;
+    @Mock TripAccessChecker tripAccessChecker;
     private TripService tripService;
 
     @BeforeEach
     void setUp() {
         tripService = new TripService(tripRepository, tripMemberRepository, memberRepository,
-                activityLogService, notificationService, planCardRepository);
+                activityLogService, notificationService, planCardRepository,
+                tripPresenceService, tripAccessChecker);
     }
 
     @Test
@@ -73,26 +78,31 @@ class TripServiceTest {
     }
 
     @Test
-    @DisplayName("t3 소유자가 아닌 회원이 여행방을 수정하면 찾을 수 없음 예외가 발생한다")
-    void t3_updateTripRejectsNonOwner() {
-        when(tripRepository.findByIdAndOwnerIdAndStatusNot(10L, 2L, TripStatus.CANCELLED)).thenReturn(Optional.empty());
+    @DisplayName("t3 여행방 멤버는 생성자가 아니어도 여행방을 수정할 수 있다")
+    void t3_joinedMemberCanUpdateTrip() {
+        Trip trip = trip("제주 여행");
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 2L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
 
-        assertThatThrownBy(() -> tripService.update(2L, 10L, request("수정")))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(TripErrorCode.TRIP_NOT_FOUND));
+        var response = tripService.update(2L, 10L, request("수정"));
+
+        assertThat(response.title()).isEqualTo("수정");
     }
 
     @Test
-    @DisplayName("t4 소유자가 여행방을 삭제하면 활동 이력 보존을 위해 취소 상태로 전환한다")
-    void t4_deleteTripChangesStatusToCancelled() {
+    @DisplayName("t4 마지막 멤버가 여행방을 삭제하면 여행방 행을 물리 삭제한다")
+    void t4_deleteTripPhysicallyDeletesTrip() {
         Trip trip = trip("제주 여행");
-        when(tripRepository.findByIdAndOwnerIdAndStatusNot(10L, 1L, TripStatus.CANCELLED)).thenReturn(Optional.of(trip));
+        when(tripRepository.findByIdAndStatusNotForMembershipChange(10L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+        when(tripMemberRepository.countByTripId(10L)).thenReturn(1L);
 
         tripService.delete(1L, 10L);
 
-        assertThat(trip.getStatus()).isEqualTo(TripStatus.CANCELLED);
-        verify(activityLogService).create(any());
-        verify(notificationService).create(any());
+        verify(tripRepository).delete(trip);
+        verify(activityLogService, never()).create(any());
+        verify(notificationService, never()).create(any());
     }
 
     @Test
@@ -123,7 +133,7 @@ class TripServiceTest {
         ReflectionTestUtils.setField(trip, "id", 10L);
         trip.completeAutomatically(LocalDate.of(2026, 8, 1));
         PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PRIVATE, 1L);
-        when(tripRepository.findByIdAndOwnerIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
                 .thenReturn(Optional.of(trip));
         when(planCardRepository.findByTripId(10L)).thenReturn(Optional.of(card));
 
@@ -140,7 +150,7 @@ class TripServiceTest {
     @DisplayName("t7 완료되지 않은 여행방의 공개 범위를 변경하면 예외가 발생한다")
     void t7_updateVisibilityRejectsTripBeforeCompletion() {
         Trip trip = trip("제주 여행");
-        when(tripRepository.findByIdAndOwnerIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
                 .thenReturn(Optional.of(trip));
 
         assertThatThrownBy(() -> tripService.updateVisibility(
@@ -148,6 +158,54 @@ class TripServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
                                 .isEqualTo(TripErrorCode.TRIP_VISIBILITY_NOT_AVAILABLE));
+    }
+
+    @Test
+    @DisplayName("t8 다른 멤버가 남아 있는 여행방은 삭제할 수 없다")
+    void t8_deleteTripRejectsWhenOtherMembersRemain() {
+        Trip trip = trip("제주 여행");
+        when(tripRepository.findByIdAndStatusNotForMembershipChange(10L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+        when(tripMemberRepository.countByTripId(10L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> tripService.delete(1L, 10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_HAS_OTHER_MEMBERS));
+
+        assertThat(trip.getStatus()).isNotEqualTo(TripStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("t9 멤버가 여행방을 나가면 멤버십만 삭제하고 여행 데이터는 유지한다")
+    void t9_leaveTripDeletesOnlyMembership() {
+        Trip trip = trip("제주 여행");
+        when(tripRepository.findByIdAndStatusNotForMembershipChange(10L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+        when(tripMemberRepository.countByTripId(10L)).thenReturn(2L);
+
+        tripService.leave(1L, 10L);
+
+        verify(tripMemberRepository).deleteByTripIdAndMemberId(10L, 1L);
+        verify(tripRepository, never()).delete(any());
+        assertThat(trip.getStatus()).isNotEqualTo(TripStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("t10 마지막 멤버는 여행방 나가기 대신 삭제해야 한다")
+    void t10_leaveTripRejectsLastMember() {
+        Trip trip = trip("제주 여행");
+        when(tripRepository.findByIdAndStatusNotForMembershipChange(10L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+        when(tripMemberRepository.countByTripId(10L)).thenReturn(1L);
+
+        assertThatThrownBy(() -> tripService.leave(1L, 10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.LAST_TRIP_MEMBER));
     }
 
     private TripRequest request(String title) {

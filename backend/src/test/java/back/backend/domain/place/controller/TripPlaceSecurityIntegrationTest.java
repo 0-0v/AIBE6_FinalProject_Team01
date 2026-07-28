@@ -10,8 +10,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import back.backend.domain.place.service.TripPlaceService;
 import back.backend.domain.place.service.PlaceVoteService;
 import back.backend.domain.place.service.PlaceCategoryService;
+import back.backend.domain.itinerary.service.ItineraryService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +40,9 @@ class TripPlaceSecurityIntegrationTest {
 
     @MockitoBean
     private PlaceCategoryService placeCategoryService;
+
+    @MockitoBean
+    private ItineraryService itineraryService;
 
     @Test
     @DisplayName("t1 인증 정보 없이 여행 장소를 조회하면 401을 반환한다")
@@ -101,11 +106,13 @@ class TripPlaceSecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("t7 인증 정보 없이 장소 카테고리를 조회하면 401을 반환한다")
-    void t7_unauthenticatedCategoryRequestReturnsUnauthorized() throws Exception {
+    @DisplayName("t7 게스트가 장소 카테고리를 조회하면 200을 반환한다")
+    void t7_guestCategoryRequestReturnsOk() throws Exception {
+        given(placeCategoryService.getCategories(1L)).willReturn(List.of());
+
         mockMvc.perform(get("/api/trips/1/categories"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("COMMON_401"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray());
     }
 
     @Test
@@ -118,5 +125,15 @@ class TripPlaceSecurityIntegrationTest {
         mockMvc.perform(get("/api/trips/1/categories"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("COMMON_403"));
+    }
+
+    @Test
+    @DisplayName("t9 게스트가 여행 일정을 조회하면 200을 반환한다")
+    void t9_guestItineraryRequestReturnsOk() throws Exception {
+        given(itineraryService.getItinerary(1L)).willReturn(List.of());
+
+        mockMvc.perform(get("/api/trips/1/itinerary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray());
     }
 }

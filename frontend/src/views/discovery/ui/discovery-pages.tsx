@@ -3,6 +3,7 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import {
     BookmarkIcon,
+    CalendarPlusIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     LoaderCircleIcon,
@@ -13,12 +14,17 @@ import {
     XIcon,
 } from 'lucide-react'
 import {
+    copyCardItinerary,
+    fetchCopyTargets,
     type CardSort,
+    type CopyTarget,
     type PublicCard,
     useExploreCardStore,
 } from '@/features/explore-card'
+import { CreateTripModal } from '@/features/manage-trip'
 import { NotificationList } from '@/features/manage-notification'
 import { resolveMediaUrl } from '@/shared/api/client'
+import { useNavigate } from 'react-router-dom'
 
 const SORTS: { value: CardSort; label: string }[] = [
     { value: 'LATEST', label: '최신순' },
@@ -56,6 +62,7 @@ export function Explore() {
     const [sort, setSort] = useState<CardSort>('LATEST')
     const [page, setPage] = useState(0)
     const [selectedCardId, setSelectedCardId] = useState<number | null>(null)
+    const [copyCard, setCopyCard] = useState<PublicCard | null>(null)
     const data = useExploreCardStore((state) => state.data)
     const isLoading = useExploreCardStore((state) => state.isLoading)
     const error = useExploreCardStore((state) => state.error)
@@ -156,6 +163,7 @@ export function Explore() {
                             card={card}
                             onBookmark={() => void toggleBookmark(card.id)}
                             onComments={() => setSelectedCardId(card.id)}
+                            onCopy={() => setCopyCard(card)}
                         />
                     ))}
                 </div>
@@ -209,6 +217,12 @@ export function Explore() {
                     onClose={() => setSelectedCardId(null)}
                 />
             )}
+            {copyCard && (
+                <ItineraryCopyFlow
+                    card={copyCard}
+                    onClose={() => setCopyCard(null)}
+                />
+            )}
         </div>
     )
 }
@@ -217,10 +231,12 @@ function TravelCard({
     card,
     onBookmark,
     onComments,
+    onCopy,
 }: {
     card: PublicCard
     onBookmark: () => void
     onComments: () => void
+    onCopy: () => void
 }) {
     return (
         <article className="flex min-w-0 flex-col overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md">
@@ -286,9 +302,164 @@ function TravelCard({
                         댓글 {card.commentCount}
                     </button>
                 </div>
+                {!card.ownCard && (
+                    <button
+                        type="button"
+                        onClick={onCopy}
+                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-extrabold text-white hover:bg-brand-700"
+                    >
+                        <CalendarPlusIcon size={16} /> 일정 담기
+                    </button>
+                )}
             </div>
         </article>
     )
+}
+
+function ItineraryCopyFlow({ card, onClose }: { card: PublicCard; onClose: () => void }) {
+    const navigate = useNavigate()
+    const [step, setStep] = useState<'confirm' | 'select' | 'conflict' | 'success'>('confirm')
+    const [targets, setTargets] = useState<CopyTarget[]>([])
+    const [selected, setSelected] = useState<CopyTarget | null>(null)
+    const [createOpen, setCreateOpen] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [copyError, setCopyError] = useState<string | null>(null)
+    const [copiedTripId, setCopiedTripId] = useState<number | null>(null)
+
+    async function openTargets() {
+        setLoading(true)
+        setCopyError(null)
+        try {
+            setTargets(await fetchCopyTargets())
+            setStep('select')
+        } catch (caught) {
+            setCopyError(copyErrorMessage(caught))
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    async function copy(targetTripId: number, mode: 'REPLACE' | 'APPEND') {
+        setLoading(true)
+        setCopyError(null)
+        try {
+            await copyCardItinerary(card.id, targetTripId, mode)
+            setCopiedTripId(targetTripId)
+            setStep('success')
+        } catch (caught) {
+            setCopyError(copyErrorMessage(caught))
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    function choose(target: CopyTarget) {
+        setSelected(target)
+        if (target.hasItinerary) setStep('conflict')
+        else void copy(target.tripId, 'APPEND')
+    }
+
+    return (
+        <>
+            {!createOpen && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/55 p-4">
+                <section className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+                    {step === 'confirm' && (
+                        <>
+                            <h2 className="text-center text-xl font-black">
+                                이 일정을 내 여행에 그대로 담을까요?
+                            </h2>
+                            <p className="mt-3 text-center text-sm leading-6 text-slate-500">
+                                장소와 일정만 담으며 기록·사진·비용·개인 메모는 제외됩니다.
+                            </p>
+                            {copyError && <CopyError text={copyError} />}
+                            <div className="mt-7 grid grid-cols-2 gap-2">
+                                <button type="button" onClick={onClose} className="rounded-xl bg-slate-100 py-3 font-bold text-slate-500">취소</button>
+                                <button type="button" disabled={loading} onClick={() => void openTargets()} className="rounded-xl bg-brand py-3 font-extrabold text-white disabled:opacity-50">
+                                    {loading ? '불러오는 중...' : '확인'}
+                                </button>
+                            </div>
+                        </>
+                    )}
+                    {step === 'select' && (
+                        <>
+                            <h2 className="text-2xl font-black tracking-tight">
+                                이 일정을 담을 여행을 선택해 주세요.
+                            </h2>
+                            <button type="button" onClick={() => setCreateOpen(true)} className="mt-6 rounded-full bg-brand px-5 py-3 text-sm font-extrabold text-white">
+                                새 여행 만들어 담기
+                            </button>
+                            <h3 className="mt-8 text-sm font-extrabold">나의 다가오는 여행</h3>
+                            <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+                                {targets.map((target) => (
+                                    <button key={target.tripId} type="button" disabled={loading} onClick={() => choose(target)} className="flex w-full items-center gap-3 rounded-2xl bg-slate-50 p-3 text-left hover:bg-brand-50">
+                                        <img src={resolveMediaUrl(target.coverImageUrl) ?? '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg'} alt="" className="h-14 w-14 rounded-full object-cover" />
+                                        <span className="min-w-0">
+                                            <strong className="block truncate">{target.title}</strong>
+                                            <span className="text-xs text-slate-500">{target.startDate} ~ {target.endDate}</span>
+                                        </span>
+                                    </button>
+                                ))}
+                                {targets.length === 0 && <p className="rounded-2xl bg-slate-50 p-5 text-center text-sm text-slate-500">날짜가 정해진 예정 여행이 없습니다.</p>}
+                            </div>
+                            {copyError && <CopyError text={copyError} />}
+                            <button type="button" onClick={onClose} className="mt-5 w-full rounded-xl border py-3 text-sm font-bold">취소</button>
+                        </>
+                    )}
+                    {step === 'conflict' && selected && (
+                        <>
+                            <h2 className="text-xl font-black">이미 담아 놓은 일정이 있어요</h2>
+                            <p className="mt-2 text-sm leading-6 text-slate-500">
+                                기존 일정과 장소를 삭제하고 담거나, 중복되지 않는 장소를 기존 일정 뒤에 추가할 수 있습니다.
+                            </p>
+                            {copyError && <CopyError text={copyError} />}
+                            <div className="mt-6 grid gap-2">
+                                <button type="button" disabled={loading} onClick={() => void copy(selected.tripId, 'REPLACE')} className="rounded-xl bg-red-600 py-3 text-sm font-extrabold text-white">삭제하고 담기</button>
+                                <button type="button" disabled={loading} onClick={() => void copy(selected.tripId, 'APPEND')} className="rounded-xl bg-brand py-3 text-sm font-extrabold text-white">추가해서 담기</button>
+                                <button type="button" onClick={() => setStep('select')} className="py-2 text-sm font-bold text-slate-500">다시 선택</button>
+                            </div>
+                        </>
+                    )}
+                    {step === 'success' && copiedTripId && (
+                        <>
+                            <h2 className="text-center text-2xl font-black">
+                                일정을 담았습니다
+                            </h2>
+                            <p className="mt-3 text-center text-sm text-slate-500">
+                                대상 여행방에서 담은 장소와 일정을 확인해 보세요.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => navigate(`/app/room/${copiedTripId}`)}
+                                className="mt-7 w-full rounded-xl bg-brand py-3 font-extrabold text-white"
+                            >
+                                완료
+                            </button>
+                        </>
+                    )}
+                </section>
+            </div>
+            )}
+            {createOpen && (
+                <CreateTripModal
+                    onClose={() => setCreateOpen(false)}
+                    requireDates
+                    onCreated={(tripId) => {
+                        setCreateOpen(false)
+                        void copy(tripId, 'APPEND')
+                    }}
+                />
+            )}
+        </>
+    )
+}
+
+function CopyError({ text }: { text: string }) {
+    return <p className="mt-4 text-sm font-semibold text-red-500">{text}</p>
+}
+
+function copyErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : '일정을 담지 못했습니다.'
 }
 
 function PageButton({

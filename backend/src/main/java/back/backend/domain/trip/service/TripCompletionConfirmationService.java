@@ -56,7 +56,7 @@ public class TripCompletionConfirmationService {
 
     @Transactional
     public TripResponse confirm(Long memberId, Long tripId, TripCompletionConfirmationRequest request) {
-        Trip trip = tripRepository.findByIdAndOwnerIdAndStatusNot(
+        Trip trip = tripRepository.findByIdAndMemberIdAndStatusNot(
                         tripId, memberId, TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
         PlanCard card = planCardRepository.findByTripId(tripId)

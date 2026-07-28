@@ -10,11 +10,9 @@ public class TripAccessRepository {
 
     private static final String VIEW_ACCESS_QUERY = """
             SELECT COUNT(*)
-            FROM trips t
-            LEFT JOIN trip_members tm
-              ON tm.trip_id = t.id AND tm.member_id = :memberId
-            WHERE t.id = :tripId
-              AND (t.owner_id = :memberId OR tm.member_id = :memberId)
+            FROM trip_members tm
+            WHERE tm.trip_id = :tripId
+              AND tm.member_id = :memberId
             """;
 
     private final JdbcClient jdbcClient;

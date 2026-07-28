@@ -20,6 +20,13 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
             @Param("tripId") Long tripId
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Trip t where t.id = :tripId and t.status <> :status")
+    Optional<Trip> findByIdAndStatusNotForMembershipChange(
+            @Param("tripId") Long tripId,
+            @Param("status") back.backend.domain.trip.entity.TripStatus status
+    );
+
     @EntityGraph(attributePaths = "travelStyles")
     List<Trip> findAllByStatusInAndEndDateBefore(
             Collection<back.backend.domain.trip.entity.TripStatus> statuses,
@@ -33,8 +40,8 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     @Query("""
             select distinct t
             from Trip t
-            left join TripMember tm on tm.tripId = t.id
-            where (t.ownerId = :memberId or tm.memberId = :memberId)
+            join TripMember tm on tm.tripId = t.id
+            where tm.memberId = :memberId
               and t.status <> :status
             order by t.createdAt desc
             """)
@@ -44,7 +51,37 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     );
 
     @EntityGraph(attributePaths = "travelStyles")
-    Optional<Trip> findByIdAndOwnerIdAndStatusNot(Long id, Long ownerId, back.backend.domain.trip.entity.TripStatus status);
+    @Query("""
+            select distinct t
+            from Trip t
+            join TripMember tm on tm.tripId = t.id
+            where tm.memberId = :memberId
+              and t.status in :statuses
+              and t.startDate is not null
+              and t.endDate is not null
+              and t.endDate >= :today
+            order by t.startDate asc
+            """)
+    List<Trip> findCopyTargets(
+            Long memberId,
+            Collection<back.backend.domain.trip.entity.TripStatus> statuses,
+            LocalDate today
+    );
+
+    @Query("""
+            select t
+            from Trip t
+            join TripMember tm on tm.tripId = t.id
+            where t.id = :id
+              and tm.memberId = :memberId
+              and t.status <> :status
+            """)
+    @EntityGraph(attributePaths = "travelStyles")
+    Optional<Trip> findByIdAndMemberIdAndStatusNot(
+            Long id,
+            Long memberId,
+            back.backend.domain.trip.entity.TripStatus status
+    );
 
     @EntityGraph(attributePaths = "travelStyles")
     Optional<Trip> findByIdAndStatusNot(Long id, back.backend.domain.trip.entity.TripStatus status);
