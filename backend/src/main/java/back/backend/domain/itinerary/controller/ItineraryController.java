@@ -3,6 +3,7 @@ package back.backend.domain.itinerary.controller;
 import back.backend.domain.itinerary.dto.request.*;
 import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.service.ItineraryService;
 import back.backend.global.response.ApiResponse;
@@ -56,6 +57,17 @@ public class ItineraryController {
         return ApiResponse.success(itineraryService.updateItem(tripId, itemId, request));
     }
 
+    @PatchMapping("/items/{itemId}/transport-mode")
+    public ApiResponse<ItineraryItemResponse> updateTransportMode(
+            @PathVariable Long tripId,
+            @PathVariable Long itemId,
+            @RequestBody @Valid UpdateItineraryTransportModeRequest request
+    ) {
+        return ApiResponse.success(
+                itineraryService.updateTransportMode(tripId, itemId, request)
+        );
+    }
+
     @PatchMapping("/items/{itemId}/move")
     public ApiResponse<ItineraryItemResponse> moveItem(
             @PathVariable Long tripId,
@@ -81,7 +93,7 @@ public class ItineraryController {
     }
 
     @PostMapping("/route-plan/preview")
-    public ApiResponse<RoutePlanPreviewResponse> previewRoutePlan(
+    public ApiResponse<List<RoutePlanOption>> previewRoutePlan(
             @PathVariable Long tripId
     ) {
         return ApiResponse.success(itineraryService.previewRoutePlan(tripId));

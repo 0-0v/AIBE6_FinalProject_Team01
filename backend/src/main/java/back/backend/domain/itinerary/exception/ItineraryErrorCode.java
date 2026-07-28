@@ -13,7 +13,8 @@ public enum ItineraryErrorCode implements ErrorCode {
     ITINERARY_INVALID_ITEM_ORDER(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_ITEM_ORDER", "일정 항목 순서가 올바르지 않습니다."),
     ITINERARY_INVALID_ROUTE_PLAN(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_ROUTE_PLAN", "적용할 AI 동선 계획이 올바르지 않습니다."),
     ITINERARY_INVALID_TIME(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_TIME", "시간 형식이 올바르지 않습니다."),
-    ITINERARY_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_TIME_RANGE", "종료 시간은 시작 시간보다 빠를 수 없습니다.");
+    ITINERARY_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "ITINERARY_INVALID_TIME_RANGE", "종료 시간은 시작 시간보다 빠를 수 없습니다."),
+    ITINERARY_NEXT_PLACE_NOT_FOUND(HttpStatus.BAD_REQUEST, "ITINERARY_NEXT_PLACE_NOT_FOUND", "다음 장소가 없어 이동수단을 변경할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

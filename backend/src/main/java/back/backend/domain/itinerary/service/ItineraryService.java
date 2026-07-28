@@ -5,6 +5,7 @@ import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.*;
 import back.backend.domain.itinerary.exception.ItineraryErrorCode;
@@ -27,6 +28,7 @@ import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -114,13 +116,119 @@ public class ItineraryService {
                         : item.getTransportMinutes(),
                 request.transportMeters() != null
                         ? request.transportMeters()
-                        : item.getTransportMeters()
+                        : item.getTransportMeters(),
+                item.getTransportMode()
         );
 
         TripPlace tp = item.getTripPlaceId() != null
                 ? tripPlaceRepository.findByIdAndTripId(item.getTripPlaceId(), tripId).orElse(null)
                 : null;
         return ItineraryItemResponse.from(item, tp);
+    }
+
+    @Transactional
+    public ItineraryItemResponse updateTransportMode(
+            Long tripId,
+            Long itemId,
+            UpdateItineraryTransportModeRequest request
+    ) {
+        accessChecker.requireEdit(tripId);
+        ItineraryItem item = findItemOrThrow(itemId, tripId);
+        List<ItineraryItem> dayItems =
+                itemRepository.findAllByItineraryDayOrderBySortOrderAsc(
+                        item.getItineraryDay()
+                );
+        int itemIndex = -1;
+        for (int index = 0; index < dayItems.size(); index++) {
+            if (Objects.equals(dayItems.get(index).getId(), item.getId())) {
+                itemIndex = index;
+                break;
+            }
+        }
+        if (itemIndex < 0 || itemIndex + 1 >= dayItems.size()) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_NEXT_PLACE_NOT_FOUND
+            );
+        }
+
+        ItineraryItem nextItem = dayItems.get(itemIndex + 1);
+        TripPlace currentPlace = findTripPlaceOrThrow(
+                item.getTripPlaceId(),
+                tripId
+        );
+        TripPlace nextPlace = findTripPlaceOrThrow(
+                nextItem.getTripPlaceId(),
+                tripId
+        );
+        Integer previousTransportMinutes = item.getTransportMinutes();
+        boolean automaticallyLinked = isAutomaticallyLinked(
+                item,
+                nextItem,
+                previousTransportMinutes
+        );
+        travelEstimator.recalculateSegment(
+                item,
+                currentPlace,
+                nextPlace,
+                request.transportMode()
+        );
+        shiftFollowingTimesIfNeeded(
+                dayItems.subList(itemIndex + 1, dayItems.size()),
+                previousTransportMinutes,
+                item.getTransportMinutes(),
+                automaticallyLinked
+        );
+
+        return ItineraryItemResponse.from(item, currentPlace);
+    }
+
+    private boolean isAutomaticallyLinked(
+            ItineraryItem item,
+            ItineraryItem nextItem,
+            Integer transportMinutes
+    ) {
+        return item.getEndTime() != null
+                && nextItem.getStartTime() != null
+                && transportMinutes != null
+                && nextItem.getStartTime().equals(
+                        item.getEndTime().plusMinutes(transportMinutes)
+                );
+    }
+
+    private void shiftFollowingTimesIfNeeded(
+            List<ItineraryItem> followingItems,
+            Integer previousTransportMinutes,
+            Integer recalculatedTransportMinutes,
+            boolean automaticallyLinked
+    ) {
+        if (!automaticallyLinked
+                || previousTransportMinutes == null
+                || recalculatedTransportMinutes == null) {
+            return;
+        }
+        long difference =
+                (long) recalculatedTransportMinutes - previousTransportMinutes;
+        if (difference == 0 || !canShiftWithinDay(followingItems, difference)) {
+            return;
+        }
+        followingItems.forEach(item -> item.shiftTimes(difference));
+    }
+
+    private boolean canShiftWithinDay(
+            List<ItineraryItem> items,
+            long minutes
+    ) {
+        long seconds = minutes * 60;
+        return items.stream()
+                .flatMap(item -> Stream.of(
+                        item.getStartTime(),
+                        item.getEndTime()
+                ))
+                .filter(Objects::nonNull)
+                .allMatch(time -> {
+                    long shifted = time.toSecondOfDay() + seconds;
+                    return shifted >= 0 && shifted < 24 * 60 * 60;
+                });
     }
 
     @Transactional
@@ -213,9 +321,16 @@ public class ItineraryService {
     }
 
     @Transactional(readOnly = true)
-    public RoutePlanPreviewResponse previewRoutePlan(Long tripId) {
+    public List<RoutePlanOption> previewRoutePlan(Long tripId) {
         accessChecker.requireView(tripId);
-        return createRoutePlan(tripId);
+        var travelStyles = tripRepository.findById(tripId)
+                .map(trip -> trip.getTravelStyles())
+                .orElse(Set.of());
+        return routePlanner.planMulti(
+                dayRepository.findAllWithItemsByTripId(tripId),
+                findSavedTripPlaces(tripId),
+                travelStyles
+        );
     }
 
     @Transactional
@@ -279,7 +394,16 @@ public class ItineraryService {
                         parseTime(plannedItem.endTime()),
                         item.getMemo(),
                         plannedItem.transportMinutes(),
-                        plannedItem.transportMeters()
+                        plannedItem.transportMeters(),
+                        plannedItem.transportMode()
+                );
+                item.updateTravelInformation(
+                        plannedItem.transportMinutes(),
+                        plannedItem.transportMeters(),
+                        plannedItem.transportMode(),
+                        plannedItem.transportDetail(),
+                        false,
+                        null
                 );
                 plannedItems.add(item);
             }
@@ -301,6 +425,18 @@ public class ItineraryService {
     private ItineraryItem findItemOrThrow(Long itemId, Long tripId) {
         return itemRepository.findByIdAndTripId(itemId, tripId)
                 .orElseThrow(() -> new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND));
+    }
+
+    private TripPlace findTripPlaceOrThrow(Long tripPlaceId, Long tripId) {
+        if (tripPlaceId == null) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND
+            );
+        }
+        return tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND
+                ));
     }
 
     private ItineraryDayResponse getDayResponseById(Long tripId, Long dayId) {
@@ -437,12 +573,7 @@ public class ItineraryService {
         });
     }
 
-    private RoutePlanPreviewResponse createRoutePlan(Long tripId) {
-        return routePlanner.plan(
-                dayRepository.findAllWithItemsByTripId(tripId),
-                findSavedTripPlaces(tripId)
-        );
-    }
+
 
     private List<TripPlace> findSavedTripPlaces(Long tripId) {
         return tripPlaceRepository.findAllOrderedByTripIdAndStatus(

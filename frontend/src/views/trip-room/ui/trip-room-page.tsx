@@ -492,7 +492,7 @@ export function TripRoom() {
                             onClick={() => setAiOpen(true)}
                             className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-sm font-extrabold text-white shadow-lg hover:bg-brand-700"
                         >
-                            <SparklesIcon size={17} /> AI로 지도 정리
+                            <SparklesIcon size={17} /> 동선 추천
                         </button>
                     )}
                     {collapsed && (

@@ -4,7 +4,9 @@ import type {
     ItineraryDay,
     ItineraryDayStatus,
     ItineraryItem,
+    ItineraryTransportMode,
     RoutePlanPreview,
+    RouteOption,
 } from '../model/types'
 
 type UpdateItineraryItemData = {
@@ -52,8 +54,8 @@ export async function initializeItinerary(
 
 export async function previewItineraryRoutePlan(
     tripId: number,
-): Promise<RoutePlanPreview> {
-    const res = await apiClient.post<ApiResponse<RoutePlanPreview>>(
+): Promise<RouteOption[]> {
+    const res = await apiClient.post<ApiResponse<RouteOption[]>>(
         `/api/trips/${tripId}/itinerary/route-plan/preview`,
         {},
     )
@@ -99,6 +101,18 @@ export async function updateItineraryItem(
     const res = await apiClient.patch<ApiResponse<ItineraryItem>>(
         `/api/trips/${tripId}/itinerary/items/${itemId}`,
         data,
+    )
+    return res.data
+}
+
+export async function updateItineraryTransportMode(
+    tripId: number,
+    itemId: number,
+    transportMode: ItineraryTransportMode,
+): Promise<ItineraryItem> {
+    const res = await apiClient.patch<ApiResponse<ItineraryItem>>(
+        `/api/trips/${tripId}/itinerary/items/${itemId}/transport-mode`,
+        { transportMode },
     )
     return res.data
 }

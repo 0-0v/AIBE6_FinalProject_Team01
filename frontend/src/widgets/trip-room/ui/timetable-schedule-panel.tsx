@@ -17,6 +17,11 @@ function parseTime(t: string): { h: number; m: number } {
     return { h: parts[0] ?? 0, m: parts[1] ?? 0 }
 }
 
+function toMinutes(time: string): number {
+    const { h, m } = parseTime(time)
+    return h * 60 + m
+}
+
 function getItemTop(startTime: string): number {
     const { h, m } = parseTime(startTime)
     const top = (h - START_HOUR) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
@@ -30,6 +35,82 @@ function getItemHeight(startTime: string, endTime: string): number {
     const endMinutes = Math.min(e.h * 60 + e.m, END_HOUR * 60)
     const minutes = endMinutes - startMinutes
     return Math.max(HOUR_HEIGHT * 0.75, (minutes / 60) * HOUR_HEIGHT)
+}
+
+/** 겹치는 아이템들을 컬럼으로 나눠 배치하는 레이아웃 알고리즘 */
+type LayoutedItem = { item: ItineraryItem; col: number; colSpan: number }
+
+function layoutTimedItems(items: ItineraryItem[]): LayoutedItem[] {
+    if (items.length === 0) return []
+
+    function endOf(item: ItineraryItem): number {
+        return item.endTime
+            ? toMinutes(item.endTime)
+            : toMinutes(item.startTime!) + 60
+    }
+
+    function overlaps(a: ItineraryItem, b: ItineraryItem): boolean {
+        return toMinutes(a.startTime!) < endOf(b) && toMinutes(b.startTime!) < endOf(a)
+    }
+
+    const n = items.length
+    const visited = new Array<boolean>(n).fill(false)
+    const components: number[][] = []
+
+    // BFS로 겹치는 아이템들의 연결 컴포넌트를 구한다
+    for (let i = 0; i < n; i++) {
+        if (visited[i]) continue
+        const component: number[] = []
+        const queue = [i]
+        visited[i] = true
+        while (queue.length > 0) {
+            const cur = queue.shift()!
+            component.push(cur)
+            for (let j = 0; j < n; j++) {
+                if (!visited[j] && overlaps(items[cur], items[j])) {
+                    visited[j] = true
+                    queue.push(j)
+                }
+            }
+        }
+        components.push(component)
+    }
+
+    const result: LayoutedItem[] = new Array(n)
+
+    for (const component of components) {
+        // 시작 시간순 정렬 후 greedy 컬럼 배정
+        const sorted = [...component].sort(
+            (a, b) => toMinutes(items[a].startTime!) - toMinutes(items[b].startTime!),
+        )
+        const colEnds: number[] = []
+        const cols = new Array<number>(n)
+
+        for (const idx of sorted) {
+            const start = toMinutes(items[idx].startTime!)
+            const end = endOf(items[idx])
+            let assigned = -1
+            for (let c = 0; c < colEnds.length; c++) {
+                if (colEnds[c] <= start) {
+                    assigned = c
+                    colEnds[c] = end
+                    break
+                }
+            }
+            if (assigned === -1) {
+                assigned = colEnds.length
+                colEnds.push(end)
+            }
+            cols[idx] = assigned
+        }
+
+        const colSpan = colEnds.length
+        for (const idx of component) {
+            result[idx] = { item: items[idx], col: cols[idx], colSpan }
+        }
+    }
+
+    return result
 }
 
 /** 현재 시각의 그리드 내 top(px)을 반환. 범위 밖이면 null */
@@ -49,6 +130,8 @@ type BlockProps = {
     tripId: number
     top: number
     height: number
+    leftPct: number
+    widthPct: number
     canWrite: boolean
     onUpdate: (days: ItineraryDay[]) => void
     dayItems: ItineraryItem[]
@@ -59,6 +142,8 @@ function TimetableItemBlock({
     tripId,
     top,
     height,
+    leftPct,
+    widthPct,
     canWrite,
     onUpdate,
     dayItems,
@@ -72,10 +157,12 @@ function TimetableItemBlock({
 
     return (
         <div
-            className="absolute left-2 right-2 cursor-pointer overflow-visible rounded-lg transition-shadow hover:shadow-md"
+            className="absolute cursor-pointer overflow-hidden rounded-lg transition-shadow hover:shadow-md"
             style={{
                 top,
                 minHeight: height,
+                left: `calc(${leftPct}% + 4px)`,
+                width: `calc(${widthPct}% - 8px)`,
                 backgroundColor: (item.categoryColor ?? '#94a3b8') + '18',
                 borderLeft: `3px solid ${item.categoryColor ?? '#94a3b8'}`,
                 zIndex: editor.editing ? 10 : 1,
@@ -86,6 +173,7 @@ function TimetableItemBlock({
                 <p
                     className="truncate text-xs font-semibold"
                     style={{ color: item.categoryColor ?? '#475569' }}
+                    title={item.placeName ?? ''}
                 >
                     {item.placeName ?? '(제목 없음)'}
                 </p>
@@ -408,8 +496,8 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                             ),
                         )}
 
-                        {/* 현재 시각 표시선 */}
-                        {currentTimeTop !== null && (
+                        {/* 현재 시각 표시선 — 오늘 날짜 탭에서만 표시 */}
+                        {currentTimeTop !== null && selectedDay?.itineraryDate === todayStr && (
                             <div
                                 className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
                                 style={{ top: currentTimeTop }}
@@ -420,11 +508,13 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                         )}
 
                         {/* 시간 배치된 장소 블록 */}
-                        {timedItems.map((item) => {
+                        {layoutTimedItems(timedItems).map(({ item, col, colSpan }) => {
                             const top = getItemTop(item.startTime!)
                             const height = item.endTime
                                 ? getItemHeight(item.startTime!, item.endTime)
                                 : HOUR_HEIGHT
+                            const widthPct = 100 / colSpan
+                            const leftPct = (col / colSpan) * 100
                             return (
                                 <TimetableItemBlock
                                     key={item.id}
@@ -432,6 +522,8 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                     tripId={tripId}
                                     top={top}
                                     height={height}
+                                    leftPct={leftPct}
+                                    widthPct={widthPct}
                                     canWrite={canWrite}
                                     onUpdate={setDays}
                                     dayItems={selectedDay?.items ?? []}

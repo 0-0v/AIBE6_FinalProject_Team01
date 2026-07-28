@@ -5,7 +5,6 @@ import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.exception.PlaceErrorCode;
-import back.backend.domain.place.repository.PlaceCategoryInitializationLockRepository;
 import back.backend.domain.place.repository.PlaceCategoryRepository;
 import back.backend.global.exception.BusinessException;
 import java.util.EnumSet;
@@ -39,7 +38,6 @@ public class PlaceCategoryService {
                     .collect(() -> EnumSet.noneOf(PlaceCategoryType.class), Set::add, Set::addAll);
 
     private final PlaceCategoryRepository categoryRepository;
-    private final PlaceCategoryInitializationLockRepository initializationLockRepository;
     private final TripAccessChecker accessChecker;
 
     @Transactional
@@ -84,29 +82,20 @@ public class PlaceCategoryService {
             return existingCategories;
         }
 
-        initializationLockRepository.lockTrip(tripId);
-        existingCategories =
-                categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(tripId);
         Set<PlaceCategoryType> existingTypes = categoryTypes(existingCategories);
-        List<PlaceCategory> missingDefaults = java.util.stream.IntStream
-                .range(0, DEFAULT_CATEGORIES.size())
-                .filter(index -> !existingTypes.contains(DEFAULT_CATEGORIES.get(index).type()))
-                .mapToObj(index -> {
-                    DefaultCategory category = DEFAULT_CATEGORIES.get(index);
-                    return PlaceCategory.builder()
-                            .tripId(tripId)
-                            .name(category.name())
-                            .categoryType(category.type())
-                            .markerColor(category.color())
-                            .markerIcon(category.icon())
-                            .sortOrder(index)
-                            .build();
-                })
-                .toList();
-        if (missingDefaults.isEmpty()) {
-            return existingCategories;
+        for (int i = 0; i < DEFAULT_CATEGORIES.size(); i++) {
+            DefaultCategory cat = DEFAULT_CATEGORIES.get(i);
+            if (!existingTypes.contains(cat.type())) {
+                categoryRepository.insertIgnore(
+                        tripId,
+                        cat.name(),
+                        cat.type().name(),
+                        cat.color(),
+                        cat.icon().name(),
+                        i
+                );
+            }
         }
-        categoryRepository.saveAll(missingDefaults);
         return categoryRepository.findAllByTripIdOrderBySortOrderAscIdAsc(tripId);
     }
 

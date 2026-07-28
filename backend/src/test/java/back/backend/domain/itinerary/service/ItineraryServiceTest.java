@@ -5,6 +5,7 @@ import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.*;
 import back.backend.domain.itinerary.exception.ItineraryErrorCode;
@@ -29,9 +30,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -71,6 +74,9 @@ class ItineraryServiceTest {
         lenient().when(trip.getEndDate()).thenReturn(null);
         lenient().when(tripRepository.findByIdForItineraryInitialization(TRIP_ID))
                 .thenReturn(Optional.of(trip));
+        lenient().when(tripRepository.findById(TRIP_ID))
+                .thenReturn(Optional.of(trip));
+        lenient().when(trip.getTravelStyles()).thenReturn(Set.of());
 
         day = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 1), 1);
         ReflectionTestUtils.setField(day, "id", DAY_ID);
@@ -385,27 +391,28 @@ class ItineraryServiceTest {
     }
 
     @Test
-    @DisplayName("t17 AI 동선 미리보기는 저장 장소와 Day를 계획기에 전달한다")
+    @DisplayName("t17 AI 동선 미리보기는 저장 장소와 Day를 계획기에 전달하고 경로 옵션 목록을 반환한다")
     void t17_previewRoutePlanDelegatesSavedPlacesAndDays() {
-        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+        RoutePlanPreviewResponse planResponse = new RoutePlanPreviewResponse(
                 "추천 동선",
                 1,
                 0,
                 List.of()
         );
+        RoutePlanOption option = new RoutePlanOption("거리 최적화 코스", planResponse);
         given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
                 .willReturn(List.of(day));
         given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.plan(List.of(day), List.of(savedTripPlace)))
-                .willReturn(preview);
+        given(routePlanner.planMulti(List.of(day), List.of(savedTripPlace), Set.of()))
+                .willReturn(List.of(option));
 
-        RoutePlanPreviewResponse result =
-                itineraryService.previewRoutePlan(TRIP_ID);
+        List<RoutePlanOption> result = itineraryService.previewRoutePlan(TRIP_ID);
 
-        assertThat(result).isSameAs(preview);
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0)).isSameAs(option);
         then(accessChecker).should().requireView(TRIP_ID);
     }
 
@@ -419,6 +426,8 @@ class ItineraryServiceTest {
                 "#f97316",
                 "09:00",
                 "10:30",
+                null,
+                null,
                 null,
                 null,
                 "첫 장소"
@@ -459,7 +468,7 @@ class ItineraryServiceTest {
     @Test
     @DisplayName("t19 시간과 메모만 수정하면 기존 이동정보를 유지한다")
     void t19_updateItemPreservesTravelInformationWhenOmitted() {
-        item.updateDetails(null, null, null, 25, 3200);
+        item.updateDetails(null, null, null, 25, 3200, "대중교통");
         given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
                 .willReturn(Optional.of(item));
         given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
@@ -532,6 +541,8 @@ class ItineraryServiceTest {
                                 "10:00",
                                 null,
                                 null,
+                                null,
+                                null,
                                 "추천"
                         ))
                 ))
@@ -581,8 +592,11 @@ class ItineraryServiceTest {
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.plan(List.of(day), List.of(savedTripPlace)))
-                .willReturn(new RoutePlanPreviewResponse("추천 동선", 1, 0, List.of()));
+        given(routePlanner.planMulti(List.of(day), List.of(savedTripPlace), Set.of()))
+                .willReturn(List.of(new RoutePlanOption(
+                        "거리 최적화 코스",
+                        new RoutePlanPreviewResponse("추천 동선", 1, 0, List.of())
+                )));
 
         itineraryService.previewRoutePlan(TRIP_ID);
 
@@ -675,5 +689,166 @@ class ItineraryServiceTest {
 
         then(accessChecker).should().requireEdit(TRIP_ID);
         then(accessChecker).should(never()).requireView(TRIP_ID);
+    }
+
+    @Test
+    @DisplayName("t28 이동수단을 변경하면 다음 장소까지 경로를 다시 계산한다")
+    void t28_updateTransportModeRecalculatesRouteToNextPlace() {
+        ItineraryItem nextItem = ItineraryItem.create(day, 301L, 1);
+        ReflectionTestUtils.setField(nextItem, "id", 201L);
+        TripPlace nextPlace = mock(TripPlace.class);
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(item, nextItem));
+        given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
+                .willReturn(Optional.of(savedTripPlace));
+        given(tripPlaceRepository.findByIdAndTripId(301L, TRIP_ID))
+                .willReturn(Optional.of(nextPlace));
+
+        itineraryService.updateTransportMode(
+                TRIP_ID,
+                ITEM_ID,
+                new UpdateItineraryTransportModeRequest(
+                        ItineraryTransportMode.SUBWAY
+                )
+        );
+
+        then(travelEstimator).should().recalculateSegment(
+                item,
+                savedTripPlace,
+                nextPlace,
+                ItineraryTransportMode.SUBWAY
+        );
+    }
+
+    @Test
+    @DisplayName("t29 이동수단 변경으로 이동시간이 달라지면 자동 연결된 뒤 일정 시간을 함께 이동한다")
+    void t29_updateTransportModeShiftsAutomaticallyLinkedFollowingItems() {
+        item.updateDetails(
+                LocalTime.of(9, 0),
+                LocalTime.of(10, 0),
+                null,
+                10,
+                1000,
+                "도보"
+        );
+        ItineraryItem nextItem = ItineraryItem.create(day, 301L, 1);
+        ReflectionTestUtils.setField(nextItem, "id", 201L);
+        nextItem.updateDetails(
+                LocalTime.of(10, 10),
+                LocalTime.of(11, 10),
+                null,
+                10,
+                1000,
+                "도보"
+        );
+        ItineraryItem lastItem = ItineraryItem.create(day, 302L, 2);
+        ReflectionTestUtils.setField(lastItem, "id", 202L);
+        lastItem.updateDetails(
+                LocalTime.of(11, 20),
+                LocalTime.of(12, 20),
+                null,
+                null,
+                null,
+                null
+        );
+        TripPlace nextPlace = mock(TripPlace.class);
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(item, nextItem, lastItem));
+        given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
+                .willReturn(Optional.of(savedTripPlace));
+        given(tripPlaceRepository.findByIdAndTripId(301L, TRIP_ID))
+                .willReturn(Optional.of(nextPlace));
+        willAnswer(invocation -> {
+            item.updateTravelInformation(
+                    25,
+                    5000,
+                    "지하철",
+                    "역 A → 역 B",
+                    true,
+                    ItineraryTransportMode.SUBWAY.name()
+            );
+            return null;
+        }).given(travelEstimator).recalculateSegment(
+                item,
+                savedTripPlace,
+                nextPlace,
+                ItineraryTransportMode.SUBWAY
+        );
+
+        itineraryService.updateTransportMode(
+                TRIP_ID,
+                ITEM_ID,
+                new UpdateItineraryTransportModeRequest(
+                        ItineraryTransportMode.SUBWAY
+                )
+        );
+
+        assertThat(nextItem.getStartTime()).isEqualTo(LocalTime.of(10, 25));
+        assertThat(nextItem.getEndTime()).isEqualTo(LocalTime.of(11, 25));
+        assertThat(lastItem.getStartTime()).isEqualTo(LocalTime.of(11, 35));
+        assertThat(lastItem.getEndTime()).isEqualTo(LocalTime.of(12, 35));
+    }
+
+    @Test
+    @DisplayName("t30 이동수단 변경 시 사용자가 고정한 다음 장소 시간은 변경하지 않는다")
+    void t30_updateTransportModePreservesManuallyScheduledFollowingItems() {
+        item.updateDetails(
+                LocalTime.of(9, 0),
+                LocalTime.of(10, 0),
+                null,
+                10,
+                1000,
+                "도보"
+        );
+        ItineraryItem nextItem = ItineraryItem.create(day, 301L, 1);
+        ReflectionTestUtils.setField(nextItem, "id", 201L);
+        nextItem.updateDetails(
+                LocalTime.of(11, 0),
+                LocalTime.of(12, 0),
+                null,
+                null,
+                null,
+                null
+        );
+        TripPlace nextPlace = mock(TripPlace.class);
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(item, nextItem));
+        given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
+                .willReturn(Optional.of(savedTripPlace));
+        given(tripPlaceRepository.findByIdAndTripId(301L, TRIP_ID))
+                .willReturn(Optional.of(nextPlace));
+        willAnswer(invocation -> {
+            item.updateTravelInformation(
+                    25,
+                    5000,
+                    "지하철",
+                    null,
+                    true,
+                    ItineraryTransportMode.SUBWAY.name()
+            );
+            return null;
+        }).given(travelEstimator).recalculateSegment(
+                item,
+                savedTripPlace,
+                nextPlace,
+                ItineraryTransportMode.SUBWAY
+        );
+
+        itineraryService.updateTransportMode(
+                TRIP_ID,
+                ITEM_ID,
+                new UpdateItineraryTransportModeRequest(
+                        ItineraryTransportMode.SUBWAY
+                )
+        );
+
+        assertThat(nextItem.getStartTime()).isEqualTo(LocalTime.of(11, 0));
+        assertThat(nextItem.getEndTime()).isEqualTo(LocalTime.of(12, 0));
     }
 }

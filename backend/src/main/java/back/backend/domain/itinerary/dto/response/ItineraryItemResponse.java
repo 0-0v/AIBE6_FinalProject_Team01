@@ -20,6 +20,9 @@ public record ItineraryItemResponse(
     int sortOrder,
     Integer transportMinutes,
     Integer transportMeters,
+    String transportMode,
+    String transportDetail,
+    String transportModePreference,
     String memo
 ) {
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
@@ -49,6 +52,9 @@ public record ItineraryItemResponse(
             item.getSortOrder(),
             item.getTransportMinutes(),
             item.getTransportMeters(),
+            item.getTransportMode(),
+            item.getTransportDetail(),
+            item.getTransportModePreference(),
             item.getMemo()
         );
     }

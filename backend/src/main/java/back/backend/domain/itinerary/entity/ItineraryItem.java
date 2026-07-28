@@ -59,6 +59,18 @@ public class ItineraryItem {
     @Column(name = "transport_meters")
     private Integer transportMeters;
 
+    @Column(name = "transport_mode", length = 20)
+    private String transportMode;
+
+    @Column(name = "transport_detail", length = 255)
+    private String transportDetail;
+
+    @Column(name = "transport_mode_manual", nullable = false)
+    private boolean transportModeManual;
+
+    @Column(name = "transport_mode_preference", length = 20)
+    private String transportModePreference;
+
     @Column(columnDefinition = "TEXT")
     private String memo;
 
@@ -86,20 +98,54 @@ public class ItineraryItem {
         this.sortOrder = sortOrder;
     }
 
+    public void shiftTimes(long minutes) {
+        if (startTime != null) {
+            startTime = startTime.plusMinutes(minutes);
+        }
+        if (endTime != null) {
+            endTime = endTime.plusMinutes(minutes);
+        }
+    }
+
     public void updateDetails(LocalTime startTime, LocalTime endTime, String memo,
-                               Integer transportMinutes, Integer transportMeters) {
+                               Integer transportMinutes, Integer transportMeters,
+                               String transportMode) {
         this.startTime = startTime;
         this.endTime = endTime;
         this.memo = memo;
         this.transportMinutes = transportMinutes;
         this.transportMeters = transportMeters;
+        this.transportMode = transportMode;
     }
 
     public void updateTravelInformation(
             Integer transportMinutes,
-            Integer transportMeters
+            Integer transportMeters,
+            String transportMode
+    ) {
+        updateTravelInformation(
+                transportMinutes,
+                transportMeters,
+                transportMode,
+                null,
+                false,
+                null
+        );
+    }
+
+    public void updateTravelInformation(
+            Integer transportMinutes,
+            Integer transportMeters,
+            String transportMode,
+            String transportDetail,
+            boolean transportModeManual,
+            String transportModePreference
     ) {
         this.transportMinutes = transportMinutes;
         this.transportMeters = transportMeters;
+        this.transportMode = transportMode;
+        this.transportDetail = transportDetail;
+        this.transportModeManual = transportModeManual;
+        this.transportModePreference = transportModePreference;
     }
 }

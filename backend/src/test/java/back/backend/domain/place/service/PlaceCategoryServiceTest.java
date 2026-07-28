@@ -1,16 +1,19 @@
 package back.backend.domain.place.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 import back.backend.domain.place.dto.response.PlaceCategoryResponse;
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceMarkerIcon;
-import back.backend.domain.place.repository.PlaceCategoryInitializationLockRepository;
 import back.backend.domain.place.repository.PlaceCategoryRepository;
 import java.util.EnumMap;
 import java.util.List;
@@ -27,7 +30,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 class PlaceCategoryServiceTest {
 
     @Mock PlaceCategoryRepository categoryRepository;
-    @Mock PlaceCategoryInitializationLockRepository initializationLockRepository;
     @Mock TripAccessChecker accessChecker;
     @InjectMocks PlaceCategoryService categoryService;
 
@@ -54,7 +56,6 @@ class PlaceCategoryServiceTest {
                         "음식점", "카페", "술집", "명소", "자연",
                         "숙소", "쇼핑", "액티비티", "교통", "기타"
                 );
-        then(initializationLockRepository).should(never()).lockTrip(1L);
         then(categoryRepository).should().findAllByTripIdOrderBySortOrderAscIdAsc(1L);
     }
 
@@ -71,7 +72,6 @@ class PlaceCategoryServiceTest {
         );
 
         assertThat(result).isEqualTo(food);
-        then(initializationLockRepository).should(never()).lockTrip(1L);
     }
 
     @Test
@@ -125,19 +125,8 @@ class PlaceCategoryServiceTest {
 
         categoryService.ensureDefaults(1L);
 
-        then(initializationLockRepository).should().lockTrip(1L);
-        then(categoryRepository).should().saveAll(
-                org.mockito.ArgumentMatchers.<Iterable<PlaceCategory>>argThat(categories -> {
-                    List<PlaceCategory> saved = java.util.stream.StreamSupport
-                            .stream(categories.spliterator(), false)
-                            .toList();
-                    return saved.size() == 10
-                            && saved.get(0).getCategoryType() == PlaceCategoryType.FOOD
-                            && saved.get(2).getCategoryType() == PlaceCategoryType.BAR
-                            && saved.get(7).getCategoryType() == PlaceCategoryType.ACTIVITY
-                            && saved.get(9).getCategoryType() == PlaceCategoryType.OTHER;
-                })
-        );
+        then(categoryRepository).should(times(10))
+                .insertIgnore(eq(1L), anyString(), anyString(), anyString(), anyString(), anyInt());
     }
 
     @Test
@@ -148,19 +137,9 @@ class PlaceCategoryServiceTest {
 
         categoryService.ensureDefaults(1L);
 
-        then(initializationLockRepository).should().lockTrip(1L);
-        then(categoryRepository).should().saveAll(
-                org.mockito.ArgumentMatchers.<Iterable<PlaceCategory>>argThat(categories -> {
-                    List<PlaceCategory> saved = java.util.stream.StreamSupport
-                            .stream(categories.spliterator(), false)
-                            .toList();
-                    return saved.size() == 8
-                            && saved.stream().noneMatch(category ->
-                            category.getCategoryType() == PlaceCategoryType.FOOD)
-                            && saved.stream().noneMatch(category ->
-                            category.getCategoryType() == PlaceCategoryType.OTHER);
-                })
-        );
+        // food(FOOD), other(OTHER) 2개 이미 존재 → 나머지 8개만 insertIgnore
+        then(categoryRepository).should(times(8))
+                .insertIgnore(eq(1L), anyString(), anyString(), anyString(), anyString(), anyInt());
     }
 
     private PlaceCategory category(

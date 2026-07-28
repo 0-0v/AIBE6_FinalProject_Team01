@@ -2,16 +2,22 @@ package back.backend.domain.itinerary.service;
 
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanItemResponse;
+import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.ItineraryDay;
+import back.backend.domain.itinerary.entity.ItineraryTransportMode;
+import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import back.backend.domain.trip.entity.TravelStyle;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.format.DateTimeFormatter;
+import java.time.Instant;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -21,267 +27,528 @@ import java.util.stream.Collectors;
 public class ItineraryRoutePlanner {
 
     private static final int DAY_START_MINUTES = 9 * 60;
-    private static final int MINUTES_PER_DAY = 24 * 60;
-    private static final int DEFAULT_STAY_MINUTES = 90;
-    private static final double AVERAGE_SPEED_KMH = 30.0;
+    private static final int DAY_END_CUTOFF_MINUTES = 21 * 60; // 21:00
+    private static final int DEFAULT_STAY_MINUTES = 60;
+
+    private static final Map<PlaceCategoryType, Integer> CATEGORY_STAY_MINUTES =
+            Map.ofEntries(
+                    Map.entry(PlaceCategoryType.FOOD,        60),
+                    Map.entry(PlaceCategoryType.CAFE,        45),
+                    Map.entry(PlaceCategoryType.BAR,         90),
+                    Map.entry(PlaceCategoryType.ATTRACTION,  90),
+                    Map.entry(PlaceCategoryType.NATURE,     120),
+                    Map.entry(PlaceCategoryType.LODGING,     30),
+                    Map.entry(PlaceCategoryType.SHOPPING,    60),
+                    Map.entry(PlaceCategoryType.ACTIVITY,   120),
+                    Map.entry(PlaceCategoryType.TRANSPORT,   15),
+                    Map.entry(PlaceCategoryType.OTHER,       60)
+            );
     private static final DateTimeFormatter TIME_FORMATTER =
             DateTimeFormatter.ofPattern("HH:mm");
 
-    private final GeminiClient geminiClient;
-    private final ObjectMapper objectMapper;
+    private static final Map<TravelStyle, String> STYLE_LABEL = Map.of(
+            TravelStyle.ACTIVITY, "액티비티 중심",
+            TravelStyle.SNS_HOT_PLACE, "SNS 핫플 중심",
+            TravelStyle.NATURE, "자연·힐링 중심",
+            TravelStyle.FAMOUS_ATTRACTIONS, "관광명소 중심",
+            TravelStyle.RELAXATION, "여유로운 힐링",
+            TravelStyle.CULTURE_ART_HISTORY, "문화·역사 중심",
+            TravelStyle.SHOPPING, "쇼핑 중심",
+            TravelStyle.FOOD, "맛집 탐방 중심"
+    );
 
     /**
-     * Gemini로 먼저 동선을 계획하고, 실패 시 휴리스틱 알고리즘으로 폴백합니다.
+     * 여행 스타일별 우선 카테고리 순서.
+     * 앞에 있는 카테고리일수록 동선 앞쪽에 배치합니다.
+     */
+    private static final Map<TravelStyle, List<PlaceCategoryType>> STYLE_CATEGORY_PRIORITY = Map.of(
+            TravelStyle.FOOD,
+                    List.of(PlaceCategoryType.FOOD, PlaceCategoryType.CAFE, PlaceCategoryType.BAR),
+            TravelStyle.ACTIVITY,
+                    List.of(PlaceCategoryType.ACTIVITY, PlaceCategoryType.ATTRACTION, PlaceCategoryType.NATURE),
+            TravelStyle.SNS_HOT_PLACE,
+                    List.of(PlaceCategoryType.CAFE, PlaceCategoryType.ATTRACTION, PlaceCategoryType.FOOD, PlaceCategoryType.SHOPPING),
+            TravelStyle.NATURE,
+                    List.of(PlaceCategoryType.NATURE, PlaceCategoryType.ACTIVITY, PlaceCategoryType.ATTRACTION),
+            TravelStyle.FAMOUS_ATTRACTIONS,
+                    List.of(PlaceCategoryType.ATTRACTION, PlaceCategoryType.NATURE, PlaceCategoryType.ACTIVITY),
+            TravelStyle.RELAXATION,
+                    List.of(PlaceCategoryType.NATURE, PlaceCategoryType.CAFE, PlaceCategoryType.LODGING),
+            TravelStyle.CULTURE_ART_HISTORY,
+                    List.of(PlaceCategoryType.ATTRACTION, PlaceCategoryType.OTHER, PlaceCategoryType.ACTIVITY),
+            TravelStyle.SHOPPING,
+                    List.of(PlaceCategoryType.SHOPPING, PlaceCategoryType.FOOD, PlaceCategoryType.CAFE)
+    );
+
+    private final GoogleRoutesClient routesClient;
+
+    /**
+     * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
+     */
+    public List<RoutePlanOption> planMulti(
+            List<ItineraryDay> itineraryDays,
+            List<TripPlace> tripPlaces,
+            Set<TravelStyle> travelStyles
+    ) {
+        List<ItineraryDay> days = sortedDays(itineraryDays);
+
+        if (days.isEmpty() || tripPlaces.isEmpty()) {
+            log.debug("일정 또는 장소 없음 — 빈 지리 최적 코스 반환");
+            return List.of(new RoutePlanOption("지리 최적 코스",
+                    emptyResponse(days, tripPlaces)));
+        }
+
+        List<RoutePlanOption> options = new ArrayList<>();
+
+        // 항상 지리 우선 코스 포함
+        List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
+        options.add(new RoutePlanOption("지리 최적 코스",
+                buildResponseFromClusters(days, geoClusters, tripPlaces.size(),
+                        String.format("저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
+                                tripPlaces.size(), days.size()),
+                        null)));
+
+        // 스타일별 코스 추가
+        if (!travelStyles.isEmpty()) {
+            log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
+                    tripPlaces.size(), days.size(), travelStyles);
+        }
+        Set<String> routeSignatures = new HashSet<>();
+        routeSignatures.add(routeSignature(options.getFirst().plan()));
+        List<TravelStyle> orderedStyles = travelStyles.stream()
+                .sorted(Comparator.comparingInt(Enum::ordinal))
+                .toList();
+        for (TravelStyle style : orderedStyles) {
+            List<PlaceCategoryType> priority =
+                    STYLE_CATEGORY_PRIORITY.getOrDefault(style, List.of());
+            String styleLabel = STYLE_LABEL.getOrDefault(style, style.name());
+            String label = styleLabel + " 코스";
+            List<List<TripPlace>> styleClusters =
+                    clusterByStylePriority(tripPlaces, days.size(), priority);
+            RoutePlanPreviewResponse stylePlan = buildResponseFromClusters(
+                    days,
+                    styleClusters,
+                    tripPlaces.size(),
+                    buildStyleSummary(
+                            styleLabel,
+                            tripPlaces.size(),
+                            days.size(),
+                            priority
+                    ),
+                    buildStyleReason(styleLabel)
+            );
+            if (routeSignatures.add(routeSignature(stylePlan))) {
+                options.add(new RoutePlanOption(label, stylePlan));
+            }
+        }
+
+        return options;
+    }
+
+    /**
+     * 기존 단일 경로 API와의 하위 호환을 위해 유지합니다.
      */
     public RoutePlanPreviewResponse plan(
             List<ItineraryDay> itineraryDays,
             List<TripPlace> tripPlaces
     ) {
-        if (geminiClient.isConfigured()) {
-            try {
-                log.info("Gemini로 동선 계획 시작 — 장소 {}개, {}일", tripPlaces.size(), itineraryDays.size());
-                return planWithGemini(itineraryDays, tripPlaces);
-            } catch (Exception e) {
-                log.warn("Gemini 동선 계획 실패, 휴리스틱으로 폴백합니다: {}", e.getMessage());
-            }
-        } else {
-            log.debug("AI_API_KEY 미설정 — 휴리스틱 알고리즘으로 동선 계획");
+        List<RoutePlanOption> options = planMulti(itineraryDays, tripPlaces, Set.of());
+        return options.isEmpty() ? emptyResponse(itineraryDays, tripPlaces) : options.get(0).plan();
+    }
+
+    // ── 지리적 클러스터링 ──────────────────────────────────────────────────────
+
+    /**
+     * 지리적으로 분산된 K개 초기 중심을 선택한다.
+     * - 중심 0: 전체 평균 위치에서 가장 가까운 장소
+     * - 이후 중심: 기존 중심들로부터 가장 먼 장소 (deterministic max-distance)
+     */
+    private List<GeoPoint> initializeCentroids(List<TripPlace> places, int count) {
+        List<TripPlace> centroidPlaces = new ArrayList<>();
+
+        double meanLat = places.stream()
+                .mapToDouble(p -> p.getPlace().getLatitude().doubleValue())
+                .average().orElse(0);
+        double meanLng = places.stream()
+                .mapToDouble(p -> p.getPlace().getLongitude().doubleValue())
+                .average().orElse(0);
+
+        TripPlace first = places.stream()
+                .min(Comparator.comparingDouble(p -> {
+                    double dLat = p.getPlace().getLatitude().doubleValue() - meanLat;
+                    double dLng = p.getPlace().getLongitude().doubleValue() - meanLng;
+                    return dLat * dLat + dLng * dLng;
+                }))
+                .orElse(places.get(0));
+        centroidPlaces.add(first);
+
+        while (centroidPlaces.size() < count) {
+            List<TripPlace> currentCentroids =
+                    new ArrayList<>(centroidPlaces);
+            TripPlace farthest = places.stream()
+                    .filter(p -> !currentCentroids.contains(p))
+                    .max(Comparator.comparingDouble(p ->
+                            currentCentroids.stream()
+                                    .mapToDouble(c -> distanceMeters(p, c))
+                                    .min().orElse(0)))
+                    .orElse(places.get(
+                            centroidPlaces.size() % places.size()
+                    ));
+            centroidPlaces.add(farthest);
         }
-        return planWithHeuristic(itineraryDays, tripPlaces);
-    }
 
-    // ── Gemini 기반 동선 계획 ──────────────────────────────────────────────────
-
-    private RoutePlanPreviewResponse planWithGemini(
-            List<ItineraryDay> itineraryDays,
-            List<TripPlace> tripPlaces
-    ) throws Exception {
-        String prompt = buildPrompt(itineraryDays, tripPlaces);
-        String responseText = geminiClient.generateContent(prompt);
-
-        log.debug("Gemini 응답: {}", responseText);
-        GeminiRoutePlan plan = objectMapper.readValue(responseText, GeminiRoutePlan.class);
-
-        validateGeminiPlan(plan, tripPlaces);
-        return mapGeminiPlanToResponse(itineraryDays, tripPlaces, plan);
-    }
-
-    private String buildPrompt(List<ItineraryDay> days, List<TripPlace> places) throws Exception {
-        List<Map<String, Object>> placeData = places.stream()
-                .map(p -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id", p.getId());
-                    m.put("name", p.getPlace().getName());
-                    m.put("category", p.getCategory().getName());
-                    m.put("lat", p.getPlace().getLatitude());
-                    m.put("lng", p.getPlace().getLongitude());
-                    return m;
-                })
+        return centroidPlaces.stream()
+                .map(this::toGeoPoint)
                 .toList();
+    }
 
-        String placeJson = objectMapper.writeValueAsString(placeData);
+    /**
+     * 장소를 dayCount개 지리적 클러스터로 분리한다.
+     * Farthest-first 초기 중심 선택 후 중심 재계산을 반복한다.
+     * Soft cap(평균 × 1.5)으로 극단적 불균형 방지.
+     * 각 클러스터 내부는 NN으로 정렬.
+     */
+    private List<List<TripPlace>> clusterByGeography(List<TripPlace> places, int dayCount) {
+        if (dayCount <= 0 || places.isEmpty()) return List.of();
 
-        return """
-                당신은 여행 일정 전문가입니다. 다음 장소들을 %d일 여행 일정으로 구성해 주세요.
+        if (dayCount >= places.size()) {
+            List<List<TripPlace>> result = new ArrayList<>();
+            for (TripPlace p : places) result.add(new ArrayList<>(List.of(p)));
+            while (result.size() < dayCount) result.add(new ArrayList<>());
+            return result;
+        }
 
-                장소 목록 (%d개):
-                %s
+        int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
+        List<GeoPoint> centroids = initializeCentroids(places, dayCount);
+        List<List<TripPlace>> clusters = emptyClusters(dayCount);
+        List<List<Long>> previousAssignments = List.of();
 
-                조건:
-                1. 위도/경도 기준 가까운 장소끼리 같은 날에 묶어 이동 거리를 최소화하세요.
-                2. 카테고리가 다양하게 섞이도록 구성하세요 (관광지, 식당, 카페 등).
-                3. 오전 09:00부터 시작하며 카테고리별 체류 시간을 현실적으로 배분하세요.
-                   - 관광/명소/테마파크: 90~120분
-                   - 식당/맛집: 60분
-                   - 카페/베이커리: 45분
-                   - 쇼핑/시장: 90분
-                   - 기타: 60분
-                4. 장소 간 이동 시간(분)을 체류 시간 뒤에 반드시 반영하세요.
-                5. 모든 장소를 빠짐없이 포함하세요.
-                6. reason은 한국어 15자 이내로 작성하세요.
-                7. startTime과 endTime은 "HH:mm" 형식으로 작성하세요.
+        for (int iteration = 0; iteration < 20; iteration++) {
+            clusters = assignToCentroids(
+                    places,
+                    centroids,
+                    maxPerDay
+            );
+            List<List<Long>> assignments = clusters.stream()
+                    .map(cluster -> cluster.stream()
+                            .map(TripPlace::getId)
+                            .toList())
+                    .toList();
+            if (assignments.equals(previousAssignments)) {
+                break;
+            }
+            previousAssignments = assignments;
+            centroids = recomputeCentroids(clusters, centroids);
+        }
 
-                반드시 아래 JSON 형식만 출력하세요:
-                {
-                  "summary": "전체 여행 동선 한 줄 요약",
-                  "days": [
-                    {
-                      "dayIndex": 0,
-                      "places": [
-                        {
-                          "id": <장소 id 숫자>,
-                          "startTime": "09:00",
-                          "endTime": "10:30",
-                          "reason": "방문 이유"
-                        }
-                      ]
+        Map<Long, Integer> originalOrder = new HashMap<>();
+        for (int index = 0; index < places.size(); index++) {
+            originalOrder.put(places.get(index).getId(), index);
+        }
+        return clusters.stream()
+                .map(cluster -> {
+                    if (cluster.isEmpty()) {
+                        return cluster;
                     }
-                  ]
-                }
-                """.formatted(days.size(), places.size(), placeJson);
+                    List<TripPlace> orderedCluster =
+                            new ArrayList<>(cluster);
+                    orderedCluster.sort(Comparator.comparingInt(place ->
+                            originalOrder.getOrDefault(
+                                    place.getId(),
+                                    Integer.MAX_VALUE
+                            )));
+                    return new ArrayList<>(
+                            orderByNearestNeighbor(orderedCluster, 0)
+                    );
+                })
+                .collect(Collectors.toList());
     }
 
-    private void validateGeminiPlan(GeminiRoutePlan plan, List<TripPlace> places) {
-        Set<Long> validIds = places.stream()
-                .map(TripPlace::getId)
-                .collect(Collectors.toSet());
-
-        Set<Long> returnedIds = plan.days().stream()
-                .flatMap(d -> d.places().stream())
-                .map(GeminiRoutePlan.GeminiPlace::id)
-                .collect(Collectors.toSet());
-
-        Set<Long> unknownIds = new HashSet<>(returnedIds);
-        unknownIds.removeAll(validIds);
-        if (!unknownIds.isEmpty()) {
-            throw new IllegalStateException("Gemini가 알 수 없는 장소 ID를 반환했습니다: " + unknownIds);
-        }
-
-        Set<Long> missingIds = new HashSet<>(validIds);
-        missingIds.removeAll(returnedIds);
-        if (!missingIds.isEmpty()) {
-            log.warn("Gemini 계획에 누락된 장소 {}개 — 휴리스틱으로 폴백합니다.", missingIds.size());
-            throw new IllegalStateException("Gemini 계획에 누락된 장소가 있습니다.");
-        }
-    }
-
-    private RoutePlanPreviewResponse mapGeminiPlanToResponse(
-            List<ItineraryDay> itineraryDays,
-            List<TripPlace> tripPlaces,
-            GeminiRoutePlan plan
+    private List<List<TripPlace>> assignToCentroids(
+            List<TripPlace> places,
+            List<GeoPoint> centroids,
+            int maxPerDay
     ) {
-        Map<Long, TripPlace> placeById = tripPlaces.stream()
-                .collect(Collectors.toMap(TripPlace::getId, p -> p));
-
-        List<ItineraryDay> sortedDays = itineraryDays.stream()
-                .sorted(Comparator.comparingInt(ItineraryDay::getDayNumber))
+        List<List<TripPlace>> clusters = emptyClusters(centroids.size());
+        List<TripPlace> assignmentOrder = places.stream()
+                .sorted(Comparator.comparingDouble(place ->
+                        centroids.stream()
+                                .mapToDouble(centroid ->
+                                        distanceMeters(place, centroid))
+                                .min()
+                                .orElse(Double.MAX_VALUE)))
                 .toList();
 
-        List<GeminiRoutePlan.GeminiDay> sortedGeminiDays = plan.days().stream()
-                .sorted(Comparator.comparingInt(GeminiRoutePlan.GeminiDay::dayIndex))
-                .toList();
-
-        List<RoutePlanDayResponse> dayResponses = new ArrayList<>();
-        int totalDistanceMeters = 0;
-
-        for (int i = 0; i < sortedDays.size(); i++) {
-            ItineraryDay day = sortedDays.get(i);
-            List<GeminiRoutePlan.GeminiPlace> geminiPlaces = i < sortedGeminiDays.size()
-                    ? sortedGeminiDays.get(i).places()
-                    : List.of();
-
-            List<RoutePlanItemResponse> items = new ArrayList<>();
-            int dayDistanceMeters = 0;
-
-            for (int j = 0; j < geminiPlaces.size(); j++) {
-                GeminiRoutePlan.GeminiPlace gp = geminiPlaces.get(j);
-                TripPlace current = placeById.get(gp.id());
-                if (current == null) continue;
-
-                TripPlace next = (j + 1 < geminiPlaces.size())
-                        ? placeById.get(geminiPlaces.get(j + 1).id())
-                        : null;
-
-                Integer distMeters = next != null
-                        ? (int) Math.round(distanceMeters(current, next))
-                        : null;
-                Integer transportMins = distMeters != null
-                        ? estimateTransportMinutes(distMeters)
-                        : null;
-
-                if (distMeters != null) dayDistanceMeters += distMeters;
-
-                items.add(new RoutePlanItemResponse(
-                        current.getId(),
-                        current.getPlace().getName(),
-                        current.getCategory().getName(),
-                        current.getCategory().getMarkerColor(),
-                        gp.startTime(),
-                        gp.endTime(),
-                        transportMins,
-                        distMeters,
-                        gp.reason()
-                ));
+        for (TripPlace place : assignmentOrder) {
+            int targetIndex = -1;
+            double nearestDistance = Double.MAX_VALUE;
+            for (int index = 0; index < centroids.size(); index++) {
+                if (clusters.get(index).size() >= maxPerDay) {
+                    continue;
+                }
+                double distance = distanceMeters(
+                        place,
+                        centroids.get(index)
+                );
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    targetIndex = index;
+                }
             }
-
-            dayResponses.add(new RoutePlanDayResponse(
-                    day.getId(),
-                    day.getDayNumber(),
-                    day.getItineraryDate(),
-                    dayDistanceMeters,
-                    items
-            ));
-            totalDistanceMeters += dayDistanceMeters;
+            if (targetIndex < 0) {
+                targetIndex = indexOfSmallestCluster(clusters);
+            }
+            clusters.get(targetIndex).add(place);
         }
+        return clusters;
+    }
 
-        return new RoutePlanPreviewResponse(
-                plan.summary(),
-                tripPlaces.size(),
-                totalDistanceMeters,
-                dayResponses
+    private List<GeoPoint> recomputeCentroids(
+            List<List<TripPlace>> clusters,
+            List<GeoPoint> previousCentroids
+    ) {
+        List<GeoPoint> centroids = new ArrayList<>();
+        for (int index = 0; index < clusters.size(); index++) {
+            List<TripPlace> cluster = clusters.get(index);
+            if (cluster.isEmpty()) {
+                centroids.add(previousCentroids.get(index));
+                continue;
+            }
+            centroids.add(new GeoPoint(
+                    cluster.stream()
+                            .mapToDouble(place -> place.getPlace()
+                                    .getLatitude().doubleValue())
+                            .average()
+                            .orElse(previousCentroids.get(index).latitude()),
+                    cluster.stream()
+                            .mapToDouble(place -> place.getPlace()
+                                    .getLongitude().doubleValue())
+                            .average()
+                            .orElse(previousCentroids.get(index).longitude())
+            ));
+        }
+        return centroids;
+    }
+
+    private List<List<TripPlace>> emptyClusters(int count) {
+        List<List<TripPlace>> clusters = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            clusters.add(new ArrayList<>());
+        }
+        return clusters;
+    }
+
+    private int indexOfSmallestCluster(
+            List<List<TripPlace>> clusters
+    ) {
+        int smallestIndex = 0;
+        for (int index = 1; index < clusters.size(); index++) {
+            if (clusters.get(index).size()
+                    < clusters.get(smallestIndex).size()) {
+                smallestIndex = index;
+            }
+        }
+        return smallestIndex;
+    }
+
+    private GeoPoint toGeoPoint(TripPlace place) {
+        return new GeoPoint(
+                place.getPlace().getLatitude().doubleValue(),
+                place.getPlace().getLongitude().doubleValue()
         );
     }
 
-    // ── 휴리스틱 동선 계획 (폴백) ──────────────────────────────────────────────
+    private record GeoPoint(double latitude, double longitude) {
+    }
 
-    private RoutePlanPreviewResponse planWithHeuristic(
-            List<ItineraryDay> itineraryDays,
-            List<TripPlace> tripPlaces
+    /**
+     * 카테고리 우선순위로 장소를 Day 클러스터로 분리한다.
+     * 우선 카테고리 장소들이 앞쪽 Day에 배정되고, Day 내부는 NN 정렬.
+     */
+    private List<List<TripPlace>> clusterByStylePriority(
+            List<TripPlace> places,
+            int dayCount,
+            List<PlaceCategoryType> priority
     ) {
-        List<ItineraryDay> days = itineraryDays.stream()
-                .sorted(Comparator.comparingInt(ItineraryDay::getDayNumber))
-                .toList();
+        if (dayCount <= 0 || places.isEmpty()) return List.of();
 
-        if (days.isEmpty() || tripPlaces.isEmpty()) {
-            return new RoutePlanPreviewResponse(
-                    "배치할 저장 장소가 없습니다.",
-                    tripPlaces.size(),
-                    0,
-                    days.stream()
-                            .map(day -> new RoutePlanDayResponse(
-                                    day.getId(),
-                                    day.getDayNumber(),
-                                    day.getItineraryDate(),
-                                    0,
-                                    List.of()
-                            ))
-                            .toList()
-            );
+        Map<PlaceCategoryType, Integer> scoreMap = new HashMap<>();
+        for (int i = 0; i < priority.size(); i++) scoreMap.put(priority.get(i), i);
+
+        Map<Integer, List<TripPlace>> buckets = new LinkedHashMap<>();
+        for (TripPlace place : places) {
+            int score = scoreMap.getOrDefault(
+                    place.getCategory().getCategoryType(), priority.size());
+            buckets.computeIfAbsent(score, k -> new ArrayList<>()).add(place);
         }
 
-        List<TripPlace> orderedPlaces = orderByNearestNeighbor(tripPlaces);
+        int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
+        List<List<TripPlace>> clusters = new ArrayList<>();
+        for (int i = 0; i < dayCount; i++) clusters.add(new ArrayList<>());
+
+        int dayIdx = 0;
+        for (int bucket = 0; bucket <= priority.size(); bucket++) {
+            List<TripPlace> bucketPlaces = buckets.getOrDefault(bucket, List.of());
+            for (TripPlace place : bucketPlaces) {
+                while (dayIdx < dayCount - 1 && clusters.get(dayIdx).size() >= maxPerDay) {
+                    dayIdx++;
+                }
+                clusters.get(dayIdx).add(place);
+            }
+        }
+
+        return clusters.stream()
+                .map(cluster -> cluster.isEmpty()
+                        ? cluster
+                        : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
+                .collect(Collectors.toList());
+    }
+
+    private RoutePlanPreviewResponse buildResponseFromClusters(
+            List<ItineraryDay> days,
+            List<List<TripPlace>> clusters,
+            int totalPlaceCount,
+            String summary,
+            String defaultReason
+    ) {
         List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
-        int offset = 0;
         int totalDistanceMeters = 0;
 
-        for (int dayIndex = 0; dayIndex < days.size(); dayIndex++) {
-            int daySize = distributedSize(orderedPlaces.size(), days.size(), dayIndex);
-            List<TripPlace> dayPlaces = orderedPlaces.subList(
-                    offset,
-                    Math.min(offset + daySize, orderedPlaces.size())
-            );
-            RoutePlanDayResponse plannedDay = planHeuristicDay(days.get(dayIndex), dayPlaces);
+        for (int i = 0; i < days.size(); i++) {
+            List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
+            RoutePlanDayResponse plannedDay = planDay(days.get(i), dayPlaces, defaultReason);
             plannedDays.add(plannedDay);
             totalDistanceMeters += plannedDay.totalDistanceMeters();
-            offset += daySize;
         }
 
-        return new RoutePlanPreviewResponse(
-                String.format(
-                        "저장한 장소 %d곳을 %d일에 나누고 가까운 장소끼리 연결했어요.",
-                        tripPlaces.size(),
-                        days.size()
-                ),
-                tripPlaces.size(),
+        return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
+    }
+
+    private RoutePlanDayResponse planDay(
+            ItineraryDay day,
+            List<TripPlace> places,
+            String defaultReason
+    ) {
+        List<RoutePlanItemResponse> items = new ArrayList<>();
+        int cursorMinutes = DAY_START_MINUTES;
+        int totalDistanceMeters = 0;
+        boolean timeSchedulingClosed = false;
+
+        for (int index = 0; index < places.size(); index++) {
+            TripPlace current = places.get(index);
+            TripPlace next = index + 1 < places.size() ? places.get(index + 1) : null;
+
+            int stayMinutes = CATEGORY_STAY_MINUTES.getOrDefault(
+                    current.getCategory().getCategoryType(), DEFAULT_STAY_MINUTES);
+            int endMinutes = cursorMinutes + stayMinutes;
+            boolean fitsInDay = !timeSchedulingClosed
+                    && endMinutes <= DAY_END_CUTOFF_MINUTES;
+            if (!fitsInDay) {
+                timeSchedulingClosed = true;
+            }
+
+            RouteResult route = null;
+            if (next != null) {
+                int haversineMeters = (int) Math.round(distanceMeters(current, next));
+                route = resolveRoute(
+                        current,
+                        next,
+                        ItineraryTransportMode.infer(haversineMeters),
+                        departureTime(day, endMinutes)
+                );
+            }
+
+            String reason = buildItemReason(index, fitsInDay, defaultReason);
+
+            items.add(new RoutePlanItemResponse(
+                    current.getId(),
+                    current.getPlace().getName(),
+                    current.getCategory().getName(),
+                    current.getCategory().getMarkerColor(),
+                    fitsInDay ? formatMinutes(cursorMinutes) : null,
+                    fitsInDay ? formatMinutes(endMinutes) : null,
+                    route != null ? route.durationMinutes() : null,
+                    route != null ? route.distanceMeters() : null,
+                    route != null ? route.transportMode() : null,
+                    route != null ? route.transportDetail() : null,
+                    reason
+            ));
+
+            if (route != null) {
+                totalDistanceMeters += route.distanceMeters();
+            }
+            if (fitsInDay) {
+                cursorMinutes = endMinutes + (route != null ? route.durationMinutes() : 0);
+            }
+        }
+
+        return new RoutePlanDayResponse(
+                day.getId(),
+                day.getDayNumber(),
+                day.getItineraryDate(),
                 totalDistanceMeters,
-                plannedDays
+                items
         );
     }
 
-    private List<TripPlace> orderByNearestNeighbor(List<TripPlace> places) {
+    private String buildItemReason(int index, boolean fitsInDay, String defaultReason) {
+        if (!fitsInDay) return "하루 일정이 길어 방문 시간은 직접 조정해 주세요.";
+        if (defaultReason != null) return defaultReason;
+        return index == 0 ? "오전 9시부터 시작하는 첫 장소예요." : "이전 장소와 가까워 이동 부담이 적어요.";
+    }
+
+    private String buildStyleSummary(
+            String styleLabel,
+            int placeCount,
+            int dayCount,
+            List<PlaceCategoryType> priority
+    ) {
+        if (priority.isEmpty()) {
+            return String.format("%s 스타일로 %d곳을 %d일에 나눴어요.", styleLabel, placeCount, dayCount);
+        }
+        String topCategories = priority.stream()
+                .limit(2)
+                .map(PlaceCategoryType::name)
+                .map(this::categoryKoreanName)
+                .collect(Collectors.joining("·"));
+        return String.format("%s(%s)를 앞세워 %d곳을 %d일에 나눴어요.",
+                styleLabel, topCategories, placeCount, dayCount);
+    }
+
+    private String buildStyleReason(String styleLabel) {
+        return styleLabel + " 코스에 맞는 장소예요.";
+    }
+
+    private String routeSignature(RoutePlanPreviewResponse plan) {
+        return plan.days().stream()
+                .map(day -> day.items().stream()
+                        .map(item -> String.valueOf(item.tripPlaceId()))
+                        .collect(Collectors.joining(",")))
+                .collect(Collectors.joining("|"));
+    }
+
+    private String categoryKoreanName(String type) {
+        return switch (type) {
+            case "FOOD" -> "음식점";
+            case "CAFE" -> "카페";
+            case "BAR" -> "술집";
+            case "ATTRACTION" -> "명소";
+            case "NATURE" -> "자연";
+            case "LODGING" -> "숙소";
+            case "SHOPPING" -> "쇼핑";
+            case "ACTIVITY" -> "액티비티";
+            case "TRANSPORT" -> "교통";
+            default -> type;
+        };
+    }
+
+    // ── 최근접 이웃 (Nearest Neighbor) ───────────────────────────────────────
+
+    private List<TripPlace> orderByNearestNeighbor(List<TripPlace> places, int startIndex) {
         List<TripPlace> remaining = new ArrayList<>(places);
         List<TripPlace> ordered = new ArrayList<>();
-        TripPlace current = remaining.removeFirst();
+        int clampedIndex = Math.max(0, Math.min(startIndex, remaining.size() - 1));
+        TripPlace current = remaining.remove(clampedIndex);
         ordered.add(current);
 
         while (!remaining.isEmpty()) {
@@ -295,68 +562,108 @@ public class ItineraryRoutePlanner {
         return ordered;
     }
 
-    private RoutePlanDayResponse planHeuristicDay(ItineraryDay day, List<TripPlace> places) {
-        List<RoutePlanItemResponse> items = new ArrayList<>();
-        int cursorMinutes = DAY_START_MINUTES;
-        int totalDistanceMeters = 0;
+    // ── Routes API / Haversine ────────────────────────────────────────────────
 
-        for (int index = 0; index < places.size(); index++) {
-            TripPlace current = places.get(index);
-            TripPlace next = index + 1 < places.size() ? places.get(index + 1) : null;
-            int endMinutes = cursorMinutes + DEFAULT_STAY_MINUTES;
-            boolean fitsInDay = endMinutes < MINUTES_PER_DAY;
+    /**
+     * Routes API로 실제 거리/시간 조회. 실패 시 Haversine 폴백.
+     */
+    private RouteResult resolveRoute(
+            TripPlace from,
+            TripPlace to,
+            ItineraryTransportMode requestedMode,
+            Instant departureTime
+    ) {
+        double fromLat = from.getPlace().getLatitude().doubleValue();
+        double fromLng = from.getPlace().getLongitude().doubleValue();
+        double toLat   = to.getPlace().getLatitude().doubleValue();
+        double toLng   = to.getPlace().getLongitude().doubleValue();
 
-            Integer distanceMeters = next == null
-                    ? null
-                    : (int) Math.round(distanceMeters(current, next));
-            Integer transportMinutes = distanceMeters == null
-                    ? null
-                    : estimateTransportMinutes(distanceMeters);
+        return routesClient
+                .getRouteInfo(
+                        fromLat,
+                        fromLng,
+                        toLat,
+                        toLng,
+                        requestedMode.directionsMode(),
+                        requestedMode.transitMode(),
+                        departureTime
+                )
+                .map(info -> new RouteResult(
+                        info.distanceMeters(),
+                        info.durationMinutes(),
+                        info.actualTransportMode() != null
+                                ? info.actualTransportMode()
+                                : requestedMode.displayName(),
+                        info.transportDetail()
+                ))
+                .orElseGet(() -> {
+                    int haversineMeters = (int) Math.round(distanceMeters(from, to));
+                    return new RouteResult(
+                            haversineMeters,
+                            estimateTransportMinutes(
+                                    haversineMeters,
+                                    requestedMode.fallbackSpeedKmh()
+                            ),
+                            requestedMode.displayName(),
+                            null
+                    );
+                });
+    }
 
-            items.add(new RoutePlanItemResponse(
-                    current.getId(),
-                    current.getPlace().getName(),
-                    current.getCategory().getName(),
-                    current.getCategory().getMarkerColor(),
-                    fitsInDay ? formatMinutes(cursorMinutes) : null,
-                    fitsInDay ? formatMinutes(endMinutes) : null,
-                    transportMinutes,
-                    distanceMeters,
-                    !fitsInDay
-                            ? "하루 일정이 길어 방문 시간은 직접 조정해 주세요."
-                            : index == 0
-                            ? "오전 9시부터 시작하는 첫 장소예요."
-                            : "이전 장소와 가까워 이동 부담이 적어요."
-            ));
+    private record RouteResult(
+            int distanceMeters,
+            int durationMinutes,
+            String transportMode,
+            String transportDetail
+    ) {}
 
-            if (distanceMeters != null) {
-                totalDistanceMeters += distanceMeters;
-                if (fitsInDay) {
-                    cursorMinutes = endMinutes + transportMinutes;
-                }
-            }
+    private int estimateTransportMinutes(
+            int distanceMeters,
+            double averageSpeedKmh
+    ) {
+        double minutes = distanceMeters / 1000.0 / averageSpeedKmh * 60.0;
+        return Math.max(5, (int) Math.ceil(minutes / 5.0) * 5);
+    }
+
+    private Instant departureTime(ItineraryDay day, int minutes) {
+        if (day.getItineraryDate() == null || minutes >= 24 * 60) {
+            return null;
         }
+        Instant departure = LocalDateTime.of(
+                        day.getItineraryDate(),
+                        java.time.LocalTime.of(minutes / 60, minutes % 60)
+                )
+                .atZone(ZoneId.systemDefault())
+                .toInstant();
+        Instant now = Instant.now();
+        if (departure.isBefore(now.minus(Duration.ofDays(7)))
+                || departure.isAfter(now.plus(Duration.ofDays(100)))) {
+            return null;
+        }
+        return departure;
+    }
 
-        return new RoutePlanDayResponse(
-                day.getId(),
-                day.getDayNumber(),
-                day.getItineraryDate(),
-                totalDistanceMeters,
-                items
+    // ── 공통 유틸 ─────────────────────────────────────────────────────────────
+
+    private RoutePlanPreviewResponse emptyResponse(
+            List<ItineraryDay> itineraryDays,
+            List<TripPlace> tripPlaces
+    ) {
+        return new RoutePlanPreviewResponse(
+                "배치할 저장 장소가 없습니다.",
+                tripPlaces.size(),
+                0,
+                sortedDays(itineraryDays).stream()
+                        .map(day -> new RoutePlanDayResponse(
+                                day.getId(), day.getDayNumber(), day.getItineraryDate(), 0, List.of()))
+                        .toList()
         );
     }
 
-    // ── 공통 유틸 ──────────────────────────────────────────────────────────────
-
-    private int distributedSize(int placeCount, int dayCount, int dayIndex) {
-        int base = placeCount / dayCount;
-        int remainder = placeCount % dayCount;
-        return base + (dayIndex < remainder ? 1 : 0);
-    }
-
-    private int estimateTransportMinutes(int distanceMeters) {
-        double minutes = distanceMeters / 1000.0 / AVERAGE_SPEED_KMH * 60.0;
-        return Math.max(5, (int) Math.ceil(minutes / 5.0) * 5);
+    private List<ItineraryDay> sortedDays(List<ItineraryDay> days) {
+        return days.stream()
+                .sorted(Comparator.comparingInt(ItineraryDay::getDayNumber))
+                .toList();
     }
 
     private String formatMinutes(int minutes) {
@@ -364,31 +671,18 @@ public class ItineraryRoutePlanner {
     }
 
     double distanceMeters(TripPlace first, TripPlace second) {
-        double lat1 = Math.toRadians(first.getPlace().getLatitude().doubleValue());
-        double lat2 = Math.toRadians(second.getPlace().getLatitude().doubleValue());
-        double deltaLat = lat2 - lat1;
-        double deltaLng = Math.toRadians(
-                second.getPlace().getLongitude().doubleValue()
-                        - first.getPlace().getLongitude().doubleValue()
-        );
-        double haversine = Math.pow(Math.sin(deltaLat / 2), 2)
-                + Math.cos(lat1) * Math.cos(lat2)
-                * Math.pow(Math.sin(deltaLng / 2), 2);
-        return 6_371_000 * 2 * Math.atan2(
-                Math.sqrt(haversine),
-                Math.sqrt(1 - haversine)
-        );
+        return GeoDistanceCalculator.distanceMeters(first, second);
     }
 
-    // ── Gemini 응답 파싱용 DTO ─────────────────────────────────────────────────
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    record GeminiRoutePlan(String summary, List<GeminiDay> days) {
-
-        @JsonIgnoreProperties(ignoreUnknown = true)
-        record GeminiDay(int dayIndex, List<GeminiPlace> places) {}
-
-        @JsonIgnoreProperties(ignoreUnknown = true)
-        record GeminiPlace(long id, String startTime, String endTime, String reason) {}
+    private double distanceMeters(
+            TripPlace place,
+            GeoPoint point
+    ) {
+        return GeoDistanceCalculator.distanceMeters(
+                place.getPlace().getLatitude().doubleValue(),
+                place.getPlace().getLongitude().doubleValue(),
+                point.latitude(),
+                point.longitude()
+        );
     }
 }

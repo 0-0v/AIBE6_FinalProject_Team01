@@ -111,6 +111,13 @@ export type Expense = {
 
 export type ItineraryDayStatus = 'DRAFT' | 'CONFIRMED'
 
+export type ItineraryTransportMode =
+    | 'WALKING'
+    | 'DRIVING'
+    | 'TAXI'
+    | 'SUBWAY'
+    | 'BUS'
+
 export type ItineraryItem = {
     id: string
     tripPlaceId: string | null
@@ -126,6 +133,9 @@ export type ItineraryItem = {
     sortOrder: number
     transportMinutes: number | null
     transportMeters: number | null
+    transportMode: string | null
+    transportDetail: string | null
+    transportModePreference: ItineraryTransportMode | null
     memo: string | null
 }
 
@@ -147,6 +157,8 @@ export type RoutePlanItem = {
     endTime: string | null
     transportMinutes: number | null
     transportMeters: number | null
+    transportMode: string | null
+    transportDetail: string | null
     reason: string
 }
 
@@ -163,4 +175,9 @@ export type RoutePlanPreview = {
     totalPlaceCount: number
     totalDistanceMeters: number
     days: RoutePlanDay[]
+}
+
+export type RouteOption = {
+    routeLabel: string
+    plan: RoutePlanPreview
 }

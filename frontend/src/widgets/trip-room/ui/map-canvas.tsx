@@ -156,6 +156,8 @@ function GoogleMapCanvas({
                         placeName: item.placeName ?? '장소',
                         transportMinutes: item.transportMinutes,
                         transportMeters: item.transportMeters,
+                        transportMode: item.transportMode,
+                        transportDetail: item.transportDetail,
                     })),
             }))
             .filter((route) => route.points.length > 0)
@@ -528,6 +530,8 @@ function RouteLayer({
             placeName: string
             transportMinutes: number | null
             transportMeters: number | null
+            transportMode: string | null
+            transportDetail: string | null
         }>
         color: string
         dayId: string
@@ -608,11 +612,19 @@ function RouteLayer({
 function formatRouteSegment({
     transportMinutes,
     transportMeters,
+    transportMode,
+    transportDetail,
 }: {
     transportMinutes: number | null
     transportMeters: number | null
+    transportMode: string | null
+    transportDetail: string | null
 }): string {
-    if (transportMinutes == null && transportMeters == null) {
+    if (
+        transportMinutes == null &&
+        transportMeters == null &&
+        transportMode == null
+    ) {
         return '이동 정보 미설정'
     }
     const distance =
@@ -622,8 +634,10 @@ function formatRouteSegment({
               ? `${(transportMeters / 1000).toFixed(1)}km`
               : `${transportMeters}m`
     return [
+        transportMode,
         transportMinutes == null ? null : `예상 ${transportMinutes}분`,
         distance,
+        transportDetail,
     ]
         .filter(Boolean)
         .join(' · ')
