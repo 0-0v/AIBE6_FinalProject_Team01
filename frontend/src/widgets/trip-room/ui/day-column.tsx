@@ -3,21 +3,67 @@
 import React, { useState } from 'react'
 import {
     ArrowDownIcon,
+    BusIcon,
+    CarIcon,
     CheckCircleIcon,
     ChevronDownIcon,
     ChevronRightIcon,
     CircleIcon,
+    ExternalLinkIcon,
+    FootprintsIcon,
     PlusIcon,
+    TrainFrontIcon,
 } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
-import { updateItineraryDayStatus, getItinerary, CategoryIcon } from '@/entities/trip'
-import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
+import {
+    updateItineraryDayStatus,
+    updateItineraryTransportMode,
+    getItinerary,
+    CategoryIcon,
+    TransportModeIcon,
+} from '@/entities/trip'
+import type {
+    ItineraryDay,
+    ItineraryItem,
+    ItineraryTransportMode,
+    Place,
+} from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ScheduleItemCard } from './schedule-item-card'
+import { buildGoogleMapsDirectionsUrl } from '../lib/google-maps-directions'
 
-function TransportConnector({ item }: { item: ItineraryItem }) {
-    const { transportMinutes, transportMeters } = item
+const TRANSPORT_MODE_OPTIONS: {
+    value: ItineraryTransportMode
+    label: string
+    icon: typeof FootprintsIcon
+}[] = [
+    { value: 'WALKING', label: '도보', icon: FootprintsIcon },
+    { value: 'DRIVING', label: '자동차', icon: CarIcon },
+    { value: 'TAXI', label: '택시', icon: CarIcon },
+    { value: 'SUBWAY', label: '지하철', icon: TrainFrontIcon },
+    { value: 'BUS', label: '버스', icon: BusIcon },
+]
+
+type TransportConnectorProps = {
+    item: ItineraryItem
+    nextItem: ItineraryItem
+    tripId: number
+    canWrite: boolean
+    onDaysChange: (days: ItineraryDay[]) => void
+}
+
+function TransportConnector({
+    item,
+    nextItem,
+    tripId,
+    canWrite,
+    onDaysChange,
+}: TransportConnectorProps) {
+    const [open, setOpen] = useState(false)
+    const [updating, setUpdating] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const { transportMinutes, transportMeters, transportMode } = item
     const hasTransport = transportMinutes != null
     const timeText = hasTransport
         ? transportMinutes < 60
@@ -34,22 +80,124 @@ function TransportConnector({ item }: { item: ItineraryItem }) {
                 ? ` · ${(transportMeters / 1000).toFixed(1)}km`
                 : ` · ${transportMeters}m`
             : ''
+    const modeLabel = transportMode ?? '이동'
+    const googleMapsUrl = buildGoogleMapsDirectionsUrl(
+        { lat: item.lat, lng: item.lng },
+        { lat: nextItem.lat, lng: nextItem.lng },
+        transportMode,
+    )
+
+    async function changeMode(mode: ItineraryTransportMode) {
+        if (!canWrite || updating) return
+        setUpdating(true)
+        setError(null)
+        try {
+            await updateItineraryTransportMode(
+                tripId,
+                Number(item.id),
+                mode,
+            )
+            onDaysChange(await getItinerary(tripId))
+            setOpen(false)
+        } catch (err) {
+            setError(
+                getApiErrorMessage(
+                    err,
+                    '이동수단을 변경하지 못했습니다.',
+                ),
+            )
+        } finally {
+            setUpdating(false)
+        }
+    }
 
     return (
-        <div className="relative flex items-center justify-center py-1.5">
+        <div className="relative flex flex-col items-center justify-center py-1.5">
             {/* 세로 점선 */}
             <div className="absolute inset-y-0 left-1/2 -translate-x-px border-l-2 border-dashed border-slate-200" />
-            {/* 플로팅 pill 뱃지 */}
-            <div
-                className={`relative z-10 flex items-center gap-1 rounded-full border bg-white px-2.5 py-1 text-[10px] font-medium shadow-sm ${
-                    hasTransport
-                        ? 'border-brand/25 text-brand'
-                        : 'border-slate-100 text-slate-300'
-                }`}
-            >
-                <ArrowDownIcon size={9} strokeWidth={2.5} aria-hidden />
-                {hasTransport ? `이동 ${timeText}${distText}` : '이동'}
+            <div className="relative z-10 flex items-center rounded-full border border-brand/25 bg-white text-brand shadow-sm">
+                <button
+                    type="button"
+                    onClick={() =>
+                        canWrite && setOpen((current) => !current)
+                    }
+                    disabled={!canWrite || updating}
+                    aria-expanded={open}
+                    aria-label={`${modeLabel} 이동수단 변경`}
+                    className={`flex items-center gap-1 rounded-l-full px-2.5 py-1 text-[10px] font-medium ${
+                        hasTransport
+                            ? 'text-brand'
+                            : 'text-slate-300'
+                    } ${canWrite ? 'cursor-pointer transition hover:bg-brand/5' : 'cursor-default'} disabled:opacity-60`}
+                >
+                    <ArrowDownIcon size={9} strokeWidth={2.5} aria-hidden />
+                    <TransportModeIcon mode={transportMode} size={9} />
+                    {hasTransport
+                        ? `${modeLabel} ${timeText}${distText}`
+                        : '이동'}
+                    {canWrite && <ChevronDownIcon size={9} aria-hidden />}
+                </button>
+                <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${modeLabel} 경로를 Google Maps에서 확인`}
+                    title="Google Maps에서 자세히 보기"
+                    className="flex self-stretch items-center rounded-r-full border-l border-brand/15 px-2 transition hover:bg-brand/10"
+                >
+                    <ExternalLinkIcon size={9} aria-hidden />
+                </a>
             </div>
+            {open && (
+                <>
+                    <button
+                        type="button"
+                        className="fixed inset-0 z-40 cursor-default"
+                        aria-label="이동수단 메뉴 닫기"
+                        onClick={() => setOpen(false)}
+                    />
+                    <div className="absolute top-full z-50 mt-1 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                        {TRANSPORT_MODE_OPTIONS.map((option) => {
+                            const Icon = option.icon
+                            const selected =
+                                option.value === item.transportModePreference ||
+                                (item.transportModePreference == null &&
+                                    option.label === transportMode)
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    disabled={updating}
+                                    onClick={() =>
+                                        void changeMode(option.value)
+                                    }
+                                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
+                                        selected
+                                            ? 'bg-brand/10 font-bold text-brand'
+                                            : 'text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <Icon size={13} aria-hidden />
+                                    {option.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </>
+            )}
+            {error && (
+                <p className="relative z-10 mt-1 rounded bg-white px-1 text-[10px] text-red-500">
+                    {error}
+                </p>
+            )}
+            {item.transportDetail && (
+                <p
+                    className="relative z-10 mt-1 max-w-64 truncate rounded bg-white px-1.5 text-[9px] text-slate-400"
+                    title={item.transportDetail}
+                >
+                    {item.transportDetail}
+                </p>
+            )}
         </div>
     )
 }
@@ -252,7 +400,13 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
                                         onDaysChange={onDaysChange}
                                     />
                                     {index < day.items.length - 1 && (
-                                        <TransportConnector item={item} />
+                                        <TransportConnector
+                                            item={item}
+                                            nextItem={day.items[index + 1]}
+                                            tripId={tripId}
+                                            canWrite={canWrite}
+                                            onDaysChange={onDaysChange}
+                                        />
                                     )}
                                 </React.Fragment>
                             ))

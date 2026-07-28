@@ -3,10 +3,7 @@
 import { useState } from 'react'
 import {
     ArrowDownIcon,
-    BusIcon,
-    CarIcon,
     CheckIcon,
-    FootprintsIcon,
     LoaderCircleIcon,
     MapPinnedIcon,
     RotateCcwIcon,
@@ -19,6 +16,7 @@ import {
     type ItineraryDay,
     type RouteOption,
     type RoutePlanPreview,
+    TransportModeIcon,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 
@@ -26,13 +24,6 @@ type Props = {
     tripId: number
     onClose: () => void
     onApplied: (days: ItineraryDay[]) => void
-}
-
-function TransportModeIcon({ mode }: { mode: string | null }) {
-    if (mode === '도보') return <FootprintsIcon size={10} />
-    if (mode === '대중교통') return <BusIcon size={10} />
-    if (mode === '자동차') return <CarIcon size={10} />
-    return null
 }
 
 function formatDistance(meters: number): string {
@@ -101,13 +92,24 @@ function RoutePlanView({ plan }: { plan: RoutePlanPreview }) {
                                     </div>
                                 </div>
                                 {index < day.items.length - 1 && (
-                                    <div className="flex items-center gap-1 py-1 pl-3 text-[10px] text-slate-400">
-                                        <ArrowDownIcon size={11} />
-                                        <TransportModeIcon mode={item.transportMode} />
-                                        {item.transportMode ?? '이동'}{' '}
-                                        {item.transportMinutes}분 ·{' '}
-                                        {formatDistance(item.transportMeters ?? 0)}
-                                    </div>
+                                    <>
+                                        <div className="flex items-center gap-1 py-1 pl-3 text-[10px] text-slate-400">
+                                            <ArrowDownIcon size={11} />
+                                            <TransportModeIcon
+                                                mode={item.transportMode}
+                                            />
+                                            {item.transportMode ?? '이동'}{' '}
+                                            {item.transportMinutes}분 ·{' '}
+                                            {formatDistance(
+                                                item.transportMeters ?? 0,
+                                            )}
+                                        </div>
+                                        {item.transportDetail && (
+                                            <p className="pb-1 pl-3 text-[9px] text-slate-400">
+                                                {item.transportDetail}
+                                            </p>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         ))
@@ -175,7 +177,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                     </span>
                     <div>
                         <p className="text-sm font-extrabold">
-                            AI 동선 코파일럿
+                            스마트 동선 추천
                         </p>
                         <p className="text-[10px] text-slate-400">
                             승인 전에는 일정을 변경하지 않아요
@@ -186,7 +188,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                     type="button"
                     onClick={onClose}
                     className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
-                    aria-label="AI 동선 패널 닫기"
+                    aria-label="스마트 동선 추천 패널 닫기"
                 >
                     <XIcon size={18} />
                 </button>
@@ -200,15 +202,15 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                             저장 장소로 일정을 만들어 볼까요?
                         </h3>
                         <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                            여행 스타일에 맞는 경로와 균형 잡힌 경로 2가지를
-                            비교해 원하는 동선을 선택하세요.
+                            저장한 장소를 여행 스타일에 맞게 정렬하고
+                            이동 거리를 최소화한 동선을 추천해 드려요.
                         </p>
                         <button
                             type="button"
                             onClick={() => void analyze()}
                             className="mt-4 w-full rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700"
                         >
-                            동선 초안 만들기
+                            동선 추천 받기
                         </button>
                     </div>
                 )}
@@ -223,7 +225,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                             장소와 이동 거리를 분석하고 있어요
                         </p>
                         <p className="text-[11px] text-slate-400">
-                            여행 스타일에 맞는 경로 2가지를 생성 중입니다
+                            여행 스타일에 맞는 최적 동선을 계산 중입니다
                         </p>
                     </div>
                 )}

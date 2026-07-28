@@ -2,6 +2,7 @@ export * from './model/types'
 export * from './model/place-presentation'
 export { RoomCard } from './ui/room-card'
 export { CategoryIcon } from './ui/category-icon'
+export { TransportModeIcon } from './ui/transport-mode-icon'
 export {
     PLACE_MARKER_ICONS,
     PLACE_MARKER_ICON_OPTIONS,
@@ -42,6 +43,7 @@ export {
     addItineraryItem,
     removeItineraryItem,
     updateItineraryItem,
+    updateItineraryTransportMode,
     moveItineraryItem,
     reorderItineraryItems,
     updateItineraryDayStatus,
