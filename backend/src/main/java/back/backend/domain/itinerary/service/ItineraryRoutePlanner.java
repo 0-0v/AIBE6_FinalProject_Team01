@@ -86,24 +86,42 @@ public class ItineraryRoutePlanner {
             List<TripPlace> tripPlaces,
             Set<TravelStyle> travelStyles
     ) {
-        if (travelStyles.isEmpty()) {
-            log.debug("여행 스타일 미설정 — 균형 잡힌 코스 1개 생성");
-            return List.of(new RoutePlanOption(
-                    "균형 잡힌 코스",
-                    planBalanced(itineraryDays, tripPlaces)
-            ));
+        List<ItineraryDay> days = sortedDays(itineraryDays);
+
+        if (days.isEmpty() || tripPlaces.isEmpty()) {
+            log.debug("일정 또는 장소 없음 — 빈 지리 최적 코스 반환");
+            return List.of(new RoutePlanOption("지리 최적 코스",
+                    emptyResponse(days, tripPlaces)));
         }
 
-        log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
-                tripPlaces.size(), itineraryDays.size(), travelStyles);
-
-        List<TravelStyle> styleList = new ArrayList<>(travelStyles);
         List<RoutePlanOption> options = new ArrayList<>();
-        for (TravelStyle style : styleList) {
-            String label = STYLE_LABEL.getOrDefault(style, style.name()) + " 코스";
-            options.add(new RoutePlanOption(label,
-                    planWithCategoryPriority(itineraryDays, tripPlaces, style)));
+
+        // 항상 지리 우선 코스 포함
+        List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
+        options.add(new RoutePlanOption("지리 최적 코스",
+                buildResponseFromClusters(days, geoClusters, tripPlaces.size(),
+                        String.format("저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
+                                tripPlaces.size(), days.size()),
+                        null)));
+
+        // 스타일별 코스 추가
+        if (!travelStyles.isEmpty()) {
+            log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
+                    tripPlaces.size(), days.size(), travelStyles);
         }
+        for (TravelStyle style : travelStyles) {
+            List<PlaceCategoryType> priority =
+                    STYLE_CATEGORY_PRIORITY.getOrDefault(style, List.of());
+            String styleLabel = STYLE_LABEL.getOrDefault(style, style.name());
+            String label = styleLabel + " 중심 코스";
+            List<List<TripPlace>> styleClusters =
+                    clusterByStylePriority(tripPlaces, days.size(), priority);
+            options.add(new RoutePlanOption(label,
+                    buildResponseFromClusters(days, styleClusters, tripPlaces.size(),
+                            buildStyleSummary(styleLabel, tripPlaces.size(), days.size(), priority),
+                            buildStyleReason(styleLabel))));
+        }
+
         return options;
     }
 

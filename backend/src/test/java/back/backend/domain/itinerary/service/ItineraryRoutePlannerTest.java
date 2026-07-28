@@ -116,8 +116,8 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t4 여행 스타일 N개 입력 시 N개의 동선 옵션을 반환한다")
-    void t4_multiStyleProducesMultipleRouteOptions() {
+    @DisplayName("t4 여행 스타일 N개 입력 시 지리 우선 코스 포함 N+1개의 옵션을 반환한다")
+    void t4_multiStyleProducesGeoFirstPlusStyleOptions() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
                 tripPlace(10L, "음식점", PlaceCategoryType.FOOD, 33.4500, 126.5000),
@@ -129,9 +129,53 @@ class ItineraryRoutePlannerTest {
 
         var options = planner.planMulti(days, places, styles);
 
-        assertThat(options).hasSize(2);
+        // 지리 우선 1개 + 스타일 2개 = 3개
+        assertThat(options).hasSize(3);
+        assertThat(options.get(0).routeLabel()).isEqualTo("지리 최적 코스");
         assertThat(options).extracting(opt -> opt.routeLabel())
                 .allMatch(label -> label.endsWith("코스"));
+    }
+
+    @Test
+    @DisplayName("t10 스타일 없으면 지리 우선 코스 1개만 반환한다")
+    void t10_noStyleProducesOnlyGeoFirstOption() {
+        List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
+                tripPlace(11L, "B", PlaceCategoryType.ATTRACTION, 33.46, 126.51)
+        );
+
+        var options = planner.planMulti(days, places, Set.of());
+
+        assertThat(options).hasSize(1);
+        assertThat(options.get(0).routeLabel()).isEqualTo("지리 최적 코스");
+    }
+
+    @Test
+    @DisplayName("t11 스타일 우선 코스는 지리 우선 코스와 다른 Day 배분을 가진다")
+    void t11_styleFirstCourseDiffersFromGeoFirst() {
+        List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
+        // 음식점 4개(지리 분산) + 명소 2개 섞임
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "음식점북1", PlaceCategoryType.FOOD,       33.40, 126.50),
+                tripPlace(11L, "명소북",   PlaceCategoryType.ATTRACTION,  33.41, 126.51),
+                tripPlace(12L, "음식점북2", PlaceCategoryType.FOOD,       33.42, 126.52),
+                tripPlace(13L, "음식점남1", PlaceCategoryType.FOOD,       33.60, 126.60),
+                tripPlace(14L, "명소남",   PlaceCategoryType.ATTRACTION,  33.61, 126.61),
+                tripPlace(15L, "음식점남2", PlaceCategoryType.FOOD,       33.62, 126.62)
+        );
+        Set<TravelStyle> styles = Set.of(TravelStyle.FOOD);
+
+        var options = planner.planMulti(days, places, styles);
+        assertThat(options).hasSize(2);
+
+        var geoDay1 = options.get(0).plan().days().get(0).items().stream()
+                .map(i -> i.placeName()).toList();
+        var styleDay1 = options.get(1).plan().days().get(0).items().stream()
+                .map(i -> i.placeName()).toList();
+
+        // 두 옵션의 Day1 구성이 달라야 한다
+        assertThat(geoDay1).isNotEqualTo(styleDay1);
     }
 
     // ── 픽스처 ──────────────────────────────────────────────────────────────
