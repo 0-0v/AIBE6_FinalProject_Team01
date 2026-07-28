@@ -28,9 +28,17 @@ const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'FOOD', label: '맛집 먹거리' },
 ]
 
-type Props = { onClose: () => void; onCreated: () => void }
+type Props = {
+    onClose: () => void
+    onCreated: (tripId: number) => void
+    requireDates?: boolean
+}
 
-export function CreateTripModal({ onClose, onCreated }: Props) {
+export function CreateTripModal({
+    onClose,
+    onCreated,
+    requireDates = false,
+}: Props) {
     const [title, setTitle] = useState('')
     const [companionType, setCompanionType] = useState<CompanionType | ''>('')
     const [travelStyles, setTravelStyles] = useState<TravelStyle[]>([])
@@ -61,6 +69,10 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
             setError('여행 시작일과 종료일을 함께 입력해 주세요.')
             return
         }
+        if (requireDates && (!startDate || !endDate)) {
+            setError('일정을 담으려면 여행 시작일과 종료일을 입력해 주세요.')
+            return
+        }
         if (startDate && endDate < startDate) {
             setError('종료일은 시작일보다 빠를 수 없습니다.')
             return
@@ -85,7 +97,7 @@ export function CreateTripModal({ onClose, onCreated }: Props) {
             if (coverImage) {
                 await uploadTripCoverImage(tripId, coverImage)
             }
-            onCreated()
+            onCreated(tripId)
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : '여행방을 생성하지 못했습니다.')
         } finally {
