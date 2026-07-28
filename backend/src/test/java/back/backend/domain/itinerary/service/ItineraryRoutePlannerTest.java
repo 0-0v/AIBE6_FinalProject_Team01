@@ -196,6 +196,61 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
+    @DisplayName("t7 지리적으로 가까운 장소들이 같은 Day에 배정된다")
+    void t7_clusterByGeographyGroupsNearbyPlaces() {
+        // 북쪽 2개 (33.45 근처), 남쪽 2개 (33.55 근처)
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "북1", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
+                tripPlace(11L, "북2", PlaceCategoryType.ATTRACTION, 33.4510, 126.5010),
+                tripPlace(12L, "남1", PlaceCategoryType.ATTRACTION, 33.5500, 126.5500),
+                tripPlace(13L, "남2", PlaceCategoryType.ATTRACTION, 33.5510, 126.5510)
+        );
+
+        RoutePlanPreviewResponse result = planner.plan(List.of(day(1L, 1), day(2L, 2)), places);
+
+        var day1Names = result.days().get(0).items().stream().map(i -> i.placeName()).toList();
+        var day2Names = result.days().get(1).items().stream().map(i -> i.placeName()).toList();
+
+        boolean northSameDay = day1Names.containsAll(List.of("북1", "북2"))
+                || day2Names.containsAll(List.of("북1", "북2"));
+        assertThat(northSameDay).isTrue();
+    }
+
+    @Test
+    @DisplayName("t8 클러스터링 결과가 극단적 불균형(8+1+1)을 방지한다")
+    void t8_clusterByGeographyRespectsSoftCap() {
+        // 10개 장소, 3일 — soft cap = ceil(10/3 * 1.5) = 5
+        List<TripPlace> places = new java.util.ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            places.add(tripPlace((long) (10 + i), "장소" + i,
+                    PlaceCategoryType.ATTRACTION,
+                    33.45 + i * 0.001, 126.50 + i * 0.001));
+        }
+
+        RoutePlanPreviewResponse result = planner.plan(
+                List.of(day(1L, 1), day(2L, 2), day(3L, 3)), places);
+
+        result.days().forEach(d ->
+                assertThat(d.items().size()).isLessThanOrEqualTo(5));
+    }
+
+    @Test
+    @DisplayName("t9 Day 수가 장소 수보다 많으면 빈 Day가 생긴다")
+    void t9_clusterByGeographyHandlesMoreDaysThanPlaces() {
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
+                tripPlace(11L, "B", PlaceCategoryType.ATTRACTION, 33.46, 126.51)
+        );
+
+        RoutePlanPreviewResponse result = planner.plan(
+                List.of(day(1L, 1), day(2L, 2), day(3L, 3)), places);
+
+        int totalItems = result.days().stream().mapToInt(d -> d.items().size()).sum();
+        assertThat(totalItems).isEqualTo(2);
+        assertThat(result.days()).anyMatch(d -> d.items().isEmpty());
+    }
+
+    @Test
     @DisplayName("t5 음식점은 60분, 명소는 90분 체류 시간을 부여한다")
     void t5_planAssignsCategoryBasedStayMinutes() {
         List<TripPlace> places = List.of(

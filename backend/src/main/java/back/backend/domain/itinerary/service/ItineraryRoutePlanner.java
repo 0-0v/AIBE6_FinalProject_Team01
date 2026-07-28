@@ -134,8 +134,8 @@ public class ItineraryRoutePlanner {
             return emptyResponse(days, tripPlaces);
         }
 
-        List<TripPlace> orderedPlaces = orderByCategoryPriority(tripPlaces, priority);
-        return buildResponse(days, orderedPlaces, tripPlaces.size(),
+        List<List<TripPlace>> clusters = clusterByStylePriority(tripPlaces, days.size(), priority);
+        return buildResponseFromClusters(days, clusters, tripPlaces.size(),
                 buildStyleSummary(styleLabel, tripPlaces.size(), days.size(), priority),
                 buildStyleReason(styleLabel));
     }
@@ -149,9 +149,9 @@ public class ItineraryRoutePlanner {
             return emptyResponse(days, tripPlaces);
         }
 
-        List<TripPlace> orderedPlaces = orderByNearestNeighbor(tripPlaces, 0);
-        return buildResponse(days, orderedPlaces, tripPlaces.size(),
-                String.format("저장한 장소 %d곳을 %d일에 나누고 가까운 장소끼리 연결했어요.",
+        List<List<TripPlace>> clusters = clusterByGeography(tripPlaces, days.size());
+        return buildResponseFromClusters(days, clusters, tripPlaces.size(),
+                String.format("저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
                         tripPlaces.size(), days.size()),
                 null);
     }
@@ -202,6 +202,160 @@ public class ItineraryRoutePlanner {
             ordered.addAll(orderByNearestNeighbor(new ArrayList<>(group), startIdx));
         }
         return ordered;
+    }
+
+    // ── 지리적 클러스터링 ──────────────────────────────────────────────────────
+
+    /**
+     * 지리적으로 분산된 K개 초기 중심을 선택한다.
+     * - 중심 0: 전체 평균 위치에서 가장 가까운 장소
+     * - 이후 중심: 기존 중심들로부터 가장 먼 장소 (deterministic max-distance)
+     */
+    private List<TripPlace> initCentroids(List<TripPlace> places, int k) {
+        List<TripPlace> centroids = new ArrayList<>();
+
+        double meanLat = places.stream()
+                .mapToDouble(p -> p.getPlace().getLatitude().doubleValue())
+                .average().orElse(0);
+        double meanLng = places.stream()
+                .mapToDouble(p -> p.getPlace().getLongitude().doubleValue())
+                .average().orElse(0);
+
+        TripPlace first = places.stream()
+                .min(Comparator.comparingDouble(p -> {
+                    double dLat = p.getPlace().getLatitude().doubleValue() - meanLat;
+                    double dLng = p.getPlace().getLongitude().doubleValue() - meanLng;
+                    return dLat * dLat + dLng * dLng;
+                }))
+                .orElse(places.get(0));
+        centroids.add(first);
+
+        while (centroids.size() < k) {
+            List<TripPlace> currentCentroids = new ArrayList<>(centroids);
+            TripPlace farthest = places.stream()
+                    .filter(p -> !currentCentroids.contains(p))
+                    .max(Comparator.comparingDouble(p ->
+                            currentCentroids.stream()
+                                    .mapToDouble(c -> distanceMeters(p, c))
+                                    .min().orElse(0)))
+                    .orElse(places.get(centroids.size() % places.size()));
+            centroids.add(farthest);
+        }
+
+        return centroids;
+    }
+
+    /**
+     * 장소를 dayCount개 지리적 클러스터로 분리한다.
+     * K-means++ 방식으로 초기 중심 선택 후 nearest-centroid 배정.
+     * Soft cap(평균 × 1.5)으로 극단적 불균형 방지.
+     * 각 클러스터 내부는 NN으로 정렬.
+     */
+    private List<List<TripPlace>> clusterByGeography(List<TripPlace> places, int dayCount) {
+        if (dayCount <= 0 || places.isEmpty()) return List.of();
+
+        if (dayCount >= places.size()) {
+            List<List<TripPlace>> result = new ArrayList<>();
+            for (TripPlace p : places) result.add(new ArrayList<>(List.of(p)));
+            while (result.size() < dayCount) result.add(new ArrayList<>());
+            return result;
+        }
+
+        int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
+        List<TripPlace> centroids = initCentroids(places, dayCount);
+
+        List<List<TripPlace>> clusters = new ArrayList<>();
+        for (int i = 0; i < dayCount; i++) clusters.add(new ArrayList<>());
+
+        for (TripPlace place : places) {
+            int best = -1;
+            double bestDist = Double.MAX_VALUE;
+            for (int i = 0; i < dayCount; i++) {
+                if (clusters.get(i).size() >= maxPerDay) continue;
+                double dist = distanceMeters(place, centroids.get(i));
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = i;
+                }
+            }
+            if (best == -1) {
+                int minSize = clusters.stream().mapToInt(List::size).min().orElse(0);
+                for (int i = 0; i < dayCount; i++) {
+                    if (clusters.get(i).size() == minSize) { best = i; break; }
+                }
+                if (best == -1) best = 0;
+            }
+            clusters.get(best).add(place);
+        }
+
+        return clusters.stream()
+                .map(cluster -> cluster.isEmpty()
+                        ? cluster
+                        : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 카테고리 우선순위로 장소를 Day 클러스터로 분리한다.
+     * 우선 카테고리 장소들이 앞쪽 Day에 배정되고, Day 내부는 NN 정렬.
+     */
+    private List<List<TripPlace>> clusterByStylePriority(
+            List<TripPlace> places,
+            int dayCount,
+            List<PlaceCategoryType> priority
+    ) {
+        if (dayCount <= 0 || places.isEmpty()) return List.of();
+
+        Map<PlaceCategoryType, Integer> scoreMap = new HashMap<>();
+        for (int i = 0; i < priority.size(); i++) scoreMap.put(priority.get(i), i);
+
+        Map<Integer, List<TripPlace>> buckets = new LinkedHashMap<>();
+        for (TripPlace place : places) {
+            int score = scoreMap.getOrDefault(
+                    place.getCategory().getCategoryType(), priority.size());
+            buckets.computeIfAbsent(score, k -> new ArrayList<>()).add(place);
+        }
+
+        int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
+        List<List<TripPlace>> clusters = new ArrayList<>();
+        for (int i = 0; i < dayCount; i++) clusters.add(new ArrayList<>());
+
+        int dayIdx = 0;
+        for (int bucket = 0; bucket <= priority.size(); bucket++) {
+            List<TripPlace> bucketPlaces = buckets.getOrDefault(bucket, List.of());
+            for (TripPlace place : bucketPlaces) {
+                while (dayIdx < dayCount - 1 && clusters.get(dayIdx).size() >= maxPerDay) {
+                    dayIdx++;
+                }
+                clusters.get(dayIdx).add(place);
+            }
+        }
+
+        return clusters.stream()
+                .map(cluster -> cluster.isEmpty()
+                        ? cluster
+                        : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
+                .collect(Collectors.toList());
+    }
+
+    private RoutePlanPreviewResponse buildResponseFromClusters(
+            List<ItineraryDay> days,
+            List<List<TripPlace>> clusters,
+            int totalPlaceCount,
+            String summary,
+            String defaultReason
+    ) {
+        List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
+        int totalDistanceMeters = 0;
+
+        for (int i = 0; i < days.size(); i++) {
+            List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
+            RoutePlanDayResponse plannedDay = planDay(days.get(i), dayPlaces, defaultReason);
+            plannedDays.add(plannedDay);
+            totalDistanceMeters += plannedDay.totalDistanceMeters();
+        }
+
+        return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
     }
 
     // ── 공통 플래닝 유틸 ──────────────────────────────────────────────────────
