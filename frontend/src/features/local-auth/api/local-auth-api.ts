@@ -4,11 +4,13 @@ import {
     setAccessToken,
 } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
+import { setLastLoginProvider } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 
 export type VerificationPurpose = 'SIGNUP' | 'PASSWORD_RESET'
 
 type TokenResponse = ApiResponse<{ accessToken: string }>
+type NicknameAvailabilityResponse = ApiResponse<{ available: boolean }>
 
 export async function sendVerificationCode(
     email: string,
@@ -43,12 +45,22 @@ export async function signup(
     await establishSession(response.data.accessToken)
 }
 
-export async function login(email: string, password: string) {
+export async function checkNicknameAvailability(nickname: string) {
+    const response =
+        await apiClient.postPublic<NicknameAvailabilityResponse>(
+            '/api/auth/nickname-availability',
+            { nickname },
+        )
+    return response.data.available
+}
+
+export async function login(identifier: string, password: string) {
     const response = await apiClient.postPublic<TokenResponse>(
         '/api/auth/login',
-        { email, password },
+        { identifier, password },
     )
     await establishSession(response.data.accessToken)
+    setLastLoginProvider('LOCAL')
 }
 
 export async function resetPassword(email: string, newPassword: string) {
