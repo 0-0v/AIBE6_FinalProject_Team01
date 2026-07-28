@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 public interface TripMemberRepository extends JpaRepository<TripMember, Long> {
     void deleteAllByTripId(Long tripId);
 
+    void deleteByTripIdAndMemberId(Long tripId, Long memberId);
+
     boolean existsByTripIdAndMemberId(Long tripId, Long memberId);
 
     long countByTripId(Long tripId);

@@ -10,6 +10,7 @@ import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.notification.service.NotificationService;
 import back.backend.domain.trip.dto.TripRequest;
 import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripMemberResponse;
 import back.backend.domain.trip.dto.TripVisibilityRequest;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TripMember;
@@ -19,6 +20,7 @@ import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.domain.place.service.TripAccessChecker;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -34,18 +36,24 @@ public class TripService {
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
     private final PlanCardRepository planCardRepository;
+    private final TripPresenceService tripPresenceService;
+    private final TripAccessChecker tripAccessChecker;
 
     public TripService(TripRepository tripRepository, TripMemberRepository tripMemberRepository,
                        MemberRepository memberRepository,
                        ActivityLogService activityLogService,
                        NotificationService notificationService,
-                       PlanCardRepository planCardRepository) {
+                       PlanCardRepository planCardRepository,
+                       TripPresenceService tripPresenceService,
+                       TripAccessChecker tripAccessChecker) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.memberRepository = memberRepository;
         this.activityLogService = activityLogService;
         this.notificationService = notificationService;
         this.planCardRepository = planCardRepository;
+        this.tripPresenceService = tripPresenceService;
+        this.tripAccessChecker = tripAccessChecker;
     }
 
     @Transactional
@@ -68,16 +76,30 @@ public class TripService {
     public TripResponse get(Long memberId, Long tripId) {
         Trip trip = tripRepository.findByIdAndStatusNot(tripId, TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
-        if (trip.getOwnerId().equals(memberId)
-                || tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
+        if (tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
             return toResponse(trip);
         }
         throw new BusinessException(TripErrorCode.TRIP_NOT_FOUND);
     }
 
+    public List<TripMemberResponse> getMembers(Long tripId) {
+        Long memberId = tripAccessChecker.requireView(tripId);
+        if (memberId != null) {
+            tripPresenceService.touch(tripId, memberId);
+        }
+        return memberRepository.findAllById(tripMemberRepository.findMemberIdsByTripId(tripId))
+                .stream()
+                .map(member -> new TripMemberResponse(
+                        member.getId(),
+                        member.getNickname(),
+                        member.getProfileImageUrl(),
+                        tripPresenceService.isOnline(tripId, member.getId())))
+                .toList();
+    }
+
     @Transactional
     public TripResponse update(Long memberId, Long tripId, TripRequest request) {
-        Trip trip = findOwnedTrip(memberId, tripId);
+        Trip trip = findJoinedTripWithoutLock(memberId, tripId);
         try {
             trip.update(request.title(), request.companionType(), request.normalizedTravelStyles(),
                     request.destination(), request.startDate(), request.endDate());
@@ -92,7 +114,7 @@ public class TripService {
 
     @Transactional
     public TripResponse updateVisibility(Long memberId, Long tripId, TripVisibilityRequest request) {
-        Trip trip = findOwnedTrip(memberId, tripId);
+        Trip trip = findJoinedTripWithoutLock(memberId, tripId);
         if (trip.getStatus() != TripStatus.COMPLETED) {
             throw new BusinessException(TripErrorCode.TRIP_VISIBILITY_NOT_AVAILABLE);
         }
@@ -106,13 +128,21 @@ public class TripService {
 
     @Transactional
     public void delete(Long memberId, Long tripId) {
-        Trip trip = findOwnedTrip(memberId, tripId);
-        try {
-            trip.cancel();
-        } catch (IllegalStateException exception) {
-            throw new BusinessException(TripErrorCode.TRIP_ALREADY_FINISHED);
+        Trip trip = findJoinedTrip(memberId, tripId);
+        if (tripMemberRepository.countByTripId(tripId) > 1) {
+            throw new BusinessException(TripErrorCode.TRIP_HAS_OTHER_MEMBERS);
         }
-        recordEvent(trip, memberId, "TRIP_DELETED", "여행방을 삭제했습니다.");
+        tripRepository.delete(trip);
+    }
+
+    @Transactional
+    public void leave(Long memberId, Long tripId) {
+        Trip trip = findJoinedTrip(memberId, tripId);
+        if (tripMemberRepository.countByTripId(tripId) <= 1) {
+            throw new BusinessException(TripErrorCode.LAST_TRIP_MEMBER);
+        }
+        recordEvent(trip, memberId, "TRIP_LEFT", "멤버가 여행방을 나갔습니다.");
+        tripMemberRepository.deleteByTripIdAndMemberId(tripId, memberId);
     }
 
     private Trip saveValidTrip(Long memberId, TripRequest request) {
@@ -124,9 +154,18 @@ public class TripService {
         }
     }
 
-    private Trip findOwnedTrip(Long memberId, Long tripId) {
-        return tripRepository.findByIdAndOwnerIdAndStatusNot(tripId, memberId, TripStatus.CANCELLED)
+    private Trip findJoinedTripWithoutLock(Long memberId, Long tripId) {
+        return tripRepository.findByIdAndMemberIdAndStatusNot(tripId, memberId, TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+    }
+
+    private Trip findJoinedTrip(Long memberId, Long tripId) {
+        Trip trip = tripRepository.findByIdAndStatusNotForMembershipChange(tripId, TripStatus.CANCELLED)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+        if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
+            throw new BusinessException(TripErrorCode.TRIP_NOT_FOUND);
+        }
+        return trip;
     }
 
     private TripResponse toResponse(Trip trip) {

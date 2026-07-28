@@ -38,7 +38,7 @@ public class TripCoverImageService {
     @Transactional
     public TripResponse update(Long memberId, Long tripId, MultipartFile file) {
         Trip trip = tripRepository
-                .findByIdAndOwnerIdAndStatusNot(tripId, memberId, TripStatus.CANCELLED)
+                .findByIdAndMemberIdAndStatusNot(tripId, memberId, TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
         String imageUrl = imageStorage.store(tripId, memberId, file);
         trip.changeCoverImage(imageUrl);

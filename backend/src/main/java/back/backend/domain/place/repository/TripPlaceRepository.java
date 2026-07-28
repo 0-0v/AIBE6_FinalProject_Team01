@@ -36,6 +36,8 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, Long> {
     Optional<TripPlace> findByTripIdAndPlaceId(Long tripId, Long placeId);
     Optional<TripPlace> findByIdAndTripId(Long id, Long tripId);
     List<TripPlace> findAllByTripIdAndCategory(Long tripId, PlaceCategory category);
+    boolean existsByTripId(Long tripId);
+    void deleteAllByTripId(Long tripId);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tp FROM TripPlace tp JOIN FETCH tp.place WHERE tp.id = :id AND tp.tripId = :tripId")
     Optional<TripPlace> findByIdAndTripIdForUpdate(

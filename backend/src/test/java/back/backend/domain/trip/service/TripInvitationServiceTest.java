@@ -36,9 +36,9 @@ class TripInvitationServiceTest {
     }
 
     @Test
-    @DisplayName("t1 소유자가 초대 링크를 생성하면 7일간 유효한 코드를 반환한다")
+    @DisplayName("t1 여행방 멤버가 초대 링크를 생성하면 7일간 유효한 코드를 반환한다")
     void t1_createInvitationReturnsPersistedCode() {
-        when(tripRepository.findByIdAndOwnerIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
                 .thenReturn(Optional.of(trip()));
         when(invitationRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 

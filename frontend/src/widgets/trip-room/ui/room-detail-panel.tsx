@@ -26,6 +26,10 @@ import {
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
+import {
+    fetchTripMembers,
+    type TripMember,
+} from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
@@ -64,7 +68,6 @@ type Props = {
     onDeletePlace: (id: string) => void
     loadError?: string | null
     canManage: boolean
-    isOwner: boolean
     tripId: number
     initialActivityOpen?: boolean
     onTripDatesChanged?: () => void
@@ -72,6 +75,7 @@ type Props = {
     itineraryVersion?: number
     showBackButton?: boolean
     guestView?: boolean
+    onJoin?: () => void
 }
 
 export function RoomDetailPanel({
@@ -86,7 +90,6 @@ export function RoomDetailPanel({
     onDeletePlace,
     loadError,
     canManage,
-    isOwner,
     tripId,
     initialActivityOpen = false,
     onTripDatesChanged,
@@ -94,6 +97,7 @@ export function RoomDetailPanel({
     itineraryVersion = 0,
     showBackButton = true,
     guestView = false,
+    onJoin,
 }: Props) {
     const [mode, setMode] = useState<Mode>(
         room.lifecycleStatus === 'COMPLETED' ? 'record' : 'plan',
@@ -104,6 +108,7 @@ export function RoomDetailPanel({
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
+    const [members, setMembers] = useState<TripMember[]>([])
     const isPublic = room.visibility === 'PUBLIC'
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
@@ -123,6 +128,24 @@ export function RoomDetailPanel({
         categoryState.tripId === tripId ? categoryState.items : []
     const categoriesLoading =
         categoryState.tripId !== tripId || categoryState.loading
+
+    useEffect(() => {
+        let active = true
+        const loadMembers = async () => {
+            try {
+                const nextMembers = await fetchTripMembers(tripId)
+                if (active) setMembers(nextMembers)
+            } catch {
+                if (active) setMembers([])
+            }
+        }
+        void loadMembers()
+        const intervalId = window.setInterval(() => void loadMembers(), 30_000)
+        return () => {
+            active = false
+            window.clearInterval(intervalId)
+        }
+    }, [tripId])
 
     const canWrite = canManage
     const canPlanWrite =
@@ -349,9 +372,10 @@ export function RoomDetailPanel({
                 title={room.title}
                 subtitle={`#${room.location} · ${room.date}`}
                 isPublic={isPublic}
-                isOwner={isOwner}
-                canWrite={isOwner}
+                canWrite={canWrite}
+                members={members}
                 onInvite={() => setInviteOpen(true)}
+                onJoin={guestView ? onJoin : undefined}
                 onBack={onBack}
                 onManage={onManage}
                 showBackButton={showBackButton}

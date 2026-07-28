@@ -426,15 +426,6 @@ export function TripRoom() {
 
     return (
         <div className="flex h-full w-full flex-col">
-            {inviteCode && inviteMode === 'guest' && (
-                <button
-                    type="button"
-                    onClick={handleLoginChoice}
-                    className="absolute right-7 top-7 z-40 rounded-xl bg-brand px-4 py-2.5 text-sm font-extrabold text-white shadow-lg transition hover:bg-brand-700"
-                >
-                    {currentUser ? '여행방 참여하기' : '로그인하고 참여하기'}
-                </button>
-            )}
             <div className="relative flex min-h-0 flex-1 flex-row">
                 <div className="relative min-w-0 flex-1">
                     <MapCanvas
@@ -451,8 +442,6 @@ export function TripRoom() {
                     />
                     {!inviteCode &&
                         trip &&
-                        currentUser &&
-                        trip.ownerId === currentUser.id &&
                         trip.status === 'COMPLETED' && (
                             <button
                                 type="button"
@@ -533,11 +522,6 @@ export function TripRoom() {
                                         : '아직 서버와 연결되지 않은 여행방입니다.'
                                 }
                                 canManage={!inviteCode && canManagePlaces}
-                                isOwner={Boolean(
-                                    currentUser &&
-                                        trip &&
-                                        trip.ownerId === currentUser.id,
-                                )}
                                 tripId={tripId!}
                                 initialActivityOpen={
                                     searchParams.get('activity') === 'open'
@@ -549,6 +533,11 @@ export function TripRoom() {
                                 itineraryVersion={itineraryVersion}
                                 showBackButton={!inviteCode}
                                 guestView={Boolean(inviteCode)}
+                                onJoin={
+                                    inviteCode
+                                        ? handleLoginChoice
+                                        : undefined
+                                }
                             />
                         ) : (
                             <RoomListPanel
@@ -585,8 +574,6 @@ export function TripRoom() {
                     />
                 )}
                 {trip &&
-                    currentUser &&
-                    trip.ownerId === currentUser.id &&
                     trip.status === 'COMPLETED' &&
                     !trip.completionConfirmed && (
                         <TripCompletionConfirmationModal

@@ -7,6 +7,8 @@ public enum TripErrorCode implements ErrorCode {
     TRIP_NOT_FOUND(HttpStatus.NOT_FOUND, "TRIP_404", "여행방을 찾을 수 없습니다."),
     INVALID_TRIP(HttpStatus.BAD_REQUEST, "TRIP_400", "여행방 입력값이 올바르지 않습니다."),
     TRIP_ALREADY_FINISHED(HttpStatus.CONFLICT, "TRIP_409", "이미 완료되었거나 취소된 여행방입니다."),
+    TRIP_HAS_OTHER_MEMBERS(HttpStatus.CONFLICT, "TRIP_DELETE_409", "다른 멤버가 있는 여행방은 삭제할 수 없습니다."),
+    LAST_TRIP_MEMBER(HttpStatus.CONFLICT, "TRIP_LEAVE_409", "마지막 멤버는 여행방을 삭제해야 합니다."),
     TRIP_VISIBILITY_NOT_AVAILABLE(
             HttpStatus.CONFLICT,
             "TRIP_VISIBILITY_409",

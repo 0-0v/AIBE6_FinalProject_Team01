@@ -1,7 +1,9 @@
 package back.backend.domain.trip.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -142,6 +144,17 @@ class TripControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(10));
+    }
+
+    @Test
+    @DisplayName("t8 인증 회원이 여행방을 나가면 성공 응답을 반환한다")
+    void t8_leaveTripReturnsSuccessResponse() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+
+        mockMvc.perform(delete("/api/trips/{tripId}/members/me", 10L))
+                .andExpect(status().isOk());
+
+        verify(tripService).leave(1L, 10L);
     }
 
     private TripResponse response() {

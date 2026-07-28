@@ -32,6 +32,7 @@ class TripAccessRepositoryTest {
         jdbcClient.sql("DELETE FROM trip_members").update();
         jdbcClient.sql("DELETE FROM trips").update();
         jdbcClient.sql("INSERT INTO trips (id, owner_id) VALUES (100, 1)").update();
+        jdbcClient.sql("INSERT INTO trip_members (trip_id, member_id, role) VALUES (100, 1, 'OWNER')").update();
         jdbcClient.sql("INSERT INTO trip_members (trip_id, member_id, role) VALUES (100, 2, 'EDITOR')").update();
         jdbcClient.sql("INSERT INTO trip_members (trip_id, member_id, role) VALUES (100, 3, 'VIEWER')").update();
     }
@@ -62,5 +63,14 @@ class TripAccessRepositoryTest {
     void t4_nonMemberCannotViewOrEdit() {
         assertThat(tripAccessRepository.canView(100L, 4L)).isFalse();
         assertThat(tripAccessRepository.canEdit(100L, 4L)).isFalse();
+    }
+
+    @Test
+    @DisplayName("t5 여행 생성자도 멤버십을 삭제하면 조회·편집 권한이 모두 사라진다")
+    void t5_formerOwnerCannotViewOrEditAfterLeaving() {
+        jdbcClient.sql("DELETE FROM trip_members WHERE trip_id = 100 AND member_id = 1").update();
+
+        assertThat(tripAccessRepository.canView(100L, 1L)).isFalse();
+        assertThat(tripAccessRepository.canEdit(100L, 1L)).isFalse();
     }
 }

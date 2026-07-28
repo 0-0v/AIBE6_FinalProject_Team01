@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react'
-import { Trash2Icon, XIcon } from 'lucide-react'
+import { LogOutIcon, Trash2Icon, XIcon } from 'lucide-react'
 import {
     deleteTrip,
+    leaveTrip,
     confirmTripCompletion,
     type CompanionType,
     type TravelStyle,
@@ -36,7 +37,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>(
         trip.visibility,
     )
-    const [confirmDelete, setConfirmDelete] = useState(false)
+    const [confirmExit, setConfirmExit] = useState(false)
     const [tags, setTags] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
@@ -89,9 +90,18 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
         } catch (caught) { setError(message(caught)) } finally { setBusy(false) }
     }
 
-    async function remove() {
+    const isOnlyMember = trip.memberCount === 1
+
+    async function exitTrip() {
         setBusy(true); setError(null)
-        try { await deleteTrip(trip.id); onChanged() }
+        try {
+            if (isOnlyMember) {
+                await deleteTrip(trip.id)
+            } else {
+                await leaveTrip(trip.id)
+            }
+            onChanged()
+        }
         catch (caught) { setError(message(caught)); setBusy(false) }
     }
 
@@ -158,7 +168,52 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                     )}
                 <button disabled={busy || (trip.status === 'COMPLETED' && !coverImage && visibility === trip.visibility)} className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50">변경사항 저장</button>
 
-                <section className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">{confirmDelete ? <div className="flex items-center gap-2"><p className="flex-1 text-xs font-bold text-red-700">삭제하면 목록에서 사라집니다.</p><button type="button" disabled={busy} onClick={() => void remove()} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white">삭제 확정</button><button type="button" onClick={() => setConfirmDelete(false)} className="text-xs font-bold">취소</button></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 text-xs font-bold text-red-600"><Trash2Icon size={14} /> 여행방 삭제</button>}</section>
+                <section className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">
+                    {confirmExit ? (
+                        <div>
+                            <p className="text-xs font-bold leading-5 text-red-700">
+                                {isOnlyMember
+                                    ? '여행방을 삭제하면 장소와 여행 기록을 더 이상 볼 수 없습니다. 삭제하시겠습니까?'
+                                    : '여행방을 나가면 장소와 여행 기록을 더 이상 볼 수 없습니다. 나가시겠습니까?'}
+                            </p>
+                            <div className="mt-3 flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmExit(false)}
+                                    disabled={busy}
+                                    className="text-xs font-bold text-slate-600"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void exitTrip()}
+                                    className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                >
+                                    {busy
+                                        ? '처리 중...'
+                                        : isOnlyMember
+                                          ? '여행 삭제'
+                                          : '여행 나가기'}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setConfirmExit(true)}
+                            className="flex items-center gap-2 text-xs font-bold text-red-600"
+                        >
+                            {isOnlyMember ? (
+                                <Trash2Icon size={14} />
+                            ) : (
+                                <LogOutIcon size={14} />
+                            )}
+                            {isOnlyMember ? '여행 삭제' : '여행 나가기'}
+                        </button>
+                    )}
+                </section>
             </form>
         </div>
     )
