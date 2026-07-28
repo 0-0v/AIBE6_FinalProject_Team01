@@ -26,23 +26,31 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryRoutePlannerTest {
 
     @Mock
-    private GoogleDirectionsClient directionsClient;
+    private GoogleRoutesClient routesClient;
 
     private ItineraryRoutePlanner planner;
 
     @BeforeEach
     void setUp() {
-        // Directions API 미설정 → Haversine 폴백 (일부 테스트에서 미호출 허용)
-        lenient().when(directionsClient.getRouteInfo(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyString()))
+        // Routes API 미설정 → Haversine 폴백 (일부 테스트에서 미호출 허용)
+        lenient().when(routesClient.getRouteInfo(
+                anyDouble(),
+                anyDouble(),
+                anyDouble(),
+                anyDouble(),
+                anyString(),
+                nullable(String.class),
+                nullable(java.time.Instant.class)
+        ))
                 .thenReturn(Optional.empty());
-        planner = new ItineraryRoutePlanner(directionsClient);
+        planner = new ItineraryRoutePlanner(routesClient);
     }
 
     @Test
@@ -92,7 +100,6 @@ class ItineraryRoutePlannerTest {
     @Test
     @DisplayName("t3 FOOD 스타일은 음식점·카페 장소를 동선 앞쪽에 배치한다")
     void t3_foodStylePrioritizesFoodAndCafePlaces() {
-        // 장소가 지리적으로 분산되어 있어 카테고리 우선순위가 순서를 결정
         List<TripPlace> places = List.of(
                 tripPlace(10L, "명소A", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
                 tripPlace(11L, "음식점B", PlaceCategoryType.FOOD, 33.4600, 126.5100),
@@ -100,23 +107,29 @@ class ItineraryRoutePlannerTest {
                 tripPlace(13L, "명소D", PlaceCategoryType.ATTRACTION, 33.4800, 126.5300)
         );
 
-        List<TripPlace> ordered = planner.orderByCategoryPriority(
+        var options = planner.planMulti(
+                List.of(day(1L, 1), day(2L, 2)),
                 places,
-                List.of(PlaceCategoryType.FOOD, PlaceCategoryType.CAFE)
+                Set.of(TravelStyle.FOOD)
         );
 
-        // FOOD, CAFE 카테고리가 ATTRACTION보다 앞에 와야 한다
-        List<PlaceCategoryType> orderedTypes = ordered.stream()
-                .map(p -> p.getCategory().getCategoryType())
+        var foodOption = options.stream()
+                .filter(option -> option.routeLabel().startsWith("맛집"))
+                .findFirst()
+                .orElseThrow();
+        List<String> firstDayCategories = foodOption.plan().days()
+                .getFirst()
+                .items()
+                .stream()
+                .map(item -> item.categoryName())
                 .toList();
-        int firstFoodOrCafe = firstIndexOf(orderedTypes, List.of(PlaceCategoryType.FOOD, PlaceCategoryType.CAFE));
-        int firstAttraction = firstIndexOf(orderedTypes, List.of(PlaceCategoryType.ATTRACTION));
 
-        assertThat(firstFoodOrCafe).isLessThan(firstAttraction);
+        assertThat(firstDayCategories)
+                .contains("음식점", "카페");
     }
 
     @Test
-    @DisplayName("t4 여행 스타일 N개 입력 시 지리 우선 코스 포함 N+1개의 옵션을 반환한다")
+    @DisplayName("t4 중복되지 않는 여행 스타일 N개 입력 시 지리 우선 코스 포함 N+1개의 옵션을 반환한다")
     void t4_multiStyleProducesGeoFirstPlusStyleOptions() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
@@ -129,16 +142,18 @@ class ItineraryRoutePlannerTest {
 
         var options = planner.planMulti(days, places, styles);
 
-        // 지리 우선 1개 + 스타일 2개 = 3개
+        // 이 픽스처에서는 경로가 중복되지 않으므로 지리 우선 1개 + 스타일 2개 = 3개
         assertThat(options).hasSize(3);
         assertThat(options.get(0).routeLabel()).isEqualTo("지리 최적 코스");
         assertThat(options).extracting(opt -> opt.routeLabel())
                 .allMatch(label -> label.endsWith("코스"));
+        assertThat(options).extracting(opt -> opt.routeLabel())
+                .noneMatch(label -> label.contains("중심 중심"));
     }
 
     @Test
-    @DisplayName("t10 스타일 없으면 지리 우선 코스 1개만 반환한다")
-    void t10_noStyleProducesOnlyGeoFirstOption() {
+    @DisplayName("t5 스타일 없으면 지리 우선 코스 1개만 반환한다")
+    void t5_noStyleProducesOnlyGeoFirstOption() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
                 tripPlace(10L, "A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
@@ -152,8 +167,8 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t11 스타일 우선 코스는 지리 우선 코스와 다른 Day 배분을 가진다")
-    void t11_styleFirstCourseDiffersFromGeoFirst() {
+    @DisplayName("t6 스타일 우선 코스는 지리 우선 코스와 다른 Day 배분을 가진다")
+    void t6_styleFirstCourseDiffersFromGeoFirst() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         // 음식점 4개(지리 분산) + 명소 2개 섞임
         List<TripPlace> places = List.of(
@@ -227,13 +242,6 @@ class ItineraryRoutePlannerTest {
         };
     }
 
-    private int firstIndexOf(List<PlaceCategoryType> list, List<PlaceCategoryType> targets) {
-        for (int i = 0; i < list.size(); i++) {
-            if (targets.contains(list.get(i))) return i;
-        }
-        return Integer.MAX_VALUE;
-    }
-
     private int timeToMinutes(String time) {
         String[] parts = time.split(":");
         return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
@@ -295,8 +303,8 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t5 음식점은 60분, 명소는 90분 체류 시간을 부여한다")
-    void t5_planAssignsCategoryBasedStayMinutes() {
+    @DisplayName("t10 음식점은 60분, 명소는 90분 체류 시간을 부여한다")
+    void t10_planAssignsCategoryBasedStayMinutes() {
         List<TripPlace> places = List.of(
                 tripPlace(10L, "음식점A", PlaceCategoryType.FOOD, 33.4500, 126.5000),
                 tripPlace(11L, "명소B", PlaceCategoryType.ATTRACTION, 33.4510, 126.5010)
@@ -316,8 +324,8 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t6 21시 이후 배정되는 장소는 시간을 null로 둔다")
-    void t6_planSetsNullTimeWhenDayExceedsCutoff() {
+    @DisplayName("t11 21시 이후 배정되는 장소는 시간을 null로 둔다")
+    void t11_planSetsNullTimeWhenDayExceedsCutoff() {
         // 09:00에 시작해서 ACTIVITY(120분)×6개면 21:00 초과
         List<TripPlace> places = new java.util.ArrayList<>();
         for (int i = 0; i < 6; i++) {
@@ -331,5 +339,75 @@ class ItineraryRoutePlannerTest {
         var items = result.days().getFirst().items();
         // 일부 아이템은 반드시 null (21시 초과)
         assertThat(items).anyMatch(item -> item.startTime() == null);
+    }
+
+    @Test
+    @DisplayName("t12 첫 시간 초과 장소 이후의 모든 장소는 시간 미정으로 반환한다")
+    void t12_planKeepsRemainingItemsUnscheduledAfterCutoff() {
+        List<TripPlace> places = new java.util.ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            places.add(tripPlace(
+                    (long) (10 + i),
+                    "액티비티" + i,
+                    PlaceCategoryType.ACTIVITY,
+                    33.45 + i * 0.001,
+                    126.50 + i * 0.001
+            ));
+        }
+        places.add(tripPlace(
+                20L,
+                "마지막 카페",
+                PlaceCategoryType.CAFE,
+                33.456,
+                126.506
+        ));
+
+        RoutePlanPreviewResponse result =
+                planner.plan(List.of(day(1L, 1)), places);
+
+        var items = result.days().getFirst().items();
+        int firstUnscheduledIndex = -1;
+        for (int index = 0; index < items.size(); index++) {
+            if (items.get(index).startTime() == null) {
+                firstUnscheduledIndex = index;
+                break;
+            }
+        }
+
+        assertThat(firstUnscheduledIndex).isGreaterThanOrEqualTo(0);
+        assertThat(items.subList(firstUnscheduledIndex, items.size()))
+                .allMatch(item ->
+                        item.startTime() == null && item.endTime() == null);
+    }
+
+    @Test
+    @DisplayName("t13 지리 코스와 동일한 스타일 코스는 중복 반환하지 않는다")
+    void t13_planMultiRemovesDuplicateRouteOptions() {
+        List<TripPlace> places = List.of(
+                tripPlace(
+                        10L,
+                        "음식점",
+                        PlaceCategoryType.FOOD,
+                        33.45,
+                        126.50
+                ),
+                tripPlace(
+                        11L,
+                        "카페",
+                        PlaceCategoryType.CAFE,
+                        33.46,
+                        126.51
+                )
+        );
+
+        var options = planner.planMulti(
+                List.of(day(1L, 1)),
+                places,
+                Set.of(TravelStyle.FOOD)
+        );
+
+        assertThat(options).hasSize(1);
+        assertThat(options.getFirst().routeLabel())
+                .isEqualTo("지리 최적 코스");
     }
 }

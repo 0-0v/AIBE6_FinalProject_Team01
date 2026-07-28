@@ -5,6 +5,7 @@ import back.backend.domain.itinerary.dto.response.RoutePlanItemResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.ItineraryDay;
+import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.trip.entity.TravelStyle;
@@ -13,6 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.format.DateTimeFormatter;
+import java.time.Instant;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,7 +29,6 @@ public class ItineraryRoutePlanner {
     private static final int DAY_START_MINUTES = 9 * 60;
     private static final int DAY_END_CUTOFF_MINUTES = 21 * 60; // 21:00
     private static final int DEFAULT_STAY_MINUTES = 60;
-    private static final double AVERAGE_SPEED_KMH = 30.0;
 
     private static final Map<PlaceCategoryType, Integer> CATEGORY_STAY_MINUTES =
             Map.ofEntries(
@@ -76,7 +80,7 @@ public class ItineraryRoutePlanner {
                     List.of(PlaceCategoryType.SHOPPING, PlaceCategoryType.FOOD, PlaceCategoryType.CAFE)
     );
 
-    private final GoogleDirectionsClient directionsClient;
+    private final GoogleRoutesClient routesClient;
 
     /**
      * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
@@ -109,17 +113,33 @@ public class ItineraryRoutePlanner {
             log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
                     tripPlaces.size(), days.size(), travelStyles);
         }
-        for (TravelStyle style : travelStyles) {
+        Set<String> routeSignatures = new HashSet<>();
+        routeSignatures.add(routeSignature(options.getFirst().plan()));
+        List<TravelStyle> orderedStyles = travelStyles.stream()
+                .sorted(Comparator.comparingInt(Enum::ordinal))
+                .toList();
+        for (TravelStyle style : orderedStyles) {
             List<PlaceCategoryType> priority =
                     STYLE_CATEGORY_PRIORITY.getOrDefault(style, List.of());
             String styleLabel = STYLE_LABEL.getOrDefault(style, style.name());
-            String label = styleLabel + " 중심 코스";
+            String label = styleLabel + " 코스";
             List<List<TripPlace>> styleClusters =
                     clusterByStylePriority(tripPlaces, days.size(), priority);
-            options.add(new RoutePlanOption(label,
-                    buildResponseFromClusters(days, styleClusters, tripPlaces.size(),
-                            buildStyleSummary(styleLabel, tripPlaces.size(), days.size(), priority),
-                            buildStyleReason(styleLabel))));
+            RoutePlanPreviewResponse stylePlan = buildResponseFromClusters(
+                    days,
+                    styleClusters,
+                    tripPlaces.size(),
+                    buildStyleSummary(
+                            styleLabel,
+                            tripPlaces.size(),
+                            days.size(),
+                            priority
+                    ),
+                    buildStyleReason(styleLabel)
+            );
+            if (routeSignatures.add(routeSignature(stylePlan))) {
+                options.add(new RoutePlanOption(label, stylePlan));
+            }
         }
 
         return options;
@@ -136,92 +156,6 @@ public class ItineraryRoutePlanner {
         return options.isEmpty() ? emptyResponse(itineraryDays, tripPlaces) : options.get(0).plan();
     }
 
-    // ── 카테고리 우선순위 기반 동선 ─────────────────────────────────────────────
-
-    private RoutePlanPreviewResponse planWithCategoryPriority(
-            List<ItineraryDay> itineraryDays,
-            List<TripPlace> tripPlaces,
-            TravelStyle style
-    ) {
-        List<PlaceCategoryType> priority =
-                STYLE_CATEGORY_PRIORITY.getOrDefault(style, List.of());
-        String styleLabel = STYLE_LABEL.getOrDefault(style, style.name());
-
-        List<ItineraryDay> days = sortedDays(itineraryDays);
-        if (days.isEmpty() || tripPlaces.isEmpty()) {
-            return emptyResponse(days, tripPlaces);
-        }
-
-        List<List<TripPlace>> clusters = clusterByStylePriority(tripPlaces, days.size(), priority);
-        return buildResponseFromClusters(days, clusters, tripPlaces.size(),
-                buildStyleSummary(styleLabel, tripPlaces.size(), days.size(), priority),
-                buildStyleReason(styleLabel));
-    }
-
-    private RoutePlanPreviewResponse planBalanced(
-            List<ItineraryDay> itineraryDays,
-            List<TripPlace> tripPlaces
-    ) {
-        List<ItineraryDay> days = sortedDays(itineraryDays);
-        if (days.isEmpty() || tripPlaces.isEmpty()) {
-            return emptyResponse(days, tripPlaces);
-        }
-
-        List<List<TripPlace>> clusters = clusterByGeography(tripPlaces, days.size());
-        return buildResponseFromClusters(days, clusters, tripPlaces.size(),
-                String.format("저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
-                        tripPlaces.size(), days.size()),
-                null);
-    }
-
-    /**
-     * 카테고리 우선순위에 따라 장소를 정렬합니다.
-     * 우선 카테고리 그룹 순으로, 각 그룹 내부는 최근접 이웃(NN)으로 지리적 효율을 유지합니다.
-     */
-    List<TripPlace> orderByCategoryPriority(
-            List<TripPlace> places,
-            List<PlaceCategoryType> priorityTypes
-    ) {
-        if (priorityTypes.isEmpty()) {
-            return orderByNearestNeighbor(places, 0);
-        }
-
-        // 우선순위 점수 맵 (낮을수록 우선)
-        Map<PlaceCategoryType, Integer> scoreMap = new HashMap<>();
-        for (int i = 0; i < priorityTypes.size(); i++) {
-            scoreMap.put(priorityTypes.get(i), i);
-        }
-
-        // 카테고리 우선순위 버킷으로 분리 (0 ~ priorityTypes.size())
-        Map<Integer, List<TripPlace>> buckets = new LinkedHashMap<>();
-        for (TripPlace place : places) {
-            int score = scoreMap.getOrDefault(
-                    place.getCategory().getCategoryType(),
-                    priorityTypes.size()
-            );
-            buckets.computeIfAbsent(score, k -> new ArrayList<>()).add(place);
-        }
-
-        List<TripPlace> ordered = new ArrayList<>();
-        for (int bucket = 0; bucket <= priorityTypes.size(); bucket++) {
-            List<TripPlace> group = buckets.getOrDefault(bucket, List.of());
-            if (group.isEmpty()) continue;
-
-            // 이전 그룹의 마지막 장소와 가장 가까운 곳에서 시작
-            int startIdx = 0;
-            if (!ordered.isEmpty()) {
-                TripPlace last = ordered.get(ordered.size() - 1);
-                List<TripPlace> groupList = new ArrayList<>(group);
-                TripPlace closest = groupList.stream()
-                        .min(Comparator.comparingDouble(p -> distanceMeters(last, p)))
-                        .orElse(groupList.get(0));
-                startIdx = groupList.indexOf(closest);
-            }
-            ordered.addAll(orderByNearestNeighbor(new ArrayList<>(group), startIdx));
-        }
-        return ordered;
-    }
-
     // ── 지리적 클러스터링 ──────────────────────────────────────────────────────
 
     /**
@@ -229,8 +163,8 @@ public class ItineraryRoutePlanner {
      * - 중심 0: 전체 평균 위치에서 가장 가까운 장소
      * - 이후 중심: 기존 중심들로부터 가장 먼 장소 (deterministic max-distance)
      */
-    private List<TripPlace> initCentroids(List<TripPlace> places, int k) {
-        List<TripPlace> centroids = new ArrayList<>();
+    private List<GeoPoint> initializeCentroids(List<TripPlace> places, int count) {
+        List<TripPlace> centroidPlaces = new ArrayList<>();
 
         double meanLat = places.stream()
                 .mapToDouble(p -> p.getPlace().getLatitude().doubleValue())
@@ -246,26 +180,31 @@ public class ItineraryRoutePlanner {
                     return dLat * dLat + dLng * dLng;
                 }))
                 .orElse(places.get(0));
-        centroids.add(first);
+        centroidPlaces.add(first);
 
-        while (centroids.size() < k) {
-            List<TripPlace> currentCentroids = new ArrayList<>(centroids);
+        while (centroidPlaces.size() < count) {
+            List<TripPlace> currentCentroids =
+                    new ArrayList<>(centroidPlaces);
             TripPlace farthest = places.stream()
                     .filter(p -> !currentCentroids.contains(p))
                     .max(Comparator.comparingDouble(p ->
                             currentCentroids.stream()
                                     .mapToDouble(c -> distanceMeters(p, c))
                                     .min().orElse(0)))
-                    .orElse(places.get(centroids.size() % places.size()));
-            centroids.add(farthest);
+                    .orElse(places.get(
+                            centroidPlaces.size() % places.size()
+                    ));
+            centroidPlaces.add(farthest);
         }
 
-        return centroids;
+        return centroidPlaces.stream()
+                .map(this::toGeoPoint)
+                .toList();
     }
 
     /**
      * 장소를 dayCount개 지리적 클러스터로 분리한다.
-     * K-means++ 방식으로 초기 중심 선택 후 nearest-centroid 배정.
+     * Farthest-first 초기 중심 선택 후 중심 재계산을 반복한다.
      * Soft cap(평균 × 1.5)으로 극단적 불균형 방지.
      * 각 클러스터 내부는 NN으로 정렬.
      */
@@ -280,37 +219,146 @@ public class ItineraryRoutePlanner {
         }
 
         int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
-        List<TripPlace> centroids = initCentroids(places, dayCount);
+        List<GeoPoint> centroids = initializeCentroids(places, dayCount);
+        List<List<TripPlace>> clusters = emptyClusters(dayCount);
+        List<List<Long>> previousAssignments = List.of();
 
-        List<List<TripPlace>> clusters = new ArrayList<>();
-        for (int i = 0; i < dayCount; i++) clusters.add(new ArrayList<>());
-
-        for (TripPlace place : places) {
-            int best = -1;
-            double bestDist = Double.MAX_VALUE;
-            for (int i = 0; i < dayCount; i++) {
-                if (clusters.get(i).size() >= maxPerDay) continue;
-                double dist = distanceMeters(place, centroids.get(i));
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = i;
-                }
+        for (int iteration = 0; iteration < 20; iteration++) {
+            clusters = assignToCentroids(
+                    places,
+                    centroids,
+                    maxPerDay
+            );
+            List<List<Long>> assignments = clusters.stream()
+                    .map(cluster -> cluster.stream()
+                            .map(TripPlace::getId)
+                            .toList())
+                    .toList();
+            if (assignments.equals(previousAssignments)) {
+                break;
             }
-            if (best == -1) {
-                int minSize = clusters.stream().mapToInt(List::size).min().orElse(0);
-                for (int i = 0; i < dayCount; i++) {
-                    if (clusters.get(i).size() == minSize) { best = i; break; }
-                }
-                if (best == -1) best = 0;
-            }
-            clusters.get(best).add(place);
+            previousAssignments = assignments;
+            centroids = recomputeCentroids(clusters, centroids);
         }
 
+        Map<Long, Integer> originalOrder = new HashMap<>();
+        for (int index = 0; index < places.size(); index++) {
+            originalOrder.put(places.get(index).getId(), index);
+        }
         return clusters.stream()
-                .map(cluster -> cluster.isEmpty()
-                        ? cluster
-                        : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
+                .map(cluster -> {
+                    if (cluster.isEmpty()) {
+                        return cluster;
+                    }
+                    List<TripPlace> orderedCluster =
+                            new ArrayList<>(cluster);
+                    orderedCluster.sort(Comparator.comparingInt(place ->
+                            originalOrder.getOrDefault(
+                                    place.getId(),
+                                    Integer.MAX_VALUE
+                            )));
+                    return new ArrayList<>(
+                            orderByNearestNeighbor(orderedCluster, 0)
+                    );
+                })
                 .collect(Collectors.toList());
+    }
+
+    private List<List<TripPlace>> assignToCentroids(
+            List<TripPlace> places,
+            List<GeoPoint> centroids,
+            int maxPerDay
+    ) {
+        List<List<TripPlace>> clusters = emptyClusters(centroids.size());
+        List<TripPlace> assignmentOrder = places.stream()
+                .sorted(Comparator.comparingDouble(place ->
+                        centroids.stream()
+                                .mapToDouble(centroid ->
+                                        distanceMeters(place, centroid))
+                                .min()
+                                .orElse(Double.MAX_VALUE)))
+                .toList();
+
+        for (TripPlace place : assignmentOrder) {
+            int targetIndex = -1;
+            double nearestDistance = Double.MAX_VALUE;
+            for (int index = 0; index < centroids.size(); index++) {
+                if (clusters.get(index).size() >= maxPerDay) {
+                    continue;
+                }
+                double distance = distanceMeters(
+                        place,
+                        centroids.get(index)
+                );
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    targetIndex = index;
+                }
+            }
+            if (targetIndex < 0) {
+                targetIndex = indexOfSmallestCluster(clusters);
+            }
+            clusters.get(targetIndex).add(place);
+        }
+        return clusters;
+    }
+
+    private List<GeoPoint> recomputeCentroids(
+            List<List<TripPlace>> clusters,
+            List<GeoPoint> previousCentroids
+    ) {
+        List<GeoPoint> centroids = new ArrayList<>();
+        for (int index = 0; index < clusters.size(); index++) {
+            List<TripPlace> cluster = clusters.get(index);
+            if (cluster.isEmpty()) {
+                centroids.add(previousCentroids.get(index));
+                continue;
+            }
+            centroids.add(new GeoPoint(
+                    cluster.stream()
+                            .mapToDouble(place -> place.getPlace()
+                                    .getLatitude().doubleValue())
+                            .average()
+                            .orElse(previousCentroids.get(index).latitude()),
+                    cluster.stream()
+                            .mapToDouble(place -> place.getPlace()
+                                    .getLongitude().doubleValue())
+                            .average()
+                            .orElse(previousCentroids.get(index).longitude())
+            ));
+        }
+        return centroids;
+    }
+
+    private List<List<TripPlace>> emptyClusters(int count) {
+        List<List<TripPlace>> clusters = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            clusters.add(new ArrayList<>());
+        }
+        return clusters;
+    }
+
+    private int indexOfSmallestCluster(
+            List<List<TripPlace>> clusters
+    ) {
+        int smallestIndex = 0;
+        for (int index = 1; index < clusters.size(); index++) {
+            if (clusters.get(index).size()
+                    < clusters.get(smallestIndex).size()) {
+                smallestIndex = index;
+            }
+        }
+        return smallestIndex;
+    }
+
+    private GeoPoint toGeoPoint(TripPlace place) {
+        return new GeoPoint(
+                place.getPlace().getLatitude().doubleValue(),
+                place.getPlace().getLongitude().doubleValue()
+        );
+    }
+
+    private record GeoPoint(double latitude, double longitude) {
     }
 
     /**
@@ -376,34 +424,6 @@ public class ItineraryRoutePlanner {
         return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
     }
 
-    // ── 공통 플래닝 유틸 ──────────────────────────────────────────────────────
-
-    private RoutePlanPreviewResponse buildResponse(
-            List<ItineraryDay> days,
-            List<TripPlace> orderedPlaces,
-            int totalPlaceCount,
-            String summary,
-            String defaultReason
-    ) {
-        List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
-        int offset = 0;
-        int totalDistanceMeters = 0;
-
-        for (int dayIndex = 0; dayIndex < days.size(); dayIndex++) {
-            int daySize = distributedSize(orderedPlaces.size(), days.size(), dayIndex);
-            List<TripPlace> dayPlaces = orderedPlaces.subList(
-                    offset,
-                    Math.min(offset + daySize, orderedPlaces.size())
-            );
-            RoutePlanDayResponse plannedDay = planDay(days.get(dayIndex), dayPlaces, defaultReason);
-            plannedDays.add(plannedDay);
-            totalDistanceMeters += plannedDay.totalDistanceMeters();
-            offset += daySize;
-        }
-
-        return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
-    }
-
     private RoutePlanDayResponse planDay(
             ItineraryDay day,
             List<TripPlace> places,
@@ -412,6 +432,7 @@ public class ItineraryRoutePlanner {
         List<RoutePlanItemResponse> items = new ArrayList<>();
         int cursorMinutes = DAY_START_MINUTES;
         int totalDistanceMeters = 0;
+        boolean timeSchedulingClosed = false;
 
         for (int index = 0; index < places.size(); index++) {
             TripPlace current = places.get(index);
@@ -420,12 +441,21 @@ public class ItineraryRoutePlanner {
             int stayMinutes = CATEGORY_STAY_MINUTES.getOrDefault(
                     current.getCategory().getCategoryType(), DEFAULT_STAY_MINUTES);
             int endMinutes = cursorMinutes + stayMinutes;
-            boolean fitsInDay = endMinutes <= DAY_END_CUTOFF_MINUTES;
+            boolean fitsInDay = !timeSchedulingClosed
+                    && endMinutes <= DAY_END_CUTOFF_MINUTES;
+            if (!fitsInDay) {
+                timeSchedulingClosed = true;
+            }
 
             RouteResult route = null;
             if (next != null) {
                 int haversineMeters = (int) Math.round(distanceMeters(current, next));
-                route = resolveRoute(current, next, inferTransportMode(haversineMeters));
+                route = resolveRoute(
+                        current,
+                        next,
+                        ItineraryTransportMode.infer(haversineMeters),
+                        departureTime(day, endMinutes)
+                );
             }
 
             String reason = buildItemReason(index, fitsInDay, defaultReason);
@@ -440,6 +470,7 @@ public class ItineraryRoutePlanner {
                     route != null ? route.durationMinutes() : null,
                     route != null ? route.distanceMeters() : null,
                     route != null ? route.transportMode() : null,
+                    route != null ? route.transportDetail() : null,
                     reason
             ));
 
@@ -488,6 +519,14 @@ public class ItineraryRoutePlanner {
         return styleLabel + " 코스에 맞는 장소예요.";
     }
 
+    private String routeSignature(RoutePlanPreviewResponse plan) {
+        return plan.days().stream()
+                .map(day -> day.items().stream()
+                        .map(item -> String.valueOf(item.tripPlaceId()))
+                        .collect(Collectors.joining(",")))
+                .collect(Collectors.joining("|"));
+    }
+
     private String categoryKoreanName(String type) {
         return switch (type) {
             case "FOOD" -> "음식점";
@@ -523,46 +562,85 @@ public class ItineraryRoutePlanner {
         return ordered;
     }
 
-    // ── Directions API / Haversine ────────────────────────────────────────────
+    // ── Routes API / Haversine ────────────────────────────────────────────────
 
     /**
-     * Directions API로 실제 거리/시간 조회. 실패 시 Haversine 폴백.
+     * Routes API로 실제 거리/시간 조회. 실패 시 Haversine 폴백.
      */
-    private RouteResult resolveRoute(TripPlace from, TripPlace to, String transportMode) {
+    private RouteResult resolveRoute(
+            TripPlace from,
+            TripPlace to,
+            ItineraryTransportMode requestedMode,
+            Instant departureTime
+    ) {
         double fromLat = from.getPlace().getLatitude().doubleValue();
         double fromLng = from.getPlace().getLongitude().doubleValue();
         double toLat   = to.getPlace().getLatitude().doubleValue();
         double toLng   = to.getPlace().getLongitude().doubleValue();
 
-        return directionsClient
-                .getRouteInfo(fromLat, fromLng, toLat, toLng, toDirectionsMode(transportMode))
-                .map(info -> new RouteResult(info.distanceMeters(), info.durationMinutes(), transportMode))
+        return routesClient
+                .getRouteInfo(
+                        fromLat,
+                        fromLng,
+                        toLat,
+                        toLng,
+                        requestedMode.directionsMode(),
+                        requestedMode.transitMode(),
+                        departureTime
+                )
+                .map(info -> new RouteResult(
+                        info.distanceMeters(),
+                        info.durationMinutes(),
+                        info.actualTransportMode() != null
+                                ? info.actualTransportMode()
+                                : requestedMode.displayName(),
+                        info.transportDetail()
+                ))
                 .orElseGet(() -> {
                     int haversineMeters = (int) Math.round(distanceMeters(from, to));
-                    String mode = inferTransportMode(haversineMeters);
-                    return new RouteResult(haversineMeters, estimateTransportMinutes(haversineMeters), mode);
+                    return new RouteResult(
+                            haversineMeters,
+                            estimateTransportMinutes(
+                                    haversineMeters,
+                                    requestedMode.fallbackSpeedKmh()
+                            ),
+                            requestedMode.displayName(),
+                            null
+                    );
                 });
     }
 
-    private record RouteResult(int distanceMeters, int durationMinutes, String transportMode) {}
+    private record RouteResult(
+            int distanceMeters,
+            int durationMinutes,
+            String transportMode,
+            String transportDetail
+    ) {}
 
-    private String inferTransportMode(int distanceMeters) {
-        if (distanceMeters < 500) return "도보";
-        if (distanceMeters < 5_000) return "대중교통";
-        return "자동차";
-    }
-
-    private static String toDirectionsMode(String transportMode) {
-        return switch (transportMode) {
-            case "도보" -> "walking";
-            case "대중교통" -> "transit";
-            default -> "driving";
-        };
-    }
-
-    private int estimateTransportMinutes(int distanceMeters) {
-        double minutes = distanceMeters / 1000.0 / AVERAGE_SPEED_KMH * 60.0;
+    private int estimateTransportMinutes(
+            int distanceMeters,
+            double averageSpeedKmh
+    ) {
+        double minutes = distanceMeters / 1000.0 / averageSpeedKmh * 60.0;
         return Math.max(5, (int) Math.ceil(minutes / 5.0) * 5);
+    }
+
+    private Instant departureTime(ItineraryDay day, int minutes) {
+        if (day.getItineraryDate() == null || minutes >= 24 * 60) {
+            return null;
+        }
+        Instant departure = LocalDateTime.of(
+                        day.getItineraryDate(),
+                        java.time.LocalTime.of(minutes / 60, minutes % 60)
+                )
+                .atZone(ZoneId.systemDefault())
+                .toInstant();
+        Instant now = Instant.now();
+        if (departure.isBefore(now.minus(Duration.ofDays(7)))
+                || departure.isAfter(now.plus(Duration.ofDays(100)))) {
+            return null;
+        }
+        return departure;
     }
 
     // ── 공통 유틸 ─────────────────────────────────────────────────────────────
@@ -588,30 +666,23 @@ public class ItineraryRoutePlanner {
                 .toList();
     }
 
-    private int distributedSize(int placeCount, int dayCount, int dayIndex) {
-        int base = placeCount / dayCount;
-        int remainder = placeCount % dayCount;
-        return base + (dayIndex < remainder ? 1 : 0);
-    }
-
     private String formatMinutes(int minutes) {
         return java.time.LocalTime.of(minutes / 60, minutes % 60).format(TIME_FORMATTER);
     }
 
     double distanceMeters(TripPlace first, TripPlace second) {
-        double lat1 = Math.toRadians(first.getPlace().getLatitude().doubleValue());
-        double lat2 = Math.toRadians(second.getPlace().getLatitude().doubleValue());
-        double deltaLat = lat2 - lat1;
-        double deltaLng = Math.toRadians(
-                second.getPlace().getLongitude().doubleValue()
-                        - first.getPlace().getLongitude().doubleValue()
-        );
-        double haversine = Math.pow(Math.sin(deltaLat / 2), 2)
-                + Math.cos(lat1) * Math.cos(lat2)
-                * Math.pow(Math.sin(deltaLng / 2), 2);
-        return 6_371_000 * 2 * Math.atan2(
-                Math.sqrt(haversine),
-                Math.sqrt(1 - haversine)
+        return GeoDistanceCalculator.distanceMeters(first, second);
+    }
+
+    private double distanceMeters(
+            TripPlace place,
+            GeoPoint point
+    ) {
+        return GeoDistanceCalculator.distanceMeters(
+                place.getPlace().getLatitude().doubleValue(),
+                place.getPlace().getLongitude().doubleValue(),
+                point.latitude(),
+                point.longitude()
         );
     }
 }

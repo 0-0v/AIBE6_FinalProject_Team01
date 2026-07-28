@@ -57,6 +57,17 @@ public class ItineraryController {
         return ApiResponse.success(itineraryService.updateItem(tripId, itemId, request));
     }
 
+    @PatchMapping("/items/{itemId}/transport-mode")
+    public ApiResponse<ItineraryItemResponse> updateTransportMode(
+            @PathVariable Long tripId,
+            @PathVariable Long itemId,
+            @RequestBody @Valid UpdateItineraryTransportModeRequest request
+    ) {
+        return ApiResponse.success(
+                itineraryService.updateTransportMode(tripId, itemId, request)
+        );
+    }
+
     @PatchMapping("/items/{itemId}/move")
     public ApiResponse<ItineraryItemResponse> moveItem(
             @PathVariable Long tripId,

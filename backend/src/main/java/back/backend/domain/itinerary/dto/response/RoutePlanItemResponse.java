@@ -13,6 +13,7 @@ public record RoutePlanItemResponse(
         @PositiveOrZero Integer transportMinutes,
         @PositiveOrZero Integer transportMeters,
         String transportMode,
+        String transportDetail,
         String reason
 ) {
 }

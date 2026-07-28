@@ -48,7 +48,7 @@ class ItineraryControllerTest {
         dayResponse = new ItineraryDayResponse(100L, LocalDate.of(2026, 8, 1), 1, null, "DRAFT", List.of());
         itemResponse = new ItineraryItemResponse(200L, 300L, "테스트 장소", "서울시",
                 "음식점", "#dc2626", "UTENSILS", 37.5665, 126.9780,
-                null, null, 0, null, null, null);
+                null, null, 0, null, null, null, null, null, null);
     }
 
     @Test
@@ -277,5 +277,25 @@ class ItineraryControllerTest {
                 .andExpect(status().isBadRequest());
 
         then(itineraryService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("t16 이동수단을 변경하면 재계산된 일정 항목을 반환한다")
+    void t16_updateTransportModeReturnsRecalculatedItem() throws Exception {
+        given(itineraryService.updateTransportMode(
+                eq(1L),
+                eq(200L),
+                any(UpdateItineraryTransportModeRequest.class)
+        )).willReturn(itemResponse);
+
+        mockMvc.perform(patch(
+                        "/api/trips/1/itinerary/items/200/transport-mode"
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"transportMode":"SUBWAY"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(200));
     }
 }
