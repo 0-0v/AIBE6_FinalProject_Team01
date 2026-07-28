@@ -16,4 +16,6 @@ public interface ItineraryDayRepository extends JpaRepository<ItineraryDay, Long
     Optional<ItineraryDay> findByIdAndTripId(Long id, Long tripId);
 
     List<ItineraryDay> findAllByTripIdOrderByItineraryDateAsc(Long tripId);
+
+    boolean existsByTripId(Long tripId);
 }

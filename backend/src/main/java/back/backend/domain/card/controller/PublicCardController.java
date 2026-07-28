@@ -13,9 +13,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/cards")
 public class PublicCardController {
     private final PublicCardService service;
+    private final back.backend.domain.card.service.PublicCardCopyService copyService;
     private final SecurityContextAccessor security;
-    public PublicCardController(PublicCardService service, SecurityContextAccessor security) {
-        this.service = service; this.security = security;
+    public PublicCardController(PublicCardService service,
+            back.backend.domain.card.service.PublicCardCopyService copyService,
+            SecurityContextAccessor security) {
+        this.service = service; this.copyService = copyService; this.security = security;
     }
     @GetMapping("/public")
     public ApiResponse<PublicCardPageResponse> getPublicCards(
@@ -53,5 +56,16 @@ public class PublicCardController {
     @DeleteMapping("/{cardId}/comments/{commentId}")
     public ApiResponse<Void> deleteComment(@PathVariable Long cardId, @PathVariable Long commentId) {
         service.deleteComment(security.getCurrentMemberId(), cardId, commentId); return ApiResponse.ok();
+    }
+    @GetMapping("/copy-targets")
+    public ApiResponse<List<CopyTargetResponse>> getCopyTargets() {
+        return ApiResponse.success(copyService.getTargets(security.getCurrentMemberId()));
+    }
+    @PostMapping("/{cardId}/itinerary-copy")
+    public ApiResponse<Void> copyItinerary(
+            @PathVariable Long cardId,
+            @Valid @RequestBody CopyItineraryRequest request) {
+        copyService.copy(security.getCurrentMemberId(), cardId, request);
+        return ApiResponse.ok();
     }
 }
