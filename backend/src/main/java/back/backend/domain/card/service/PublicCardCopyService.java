@@ -130,7 +130,8 @@ public class PublicCardCopyService {
                 ItineraryItem copied = ItineraryItem.create(targetDay, targetPlace.getId(), sortOrder++);
                 copied.updateDetails(
                         sourceItem.getStartTime(), sourceItem.getEndTime(), null,
-                        sourceItem.getTransportMinutes(), sourceItem.getTransportMeters());
+                        sourceItem.getTransportMinutes(), sourceItem.getTransportMeters(),
+                        sourceItem.getTransportMode());
                 copiedItems.add(copied);
             }
             nextSortOrderByDayId.put(targetDay.getId(), sortOrder);
