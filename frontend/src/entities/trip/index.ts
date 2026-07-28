@@ -34,7 +34,17 @@ export {
     voteDates,
 } from './api/tripPlanningApi'
 export type { DateAvailability, DateProposal } from './api/tripPlanningApi'
-export {
-    getPlaceCategories,
-} from './api/placeCategoryApi'
+export { getPlaceCategories } from './api/placeCategoryApi'
 export type { PlaceCategoryInfo } from './api/placeCategoryApi'
+export {
+    getItinerary,
+    initializeItinerary,
+    addItineraryItem,
+    removeItineraryItem,
+    updateItineraryItem,
+    moveItineraryItem,
+    reorderItineraryItems,
+    updateItineraryDayStatus,
+    previewItineraryRoutePlan,
+    applyItineraryRoutePlan,
+} from './api/itineraryApi'

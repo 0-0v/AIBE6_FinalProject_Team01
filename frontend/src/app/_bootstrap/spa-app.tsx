@@ -18,7 +18,7 @@ import { Login } from '@/views/login'
 import { SignupPage } from '@/views/signup'
 import { PasswordResetPage } from '@/views/password-reset'
 import { OAuthCallback } from '@/views/oauth-callback'
-import { TripRoom } from '@/views/trip-room'
+import { TripRoom, ScheduleKanbanPage } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
 import { restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
@@ -93,6 +93,7 @@ function AppShell() {
                 <Routes>
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
+                    <Route path="room/:roomId/schedule" element={<ScheduleKanbanPage />} />
                     <Route path="room/:roomId?" element={<TripRoom />} />
                     <Route
                         path="room/invite/:inviteCode"

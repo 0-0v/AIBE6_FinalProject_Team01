@@ -1,15 +1,24 @@
 package back.backend.domain.trip.repository;
 
 import back.backend.domain.trip.entity.Trip;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
 import java.util.Collection;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface TripRepository extends JpaRepository<Trip, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Trip t where t.id = :tripId")
+    Optional<Trip> findByIdForItineraryInitialization(
+            @Param("tripId") Long tripId
+    );
 
     @EntityGraph(attributePaths = "travelStyles")
     List<Trip> findAllByStatusInAndEndDateBefore(

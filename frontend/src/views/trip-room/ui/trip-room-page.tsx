@@ -1,4 +1,10 @@
-import React, { type FormEvent, useEffect, useMemo, useState } from 'react'
+import React, {
+    type FormEvent,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from 'react'
 import {
     ChevronLeftIcon,
     ChevronRightIcon,
@@ -13,7 +19,10 @@ import {
     getTripPlaces,
     getTripPlaceAccess,
     getTripPlaceVotes,
+    getItinerary,
+    addItineraryItem,
     fromApiToPlace,
+    type ItineraryDay,
 } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
 import { useCommentStore } from '@/features/comment-place'
@@ -62,6 +71,45 @@ export function TripRoom() {
     const tripId = room?.apiTripId
 
     const [places, setPlaces] = useState<Place[]>([])
+    const [itineraryState, setItineraryState] = useState<{
+        tripId: number | undefined
+        days: ItineraryDay[]
+    }>({ tripId: undefined, days: [] })
+    const [itineraryVersion, setItineraryVersion] = useState(0)
+    const itineraryDays =
+        itineraryState.tripId === tripId ? itineraryState.days : []
+    const handleItineraryDaysLoaded = useCallback(
+        (days: ItineraryDay[]) => {
+            setItineraryState({ tripId, days })
+        },
+        [tripId],
+    )
+    const handleAiRouteApplied = useCallback(
+        (days: ItineraryDay[]) => {
+            setItineraryState({ tripId, days })
+            setItineraryVersion((current) => current + 1)
+        },
+        [tripId],
+    )
+
+    const handleAddToSchedule = useCallback(
+        async (placeId: string, dayId: string) => {
+            if (!tripId) return
+            const currentDays =
+                itineraryState.tripId === tripId ? itineraryState.days : []
+            const targetDay = currentDays.find((d) => String(d.id) === dayId)
+            if (!targetDay) return
+            await addItineraryItem(
+                tripId,
+                Number(dayId),
+                Number(placeId),
+                targetDay.items.length,
+            )
+            const updated = await getItinerary(tripId)
+            setItineraryState({ tripId, days: updated })
+        },
+        [tripId, itineraryState],
+    )
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [collapsed, setCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
@@ -166,6 +214,22 @@ export function TripRoom() {
             })
         return () => controller.abort()
     }, [activeRoomId, inviteCode, tripId])
+
+    useEffect(() => {
+        if (!tripId) return
+        let active = true
+        getItinerary(tripId)
+            .then((days) => {
+                if (active) setItineraryState({ tripId, days })
+            })
+            .catch(() => {
+                if (active) setItineraryState({ tripId, days: [] })
+            })
+
+        return () => {
+            active = false
+        }
+    }, [tripId])
 
     const displayedPlaces = useMemo(
         () =>
@@ -377,6 +441,13 @@ export function TripRoom() {
                         places={mapPlaces}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
+                        onDeselect={() => setSelectedId(null)}
+                        days={itineraryDays}
+                        onAddToSchedule={
+                            !inviteCode && canManagePlaces
+                                ? handleAddToSchedule
+                                : undefined
+                        }
                     />
                     {!inviteCode &&
                         trip &&
@@ -416,7 +487,7 @@ export function TripRoom() {
                                 </span>
                             </button>
                         )}
-                    {!inviteCode && !aiOpen && (
+                    {!inviteCode && canManagePlaces && !aiOpen && (
                         <button
                             onClick={() => setAiOpen(true)}
                             className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-sm font-extrabold text-white shadow-lg hover:bg-brand-700"
@@ -472,6 +543,10 @@ export function TripRoom() {
                                     searchParams.get('activity') === 'open'
                                 }
                                 onTripDatesChanged={() => void loadTrips()}
+                                onItineraryDaysLoaded={
+                                    handleItineraryDaysLoaded
+                                }
+                                itineraryVersion={itineraryVersion}
                                 showBackButton={!inviteCode}
                                 guestView={Boolean(inviteCode)}
                             />
@@ -491,19 +566,11 @@ export function TripRoom() {
                     </aside>
                 )}
 
-                {aiOpen && (
+                {aiOpen && tripId && (
                     <AiAgentPanel
-                        places={displayedPlaces}
+                        tripId={tripId}
                         onClose={() => setAiOpen(false)}
-                        onApply={(suggestion) => {
-                            if (suggestion.type === 'duplicate') {
-                                setPlaces((current) =>
-                                    current.filter(
-                                        (place) => !place.duplicateOf,
-                                    ),
-                                )
-                            }
-                        }}
+                        onApplied={handleAiRouteApplied}
                     />
                 )}
                 {manageOpen && trip && (

@@ -11,9 +11,12 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "type-check": "tsc --noEmit",
-        "test": "node --no-warnings --experimental-strip-types --test src/widgets/trip-room/lib/date-availability.test.mjs src/widgets/trip-room/lib/travel-record-photos.test.mjs"
+        "test": "node --no-warnings --experimental-strip-types --test src/widgets/trip-room/lib/*.test.mjs"
     },
     "dependencies": {
+        "@dnd-kit/core": "^6.3.1",
+        "@dnd-kit/sortable": "^10.0.0",
+        "@dnd-kit/utilities": "^3.2.2",
         "@radix-ui/react-slot": "^1.3.0",
         "@radix-ui/react-tooltip": "^1.2.14",
         "@vis.gl/react-google-maps": "^1.9.0",

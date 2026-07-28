@@ -3,6 +3,7 @@ import {
     CalendarDaysIcon,
     HistoryIcon,
     ListIcon,
+    MapIcon,
     ReceiptTextIcon,
 } from 'lucide-react'
 import {
@@ -20,6 +21,7 @@ import {
     getPlaceCategories,
     updateTripPlaceCategory,
     type PlaceCategoryInfo,
+    type ItineraryDay,
 } from '@/entities/trip'
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
@@ -30,13 +32,24 @@ import { getApiErrorMessage } from '@/shared/api/client'
 import { ActivityLogPanel } from './activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
-import { ItineraryPanel } from './itinerary-panel'
+import { DateVotePanel } from './date-vote-panel'
+import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
 import { RecordPanel } from './record-panel'
 import { RoomHeader } from './room-header'
+import type { PlaceCommentResponse } from '@/entities/trip'
+
+function mapApiComment(comment: PlaceCommentResponse) {
+    return {
+        id: String(comment.id),
+        memberId: String(comment.memberId),
+        text: comment.content,
+        createdAt: comment.createdAt,
+    }
+}
 
 type Mode = 'plan' | 'record'
-type PlanTab = 'places' | 'itinerary'
+type PlanTab = 'places' | 'itinerary' | 'schedule'
 type RecordTab = 'records' | 'expenses'
 
 type Props = {
@@ -55,6 +68,8 @@ type Props = {
     tripId: number
     initialActivityOpen?: boolean
     onTripDatesChanged?: () => void
+    onItineraryDaysLoaded?: (days: ItineraryDay[]) => void
+    itineraryVersion?: number
     showBackButton?: boolean
     guestView?: boolean
 }
@@ -75,6 +90,8 @@ export function RoomDetailPanel({
     tripId,
     initialActivityOpen = false,
     onTripDatesChanged,
+    onItineraryDaysLoaded,
+    itineraryVersion = 0,
     showBackButton = true,
     guestView = false,
 }: Props) {
@@ -201,12 +218,7 @@ export function RoomDetailPanel({
         try {
             const comments = (
                 await getPlaceComments(tripId, Number(placeId))
-            ).map((comment) => ({
-                id: String(comment.id),
-                memberId: String(comment.memberId),
-                text: comment.content,
-                createdAt: comment.createdAt,
-            }))
+            ).map(mapApiComment)
             setComments(placeId, comments)
             onUpdatePlace(placeId, (place) => ({
                 ...place,
@@ -224,12 +236,7 @@ export function RoomDetailPanel({
         setCommentError(null)
         try {
             const comment = await addPlaceComment(tripId, Number(placeId), text)
-            const newComment = {
-                id: String(comment.id),
-                memberId: String(comment.memberId),
-                text: comment.content,
-                createdAt: comment.createdAt,
-            }
+            const newComment = mapApiComment(comment)
             addComment(placeId, newComment)
             onUpdatePlace(placeId, (place) => ({
                 ...place,
@@ -386,6 +393,15 @@ export function RoomDetailPanel({
                                   label: '날짜',
                                   icon: CalendarDaysIcon,
                               },
+                              ...(room.startDate && room.endDate
+                                  ? [
+                                        {
+                                            key: 'schedule' as const,
+                                            label: '일정',
+                                            icon: MapIcon,
+                                        },
+                                    ]
+                                  : []),
                           ]
                         : [
                               {
@@ -502,12 +518,22 @@ export function RoomDetailPanel({
                 </>
             )}
             {mode === 'plan' && planTab === 'itinerary' && (
-                <ItineraryPanel
+                <DateVotePanel
                     tripId={tripId}
                     canWrite={canPlanWrite}
                     onDirtyChange={setDateAvailabilityDirty}
                     onCollaborationChanged={refreshCollaborationData}
                     onTripDatesChanged={onTripDatesChanged}
+                />
+            )}
+            {mode === 'plan' && planTab === 'schedule' && (
+                <SchedulePanel
+                    key={`schedule-${itineraryVersion}`}
+                    tripId={tripId}
+                    roomId={room.id}
+                    places={places}
+                    canWrite={canPlanWrite}
+                    onDaysLoaded={onItineraryDaysLoaded}
                 />
             )}
             {mode === 'record' && recordTab === 'records' && (
