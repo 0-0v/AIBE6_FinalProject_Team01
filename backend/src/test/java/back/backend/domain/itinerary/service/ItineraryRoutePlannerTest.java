@@ -8,6 +8,7 @@ import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
+import back.backend.domain.trip.entity.TravelStyle;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,23 +16,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import tools.jackson.databind.ObjectMapper;
-import java.util.Optional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryRoutePlannerTest {
 
-    @Mock
-    private GeminiClient geminiClient;
     @Mock
     private GoogleDirectionsClient directionsClient;
 
@@ -39,13 +38,11 @@ class ItineraryRoutePlannerTest {
 
     @BeforeEach
     void setUp() {
-        // Gemini 미설정 상태로 휴리스틱 폴백 테스트
-        when(geminiClient.isConfigured()).thenReturn(false);
-        // Directions API 미설정 → Haversine 폴백
-        when(directionsClient.getRouteInfo(
+        // Directions API 미설정 → Haversine 폴백 (일부 테스트에서 미호출 허용)
+        lenient().when(directionsClient.getRouteInfo(
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyString()))
                 .thenReturn(Optional.empty());
-        planner = new ItineraryRoutePlanner(geminiClient, directionsClient, new ObjectMapper());
+        planner = new ItineraryRoutePlanner(directionsClient);
     }
 
     @Test
@@ -53,10 +50,10 @@ class ItineraryRoutePlannerTest {
     void t1_planDistributesSavedPlacesAcrossDays() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
-                tripPlace(10L, "A", 33.4500, 126.5000),
-                tripPlace(11L, "B", 33.4510, 126.5010),
-                tripPlace(12L, "C", 33.5000, 126.5500),
-                tripPlace(13L, "D", 33.5010, 126.5510)
+                tripPlace(10L, "A", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
+                tripPlace(11L, "B", PlaceCategoryType.ATTRACTION, 33.4510, 126.5010),
+                tripPlace(12L, "C", PlaceCategoryType.ATTRACTION, 33.5000, 126.5500),
+                tripPlace(13L, "D", PlaceCategoryType.ATTRACTION, 33.5010, 126.5510)
         );
 
         RoutePlanPreviewResponse result = planner.plan(days, places);
@@ -71,9 +68,9 @@ class ItineraryRoutePlannerTest {
     @DisplayName("t2 가까운 장소를 연속 배치하고 한 시간 반 체류 시간을 부여한다")
     void t2_planOrdersNearbyPlacesAndAssignsTimes() {
         List<TripPlace> places = List.of(
-                tripPlace(10L, "출발", 33.4500, 126.5000),
-                tripPlace(11L, "가까움", 33.4510, 126.5010),
-                tripPlace(12L, "멀리", 33.6000, 126.7000)
+                tripPlace(10L, "출발", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
+                tripPlace(11L, "가까움", PlaceCategoryType.ATTRACTION, 33.4510, 126.5010),
+                tripPlace(12L, "멀리", PlaceCategoryType.ATTRACTION, 33.6000, 126.7000)
         );
 
         RoutePlanPreviewResponse result = planner.plan(
@@ -93,66 +90,48 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t3 Gemini 호출 실패 시 휴리스틱 알고리즘으로 폴백한다")
-    void t3_fallsBackToHeuristicWhenGeminiFails() {
-        when(geminiClient.isConfigured()).thenReturn(true);
-        when(geminiClient.generateContent(anyString()))
-                .thenThrow(new RuntimeException("Gemini API 오류"));
-
-        List<ItineraryDay> days = List.of(day(1L, 1));
+    @DisplayName("t3 FOOD 스타일은 음식점·카페 장소를 동선 앞쪽에 배치한다")
+    void t3_foodStylePrioritizesFoodAndCafePlaces() {
+        // 장소가 지리적으로 분산되어 있어 카테고리 우선순위가 순서를 결정
         List<TripPlace> places = List.of(
-                tripPlace(10L, "A", 33.4500, 126.5000),
-                tripPlace(11L, "B", 33.4510, 126.5010)
+                tripPlace(10L, "명소A", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
+                tripPlace(11L, "음식점B", PlaceCategoryType.FOOD, 33.4600, 126.5100),
+                tripPlace(12L, "카페C", PlaceCategoryType.CAFE, 33.4700, 126.5200),
+                tripPlace(13L, "명소D", PlaceCategoryType.ATTRACTION, 33.4800, 126.5300)
         );
 
-        RoutePlanPreviewResponse result = planner.plan(days, places);
+        List<TripPlace> ordered = planner.orderByCategoryPriority(
+                places,
+                List.of(PlaceCategoryType.FOOD, PlaceCategoryType.CAFE)
+        );
 
-        // 폴백으로 휴리스틱 결과가 반환되어야 함
-        assertThat(result.days()).hasSize(1);
-        assertThat(result.days().getFirst().items()).hasSize(2);
-        assertThat(result.summary()).contains("가까운 장소끼리 연결");
+        // FOOD, CAFE 카테고리가 ATTRACTION보다 앞에 와야 한다
+        List<PlaceCategoryType> orderedTypes = ordered.stream()
+                .map(p -> p.getCategory().getCategoryType())
+                .toList();
+        int firstFoodOrCafe = firstIndexOf(orderedTypes, List.of(PlaceCategoryType.FOOD, PlaceCategoryType.CAFE));
+        int firstAttraction = firstIndexOf(orderedTypes, List.of(PlaceCategoryType.ATTRACTION));
+
+        assertThat(firstFoodOrCafe).isLessThan(firstAttraction);
     }
 
     @Test
-    @DisplayName("t4 Gemini 성공 시 AI 요약과 장소 배치를 반환한다")
-    void t4_returnsGeminiPlanWhenGeminiSucceeds() throws Exception {
-        when(geminiClient.isConfigured()).thenReturn(true);
-
-        // plan()은 스타일 없이 호출 → 균형 잡힌 코스 1개만 요청
-        String geminiJson = """
-                {
-                  "routes": [
-                    {
-                      "routeLabel": "균형 잡힌 코스",
-                      "summary": "AI가 추천하는 최적 동선입니다.",
-                      "days": [
-                        {
-                          "dayIndex": 0,
-                          "places": [
-                            {"id": 10, "startTime": "09:00", "endTime": "10:30", "reason": "첫 방문지"},
-                            {"id": 11, "startTime": "11:00", "endTime": "12:00", "reason": "근처 카페"}
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-                """;
-        when(geminiClient.generateContent(anyString())).thenReturn(geminiJson);
-
-        List<ItineraryDay> days = List.of(day(1L, 1));
+    @DisplayName("t4 여행 스타일 N개 입력 시 N개의 동선 옵션을 반환한다")
+    void t4_multiStyleProducesMultipleRouteOptions() {
+        List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
-                tripPlace(10L, "경복궁", 37.5796, 126.9770),
-                tripPlace(11L, "인왕산카페", 37.5810, 126.9620)
+                tripPlace(10L, "음식점", PlaceCategoryType.FOOD, 33.4500, 126.5000),
+                tripPlace(11L, "카페", PlaceCategoryType.CAFE, 33.4510, 126.5010),
+                tripPlace(12L, "명소", PlaceCategoryType.ATTRACTION, 33.5000, 126.5500),
+                tripPlace(13L, "자연", PlaceCategoryType.NATURE, 33.5010, 126.5510)
         );
+        Set<TravelStyle> styles = Set.of(TravelStyle.FOOD, TravelStyle.NATURE);
 
-        RoutePlanPreviewResponse result = planner.plan(days, places);
+        var options = planner.planMulti(days, places, styles);
 
-        assertThat(result.summary()).isEqualTo("AI가 추천하는 최적 동선입니다.");
-        assertThat(result.days().getFirst().items()).hasSize(2);
-        assertThat(result.days().getFirst().items().get(0).placeName()).isEqualTo("경복궁");
-        assertThat(result.days().getFirst().items().get(0).startTime()).isEqualTo("09:00");
-        assertThat(result.days().getFirst().items().get(0).reason()).isEqualTo("첫 방문지");
+        assertThat(options).hasSize(2);
+        assertThat(options).extracting(opt -> opt.routeLabel())
+                .allMatch(label -> label.endsWith("코스"));
     }
 
     // ── 픽스처 ──────────────────────────────────────────────────────────────
@@ -167,7 +146,8 @@ class ItineraryRoutePlannerTest {
         return day;
     }
 
-    private TripPlace tripPlace(Long id, String name, double lat, double lng) {
+    private TripPlace tripPlace(Long id, String name, PlaceCategoryType categoryType,
+                                double lat, double lng) {
         Place place = Place.builder()
                 .googlePlaceId("google-" + id)
                 .name(name)
@@ -176,9 +156,9 @@ class ItineraryRoutePlannerTest {
                 .longitude(BigDecimal.valueOf(lng))
                 .build();
         PlaceCategory category = PlaceCategory.builder()
-                .name("관광")
+                .name(categoryKorean(categoryType))
                 .tripId(1L)
-                .categoryType(PlaceCategoryType.ATTRACTION)
+                .categoryType(categoryType)
                 .markerColor("#f97316")
                 .markerIcon(PlaceMarkerIcon.LANDMARK)
                 .build();
@@ -191,5 +171,66 @@ class ItineraryRoutePlannerTest {
                 .build();
         ReflectionTestUtils.setField(tripPlace, "id", id);
         return tripPlace;
+    }
+
+    private String categoryKorean(PlaceCategoryType type) {
+        return switch (type) {
+            case FOOD -> "음식점";
+            case CAFE -> "카페";
+            case ATTRACTION -> "명소";
+            case NATURE -> "자연";
+            default -> type.name();
+        };
+    }
+
+    private int firstIndexOf(List<PlaceCategoryType> list, List<PlaceCategoryType> targets) {
+        for (int i = 0; i < list.size(); i++) {
+            if (targets.contains(list.get(i))) return i;
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private int timeToMinutes(String time) {
+        String[] parts = time.split(":");
+        return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
+    }
+
+    @Test
+    @DisplayName("t5 음식점은 60분, 명소는 90분 체류 시간을 부여한다")
+    void t5_planAssignsCategoryBasedStayMinutes() {
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "음식점A", PlaceCategoryType.FOOD, 33.4500, 126.5000),
+                tripPlace(11L, "명소B", PlaceCategoryType.ATTRACTION, 33.4510, 126.5010)
+        );
+
+        RoutePlanPreviewResponse result = planner.plan(List.of(day(1L, 1)), places);
+
+        var items = result.days().getFirst().items();
+        // FOOD: 09:00 ~ 10:00 (60분)
+        assertThat(items.get(0).startTime()).isEqualTo("09:00");
+        assertThat(items.get(0).endTime()).isEqualTo("10:00");
+        // ATTRACTION: 이전 종료 + 이동시간 이후 90분 체류
+        assertThat(items.get(1).startTime()).isNotNull();
+        int attractionEnd = timeToMinutes(items.get(1).endTime());
+        int attractionStart = timeToMinutes(items.get(1).startTime());
+        assertThat(attractionEnd - attractionStart).isEqualTo(90);
+    }
+
+    @Test
+    @DisplayName("t6 21시 이후 배정되는 장소는 시간을 null로 둔다")
+    void t6_planSetsNullTimeWhenDayExceedsCutoff() {
+        // 09:00에 시작해서 ACTIVITY(120분)×6개면 21:00 초과
+        List<TripPlace> places = new java.util.ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            places.add(tripPlace((long) (10 + i), "액티비티" + i,
+                    PlaceCategoryType.ACTIVITY,
+                    33.45 + i * 0.01, 126.50 + i * 0.01));
+        }
+
+        RoutePlanPreviewResponse result = planner.plan(List.of(day(1L, 1)), places);
+
+        var items = result.days().getFirst().items();
+        // 일부 아이템은 반드시 null (21시 초과)
+        assertThat(items).anyMatch(item -> item.startTime() == null);
     }
 }
