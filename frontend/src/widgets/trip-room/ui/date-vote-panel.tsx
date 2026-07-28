@@ -46,7 +46,12 @@ type SelectionGesture = {
     current: string
     selecting: boolean
     input: 'mouse' | 'touch'
+    originX: number
+    originY: number
+    dragging: boolean
 }
+
+const DRAG_THRESHOLD_PX = 8
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 export function DateVotePanel({
@@ -92,9 +97,10 @@ export function DateVotePanel({
             setGesture(null)
         }
         const cancelDragging = () => {
-            if (gestureRef.current?.input !== 'mouse') return
+            if (!gestureRef.current) return
             gestureRef.current = null
             setGesture(null)
+            setTouchAnchor(null)
         }
         window.addEventListener('pointerup', finishDragging)
         window.addEventListener('pointercancel', cancelDragging)
@@ -291,6 +297,9 @@ export function DateVotePanel({
             current: date,
             selecting,
             input: 'mouse',
+            originX: event.clientX,
+            originY: event.clientY,
+            dragging: false,
         }
         gestureRef.current = nextGesture
         setGesture(nextGesture)
@@ -304,6 +313,9 @@ export function DateVotePanel({
                 current: date,
                 selecting: !draftDates.has(date),
                 input: 'touch',
+                originX: 0,
+                originY: 0,
+                dragging: true,
             }
             setTouchAnchor(date)
             setGesture(nextGesture)
@@ -320,10 +332,32 @@ export function DateVotePanel({
         gestureRef.current = null
     }
 
-    function continueDragging(date: string) {
+    function continueDragging(event: React.PointerEvent, date: string) {
         const currentGesture = gestureRef.current
         if (!currentGesture || currentGesture.input !== 'mouse') return
-        const nextGesture = { ...currentGesture, current: date }
+        if (!(event.buttons & 1)) {
+            // 브라우저 밖에서 마우스를 놓고 돌아온 경우 — 제스처를 자동 커밋
+            setDraftDates((prev) =>
+                updateDateSet(
+                    prev,
+                    currentGesture.anchor,
+                    currentGesture.current,
+                    currentGesture.selecting,
+                ),
+            )
+            setDirty(true)
+            gestureRef.current = null
+            setGesture(null)
+            return
+        }
+        // 드래그 임계값 — 아직 드래그가 시작되지 않은 상태에서 클릭 시
+        // 미세한 손 떨림으로 인접 셀에 진입해도 범위 선택으로 취급하지 않음
+        if (!currentGesture.dragging) {
+            const dx = event.clientX - currentGesture.originX
+            const dy = event.clientY - currentGesture.originY
+            if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
+        }
+        const nextGesture = { ...currentGesture, current: date, dragging: true }
         gestureRef.current = nextGesture
         setGesture(nextGesture)
     }
@@ -413,7 +447,7 @@ export function DateVotePanel({
                     </div>
                 </div>
 
-                {(gesture || touchAnchor) && (
+                {(gesture?.dragging || touchAnchor) && (
                     <div
                         role="status"
                         className={`mt-3 flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-bold ${
@@ -516,9 +550,9 @@ export function DateVotePanel({
                                 onPointerDown={(event) =>
                                     startDragging(event, dateKey)
                                 }
-                                onPointerEnter={() => {
+                                onPointerEnter={(event) => {
                                     setHoveredDate(dateKey)
-                                    continueDragging(dateKey)
+                                    continueDragging(event, dateKey)
                                 }}
                                 onFocus={() => setHoveredDate(dateKey)}
                                 onClick={(event) => {
