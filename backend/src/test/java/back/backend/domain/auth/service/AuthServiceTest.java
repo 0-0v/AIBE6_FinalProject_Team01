@@ -4,8 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.any;
 
 import back.backend.domain.auth.dto.TokenResponse;
+import back.backend.domain.auth.dto.SignupRequest;
+import back.backend.domain.auth.dto.LoginRequest;
+import back.backend.domain.auth.dto.PasswordResetRequest;
+import back.backend.domain.auth.dto.EmailVerificationPurpose;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
@@ -22,6 +28,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -34,6 +42,12 @@ class AuthServiceTest {
     @Mock
     private MemberRepository memberRepository;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
     private JwtProvider jwtProvider;
     private AuthService authService;
 
@@ -44,7 +58,13 @@ class AuthServiceTest {
         properties.setAccessTokenExpirationMs(60_000);
         properties.setRefreshTokenExpirationMs(1_209_600_000);
         jwtProvider = new JwtProvider(properties);
-        authService = new AuthService(jwtProvider, refreshTokenRepository, memberRepository);
+        authService = new AuthService(
+                jwtProvider,
+                refreshTokenRepository,
+                memberRepository,
+                passwordEncoder,
+                emailVerificationService
+        );
     }
 
     private Member activeMember(Long id) {
@@ -133,5 +153,131 @@ class AuthServiceTest {
         authService.logout(1L);
 
         verify(refreshTokenRepository).deleteByMemberId(1L);
+    }
+
+    @Test
+    @DisplayName("t9 이메일 인증을 마친 회원가입 요청은 비밀번호를 해시하여 저장하고 토큰을 발급한다")
+    void t9_signupHashesPasswordAndIssuesTokens() {
+        SignupRequest request = new SignupRequest("USER@example.com", "Password1!", "여행자");
+        when(memberRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("Password1!")).thenReturn("hashed-password");
+        doAnswer(invocation -> {
+            Member savedMember = invocation.getArgument(0, Member.class);
+            ReflectionTestUtils.setField(savedMember, "id", 10L);
+            return savedMember;
+        }).when(memberRepository).saveAndFlush(any(Member.class));
+
+        TokenResponse response = authService.signup(request);
+
+        assertThat(response.accessToken()).isNotBlank();
+        verify(emailVerificationService)
+                .requireVerified("user@example.com", EmailVerificationPurpose.SIGNUP);
+        verify(emailVerificationService)
+                .consumeVerification("user@example.com", EmailVerificationPurpose.SIGNUP);
+        verify(passwordEncoder).encode("Password1!");
+    }
+
+    @Test
+    @DisplayName("t10 로컬 회원이 올바른 비밀번호로 로그인하면 토큰을 발급한다")
+    void t10_loginIssuesTokensWhenPasswordMatches() {
+        Member member = Member.createLocal("user@example.com", "여행자", "hashed-password");
+        ReflectionTestUtils.setField(member, "id", 11L);
+        when(memberRepository.findByEmailAndProvider("user@example.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(member));
+        when(passwordEncoder.matches("Password1!", "hashed-password")).thenReturn(true);
+
+        TokenResponse response = authService.login(new LoginRequest("user@example.com", "Password1!"));
+
+        assertThat(response.accessToken()).isNotBlank();
+        assertThat(member.getLastLoginAt()).isNotNull();
+        verify(refreshTokenRepository).save(11L, response.refreshToken());
+    }
+
+    @Test
+    @DisplayName("t11 로컬 회원이 닉네임과 올바른 비밀번호로 로그인하면 토큰을 발급한다")
+    void t11_loginIssuesTokensWhenNicknameAndPasswordMatch() {
+        Member member = Member.createLocal("user@example.com", "여행자", "hashed-password");
+        ReflectionTestUtils.setField(member, "id", 12L);
+        when(memberRepository.findByNicknameAndProvider("여행자", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(member));
+        when(passwordEncoder.matches("Password1!", "hashed-password")).thenReturn(true);
+
+        TokenResponse response = authService.login(new LoginRequest(" 여행자 ", "Password1!"));
+
+        assertThat(response.accessToken()).isNotBlank();
+        assertThat(member.getLastLoginAt()).isNotNull();
+        verify(refreshTokenRepository).save(12L, response.refreshToken());
+    }
+
+    @Test
+    @DisplayName("t12 비밀번호 재설정은 새 비밀번호를 해시하고 기존 리프레시 토큰을 폐기한다")
+    void t12_resetPasswordHashesPasswordAndRevokesRefreshToken() {
+        Member member = Member.createLocal("user@example.com", "여행자", "old-hash");
+        ReflectionTestUtils.setField(member, "id", 13L);
+        when(memberRepository.findByEmailAndProvider("user@example.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(member));
+        when(passwordEncoder.encode("NewPassword1!")).thenReturn("new-hash");
+
+        authService.resetPassword(new PasswordResetRequest("user@example.com", "NewPassword1!"));
+
+        assertThat(member.getPasswordHash()).isEqualTo("new-hash");
+        verify(refreshTokenRepository).deleteByMemberId(13L);
+        verify(emailVerificationService)
+                .consumeVerification("user@example.com", EmailVerificationPurpose.PASSWORD_RESET);
+    }
+
+    @Test
+    @DisplayName("t13 새 비밀번호가 현재 비밀번호와 같으면 비밀번호 재설정을 거부한다")
+    void t13_resetPasswordRejectsCurrentPassword() {
+        Member member = Member.createLocal("user@example.com", "여행자", "old-hash");
+        ReflectionTestUtils.setField(member, "id", 14L);
+        when(memberRepository.findByEmailAndProvider("user@example.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(member));
+        when(passwordEncoder.matches("SamePassword1!", "old-hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.resetPassword(
+                new PasswordResetRequest("user@example.com", "SamePassword1!")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("이전에 사용하던 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+
+        assertThat(member.getPasswordHash()).isEqualTo("old-hash");
+    }
+
+    @Test
+    @DisplayName("t14 사용 중인 로컬 닉네임이면 사용할 수 없다고 반환한다")
+    void t14_isNicknameAvailableReturnsFalseForExistingLocalNickname() {
+        when(memberRepository.existsByNicknameAndProvider("여행자", AuthProvider.LOCAL))
+                .thenReturn(true);
+
+        assertThat(authService.isNicknameAvailable(" 여행자 ")).isFalse();
+    }
+
+    @Test
+    @DisplayName("t15 회원가입 닉네임이 이미 사용 중이면 회원가입을 거부한다")
+    void t15_signupRejectsExistingLocalNickname() {
+        SignupRequest request = new SignupRequest("user@example.com", "Password1!", "여행자");
+        when(memberRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(memberRepository.existsByNicknameAndProvider("여행자", AuthProvider.LOCAL))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> authService.signup(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("이미 사용 중인 닉네임입니다.");
+    }
+
+    @Test
+    @DisplayName("t16 동시 회원가입으로 닉네임 유니크 제약이 충돌하면 닉네임 중복 오류를 반환한다")
+    void t16_signupMapsNicknameConstraintViolationToNicknameError() {
+        SignupRequest request = new SignupRequest("user@example.com", "Password1!", "여행자");
+        when(memberRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(memberRepository.existsByNicknameAndProvider("여행자", AuthProvider.LOCAL))
+                .thenReturn(false);
+        when(passwordEncoder.encode("Password1!")).thenReturn("hashed-password");
+        when(memberRepository.saveAndFlush(any(Member.class)))
+                .thenThrow(new DataIntegrityViolationException("uk_members_local_nickname"));
+
+        assertThatThrownBy(() -> authService.signup(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("이미 사용 중인 닉네임입니다.");
     }
 }

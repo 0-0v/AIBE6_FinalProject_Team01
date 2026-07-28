@@ -15,6 +15,8 @@ import { Home } from '@/views/home'
 import { Explore, Updates } from '@/views/discovery'
 import { MyPage } from '@/views/my-page'
 import { Login } from '@/views/login'
+import { SignupPage } from '@/views/signup'
+import { PasswordResetPage } from '@/views/password-reset'
 import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
@@ -144,6 +146,8 @@ export function App() {
             <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/password-reset" element={<PasswordResetPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
                 <Route path="/app/*" element={<AppShell />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

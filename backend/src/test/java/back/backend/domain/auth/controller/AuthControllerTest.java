@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.auth.dto.TokenResponse;
 import back.backend.domain.auth.service.AuthService;
+import back.backend.domain.auth.service.EmailVerificationService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityConfig;
@@ -47,6 +48,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private RefreshTokenCookieProvider refreshTokenCookieProvider;
+
+    @MockitoBean
+    private EmailVerificationService emailVerificationService;
 
     @Test
     @DisplayName("t1 유효한 리프레시 토큰 쿠키로 재발급을 요청하면 200과 새 액세스 토큰, 새 리프레시 토큰 쿠키를 반환한다")
@@ -112,5 +116,26 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("COMMON_401"));
+    }
+
+    @Test
+    @DisplayName("t6 사용 가능한 닉네임으로 중복 확인하면 200과 true를 반환한다")
+    void t6_nicknameAvailabilityReturnsTrueForAvailableNickname() throws Exception {
+        when(authService.isNicknameAvailable("여행자")).thenReturn(true);
+
+        mockMvc.perform(post("/api/auth/nickname-availability")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"여행자\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.available").value(true));
+    }
+
+    @Test
+    @DisplayName("t7 형식에 맞지 않는 닉네임으로 중복 확인하면 400을 반환한다")
+    void t7_nicknameAvailabilityRejectsInvalidNickname() throws Exception {
+        mockMvc.perform(post("/api/auth/nickname-availability")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"a\"}"))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { setAccessToken } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
+import { setLastLoginProvider } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 
 export function OAuthCallback() {
@@ -29,6 +30,12 @@ export function OAuthCallback() {
             .then((user) => {
                 if (user) {
                     setCurrentUser(user)
+                    if (
+                        user.provider === 'GOOGLE' ||
+                        user.provider === 'KAKAO'
+                    ) {
+                        setLastLoginProvider(user.provider)
+                    }
                 }
             })
             .finally(() => {

@@ -10,6 +10,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -36,8 +38,18 @@ public class SecurityConfig {
             "/oauth2/**",
             "/login/oauth2/**",
             "/api/auth/reissue",
+            "/api/auth/signup",
+            "/api/auth/login",
+            "/api/auth/nickname-availability",
+            "/api/auth/email-verifications/**",
+            "/api/auth/password-reset",
             "/uploads/**"
     };
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(

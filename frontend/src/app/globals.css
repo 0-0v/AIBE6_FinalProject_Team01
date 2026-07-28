@@ -57,3 +57,26 @@ button,
 .mp-scroll::-webkit-scrollbar-track {
     background: transparent;
 }
+
+@keyframes auth-field-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-4px);
+    }
+    75% {
+        transform: translateX(4px);
+    }
+}
+
+.auth-field-shake {
+    animation: auth-field-shake 180ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-field-shake {
+        animation: none;
+    }
+}

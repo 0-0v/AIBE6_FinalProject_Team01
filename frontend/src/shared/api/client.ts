@@ -125,6 +125,21 @@ export function getApiErrorStatus(error: unknown): number | null {
     return null
 }
 
+export function getApiErrorCode(error: unknown): string | null {
+    if (
+        typeof error === 'object' &&
+        error !== null &&
+        'data' in error &&
+        typeof error.data === 'object' &&
+        error.data !== null &&
+        'code' in error.data &&
+        typeof error.data.code === 'string'
+    ) {
+        return error.data.code
+    }
+    return null
+}
+
 async function request<T>(
     path: string,
     init?: RequestInit,

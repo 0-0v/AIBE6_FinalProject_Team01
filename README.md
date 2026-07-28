@@ -48,6 +48,18 @@ macOS와 Linux에서는 `./gradlew bootRun`을 사용합니다.
 실제 비밀번호와 API 키는 YAML에 작성하지 않고 `backend/.env` 또는 운영 환경변수로 주입합니다.
 기본 로컬 실행은 `local` 프로파일만 사용하며 OAuth 키 없이도 실행됩니다. 소셜 로그인 개발 시 OAuth 키를 입력하고 `--spring.profiles.active=local,oauth`를 추가합니다.
 
+자체 회원가입 이메일 인증에는 Brevo SMTP 설정이 필요합니다.
+
+```env
+BREVO_SMTP_HOST=smtp-relay.brevo.com
+BREVO_SMTP_PORT=587
+BREVO_SMTP_USERNAME=
+BREVO_SMTP_PASSWORD=
+BREVO_FROM_EMAIL=
+```
+
+`BREVO_FROM_EMAIL`에는 Brevo에서 발신자로 인증한 주소를 사용합니다.
+
 ### 여행 장소 관리 로컬 데이터
 
 프론트엔드는 실제 Trip API가 구현되기 전까지 임시로 `tripId=1`을 사용합니다. 여행 장소 추가·조회·수정·삭제를 확인하려면 먼저 소셜 로그인으로 `members` 레코드를 생성한 뒤, 로컬 MySQL에서 해당 회원이 접근 가능한 여행 1번을 준비해야 합니다.

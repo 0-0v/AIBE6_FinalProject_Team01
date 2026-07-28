@@ -1,15 +1,25 @@
 package back.backend.domain.auth.service;
 
+import back.backend.domain.auth.dto.EmailVerificationPurpose;
+import back.backend.domain.auth.dto.LoginRequest;
+import back.backend.domain.auth.dto.PasswordResetRequest;
+import back.backend.domain.auth.dto.SignupRequest;
 import back.backend.domain.auth.dto.TokenResponse;
+import back.backend.domain.auth.exception.AuthErrorCode;
+import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.exception.DataIntegrityConstraintMatcher;
 import back.backend.global.security.jwt.JwtProvider;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import back.backend.global.security.jwt.TokenType;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -19,15 +29,82 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationService emailVerificationService;
 
     public AuthService(
             JwtProvider jwtProvider,
             RefreshTokenRepository refreshTokenRepository,
-            MemberRepository memberRepository
+            MemberRepository memberRepository,
+            PasswordEncoder passwordEncoder,
+            EmailVerificationService emailVerificationService
     ) {
         this.jwtProvider = jwtProvider;
         this.refreshTokenRepository = refreshTokenRepository;
         this.memberRepository = memberRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.emailVerificationService = emailVerificationService;
+    }
+
+    @Transactional
+    public TokenResponse signup(SignupRequest request) {
+        String email = EmailVerificationService.normalize(request.email());
+        emailVerificationService.requireVerified(email, EmailVerificationPurpose.SIGNUP);
+        if (memberRepository.existsByEmail(email)) {
+            throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        String nickname = request.nickname().strip();
+        if (!isNicknameAvailable(nickname)) {
+            throw new BusinessException(AuthErrorCode.NICKNAME_ALREADY_EXISTS);
+        }
+        Member member = Member.createLocal(email, nickname, passwordEncoder.encode(request.password()));
+        try {
+            memberRepository.saveAndFlush(member);
+        } catch (DataIntegrityViolationException exception) {
+            if (DataIntegrityConstraintMatcher.containsConstraint(
+                    exception, "uk_members_local_nickname")) {
+                throw new BusinessException(AuthErrorCode.NICKNAME_ALREADY_EXISTS);
+            }
+            throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        emailVerificationService.consumeVerification(email, EmailVerificationPurpose.SIGNUP);
+        return issueTokens(member);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isNicknameAvailable(String nickname) {
+        return !memberRepository.existsByNicknameAndProvider(nickname.strip(), AuthProvider.LOCAL);
+    }
+
+    @Transactional
+    public TokenResponse login(LoginRequest request) {
+        String identifier = request.identifier().strip();
+        Member member = (identifier.contains("@")
+                ? memberRepository.findByEmailAndProvider(
+                        EmailVerificationService.normalize(identifier), AuthProvider.LOCAL)
+                : memberRepository.findByNicknameAndProvider(identifier, AuthProvider.LOCAL))
+                .filter(found -> found.getStatus() == MemberStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
+        if (!passwordEncoder.matches(request.password(), member.getPasswordHash())) {
+            throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
+        }
+        member.recordLogin();
+        return issueTokens(member);
+    }
+
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        String email = EmailVerificationService.normalize(request.email());
+        emailVerificationService.requireVerified(email, EmailVerificationPurpose.PASSWORD_RESET);
+        Member member = memberRepository.findByEmailAndProvider(email, AuthProvider.LOCAL)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.LOCAL_ACCOUNT_NOT_FOUND));
+        if (passwordEncoder.matches(request.newPassword(), member.getPasswordHash())) {
+            throw new BusinessException(AuthErrorCode.SAME_AS_CURRENT_PASSWORD);
+        }
+        member.changePassword(passwordEncoder.encode(request.newPassword()));
+        memberRepository.flush();
+        refreshTokenRepository.deleteByMemberId(member.getId());
+        emailVerificationService.consumeVerification(email, EmailVerificationPurpose.PASSWORD_RESET);
     }
 
     public TokenResponse reissue(String refreshToken) {
@@ -60,5 +137,12 @@ public class AuthService {
 
     public void logout(Long memberId) {
         refreshTokenRepository.deleteByMemberId(memberId);
+    }
+
+    private TokenResponse issueTokens(Member member) {
+        String accessToken = jwtProvider.createAccessToken(member.getId(), member.getEmail());
+        String refreshToken = jwtProvider.createRefreshToken(member.getId());
+        refreshTokenRepository.save(member.getId(), refreshToken);
+        return new TokenResponse(accessToken, refreshToken);
     }
 }

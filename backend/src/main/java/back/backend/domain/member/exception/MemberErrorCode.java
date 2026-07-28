@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 
 public enum MemberErrorCode implements ErrorCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER_404", "회원을 찾을 수 없습니다."),
+    NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "MEMBER_409_NICKNAME", "이미 사용 중인 닉네임입니다."),
     EMPTY_PROFILE_IMAGE(HttpStatus.BAD_REQUEST, "MEMBER_PROFILE_IMAGE_400_EMPTY", "업로드할 이미지 파일이 비어 있습니다."),
     INVALID_PROFILE_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "MEMBER_PROFILE_IMAGE_400_TYPE", "이미지 파일(jpg, jpeg, png, webp)만 업로드할 수 있습니다."),
     PROFILE_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "MEMBER_PROFILE_IMAGE_400_SIZE", "이미지 파일은 5MB 이하만 업로드할 수 있습니다."),
