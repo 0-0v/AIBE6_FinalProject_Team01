@@ -1,6 +1,7 @@
 package back.backend.domain.auth.controller;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.hamcrest.Matchers.containsString;
@@ -70,14 +71,12 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("t2 리프레시 토큰 쿠키가 없으면 400을 반환한다")
-    void t2_reissueReturnsBadRequestWhenRefreshTokenCookieIsMissing() throws Exception {
-        when(authService.reissue(null))
-                .thenThrow(new BusinessException(CommonErrorCode.BAD_REQUEST, "리프레시 토큰은 필수입니다."));
-
+    @DisplayName("t2 리프레시 토큰 쿠키가 없으면 비로그인 상태로 판단하고 204를 반환한다")
+    void t2_reissueReturnsNoContentWhenRefreshTokenCookieIsMissing() throws Exception {
         mockMvc.perform(post("/api/auth/reissue"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("COMMON_400"));
+                .andExpect(status().isNoContent());
+
+        verifyNoInteractions(authService);
     }
 
     @Test

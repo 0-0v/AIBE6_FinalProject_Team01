@@ -84,9 +84,13 @@ export function Login() {
         <div className="flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
             <div className="w-full max-w-sm">
                 <div className="mb-8 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white">
+                    <Link
+                        to="/"
+                        aria-label="Plamingo 랜딩 페이지로 이동"
+                        className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+                    >
                         <SparklesIcon size={26} />
-                    </div>
+                    </Link>
                     <h1 className="mt-5 text-2xl font-extrabold tracking-tight">
                         Plamingo 시작하기
                     </h1>
@@ -169,9 +173,15 @@ export function Login() {
                 </div>
 
                 <p className="mt-8 text-center text-xs leading-relaxed text-slate-400">
-                    가입 시 <span className="underline">이용약관</span> 및{' '}
-                    <span className="underline">개인정보처리방침</span>에
-                    동의하게 됩니다.
+                    가입 시{' '}
+                    <Link to="/terms" className="underline underline-offset-2 hover:text-slate-600">
+                        이용약관
+                    </Link>{' '}
+                    및{' '}
+                    <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-600">
+                        개인정보처리방침
+                    </Link>
+                    에 동의하게 됩니다.
                 </p>
             </div>
         </div>

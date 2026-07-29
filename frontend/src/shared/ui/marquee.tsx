@@ -30,7 +30,8 @@ export function Marquee({
         injected.current = true
         const s = document.createElement('style')
         s.id = KEYFRAME_ID
-        s.textContent = `@keyframes pl-marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }`
+        s.textContent =
+            '@keyframes pl-marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }'
         document.head.appendChild(s)
     }, [])
 

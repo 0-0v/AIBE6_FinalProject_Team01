@@ -1,12 +1,15 @@
 'use client'
 
+/* eslint-disable react/no-unescaped-entities */
+
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ConfettiButton } from '@/shared/ui/confetti-button'
 import { Marquee } from '@/shared/ui/marquee'
 import { NumberTicker } from '@/shared/ui/number-ticker'
 import { ScrollProgressBar } from '@/shared/ui/scroll-progress-bar'
 import { WordRotate } from '@/shared/ui/word-rotate'
+import { useCurrentUserStore } from '@/shared/model'
 
 const LANDING_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
@@ -46,15 +49,28 @@ const fadeUpIn = (delayMs: number) =>
 
 export function Landing() {
     const navigate = useNavigate()
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const isInitialized = useCurrentUserStore((state) => state.isInitialized)
 
     const [scrolled, setScrolled] = useState(false)
     const [revealed, setRevealed] = useState<Record<string, boolean>>({})
-    const [isMobile, setIsMobile] = useState(false)
-    const [reduced, setReduced] = useState(false)
+    const [isMobile, setIsMobile] = useState(
+        () => typeof window !== 'undefined' && window.innerWidth <= 768,
+    )
+    const [reduced, setReduced] = useState(
+        () =>
+            typeof window !== 'undefined' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    )
     const [ctaHover, setCtaHover] = useState(false)
     const [activeSection, setActiveSection] = useState('problem')
     const [smx, setSmx] = useState(0)
     const [smy, setSmy] = useState(0)
+
+    const startService = useCallback(() => {
+        if (!isInitialized) return
+        navigate(currentUser ? '/app' : '/login')
+    }, [currentUser, isInitialized, navigate])
 
     const targetMxRef = useRef(0)
     const targetMyRef = useRef(0)
@@ -88,11 +104,15 @@ export function Landing() {
     // 모바일 감지 + reduced motion
     useEffect(() => {
         const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-        setReduced(mq.matches)
-        setIsMobile(window.innerWidth <= 768)
         const onResize = () => setIsMobile(window.innerWidth <= 768)
+        const onMotionChange = (event: MediaQueryListEvent) =>
+            setReduced(event.matches)
         window.addEventListener('resize', onResize)
-        return () => window.removeEventListener('resize', onResize)
+        mq.addEventListener('change', onMotionChange)
+        return () => {
+            window.removeEventListener('resize', onResize)
+            mq.removeEventListener('change', onMotionChange)
+        }
     }, [])
 
     // 마우스 패럴랙스
@@ -322,18 +342,12 @@ export function Landing() {
                     <a href="#place-section" onClick={scrollTo('place-section')} className="pl-nav-link">주요 기능</a>
                     <a href="#vote-section" onClick={scrollTo('vote-section')} className="pl-nav-link">이용 방법</a>
                     <a href="#ai-section" onClick={scrollTo('ai-section')} className="pl-nav-link">AI 여행 계획</a>
-                    <a href="#footer-section" onClick={scrollTo('footer-section')} className="pl-nav-link">팀 소개</a>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, zIndex: 1 }}>
                     <button
-                        onClick={() => navigate('/login')}
-                        style={{ background: 'transparent', color: '#3A2A28', fontWeight: 600, fontSize: 14, padding: '9px 18px', borderRadius: 999, border: '1.5px solid #EFE2D6', cursor: 'pointer', fontFamily: "'Manrope', sans-serif" }}
-                    >
-                        로그인
-                    </button>
-                    <button
-                        onClick={() => navigate('/login')}
-                        style={{ background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 14, padding: '9px 20px', borderRadius: 999, border: 'none', cursor: 'pointer', boxShadow: '0 8px 18px rgba(255,90,60,0.28)', fontFamily: "'Manrope', sans-serif" }}
+                        onClick={startService}
+                        disabled={!isInitialized}
+                        style={{ background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 14, padding: '9px 20px', borderRadius: 999, border: 'none', cursor: isInitialized ? 'pointer' : 'wait', opacity: isInitialized ? 1 : 0.65, boxShadow: '0 8px 18px rgba(255,90,60,0.28)', fontFamily: "'Manrope', sans-serif" }}
                     >
                         시작하기
                     </button>
@@ -765,7 +779,7 @@ export function Landing() {
                         </div>
                         <h2 className="pl-h pl-h2-hover" style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 32px', transition: 'transform 0.3s ease' }}>고민은 그만,<br />여행은 이미 시작됐어요.</h2>
                         <ConfettiButton
-                            onClick={() => navigate('/login')}
+                            onClick={startService}
                             className="pl-cta-btn"
                             style={{ display: 'inline-block', background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 17, padding: '18px 36px', borderRadius: 999, boxShadow: '0 16px 30px rgba(255,90,60,0.36)', border: 'none', cursor: 'pointer', transition: 'transform 0.2s ease', fontFamily: "'Manrope', sans-serif" }}
                         >
@@ -792,9 +806,16 @@ export function Landing() {
                     Plamingo
                 </div>
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13, fontWeight: 600, color: '#8A8FA8' }}>
-                    {['이용약관', '개인정보처리방침', 'GitHub', '팀 소개'].map((label) => (
-                        <a key={label} href="#" style={{ color: '#8A8FA8', textDecoration: 'none' }}>{label}</a>
-                    ))}
+                    <Link to="/terms" style={{ color: '#8A8FA8', textDecoration: 'none' }}>이용약관</Link>
+                    <Link to="/privacy" style={{ color: '#8A8FA8', textDecoration: 'none' }}>개인정보처리방침</Link>
+                    <a
+                        href="https://github.com/prgrms-aibe-devcourse/AIBE6_FinalProject_Team01"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#8A8FA8', textDecoration: 'none' }}
+                    >
+                        GitHub
+                    </a>
                 </div>
                 <div style={{ fontSize: 12.5, color: '#B7BBCF', fontWeight: 600 }}>© 2026 Plamingo</div>
             </footer>

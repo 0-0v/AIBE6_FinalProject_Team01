@@ -17,6 +17,7 @@ import back.backend.global.security.jwt.RefreshTokenCookieProvider;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -90,13 +91,16 @@ public class AuthController {
     }
 
     @PostMapping("/reissue")
-    public ApiResponse<AccessTokenResponse> reissue(
+    public ResponseEntity<ApiResponse<AccessTokenResponse>> reissue(
             @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
             HttpServletResponse response
     ) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.noContent().build();
+        }
         TokenResponse tokens = authService.reissue(refreshToken);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.create(tokens.refreshToken()).toString());
-        return ApiResponse.success(AccessTokenResponse.from(tokens));
+        return ResponseEntity.ok(ApiResponse.success(AccessTokenResponse.from(tokens)));
     }
 
     @PostMapping("/logout")

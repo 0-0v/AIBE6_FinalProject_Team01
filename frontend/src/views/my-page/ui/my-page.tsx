@@ -274,9 +274,10 @@ export function MyPage() {
                                 회원 탈퇴
                             </h2>
                             <p className="mt-1 text-sm text-red-600/80">
-                                탈퇴 후 1년이 지나면 모든 정보가 자동
-                                삭제됩니다. 여러 멤버가 있는 여행방은 방장
-                                기준으로 삭제 여부가 결정돼요.
+                                탈퇴 시 일반 회원정보는 파기되며, 부정 이용
+                                방지를 위한 최소 식별정보는 10년간 분리
+                                보관됩니다. 자세한 내용은 개인정보처리방침을
+                                확인해 주세요.
                             </p>
                             <button className="mt-3 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
                                 탈퇴하기

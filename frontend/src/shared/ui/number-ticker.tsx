@@ -28,12 +28,12 @@ export function NumberTicker({
     useEffect(() => {
         // value/duration이 바뀌면 다시 카운트업할 수 있도록 리셋
         triggered.current = false
-        setCurrent(0)
 
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (entry.isIntersecting && !triggered.current) {
                     triggered.current = true
+                    setCurrent(0)
                     startRef.current = null
                     const animate = (now: number) => {
                         if (!startRef.current) startRef.current = now

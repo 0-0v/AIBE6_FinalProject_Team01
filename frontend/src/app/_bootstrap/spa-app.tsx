@@ -20,6 +20,7 @@ import { PasswordResetPage } from '@/views/password-reset'
 import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom, ScheduleKanbanPage } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
+import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
 import { restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { useCurrentUserStore } from '@/shared/model'
@@ -149,6 +150,8 @@ export function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/password-reset" element={<PasswordResetPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
                 <Route path="/app/*" element={<AppShell />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
