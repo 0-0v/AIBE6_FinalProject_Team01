@@ -3,6 +3,7 @@ package back.backend.global.security.oauth2;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -79,7 +80,7 @@ class CustomOAuth2UserServiceTest {
         when(memberRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "12345")).thenReturn(Optional.empty());
         Member saved = Member.create("user@example.com", "닉네임", "https://example.com/image.png", AuthProvider.KAKAO, "12345");
         ReflectionTestUtils.setField(saved, "id", 10L);
-        when(memberRepository.save(org.mockito.ArgumentMatchers.any(Member.class))).thenReturn(saved);
+        when(memberRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(Member.class))).thenReturn(saved);
 
         MemberPrincipal principal = (MemberPrincipal) service.mapToPrincipal("kakao", kakaoOAuth2User());
 
@@ -100,7 +101,7 @@ class CustomOAuth2UserServiceTest {
         assertThat(principal.getMemberId()).isEqualTo(20L);
         assertThat(existing.getNickname()).isEqualTo("예전닉네임");
         assertThat(existing.getLastLoginAt()).isNotNull();
-        verify(memberRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+        verify(memberRepository, org.mockito.Mockito.never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -109,7 +110,7 @@ class CustomOAuth2UserServiceTest {
         when(memberRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "67890")).thenReturn(Optional.empty());
         Member saved = Member.create("user@gmail.com", "구글유저", null, AuthProvider.GOOGLE, "67890");
         ReflectionTestUtils.setField(saved, "id", 30L);
-        when(memberRepository.save(org.mockito.ArgumentMatchers.any(Member.class))).thenReturn(saved);
+        when(memberRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(Member.class))).thenReturn(saved);
 
         MemberPrincipal principal = (MemberPrincipal) service.mapToPrincipal("google", googleOAuth2User());
 
@@ -130,6 +131,20 @@ class CustomOAuth2UserServiceTest {
         assertThat(principal.getMemberId()).isEqualTo(40L);
         assertThat(existing.getNickname()).isEqualTo("예전이름");
         assertThat(existing.getLastLoginAt()).isNotNull();
-        verify(memberRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+        verify(memberRepository, org.mockito.Mockito.never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("t6 다른 로그인 방식에서 사용 중인 이메일이면 신규 소셜 회원가입을 거부한다")
+    void t6_newSocialMemberWithExistingEmailIsRejected() {
+        when(memberRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "12345"))
+                .thenReturn(Optional.empty());
+        when(memberRepository.existsByEmail("user@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.mapToPrincipal("kakao", kakaoOAuth2User()))
+                .isInstanceOf(OAuth2AuthenticationException.class)
+                .hasMessageContaining("이미 다른 로그인 방식으로 가입된 이메일입니다.");
+
+        verify(memberRepository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }
 }

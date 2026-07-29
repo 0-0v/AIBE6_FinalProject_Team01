@@ -67,16 +67,13 @@ class MemberRepositoryTest {
     }
 
     @Test
-    @DisplayName("t5 서로 다른 provider면 이메일이 같아도 별개 회원으로 저장된다")
-    void t5_sameEmailAcrossDifferentProvidersAreSeparateMembers() {
+    @DisplayName("t5 서로 다른 provider라도 같은 이메일이면 중복 저장할 수 없다")
+    void t5_sameEmailAcrossDifferentProvidersViolatesUniqueConstraint() {
         memberRepository.saveAndFlush(Member.create("dup@example.com", "닉네임5", null, AuthProvider.GOOGLE, "google-5"));
 
-        Member saved = memberRepository.saveAndFlush(
-                Member.create("dup@example.com", "닉네임6", null, AuthProvider.KAKAO, "kakao-6"));
-
-        assertThat(saved.getId()).isNotNull();
-        assertThat(memberRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "google-5")).isPresent();
-        assertThat(memberRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "kakao-6")).isPresent();
+        assertThatThrownBy(() -> memberRepository.saveAndFlush(
+                Member.create("dup@example.com", "닉네임6", null, AuthProvider.KAKAO, "kakao-6")))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
