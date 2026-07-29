@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.web.util.UriComponentsBuilder;
 
 class OAuth2LoginFailureHandlerTest {
@@ -35,5 +37,22 @@ class OAuth2LoginFailureHandlerTest {
         assertThat(redirectedUrl).startsWith("https://plamingo.example/login");
         var params = UriComponentsBuilder.fromUriString(redirectedUrl).build().getQueryParams();
         assertThat(params.getFirst("error")).isEqualTo("oauth2_login_failed");
+    }
+
+    @Test
+    @DisplayName("t2 다른 로그인 방식에서 사용 중인 이메일이면 전용 에러 파라미터로 리다이렉트한다")
+    void t2_existingEmailRedirectsWithSpecificErrorParam() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("email_already_registered"),
+                "이미 다른 로그인 방식으로 가입된 이메일입니다."
+        );
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        String redirectedUrl = response.getRedirectedUrl();
+        var params = UriComponentsBuilder.fromUriString(redirectedUrl).build().getQueryParams();
+        assertThat(params.getFirst("error")).isEqualTo("email_already_registered");
     }
 }

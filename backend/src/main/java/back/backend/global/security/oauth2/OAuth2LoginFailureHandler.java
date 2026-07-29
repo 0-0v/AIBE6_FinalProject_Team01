@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -26,9 +27,14 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
             HttpServletResponse response,
             AuthenticationException exception
     ) throws IOException {
+        String error = "oauth2_login_failed";
+        if (exception instanceof OAuth2AuthenticationException oauth2Exception
+                && "email_already_registered".equals(oauth2Exception.getError().getErrorCode())) {
+            error = "email_already_registered";
+        }
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendProperties.getFrontendBaseUrl())
                 .path(LOGIN_PATH)
-                .queryParam("error", "oauth2_login_failed")
+                .queryParam("error", error)
                 .build()
                 .toUriString();
 

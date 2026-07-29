@@ -5,7 +5,10 @@ import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.security.MemberPrincipal;
 import java.util.List;
+import java.util.Locale;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -38,19 +41,38 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     existing.recordLogin();
                     return existing;
                 })
-                .orElseGet(() -> memberRepository.save(Member.create(
-                        userInfo.email(),
-                        userInfo.nickname(),
-                        userInfo.profileImageUrl(),
-                        provider,
-                        userInfo.providerId()
-                )));
+                .orElseGet(() -> registerSocialMember(provider, userInfo));
 
         return new MemberPrincipal(
                 member.getId(),
                 member.getEmail(),
                 List.of(new SimpleGrantedAuthority("ROLE_USER")),
                 oAuth2User.getAttributes()
+        );
+    }
+
+    private Member registerSocialMember(AuthProvider provider, OAuth2UserInfo userInfo) {
+        String email = userInfo.email().strip().toLowerCase(Locale.ROOT);
+        if (memberRepository.existsByEmail(email)) {
+            throw emailAlreadyRegistered();
+        }
+        try {
+            return memberRepository.saveAndFlush(Member.create(
+                    email,
+                    userInfo.nickname(),
+                    userInfo.profileImageUrl(),
+                    provider,
+                    userInfo.providerId()
+            ));
+        } catch (DataIntegrityViolationException exception) {
+            throw emailAlreadyRegistered();
+        }
+    }
+
+    private OAuth2AuthenticationException emailAlreadyRegistered() {
+        return new OAuth2AuthenticationException(
+                new OAuth2Error("email_already_registered"),
+                "이미 다른 로그인 방식으로 가입된 이메일입니다."
         );
     }
 }

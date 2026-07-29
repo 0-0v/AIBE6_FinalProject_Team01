@@ -34,7 +34,16 @@ export function Login() {
     const navigate = useNavigate()
     const [identifier, setIdentifier] = useState('')
     const [password, setPassword] = useState('')
-    const [message, setMessage] = useState('')
+    const [message, setMessage] = useState(() => {
+        const error = new URLSearchParams(window.location.search).get('error')
+        if (error === 'email_already_registered') {
+            return '이미 다른 로그인 방식으로 가입된 이메일입니다. 기존 로그인 방식을 이용해 주세요.'
+        }
+        if (error === 'oauth2_login_failed') {
+            return '소셜 로그인에 실패했습니다. 다시 시도해 주세요.'
+        }
+        return ''
+    })
     const [busy, setBusy] = useState(false)
     const [lastLoginProvider] = useState(getLastLoginProvider)
 
