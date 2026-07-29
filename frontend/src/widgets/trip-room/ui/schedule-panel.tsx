@@ -192,7 +192,7 @@ export function SchedulePanel({
 
     return (
         <DndContext
-            sensors={saving ? [] : sensors}
+            sensors={sensors}
             collisionDetection={itineraryCollisionDetection}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
