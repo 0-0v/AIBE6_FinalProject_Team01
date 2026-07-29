@@ -42,6 +42,9 @@ springdoc:
     path: /swagger-ui.html
 
 app:
+  member:
+    withdrawal:
+      retention-days: ${MEMBER_WITHDRAWAL_RETENTION_DAYS:90}
   file-storage:
     type: ${FILE_STORAGE_TYPE:local}
     upload-dir: ${FILE_UPLOAD_DIR:uploads}

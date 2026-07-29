@@ -4,12 +4,13 @@ import {
     AlertTriangleIcon,
     CameraIcon,
     ChevronRightIcon,
+    XIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 import { resolveMediaUrl } from '@/shared/api/client'
-import { useProfileStore } from '@/features/manage-profile'
+import { useProfileStore, withdrawAccount } from '@/features/manage-profile'
 import { useTripStore } from '@/features/manage-trip'
 
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
@@ -20,6 +21,18 @@ const PROVIDER_LABEL: Record<string, string> = {
     KAKAO: '카카오',
     NAVER: '네이버',
     APPLE: 'Apple',
+}
+
+const WITHDRAWAL_REASON_HELP: Record<string, string> = {
+    recreate:
+        '개인정보 보관기간이 끝난 후 같은 이메일 또는 소셜 계정으로 다시 가입할 수 있어요.',
+    difficult:
+        '여행방과 일정 기능을 더 쉽게 사용할 수 있도록 계속 개선하고 있어요.',
+    missing: '필요한 기능에 대한 의견은 서비스 개선에 큰 도움이 됩니다.',
+    notifications: '알림이 불편했다면 여행방별 알림 설정을 조정할 수 있어요.',
+    privacy:
+        '탈퇴 후 작성 기록에는 개인정보 대신 ‘탈퇴한 사용자’가 표시됩니다.',
+    other: '그동안 서비스를 이용해 주셔서 감사합니다.',
 }
 
 export function MyPage() {
@@ -40,6 +53,10 @@ export function MyPage() {
     const [editing, setEditing] = useState(false)
     const [error, setError] = useState('')
     const [imageError, setImageError] = useState('')
+    const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
+    const [isWithdrawing, setIsWithdrawing] = useState(false)
+    const [withdrawError, setWithdrawError] = useState('')
+    const [withdrawReason, setWithdrawReason] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -93,6 +110,32 @@ export function MyPage() {
                     : '프로필 이미지 등록에 실패했어요',
             )
         }
+    }
+
+    async function handleWithdraw() {
+        setIsWithdrawing(true)
+        setWithdrawError('')
+        try {
+            await withdrawAccount()
+            navigate('/login', { replace: true })
+        } catch (err) {
+            setWithdrawError(
+                err instanceof Error ? err.message : '회원 탈퇴에 실패했어요',
+            )
+        } finally {
+            setIsWithdrawing(false)
+        }
+    }
+
+    function openWithdrawModal() {
+        setWithdrawReason('')
+        setWithdrawError('')
+        setIsWithdrawModalOpen(true)
+    }
+
+    function closeWithdrawModal() {
+        if (isWithdrawing) return
+        setIsWithdrawModalOpen(false)
     }
 
     return (
@@ -273,19 +316,154 @@ export function MyPage() {
                             <h2 className="font-bold text-red-700">
                                 회원 탈퇴
                             </h2>
-                            <p className="mt-1 text-sm text-red-600/80">
-                                탈퇴 시 일반 회원정보는 파기되며, 부정 이용
-                                방지를 위한 최소 식별정보는 10년간 분리
-                                보관됩니다. 자세한 내용은 개인정보처리방침을
-                                확인해 주세요.
-                            </p>
-                            <button className="mt-3 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
+                            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-red-600/80">
+                                <li>
+                                    개인정보는 개인정보처리방침에 따라
+                                    보관·파기됩니다.
+                                </li>
+                                <li>
+                                    탈퇴 후 90일간 동일 계정으로 재가입할 수
+                                    없습니다.
+                                </li>
+                                <li>
+                                    익명화된 개인정보는 다시 복구할 수 없습니다.
+                                </li>
+                                <li>
+                                    공동 여행방에 공유한 기록은 삭제되지 않고
+                                    작성자만 ‘탈퇴한 사용자’로 표시됩니다.
+                                </li>
+                            </ol>
+                            <button
+                                type="button"
+                                onClick={openWithdrawModal}
+                                className="mt-3 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                            >
                                 탈퇴하기
                             </button>
                         </div>
                     </div>
                 </section>
             </div>
+            {isWithdrawModalOpen && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-5 py-8"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="withdraw-title"
+                >
+                    <div className="relative w-full max-w-[420px] rounded-[28px] bg-white px-7 py-8 shadow-2xl sm:px-9">
+                        <button
+                            type="button"
+                            onClick={closeWithdrawModal}
+                            disabled={isWithdrawing}
+                            aria-label="회원 탈퇴 팝업 닫기"
+                            className="absolute right-5 top-5 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                        >
+                            <XIcon size={20} />
+                        </button>
+                        <h2
+                            id="withdraw-title"
+                            className="pr-8 text-xl font-extrabold leading-7 text-slate-950"
+                        >
+                            {me.name}님과 이별인가요?
+                            <br />
+                            너무 아쉬워요
+                        </h2>
+                        <div className="mt-5 rounded-2xl bg-slate-50 px-5 py-4">
+                            <h3 className="text-sm font-extrabold text-slate-900">
+                                회원탈퇴 안내
+                            </h3>
+                            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600">
+                                <li>
+                                    개인정보는 개인정보처리방침에 따라
+                                    보관·파기됩니다.
+                                </li>
+                                <li>
+                                    탈퇴 후 90일간 동일 이메일 또는 소셜
+                                    계정으로 재가입할 수 없습니다.
+                                </li>
+                                <li>
+                                    익명화된 개인정보는 다시 복구할 수 없습니다.
+                                </li>
+                                <li>
+                                    공동 여행방에 공유한 여행·일정·댓글 등의
+                                    기록은 삭제되지 않고 작성자만 ‘탈퇴한
+                                    사용자’로 표시됩니다.
+                                </li>
+                            </ol>
+                        </div>
+
+                        <label
+                            htmlFor="withdraw-reason"
+                            className="mt-7 block text-sm font-extrabold text-slate-900"
+                        >
+                            {me.name}님이 탈퇴하려는 이유가 궁금해요.
+                        </label>
+                        <select
+                            id="withdraw-reason"
+                            value={withdrawReason}
+                            onChange={(event) =>
+                                setWithdrawReason(event.target.value)
+                            }
+                            disabled={isWithdrawing}
+                            className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-800 outline-none transition focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:bg-slate-50"
+                        >
+                            <option value="">탈퇴 사유를 선택해 주세요</option>
+                            <option value="recreate">
+                                새 계정을 만들고 싶어요
+                            </option>
+                            <option value="difficult">
+                                서비스 이용이 어려워요
+                            </option>
+                            <option value="missing">
+                                원하는 기능이 없어요
+                            </option>
+                            <option value="notifications">
+                                알림이 너무 많아요
+                            </option>
+                            <option value="privacy">개인정보가 걱정돼요</option>
+                            <option value="other">기타</option>
+                        </select>
+
+                        <div className="mt-4 min-h-20 rounded-xl bg-slate-50 px-4 py-3">
+                            {withdrawReason ? (
+                                <p className="text-sm leading-6 text-slate-600">
+                                    {WITHDRAWAL_REASON_HELP[withdrawReason]}
+                                </p>
+                            ) : (
+                                <p className="text-sm leading-6 text-slate-400">
+                                    사유를 선택하면 탈퇴 전 확인할 내용을
+                                    안내해드릴게요.
+                                </p>
+                            )}
+                        </div>
+
+                        {withdrawError && (
+                            <p className="mt-3 text-sm text-red-600">
+                                {withdrawError}
+                            </p>
+                        )}
+                        <div className="mt-8 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={closeWithdrawModal}
+                                disabled={isWithdrawing}
+                                className="flex-1 rounded-xl bg-slate-100 px-4 py-3.5 text-sm font-bold text-slate-500 hover:bg-slate-200 disabled:opacity-50"
+                            >
+                                취소
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void handleWithdraw()}
+                                disabled={isWithdrawing || !withdrawReason}
+                                className="flex-1 rounded-xl bg-red-500 px-4 py-3.5 text-sm font-bold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-red-200"
+                            >
+                                {isWithdrawing ? '탈퇴 중...' : '제출'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

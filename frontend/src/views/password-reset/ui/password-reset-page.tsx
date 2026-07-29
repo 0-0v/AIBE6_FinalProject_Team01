@@ -23,6 +23,7 @@ export function PasswordResetPage() {
     const [sent, setSent] = useState(false)
     const [verified, setVerified] = useState(false)
     const [emailMessage, setEmailMessage] = useState('')
+    const [emailError, setEmailError] = useState(false)
     const [codeMessage, setCodeMessage] = useState('')
     const [codeError, setCodeError] = useState(false)
     const [shakeCount, setShakeCount] = useState(0)
@@ -31,9 +32,12 @@ export function PasswordResetPage() {
     const [busy, setBusy] = useState(false)
 
     async function sendCode() {
-        if (!emailPattern.test(email))
+        if (!emailPattern.test(email)) {
+            setEmailError(true)
             return setEmailMessage('올바른 이메일을 입력해 주세요.')
+        }
         setBusy(true)
+        setEmailError(false)
         try {
             await sendVerificationCode(email, 'PASSWORD_RESET')
             setSent(true)
@@ -41,8 +45,11 @@ export function PasswordResetPage() {
             setVerified(false)
             setCodeMessage('')
             setCodeError(false)
-            setEmailMessage('인증번호가 전송되었습니다.')
+            setEmailMessage(
+                '입력하신 이메일로 인증번호를 전송했습니다.',
+            )
         } catch (error) {
+            setEmailError(true)
             setEmailMessage(
                 getApiErrorMessage(error, '인증번호 전송에 실패했습니다.'),
             )
@@ -62,6 +69,7 @@ export function PasswordResetPage() {
             setVerified(true)
             setCodeError(false)
             setCodeMessage('')
+            setEmailError(false)
             setEmailMessage('인증되었습니다.')
         } catch (error) {
             showCodeError(
@@ -149,6 +157,8 @@ export function PasswordResetPage() {
                                 className={`mt-2 block text-sm ${
                                     verified
                                         ? 'text-emerald-600'
+                                        : emailError
+                                          ? 'text-red-600'
                                         : 'text-slate-600'
                                 }`}
                             >

@@ -1,11 +1,15 @@
 package back.backend.domain.member.service;
 
+import back.backend.domain.member.config.MemberWithdrawalProperties;
 import back.backend.domain.member.dto.MemberResponse;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.exception.MemberErrorCode;
 import back.backend.domain.member.port.ProfileImageStorage;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.security.jwt.RefreshTokenRepository;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,10 +20,22 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final ProfileImageStorage profileImageStorage;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final MemberWithdrawalProperties withdrawalProperties;
+    private final Clock clock;
 
-    public MemberService(MemberRepository memberRepository, ProfileImageStorage profileImageStorage) {
+    public MemberService(
+            MemberRepository memberRepository,
+            ProfileImageStorage profileImageStorage,
+            RefreshTokenRepository refreshTokenRepository,
+            MemberWithdrawalProperties withdrawalProperties,
+            Clock clock
+    ) {
         this.memberRepository = memberRepository;
         this.profileImageStorage = profileImageStorage;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.withdrawalProperties = withdrawalProperties;
+        this.clock = clock;
     }
 
     public MemberResponse getMember(Long memberId) {
@@ -39,6 +55,31 @@ public class MemberService {
         String profileImageUrl = profileImageStorage.store(memberId, file);
         member.changeProfileImage(profileImageUrl);
         return MemberResponse.from(member);
+    }
+
+    @Transactional
+    public void withdraw(Long memberId) {
+        Member member = getMemberOrThrow(memberId);
+        LocalDateTime withdrawnAt = LocalDateTime.now(clock);
+        member.withdraw(withdrawnAt, withdrawnAt.plusDays(withdrawalProperties.getRetentionDays()));
+        refreshTokenRepository.deleteByMemberId(memberId);
+        if (withdrawalProperties.getRetentionDays() == 0) {
+            String profileImageUrl = member.anonymizePersonalInfo(withdrawnAt);
+            profileImageStorage.delete(profileImageUrl);
+        }
+    }
+
+    @Transactional
+    public int purgeExpiredPersonalInfo(LocalDateTime now) {
+        var expiredMembers =
+                memberRepository.findAllByStatusAndPersonalInfoExpiresAtLessThanEqualAndPersonalInfoDeletedAtIsNull(
+                        back.backend.domain.member.entity.MemberStatus.WITHDRAWN,
+                        now);
+        expiredMembers.forEach(member -> {
+            String profileImageUrl = member.anonymizePersonalInfo(now);
+            profileImageStorage.delete(profileImageUrl);
+        });
+        return expiredMembers.size();
     }
 
     private Member getMemberOrThrow(Long memberId) {

@@ -9,10 +9,12 @@ import static org.mockito.Mockito.when;
 
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
+import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.security.MemberPrincipal;
 import java.util.Map;
 import java.util.Optional;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -139,11 +141,55 @@ class CustomOAuth2UserServiceTest {
     void t6_newSocialMemberWithExistingEmailIsRejected() {
         when(memberRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "12345"))
                 .thenReturn(Optional.empty());
-        when(memberRepository.existsByEmail("user@example.com")).thenReturn(true);
+        Member existing = Member.create(
+                "user@example.com", "기존회원", null, AuthProvider.GOOGLE, "google-existing");
+        when(memberRepository.findByEmail("user@example.com")).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> service.mapToPrincipal("kakao", kakaoOAuth2User()))
                 .isInstanceOf(OAuth2AuthenticationException.class)
                 .hasMessageContaining("이미 다른 로그인 방식으로 가입된 이메일입니다.");
+
+        verify(memberRepository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("t7 개인정보 보관기간이 남은 탈퇴 소셜 회원이면 재로그인을 거부한다")
+    void t7_withdrawnSocialMemberIsRejectedWithSpecificError() {
+        Member withdrawn = Member.create(
+                "user@gmail.com", "탈퇴회원", null, AuthProvider.GOOGLE, "67890");
+        withdrawn.withdraw(
+                LocalDateTime.of(2026, 7, 29, 12, 0),
+                LocalDateTime.of(2026, 7, 30, 12, 0));
+        when(memberRepository.findByProviderAndProviderId(AuthProvider.GOOGLE, "67890"))
+                .thenReturn(Optional.of(withdrawn));
+
+        assertThatThrownBy(() -> service.mapToPrincipal("google", googleOAuth2User()))
+                .isInstanceOf(OAuth2AuthenticationException.class)
+                .satisfies(exception -> assertThat(
+                        ((OAuth2AuthenticationException) exception).getError().getErrorCode())
+                        .isEqualTo("withdrawn_account_retained"));
+
+        assertThat(withdrawn.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
+        assertThat(withdrawn.getLastLoginAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("t8 다른 소셜 제공자로 가입을 시도해도 동일 이메일의 탈퇴 계정 보관기간이 남으면 거부한다")
+    void t8_withdrawnMemberEmailIsRejectedWithSpecificError() {
+        Member withdrawn = Member.create(
+                "user@example.com", "탈퇴회원", null, AuthProvider.GOOGLE, "google-old");
+        withdrawn.withdraw(
+                LocalDateTime.of(2026, 7, 29, 12, 0),
+                LocalDateTime.of(2026, 7, 30, 12, 0));
+        when(memberRepository.findByProviderAndProviderId(AuthProvider.KAKAO, "12345"))
+                .thenReturn(Optional.empty());
+        when(memberRepository.findByEmail("user@example.com")).thenReturn(Optional.of(withdrawn));
+
+        assertThatThrownBy(() -> service.mapToPrincipal("kakao", kakaoOAuth2User()))
+                .isInstanceOf(OAuth2AuthenticationException.class)
+                .satisfies(exception -> assertThat(
+                        ((OAuth2AuthenticationException) exception).getError().getErrorCode())
+                        .isEqualTo("withdrawn_account_retained"));
 
         verify(memberRepository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
     }

@@ -41,6 +41,28 @@ public class LocalProfileImageStorage implements ProfileImageStorage {
         return "/uploads/" + SUB_DIRECTORY + "/" + filename;
     }
 
+    @Override
+    public void delete(String profileImageUrl) {
+        if (profileImageUrl == null || profileImageUrl.isBlank()) {
+            return;
+        }
+        String expectedPrefix = "/uploads/" + SUB_DIRECTORY + "/";
+        if (!profileImageUrl.startsWith(expectedPrefix)) {
+            return;
+        }
+
+        Path directory = Path.of(properties.getUploadDir(), SUB_DIRECTORY).toAbsolutePath().normalize();
+        Path target = directory.resolve(profileImageUrl.substring(expectedPrefix.length())).normalize();
+        if (!target.getParent().equals(directory)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(target);
+        } catch (IOException e) {
+            throw new BusinessException(MemberErrorCode.PROFILE_IMAGE_STORAGE_FAILED);
+        }
+    }
+
     private String validate(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(MemberErrorCode.EMPTY_PROFILE_IMAGE);

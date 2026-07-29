@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import back.backend.domain.auth.config.EmailAuthProperties;
 import back.backend.domain.auth.dto.EmailVerificationPurpose;
 import back.backend.domain.member.entity.AuthProvider;
+import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.redis.RedisValueService;
@@ -58,8 +59,7 @@ class EmailVerificationServiceTest {
     @Test
     @DisplayName("t2 존재하지 않는 계정으로 비밀번호 재설정을 요청해도 성공처럼 처리하고 메일은 발송하지 않는다")
     void t2_sendPasswordResetCodeHidesMissingAccount() {
-        when(memberRepository.findByEmailAndProvider("user@example.com", AuthProvider.LOCAL))
-                .thenReturn(Optional.empty());
+        when(memberRepository.findByEmail("user@example.com")).thenReturn(Optional.empty());
 
         service.sendCode("user@example.com", EmailVerificationPurpose.PASSWORD_RESET);
 
@@ -77,5 +77,20 @@ class EmailVerificationServiceTest {
 
         verify(redisValueService).delete(codeKey);
         verify(redisValueService).set(verifiedKey, "true", Duration.ofMinutes(10));
+    }
+
+    @Test
+    @DisplayName("t4 소셜 로그인 계정으로 비밀번호 재설정을 요청하면 전용 안내 예외가 발생한다")
+    void t4_sendPasswordResetCodeRejectsSocialAccount() {
+        Member socialMember =
+                Member.create("user@naver.com", "카카오회원", null, AuthProvider.KAKAO, "kakao-1");
+        when(memberRepository.findByEmail("user@naver.com")).thenReturn(Optional.of(socialMember));
+
+        assertThatThrownBy(() ->
+                service.sendCode("user@naver.com", EmailVerificationPurpose.PASSWORD_RESET))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("소셜로그인으로 가입된 계정입니다.");
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 }

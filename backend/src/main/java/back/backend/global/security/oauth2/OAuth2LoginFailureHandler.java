@@ -28,9 +28,12 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
             AuthenticationException exception
     ) throws IOException {
         String error = "oauth2_login_failed";
-        if (exception instanceof OAuth2AuthenticationException oauth2Exception
-                && "email_already_registered".equals(oauth2Exception.getError().getErrorCode())) {
-            error = "email_already_registered";
+        if (exception instanceof OAuth2AuthenticationException oauth2Exception) {
+            String errorCode = oauth2Exception.getError().getErrorCode();
+            if ("email_already_registered".equals(errorCode)
+                    || "withdrawn_account_retained".equals(errorCode)) {
+                error = errorCode;
+            }
         }
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendProperties.getFrontendBaseUrl())
                 .path(LOGIN_PATH)

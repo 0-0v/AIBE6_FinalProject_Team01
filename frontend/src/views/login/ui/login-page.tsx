@@ -39,6 +39,9 @@ export function Login() {
         if (error === 'email_already_registered') {
             return '이미 다른 로그인 방식으로 가입된 이메일입니다. 기존 로그인 방식을 이용해 주세요.'
         }
+        if (error === 'withdrawn_account_retained') {
+            return '탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 같은 이메일 또는 소셜 계정으로 재가입할 수 없습니다. 보관기간이 끝난 후 다시 시도해 주세요.'
+        }
         if (error === 'oauth2_login_failed') {
             return '소셜 로그인에 실패했습니다. 다시 시도해 주세요.'
         }

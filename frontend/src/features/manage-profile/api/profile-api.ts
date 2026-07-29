@@ -1,4 +1,5 @@
-import { apiClient, getAccessToken } from '@/shared/api/client'
+import { apiClient, getAccessToken, setAccessToken } from '@/shared/api/client'
+import { useCurrentUserStore } from '@/shared/model'
 import type { CurrentUser } from '@/shared/model'
 
 type ApiResponse<T> = { success: boolean; message: string; data: T }
@@ -28,4 +29,12 @@ export async function uploadProfileImage(file: File) {
         { headers: authHeaders() },
     )
     return response.data
+}
+
+export async function withdrawAccount(): Promise<void> {
+    await apiClient.delete<ApiResponse<void>>('/api/members/me', {
+        headers: authHeaders(),
+    })
+    setAccessToken(null)
+    useCurrentUserStore.getState().clearCurrentUser()
 }
