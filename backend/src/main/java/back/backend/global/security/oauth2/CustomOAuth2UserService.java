@@ -2,6 +2,7 @@ package back.backend.global.security.oauth2;
 
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
+import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.security.MemberPrincipal;
 import java.util.List;
@@ -38,6 +39,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         Member member = memberRepository.findByProviderAndProviderId(provider, userInfo.providerId())
                 .map(existing -> {
+                    if (existing.getStatus() == MemberStatus.WITHDRAWN) {
+                        throw withdrawnAccountRetained();
+                    }
                     existing.recordLogin();
                     return existing;
                 })
@@ -53,9 +57,12 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private Member registerSocialMember(AuthProvider provider, OAuth2UserInfo userInfo) {
         String email = userInfo.email().strip().toLowerCase(Locale.ROOT);
-        if (memberRepository.existsByEmail(email)) {
+        memberRepository.findByEmail(email).ifPresent(existing -> {
+            if (existing.getStatus() == MemberStatus.WITHDRAWN) {
+                throw withdrawnAccountRetained();
+            }
             throw emailAlreadyRegistered();
-        }
+        });
         try {
             return memberRepository.saveAndFlush(Member.create(
                     email,
@@ -73,6 +80,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return new OAuth2AuthenticationException(
                 new OAuth2Error("email_already_registered"),
                 "이미 다른 로그인 방식으로 가입된 이메일입니다."
+        );
+    }
+
+    private OAuth2AuthenticationException withdrawnAccountRetained() {
+        return new OAuth2AuthenticationException(
+                new OAuth2Error("withdrawn_account_retained"),
+                "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 재가입할 수 없습니다."
         );
     }
 }

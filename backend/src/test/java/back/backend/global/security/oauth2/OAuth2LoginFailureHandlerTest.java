@@ -55,4 +55,21 @@ class OAuth2LoginFailureHandlerTest {
         var params = UriComponentsBuilder.fromUriString(redirectedUrl).build().getQueryParams();
         assertThat(params.getFirst("error")).isEqualTo("email_already_registered");
     }
+
+    @Test
+    @DisplayName("t3 개인정보 보관기간이 남은 탈퇴 계정이면 전용 에러 파라미터로 리다이렉트한다")
+    void t3_withdrawnAccountRedirectsWithSpecificErrorParam() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OAuth2AuthenticationException exception = new OAuth2AuthenticationException(
+                new OAuth2Error("withdrawn_account_retained"),
+                "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않았습니다."
+        );
+
+        handler.onAuthenticationFailure(request, response, exception);
+
+        String redirectedUrl = response.getRedirectedUrl();
+        var params = UriComponentsBuilder.fromUriString(redirectedUrl).build().getQueryParams();
+        assertThat(params.getFirst("error")).isEqualTo("withdrawn_account_retained");
+    }
 }
