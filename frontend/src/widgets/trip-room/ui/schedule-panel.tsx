@@ -125,6 +125,7 @@ type Props = {
     places: Place[]
     canWrite: boolean
     onDaysLoaded?: (days: ItineraryDay[]) => void
+    onPlaceFocus?: (placeId: string) => void
 }
 
 export function SchedulePanel({
@@ -133,6 +134,7 @@ export function SchedulePanel({
     places,
     canWrite,
     onDaysLoaded,
+    onPlaceFocus,
 }: Props) {
     const navigate = useNavigate()
     const {
@@ -219,6 +221,15 @@ export function SchedulePanel({
                                 void addPlaceToDay(placeId, String(day.id))
                             }
                             onDaysChange={setDays}
+                            onItemFocus={(itemId) => {
+                                const item = day.items.find(
+                                    (candidate) =>
+                                        String(candidate.id) === itemId,
+                                )
+                                if (item?.tripPlaceId != null) {
+                                    onPlaceFocus?.(String(item.tripPlaceId))
+                                }
+                            }}
                         />
                     ))}
                 </div>

@@ -623,6 +623,7 @@ export function RoomDetailPanel({
                     places={places}
                     canWrite={canPlanWrite}
                     onDaysLoaded={onItineraryDaysLoaded}
+                    onPlaceFocus={onSelectPlace}
                 />
             )}
             {mode === 'record' && recordTab === 'records' && (
