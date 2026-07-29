@@ -82,8 +82,30 @@ button,
     animation: auth-field-shake 180ms ease-in-out;
 }
 
+@keyframes itinerary-marker-bounce {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+    30% {
+        transform: translateY(-7px) scale(1.06);
+    }
+    55% {
+        transform: translateY(0) scale(0.98);
+    }
+    75% {
+        transform: translateY(-3px) scale(1.02);
+    }
+}
+
+.itinerary-marker-bounce {
+    animation: itinerary-marker-bounce 650ms ease-out 2;
+    transform-origin: 50% 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .auth-field-shake {
+    .auth-field-shake,
+    .itinerary-marker-bounce {
         animation: none;
     }
 }

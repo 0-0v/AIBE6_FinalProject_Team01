@@ -7,28 +7,38 @@ import {
     Polyline,
     useApiIsLoaded,
     useMap,
+    useMapsLibrary,
 } from '@vis.gl/react-google-maps'
 import { ArrowUpIcon, CalendarPlusIcon, MessageCircleIcon } from 'lucide-react'
-import { CategoryIcon, Place } from '@/entities/trip'
+import { Place } from '@/entities/trip'
 import type { ItineraryDay } from '@/entities/trip'
+import { MapRouteFilter } from './map-route-filter'
+import { ItineraryMapMarker } from './itinerary-map-marker'
+import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
+import {
+    getItineraryDayColor,
+    hasMapCoordinates,
+    ITINERARY_MAP_BOUNDS,
+    ITINERARY_MAP_MIN_ZOOM,
+} from '../lib/itinerary-map'
 
 const JEJU_CENTER = { lat: 33.489, lng: 126.4983 }
 const DEFAULT_ZOOM = 10
+const DESTINATION_FOCUS_ZOOM = 12
 
-// Day별 경로선 색상 (Day 1부터 순서대로)
-const DAY_ROUTE_COLORS = [
-    '#f97316', // orange (brand)
-    '#10b981', // emerald
-    '#3b82f6', // blue
-    '#a855f7', // purple
-    '#ef4444', // red
-    '#eab308', // yellow
-    '#06b6d4', // cyan
-    '#ec4899', // pink
-]
+type GeocoderResponse = {
+    results: Array<{
+        geometry: {
+            location: {
+                toJSON: () => { lat: number; lng: number }
+            }
+        }
+    }>
+}
 
 type Props = {
     places: Place[]
+    initialLocation?: string | null
     selectedId: string | null
     onSelect: (id: string) => void
     onDeselect: () => void
@@ -38,6 +48,7 @@ type Props = {
 
 export function MapCanvas({
     places,
+    initialLocation,
     selectedId,
     onSelect,
     onDeselect,
@@ -59,6 +70,7 @@ export function MapCanvas({
     return (
         <GoogleMapCanvas
             places={places}
+            initialLocation={initialLocation}
             selectedId={selectedId}
             onSelect={onSelect}
             onDeselect={onDeselect}
@@ -70,6 +82,7 @@ export function MapCanvas({
 
 function GoogleMapCanvas({
     places,
+    initialLocation,
     selectedId,
     onSelect,
     onDeselect,
@@ -78,6 +91,7 @@ function GoogleMapCanvas({
 }: Pick<
     Props,
     | 'places'
+    | 'initialLocation'
     | 'selectedId'
     | 'onSelect'
     | 'onDeselect'
@@ -96,6 +110,7 @@ function GoogleMapCanvas({
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
         null,
     )
+    const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
 
     const scheduledPlaceMap = useMemo(() => {
         const map = new Map<string, number>()
@@ -122,8 +137,7 @@ function GoogleMapCanvas({
             { order: number; color: string; dayNumber: number }
         >()
         for (const day of days) {
-            const color =
-                DAY_ROUTE_COLORS[(day.dayNumber - 1) % DAY_ROUTE_COLORS.length]
+            const color = getItineraryDayColor(day.dayNumber)
             day.items.forEach((item, index) => {
                 if (item.tripPlaceId != null) {
                     map.set(String(item.tripPlaceId), {
@@ -145,28 +159,29 @@ function GoogleMapCanvas({
                 dayId: day.id,
                 dayNumber: day.dayNumber,
                 confirmed: day.status === 'CONFIRMED',
-                color: DAY_ROUTE_COLORS[
-                    (day.dayNumber - 1) % DAY_ROUTE_COLORS.length
-                ],
-                points: day.items
-                    .filter((item) => item.lat !== 0 || item.lng !== 0)
-                    .map((item) => ({
-                        lat: item.lat,
-                        lng: item.lng,
-                        placeName: item.placeName ?? '장소',
-                        transportMinutes: item.transportMinutes,
-                        transportMeters: item.transportMeters,
-                        transportMode: item.transportMode,
-                        transportDetail: item.transportDetail,
-                    })),
+                color: getItineraryDayColor(day.dayNumber),
+                points: day.items.filter(hasMapCoordinates).map((item) => ({
+                    lat: item.lat,
+                    lng: item.lng,
+                    placeName: item.placeName ?? '장소',
+                    transportMinutes: item.transportMinutes,
+                    transportMeters: item.transportMeters,
+                    transportMode: item.transportMode,
+                    transportDetail: item.transportDetail,
+                })),
             }))
             .filter((route) => route.points.length > 0)
     }, [days])
+    const activeRouteDay =
+        selectedRouteDay != null &&
+        itineraryRoutes.some((route) => route.dayNumber === selectedRouteDay)
+            ? selectedRouteDay
+            : null
     const visibleRoutes =
-        selectedRouteDay == null
+        activeRouteDay == null
             ? itineraryRoutes
             : itineraryRoutes.filter(
-                  (route) => route.dayNumber === selectedRouteDay,
+                  (route) => route.dayNumber === activeRouteDay,
               )
 
     if (!isLoaded) {
@@ -182,7 +197,14 @@ function GoogleMapCanvas({
             <GoogleMap
                 defaultCenter={center}
                 defaultZoom={DEFAULT_ZOOM}
+                minZoom={ITINERARY_MAP_MIN_ZOOM}
+                restriction={{
+                    latLngBounds: ITINERARY_MAP_BOUNDS,
+                    strictBounds: true,
+                }}
                 mapId={mapId}
+                mapTypeId={mapDisplayType}
+                mapTypeControl={false}
                 gestureHandling="greedy"
                 streetViewControl={false}
                 style={{ width: '100%', height: '100%' }}
@@ -193,7 +215,11 @@ function GoogleMapCanvas({
                     onDeselect()
                 }}
             >
-                <MapController places={places} selectedId={selectedId} />
+                <MapController
+                    places={places}
+                    initialLocation={initialLocation}
+                    selectedId={selectedId}
+                />
                 <RouteLayer routes={visibleRoutes} />
                 {places.map((place) => {
                     const isSelected = place.id === selectedId
@@ -271,33 +297,19 @@ function GoogleMapCanvas({
                                 )}
 
                                 {/* 마커 */}
-                                <div
-                                    className={`relative flex items-center justify-center rounded-full border-2 border-white shadow-md transition-transform ${
-                                        isSelected
-                                            ? 'h-10 w-10 scale-125 text-base'
-                                            : isHovered
-                                              ? 'h-8 w-8 scale-110 text-sm'
-                                              : 'h-8 w-8 text-sm'
-                                    }`}
-                                    style={{
-                                        backgroundColor: scheduled
+                                <ItineraryMapMarker
+                                    color={
+                                        scheduled
                                             ? scheduled.color
-                                            : place.categoryColor,
-                                    }}
-                                >
-                                    {scheduled ? (
-                                        <span className="font-extrabold text-white">
-                                            {scheduled.order}
-                                        </span>
-                                    ) : (
-                                        <CategoryIcon
-                                            icon={place.categoryIcon}
-                                            size={isSelected ? 20 : 16}
-                                            className="text-white"
-                                            strokeWidth={2.3}
-                                        />
-                                    )}
-                                </div>
+                                            : place.categoryColor
+                                    }
+                                    label={scheduled?.order}
+                                    categoryIcon={
+                                        scheduled ? null : place.categoryIcon
+                                    }
+                                    selected={isSelected}
+                                    hovered={isHovered}
+                                />
                                 {isSelected && (
                                     <div className="mt-1.5 w-52 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
                                         {place.image && (
@@ -476,38 +488,17 @@ function GoogleMapCanvas({
                 })}
             </GoogleMap>
 
+            <MapTypeToggle
+                value={mapDisplayType}
+                onChange={setMapDisplayType}
+            />
+
             {itineraryRoutes.length > 0 && (
-                <div className="absolute left-3 top-3 z-30 flex max-w-[calc(100%-24px)] gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white/95 p-1.5 shadow-lg backdrop-blur">
-                    <button
-                        type="button"
-                        onClick={() => setSelectedRouteDay(null)}
-                        className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition ${
-                            selectedRouteDay == null
-                                ? 'bg-slate-800 text-white'
-                                : 'text-slate-500 hover:bg-slate-100'
-                        }`}
-                    >
-                        전체
-                    </button>
-                    {itineraryRoutes.map((route) => (
-                        <button
-                            key={route.dayId}
-                            type="button"
-                            onClick={() => setSelectedRouteDay(route.dayNumber)}
-                            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition ${
-                                selectedRouteDay === route.dayNumber
-                                    ? 'bg-slate-100 text-slate-800'
-                                    : 'text-slate-500 hover:bg-slate-50'
-                            }`}
-                        >
-                            <span
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: route.color }}
-                            />
-                            Day {route.dayNumber}
-                        </button>
-                    ))}
-                </div>
+                <MapRouteFilter
+                    routes={itineraryRoutes}
+                    selectedDay={activeRouteDay}
+                    onSelect={setSelectedRouteDay}
+                />
             )}
 
             {itineraryRoutes.length > 0 && (
@@ -660,15 +651,47 @@ function getBearing(
 // selectedId가 바뀌면 해당 장소로 지도 이동
 function MapController({
     places,
+    initialLocation,
     selectedId,
 }: {
     places: Place[]
+    initialLocation?: string | null
     selectedId: string | null
 }) {
     const map = useMap()
+    const geocodingLibrary = useMapsLibrary('geocoding')
 
     useEffect(() => {
-        if (!map || places.length === 0) return
+        if (!map) return
+
+        if (places.length === 0) {
+            const destination = initialLocation?.trim()
+            if (
+                !destination ||
+                destination === '장소 미정' ||
+                !geocodingLibrary
+            ) {
+                return
+            }
+
+            let active = true
+            const geocoder = new geocodingLibrary.Geocoder()
+            void geocoder
+                .geocode({ address: destination })
+                .then(({ results }: GeocoderResponse) => {
+                    if (!active || results.length === 0) return
+                    const geometry = results[0].geometry
+                    map.setCenter(geometry.location.toJSON())
+                    map.setZoom(DESTINATION_FOCUS_ZOOM)
+                })
+                .catch(() => {
+                    // 지역 검색 실패 시 기존 기본 지도 위치를 유지한다.
+                })
+
+            return () => {
+                active = false
+            }
+        }
 
         if (places.length === 1) {
             map.setCenter({ lat: places[0].lat, lng: places[0].lng })
@@ -684,7 +707,7 @@ function MapController({
             east: Math.max(...longitudes),
             west: Math.min(...longitudes),
         })
-    }, [map, places])
+    }, [geocodingLibrary, initialLocation, map, places])
 
     useEffect(() => {
         if (!map || !selectedId) return

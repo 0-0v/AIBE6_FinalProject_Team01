@@ -146,8 +146,11 @@ export function CreateTripModal({
                 </fieldset>
 
                 <label className="mt-4 block text-sm font-bold">
-                    여행 장소
-                    <input value={destination} onChange={(event) => setDestination(event.target.value)} maxLength={100} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" placeholder="미정이면 비워두세요" />
+                    어디로 떠나시나요?
+                    <input value={destination} onChange={(event) => setDestination(event.target.value)} maxLength={100} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" placeholder="예: 오사카, 제주도, 부산 해운대" />
+                    <span className="mt-1.5 block text-xs font-normal text-slate-400">
+                        입력한 지역 주변으로 여행 지도를 준비해 드릴게요.
+                    </span>
                 </label>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">

@@ -211,9 +211,12 @@ type Props = {
     unscheduledPlaces: Place[]
     onAddPlace: (placeId: string) => void
     onDaysChange: (days: ItineraryDay[]) => void
+    hoveredItemId?: string | null
+    onItemHoverChange?: (itemId: string | null) => void
+    onItemFocus?: (itemId: string) => void
 }
 
-export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduledPlaces, onAddPlace, onDaysChange }: Props) {
+export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduledPlaces, onAddPlace, onDaysChange, hoveredItemId, onItemHoverChange, onItemFocus }: Props) {
     const [error, setError] = useState<string | null>(null)
     const [toggling, setToggling] = useState(false)
     const [collapsed, setCollapsed] = useState(false)
@@ -398,6 +401,11 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
                                         days={days}
                                         currentDayId={String(day.id)}
                                         onDaysChange={onDaysChange}
+                                        highlighted={
+                                            hoveredItemId === String(item.id)
+                                        }
+                                        onHoverChange={onItemHoverChange}
+                                        onFocusItem={onItemFocus}
                                     />
                                     {index < day.items.length - 1 && (
                                         <TransportConnector

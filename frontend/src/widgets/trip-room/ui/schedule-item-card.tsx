@@ -25,6 +25,9 @@ type Props = {
     days: ItineraryDay[]
     currentDayId: string
     onDaysChange: (days: ItineraryDay[]) => void
+    highlighted?: boolean
+    onHoverChange?: (itemId: string | null) => void
+    onFocusItem?: (itemId: string) => void
 }
 
 export function ScheduleItemCard({
@@ -34,6 +37,9 @@ export function ScheduleItemCard({
     days,
     currentDayId,
     onDaysChange,
+    highlighted = false,
+    onHoverChange,
+    onFocusItem,
 }: Props) {
     const [showMovePicker, setShowMovePicker] = useState(false)
     const [actionError, setActionError] = useState<string | null>(null)
@@ -52,6 +58,7 @@ export function ScheduleItemCard({
         transform,
         transition,
         isDragging,
+        isOver,
     } = useSortable({ id: item.id })
     const style = { transform: CSS.Transform.toString(transform), transition }
 
@@ -69,6 +76,7 @@ export function ScheduleItemCard({
     }
 
     async function handleMoveTo(targetDayId: string) {
+        if (!canWrite) return
         setShowMovePicker(false)
         const targetDay = days.find((d) => String(d.id) === targetDayId)
         if (!targetDay) return
@@ -90,8 +98,13 @@ export function ScheduleItemCard({
         <div
             ref={setNodeRef}
             style={style}
-            className={`overflow-hidden rounded-lg border border-slate-100 bg-white shadow-sm ${isDragging ? 'opacity-50 shadow-lg' : ''}`}
+            onMouseEnter={() => onHoverChange?.(String(item.id))}
+            onMouseLeave={() => onHoverChange?.(null)}
+            className={`group relative overflow-hidden rounded-lg border bg-white shadow-sm transition ${highlighted ? 'border-brand ring-2 ring-brand/20' : 'border-slate-100 hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md'} ${isDragging ? 'opacity-50 shadow-lg' : ''}`}
         >
+            {isOver && !isDragging && (
+                <span className="pointer-events-none absolute inset-x-1 top-0 z-20 h-0.5 rounded-full bg-brand shadow-[0_0_0_2px_white]" />
+            )}
             <div className="flex items-stretch">
                 {/* 카테고리 컬러 스트라이프 */}
                 <div
@@ -104,16 +117,18 @@ export function ScheduleItemCard({
                     <div
                         {...(canWrite ? listeners : {})}
                         {...(canWrite ? attributes : {})}
+                        onClick={() => onFocusItem?.(String(item.id))}
                         className={`flex min-w-0 flex-1 items-center gap-1.5 ${
                             canWrite
                                 ? 'cursor-grab touch-none active:cursor-grabbing'
-                                : ''
+                                : 'cursor-pointer'
                         }`}
+                        title="클릭하면 지도에서 위치 확인 · 누른 채 이동하면 일정 변경"
                     >
                         {canWrite && (
                             <GripVertical
                                 size={14}
-                                className="shrink-0 text-slate-300"
+                                className="shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                             />
                         )}
                         <div className="min-w-0 flex-1">

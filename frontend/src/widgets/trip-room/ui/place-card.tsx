@@ -176,7 +176,7 @@ export function PlaceCard({
                 </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-[#fffaf0] p-2.5">
+            <div className="mt-3 flex items-center rounded-xl bg-[#fffaf0] p-2.5">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-slate-600">
                         {vote
@@ -189,74 +189,80 @@ export function PlaceCard({
                         event.stopPropagation()
                         onOpenComments()
                     }}
-                    className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-500 hover:bg-white"
+                    className="ml-auto flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-500 hover:bg-white"
                 >
                     <MessageCircleIcon size={13} /> {place.commentCount}
                 </button>
             </div>
 
-            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
-                <div className="flex items-center gap-1.5">
-                    {!voteOpen ? (
-                        <button
-                            disabled={!canWrite || submittingVote}
-                            onClick={(event) => {
-                                event.stopPropagation()
-                                void submitVote(onStartVote)
-                            }}
-                            className="rounded-lg bg-orange-100 px-2.5 py-1.5 text-[11px] font-extrabold text-orange-700 hover:bg-orange-200 disabled:opacity-40"
-                        >
-                            {submittingVote
-                                ? '신청 중'
-                                : voteClosed
-                                  ? '다시 투표'
-                                  : '갈래말래 신청'}
-                        </button>
-                    ) : (
-                        <>
+            <div className="mt-3 border-t border-slate-100 pt-2">
+                <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-300">
+                    협업 의견
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="ml-auto flex items-center gap-1.5">
+                        {!voteOpen ? (
                             <button
                                 disabled={!canWrite || submittingVote}
                                 onClick={(event) => {
                                     event.stopPropagation()
-                                    void submitVote(() => onVote('up'))
+                                    void submitVote(onStartVote)
                                 }}
-                                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold transition disabled:opacity-40 ${myVote === 'AGREE' ? 'bg-brand-50 text-brand-700' : 'bg-slate-100 text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`}
+                                className="rounded-md bg-orange-50 px-2 py-1 text-[10px] font-bold text-orange-600 hover:bg-orange-100 disabled:opacity-40"
                             >
-                                <ThumbsUpIcon size={13} /> 찬성 {upVotes}
+                                {submittingVote
+                                    ? '신청 중'
+                                    : voteClosed
+                                      ? '다시 투표'
+                                      : '갈래말래 신청'}
                             </button>
+                        ) : (
+                            <>
+                                <button
+                                    disabled={!canWrite || submittingVote}
+                                    onClick={(event) => {
+                                        event.stopPropagation()
+                                        void submitVote(() => onVote('up'))
+                                    }}
+                                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition disabled:opacity-40 ${myVote === 'AGREE' ? 'bg-brand-50 text-brand-700' : 'bg-slate-50 text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`}
+                                >
+                                    <ThumbsUpIcon size={13} /> 찬성 {upVotes}
+                                </button>
+                                <button
+                                    disabled={!canWrite || submittingVote}
+                                    onClick={(event) => {
+                                        event.stopPropagation()
+                                        void submitVote(() => onVote('down'))
+                                    }}
+                                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition disabled:opacity-40 ${myVote === 'DISAGREE' ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-600'}`}
+                                >
+                                    <ThumbsDownIcon size={13} /> 반대{' '}
+                                    {downVotes}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <Avatar name={adderName} color={adderColor} size={20} />
+                        <span className="text-[11px] text-slate-400">
+                            {adderName} 등록
+                        </span>
+                    </div>
+                    {canWrite && (
+                        <div className="flex items-center gap-1">
                             <button
-                                disabled={!canWrite || submittingVote}
                                 onClick={(event) => {
                                     event.stopPropagation()
-                                    void submitVote(() => onVote('down'))
+                                    onDelete()
                                 }}
-                                className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-extrabold transition disabled:opacity-40 ${myVote === 'DISAGREE' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600'}`}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                                aria-label="장소 삭제"
                             >
-                                <ThumbsDownIcon size={13} /> 반대 {downVotes}
+                                <Trash2Icon size={15} />
                             </button>
-                        </>
+                        </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <Avatar name={adderName} color={adderColor} size={20} />
-                    <span className="text-[11px] text-slate-400">
-                        {adderName} 등록
-                    </span>
-                </div>
-                {canWrite && (
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={(event) => {
-                                event.stopPropagation()
-                                onDelete()
-                            }}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
-                            aria-label="장소 삭제"
-                        >
-                            <Trash2Icon size={15} />
-                        </button>
-                    </div>
-                )}
             </div>
         </article>
     )

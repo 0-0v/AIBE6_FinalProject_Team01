@@ -13,9 +13,15 @@ type PlaceSidebarItemProps = {
     place: Place
     days: ItineraryDay[]
     onAddToDay: (placeId: string, dayId: string) => void
+    onFocusPlace: (placeId: string) => void
 }
 
-function PlaceSidebarItem({ place, days, onAddToDay }: PlaceSidebarItemProps) {
+function PlaceSidebarItem({
+    place,
+    days,
+    onAddToDay,
+    onFocusPlace,
+}: PlaceSidebarItemProps) {
     const [showPicker, setShowPicker] = useState(false)
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `place-${place.id}`,
@@ -32,15 +38,17 @@ function PlaceSidebarItem({ place, days, onAddToDay }: PlaceSidebarItemProps) {
                     : { borderColor: '#e2e8f0' }
             }
         >
-            <div className="flex items-center gap-2 p-2.5">
-                {/* 드래그 핸들 */}
-                <div
-                    {...listeners}
-                    {...attributes}
-                    className="shrink-0 cursor-grab text-slate-300 hover:text-slate-400 active:cursor-grabbing"
-                >
-                    <GripVertical size={14} />
-                </div>
+            <div
+                {...listeners}
+                {...attributes}
+                onClick={() => onFocusPlace(place.id)}
+                className="group flex cursor-grab touch-none items-center gap-2 p-2.5 active:cursor-grabbing"
+                title="카드를 누른 채 원하는 Day로 이동"
+            >
+                <GripVertical
+                    size={14}
+                    className="shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                />
 
                 {/* 썸네일 */}
                 {place.image ? (
@@ -94,7 +102,11 @@ function PlaceSidebarItem({ place, days, onAddToDay }: PlaceSidebarItemProps) {
                     <div className="relative">
                         <button
                             type="button"
-                            onClick={() => setShowPicker(!showPicker)}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                                event.stopPropagation()
+                                setShowPicker(!showPicker)
+                            }}
                             className="flex h-6 w-6 items-center justify-center rounded-full bg-brand/10 text-brand transition hover:bg-brand/20"
                             title="Day에 추가"
                         >
@@ -125,6 +137,7 @@ type Props = {
     canWrite: boolean
     isDraggingScheduledItem: boolean
     onAddToDay: (placeId: string, dayId: string) => void
+    onFocusPlace?: (placeId: string) => void
 }
 
 export function PlaceSidebar({
@@ -133,6 +146,7 @@ export function PlaceSidebar({
     canWrite,
     isDraggingScheduledItem,
     onAddToDay,
+    onFocusPlace,
 }: Props) {
     const { setNodeRef, isOver } = useDroppable({
         id: UNSCHEDULED_DROP_ZONE_ID,
@@ -200,11 +214,26 @@ export function PlaceSidebar({
                                     place={place}
                                     days={days}
                                     onAddToDay={onAddToDay}
+                                    onFocusPlace={(placeId) =>
+                                        onFocusPlace?.(placeId)
+                                    }
                                 />
                             ) : (
                                 <div
                                     key={place.id}
-                                    className="flex items-center gap-2 rounded-xl border bg-white p-2.5"
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => onFocusPlace?.(place.id)}
+                                    onKeyDown={(event) => {
+                                        if (
+                                            event.key === 'Enter' ||
+                                            event.key === ' '
+                                        ) {
+                                            event.preventDefault()
+                                            onFocusPlace?.(place.id)
+                                        }
+                                    }}
+                                    className="flex cursor-pointer items-center gap-2 rounded-xl border bg-white p-2.5 transition hover:border-brand/40 hover:shadow-sm"
                                     style={
                                         place.categoryColor
                                             ? {
