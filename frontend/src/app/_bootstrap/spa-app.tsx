@@ -22,7 +22,7 @@ import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom, ScheduleKanbanPage } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
 import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
-import { restoreSession } from '@/shared/api/client'
+import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { useCurrentUserStore } from '@/shared/model'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -121,22 +121,21 @@ export function App() {
     const clearCurrentUser = useCurrentUserStore(
         (state) => state.clearCurrentUser,
     )
-    const finishInitialization = useCurrentUserStore(
-        (state) => state.finishInitialization,
-    )
 
     useEffect(() => {
         if (
             sessionRestoreStarted.current ||
-            currentUser ||
             window.location.pathname === '/oauth/callback'
         ) {
+            return
+        }
+        if (currentUser && getAccessToken()) {
             return
         }
         sessionRestoreStarted.current = true
         restoreSession().then((accessToken) => {
             if (!accessToken) {
-                finishInitialization()
+                clearCurrentUser()
                 return
             }
             fetchCurrentUser(accessToken).then((user) => {
@@ -147,7 +146,7 @@ export function App() {
                 clearCurrentUser()
             })
         })
-    }, [clearCurrentUser, currentUser, finishInitialization, setCurrentUser])
+    }, [clearCurrentUser, currentUser, setCurrentUser])
 
     return (
         <BrowserRouter>

@@ -1,7 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Client, type IMessage } from '@stomp/stompjs'
+import {
+    Client,
+    ReconnectionTimeMode,
+    type IMessage,
+} from '@stomp/stompjs'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
 import { useTripStore } from '@/features/manage-trip'
@@ -87,6 +91,8 @@ export function RealtimeSync() {
             brokerURL: websocketUrl(),
             connectHeaders: { Authorization: `Bearer ${token}` },
             reconnectDelay: 3_000,
+            reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
+            maxReconnectDelay: 30_000,
             heartbeatIncoming: 10_000,
             heartbeatOutgoing: 10_000,
             onConnect: () => {
