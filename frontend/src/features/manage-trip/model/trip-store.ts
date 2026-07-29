@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Room } from '@/entities/trip'
+import { resolveMediaUrl } from '@/shared/api/client'
 import {
     fetchInvitedTrip,
     fetchTrips,
@@ -46,7 +47,8 @@ export function toRoom(trip: TripResponse): Room {
         members: trip.memberCount,
         progress: trip.status === 'COMPLETED' ? 100 : 0,
         cover:
-            trip.coverImageUrl ?? '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
+            resolveMediaUrl(trip.coverImageUrl) ??
+            '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
         status: statusLabel,
         lifecycleStatus: trip.status,
         visibility: trip.visibility,
