@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useSyncExternalStore } from 'react'
 import { Columns3Icon, ListIcon } from 'lucide-react'
 import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
 import { Badge, Button } from '@/shared/ui'
+import { formatLocalDate } from '../lib/date-availability'
 import { getTimetableHourRange } from '../lib/timetable-layout'
 import { useItineraryDays } from '../model/use-itinerary-days'
 import { useItineraryItemEditor } from '../model/use-itinerary-item-editor'
@@ -14,6 +15,39 @@ const HOUR_HEIGHT = 64 // px per hour
 const OVERVIEW_DAY_WIDTH = 156
 
 type TimetableView = 'day' | 'overview'
+const TIMETABLE_VIEW_STORAGE_KEY = 'trip-room-timetable-view'
+const TIMETABLE_VIEW_CHANGE_EVENT = 'trip-room-timetable-view-change'
+
+function getTimetableViewSnapshot(): TimetableView {
+    return window.localStorage.getItem(TIMETABLE_VIEW_STORAGE_KEY) ===
+        'overview'
+        ? 'overview'
+        : 'day'
+}
+
+function subscribeTimetableView(onStoreChange: () => void): () => void {
+    window.addEventListener('storage', onStoreChange)
+    window.addEventListener(TIMETABLE_VIEW_CHANGE_EVENT, onStoreChange)
+    return () => {
+        window.removeEventListener('storage', onStoreChange)
+        window.removeEventListener(TIMETABLE_VIEW_CHANGE_EVENT, onStoreChange)
+    }
+}
+
+function useTimetableView(): [TimetableView, (view: TimetableView) => void] {
+    const view = useSyncExternalStore(
+        subscribeTimetableView,
+        getTimetableViewSnapshot,
+        (): TimetableView => 'day',
+    )
+
+    function setView(nextView: TimetableView) {
+        window.localStorage.setItem(TIMETABLE_VIEW_STORAGE_KEY, nextView)
+        window.dispatchEvent(new Event(TIMETABLE_VIEW_CHANGE_EVENT))
+    }
+
+    return [view, setView]
+}
 
 function parseTime(t: string): { h: number; m: number } {
     const parts = t.split(':').map(Number)
@@ -275,13 +309,7 @@ type Props = {
 export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
     const { days, setDays, loading, error } = useItineraryDays(tripId, canWrite)
     const [selectedDayId, setSelectedDayId] = useState<string>('')
-    const [view, setViewState] = useState<TimetableView>(() => {
-        if (typeof window === 'undefined') return 'day'
-        return window.localStorage.getItem('trip-room-timetable-view') ===
-            'overview'
-            ? 'overview'
-            : 'day'
-    })
+    const [view, setView] = useTimetableView()
     const [, setClockTick] = useState(0)
 
     const effectiveSelectedDayId = days.some(
@@ -309,11 +337,6 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
         return () => clearInterval(id)
     }, [])
 
-    function setView(nextView: TimetableView) {
-        setViewState(nextView)
-        window.localStorage.setItem('trip-room-timetable-view', nextView)
-    }
-
     function openDay(dayId: string) {
         setSelectedDayId(dayId)
         setView('day')
@@ -333,8 +356,7 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
         untimedItems.length > 0 || unscheduledPlaces.length > 0
     const gridHeight = (endHour - startHour) * HOUR_HEIGHT
 
-    // 오늘 날짜 (yyyy-MM-dd 형식)
-    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayStr = formatLocalDate(new Date())
 
     if (loading) {
         return (

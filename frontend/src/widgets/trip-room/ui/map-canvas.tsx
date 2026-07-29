@@ -311,7 +311,7 @@ function GoogleMapCanvas({
                                     hovered={isHovered}
                                 />
                                 {isSelected && (
-                                    <div className="mt-1.5 w-52 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                                    <div className="absolute left-1/2 top-full mt-1.5 w-52 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
                                         {place.image && (
                                             <img
                                                 src={place.image}
