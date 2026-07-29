@@ -683,7 +683,7 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'schedule' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     <SchedulePanel
-                        key={`schedule-${itineraryVersion}`}
+                        key={`schedule-${itineraryVersion}-${realtimeVersion}`}
                         tripId={tripId}
                         roomId={room.id}
                         places={places}
