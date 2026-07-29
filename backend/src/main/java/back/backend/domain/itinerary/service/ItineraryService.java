@@ -15,6 +15,7 @@ import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import jakarta.persistence.EntityManager;
@@ -61,6 +62,7 @@ public class ItineraryService {
     @Transactional
     public ItineraryDayResponse addItem(Long tripId, Long dayId, AddItineraryItemRequest request) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
 
         ItineraryDay day = findDayOrThrow(dayId, tripId);
 
@@ -82,6 +84,7 @@ public class ItineraryService {
 
         ItineraryItem item = ItineraryItem.create(day, request.tripPlaceId(), request.sortOrder());
         itemRepository.save(item);
+        markDayDraft(item.getItineraryDay());
         recalculateDay(day);
 
         return getDayResponseById(tripId, dayId);
@@ -90,16 +93,25 @@ public class ItineraryService {
     @Transactional
     public void removeItem(Long tripId, Long itemId) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
         ItineraryDay day = item.getItineraryDay();
         itemRepository.delete(item);
         itemRepository.flush();
-        recalculateDay(day);
+        List<ItineraryItem> remainingItems =
+                itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day);
+        updateSortOrders(remainingItems);
+        if (!remainingItems.isEmpty()) {
+            itemRepository.saveAllAndFlush(remainingItems);
+        }
+        markDayDraft(day);
+        recalculateItems(remainingItems);
     }
 
     @Transactional
     public ItineraryItemResponse updateItem(Long tripId, Long itemId, UpdateItineraryItemRequest request) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
 
         LocalTime startTime = parseTime(request.startTime());
@@ -119,6 +131,7 @@ public class ItineraryService {
                         : item.getTransportMeters(),
                 item.getTransportMode()
         );
+        markDayDraft(item.getItineraryDay());
 
         TripPlace tp = item.getTripPlaceId() != null
                 ? tripPlaceRepository.findByIdAndTripId(item.getTripPlaceId(), tripId).orElse(null)
@@ -133,6 +146,7 @@ public class ItineraryService {
             UpdateItineraryTransportModeRequest request
     ) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
         List<ItineraryItem> dayItems =
                 itemRepository.findAllByItineraryDayOrderBySortOrderAsc(
@@ -178,6 +192,7 @@ public class ItineraryService {
                 item.getTransportMinutes(),
                 automaticallyLinked
         );
+        markDayDraft(item.getItineraryDay());
 
         return ItineraryItemResponse.from(item, currentPlace);
     }
@@ -234,6 +249,7 @@ public class ItineraryService {
     @Transactional
     public ItineraryItemResponse moveItem(Long tripId, Long itemId, MoveItineraryItemRequest request) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
         ItineraryDay sourceDay = item.getItineraryDay();
         ItineraryDay targetDay = findDayOrThrow(request.targetDayId(), tripId);
@@ -270,6 +286,8 @@ public class ItineraryService {
         }
         itemRepository.saveAllAndFlush(targetItems);
 
+        markDayDraft(sourceDay);
+        markDayDraft(targetDay);
         recalculateItems(sourceItems);
         if (!sourceDay.getId().equals(targetDay.getId())) {
             recalculateItems(targetItems);
@@ -284,6 +302,7 @@ public class ItineraryService {
     @Transactional
     public ItineraryDayResponse reorderItems(Long tripId, Long dayId, ReorderItineraryItemsRequest request) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         ItineraryDay day = findDayOrThrow(dayId, tripId);
         List<ItineraryItem> dayItems =
                 itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day);
@@ -305,6 +324,7 @@ public class ItineraryService {
             reorderedItems.get(i).updateSortOrder(i);
         }
         itemRepository.saveAllAndFlush(reorderedItems);
+        markDayDraft(day);
         recalculateItems(reorderedItems);
 
         return getDayResponseById(tripId, dayId);
@@ -313,6 +333,7 @@ public class ItineraryService {
     @Transactional
     public ItineraryDayResponse updateDayStatus(Long tripId, Long dayId, UpdateItineraryDayStatusRequest request) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         ItineraryDay day = findDayOrThrow(dayId, tripId);
 
         day.updateStatus(request.status());
@@ -339,6 +360,7 @@ public class ItineraryService {
             RoutePlanPreviewResponse plan
     ) {
         accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         synchronizeItineraryDays(tripId);
 
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
@@ -411,6 +433,8 @@ public class ItineraryService {
         if (!plannedItems.isEmpty()) {
             itemRepository.saveAllAndFlush(plannedItems);
         }
+        days.forEach(this::markDayDraft);
+        dayRepository.saveAllAndFlush(days);
         entityManager.clear();
         return buildDayResponses(tripId);
     }
@@ -425,6 +449,19 @@ public class ItineraryService {
     private ItineraryItem findItemOrThrow(Long itemId, Long tripId) {
         return itemRepository.findByIdAndTripId(itemId, tripId)
                 .orElseThrow(() -> new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND));
+    }
+
+    private void lockTripForUpdate(Long tripId) {
+        tripRepository.findByIdForUpdate(tripId)
+                .orElseThrow(() -> new BusinessException(
+                        TripErrorCode.TRIP_NOT_FOUND
+                ));
+    }
+
+    private void markDayDraft(ItineraryDay day) {
+        if (day.getStatus() == ItineraryDayStatus.CONFIRMED) {
+            day.updateStatus(ItineraryDayStatus.DRAFT);
+        }
     }
 
     private TripPlace findTripPlaceOrThrow(Long tripPlaceId, Long tripId) {

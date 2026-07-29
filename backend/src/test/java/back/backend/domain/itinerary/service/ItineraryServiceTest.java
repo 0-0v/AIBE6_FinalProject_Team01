@@ -39,6 +39,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryServiceTest {
@@ -75,6 +76,8 @@ class ItineraryServiceTest {
         lenient().when(tripRepository.findByIdForItineraryInitialization(TRIP_ID))
                 .thenReturn(Optional.of(trip));
         lenient().when(tripRepository.findById(TRIP_ID))
+                .thenReturn(Optional.of(trip));
+        lenient().when(tripRepository.findByIdForUpdate(TRIP_ID))
                 .thenReturn(Optional.of(trip));
         lenient().when(trip.getTravelStyles()).thenReturn(Set.of());
 
@@ -850,5 +853,35 @@ class ItineraryServiceTest {
 
         assertThat(nextItem.getStartTime()).isEqualTo(LocalTime.of(11, 0));
         assertThat(nextItem.getEndTime()).isEqualTo(LocalTime.of(12, 0));
+    }
+
+    @Test
+    @DisplayName("t31 일정 항목을 삭제하면 남은 항목의 순번을 연속되게 재정렬한다")
+    void t31_removeItemCompactsRemainingSortOrders() {
+        ItineraryItem remainingItem = ItineraryItem.create(day, 301L, 2);
+        day.updateStatus(ItineraryDayStatus.CONFIRMED);
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(remainingItem));
+
+        itineraryService.removeItem(TRIP_ID, ITEM_ID);
+
+        assertThat(remainingItem.getSortOrder()).isZero();
+        assertThat(day.getStatus()).isEqualTo(ItineraryDayStatus.DRAFT);
+        then(itemRepository).should().saveAllAndFlush(List.of(remainingItem));
+    }
+
+    @Test
+    @DisplayName("t32 일정 변경은 여행방 행을 잠근 뒤 처리한다")
+    void t32_removeItemLocksTripBeforeMutation() {
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+
+        itineraryService.removeItem(TRIP_ID, ITEM_ID);
+
+        var inOrder = inOrder(tripRepository, itemRepository);
+        inOrder.verify(tripRepository).findByIdForUpdate(TRIP_ID);
+        inOrder.verify(itemRepository).delete(item);
     }
 }
