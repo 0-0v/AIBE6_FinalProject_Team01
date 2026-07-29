@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import back.backend.domain.place.service.TripAccessChecker;
@@ -125,6 +126,8 @@ class TripPlanningServiceTest {
                 """).update();
         given(accessChecker.requireView(10L)).willReturn(1L);
         given(accessChecker.requireEdit(10L)).willReturn(1L);
+        given(tripRepository.findByIdForUpdate(10L))
+                .willReturn(java.util.Optional.of(mock(Trip.class)));
         given(tripMemberRepository.findMemberIdsByTripId(10L))
                 .willReturn(List.of(1L, 2L, 3L));
     }
@@ -242,7 +245,7 @@ class TripPlanningServiceTest {
         long proposalId = insertProposal("OPEN");
         insertVote(proposalId, 2L, "AGREE");
         Trip trip = org.mockito.Mockito.mock(Trip.class);
-        given(tripRepository.findById(10L)).willReturn(java.util.Optional.of(trip));
+        given(tripRepository.findByIdForUpdate(10L)).willReturn(java.util.Optional.of(trip));
 
         DateProposalResponse result = tripPlanningService.vote(
                 10L,
@@ -367,6 +370,19 @@ class TripPlanningServiceTest {
 
         assertThat(result.agreeCount()).isZero();
         assertThat(result.disagreeCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("t13 날짜 제안과 투표는 여행방 행을 잠가 동시에 확정되는 것을 막는다")
+    void t13_proposalMutationLocksTrip() {
+        insertProposal("OPEN");
+
+        tripPlanningService.vote(
+                10L,
+                new DateVoteRequest(DateVoteRequest.Choice.DISAGREE)
+        );
+
+        verify(tripRepository).findByIdForUpdate(10L);
     }
 
     private long insertProposal(String status) {
