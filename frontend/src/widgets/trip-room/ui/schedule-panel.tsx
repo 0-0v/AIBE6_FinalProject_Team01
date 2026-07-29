@@ -17,6 +17,10 @@ import {
 } from '../model/use-itinerary-board'
 import { DayColumn } from './day-column'
 import { DayPickerMenu } from './day-picker-menu'
+import {
+    ItineraryBoardFeedback,
+    ItineraryBoardGuide,
+} from './itinerary-board-feedback'
 
 // ────────────────────────────────────────────────────────────
 // Draggable place chip (드래그 + 클릭으로 Day 선택)
@@ -121,6 +125,7 @@ type Props = {
     places: Place[]
     canWrite: boolean
     onDaysLoaded?: (days: ItineraryDay[]) => void
+    onPlaceFocus?: (placeId: string) => void
 }
 
 export function SchedulePanel({
@@ -129,6 +134,7 @@ export function SchedulePanel({
     places,
     canWrite,
     onDaysLoaded,
+    onPlaceFocus,
 }: Props) {
     const navigate = useNavigate()
     const {
@@ -140,10 +146,15 @@ export function SchedulePanel({
         dndError,
         isDragging,
         isDraggingScheduledItem,
+        saving,
+        feedback,
+        clearFeedback,
+        undoLastAction,
         unscheduledPlaces,
         activePlaceForOverlay,
         addPlaceToDay,
         handleDragStart,
+        handleDragOver,
         handleDragCancel,
         handleDragEnd,
     } = useItineraryBoard(tripId, places, canWrite)
@@ -184,12 +195,14 @@ export function SchedulePanel({
             sensors={sensors}
             collisionDetection={itineraryCollisionDetection}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragCancel={handleDragCancel}
             onDragEnd={(e) => void handleDragEnd(e)}
         >
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="relative flex min-h-0 flex-1 flex-col">
+                <ItineraryBoardGuide />
                 {/* Day 컬럼 목록 - 상단에서 스크롤 */}
-                <div className="mp-scroll flex-1 space-y-2 overflow-y-auto px-3 py-3">
+                <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2 overflow-y-auto px-3 py-3 @min-[760px]:grid-cols-2">
                     {dndError && (
                         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
                             {dndError}
@@ -200,7 +213,7 @@ export function SchedulePanel({
                             key={day.id}
                             day={day}
                             tripId={tripId}
-                            canWrite={canWrite}
+                            canWrite={canWrite && !saving}
                             days={days}
                             isDragging={isDragging}
                             unscheduledPlaces={unscheduledPlaces}
@@ -208,6 +221,15 @@ export function SchedulePanel({
                                 void addPlaceToDay(placeId, String(day.id))
                             }
                             onDaysChange={setDays}
+                            onItemFocus={(itemId) => {
+                                const item = day.items.find(
+                                    (candidate) =>
+                                        String(candidate.id) === itemId,
+                                )
+                                if (item?.tripPlaceId != null) {
+                                    onPlaceFocus?.(String(item.tripPlaceId))
+                                }
+                            }}
                         />
                     ))}
                 </div>
@@ -269,7 +291,7 @@ export function SchedulePanel({
                     ) : (
                         <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
                             {unscheduledPlaces.map((place) =>
-                                canWrite ? (
+                                canWrite && !saving ? (
                                     <PlaceChip
                                         key={place.id}
                                         place={place}
@@ -310,6 +332,12 @@ export function SchedulePanel({
                         </div>
                     )}
                 </UnscheduledPlaceTray>
+                <ItineraryBoardFeedback
+                    saving={saving}
+                    feedback={feedback}
+                    onUndo={() => void undoLastAction()}
+                    onDismiss={clearFeedback}
+                />
             </div>
 
             <DragOverlay>

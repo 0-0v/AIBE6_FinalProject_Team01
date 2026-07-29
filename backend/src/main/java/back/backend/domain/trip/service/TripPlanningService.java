@@ -103,6 +103,7 @@ public class TripPlanningService {
     @Transactional
     public DateProposalResponse propose(Long tripId, DateProposalRequest request) {
         Long memberId = accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
         validateRange(request.startDate(), request.endDate());
         Proposal existingProposal = findProposalOptional(tripId);
         if (existingProposal != null
@@ -166,6 +167,7 @@ public class TripPlanningService {
     @Transactional
     public DateProposalResponse vote(Long tripId, DateVoteRequest request) {
         Long memberId = accessChecker.requireEdit(tripId);
+        Trip trip = lockTripForUpdate(tripId);
         Proposal proposal = findProposal(tripId);
         if (!"OPEN".equals(proposal.status())) {
             throw new BusinessException(TripErrorCode.DATE_PROPOSAL_CLOSED);
@@ -186,11 +188,18 @@ public class TripPlanningService {
         DateProposalResponse result = summarize(proposal, memberId);
         String choiceLabel = request.choice() == DateVoteRequest.Choice.AGREE ? "찬성" : "반대";
         if (result.agreeCount() >= result.requiredCount()) {
-            Trip trip = tripRepository.findById(tripId)
-                    .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
             trip.confirmDates(proposal.startDate(), proposal.endDate());
-            jdbcClient.sql("UPDATE trip_date_proposals SET status='CONFIRMED', updated_at=:now WHERE id=:id")
-                    .param("now", now).param("id", proposal.id()).update();
+            int confirmed = jdbcClient.sql("""
+                    UPDATE trip_date_proposals
+                    SET status='CONFIRMED', updated_at=:now
+                    WHERE id=:id AND status='OPEN'
+                    """)
+                    .param("now", now)
+                    .param("id", proposal.id())
+                    .update();
+            if (confirmed == 0) {
+                throw new BusinessException(TripErrorCode.DATE_PROPOSAL_CLOSED);
+            }
             result = new DateProposalResponse(result.proposalId(), result.startDate(), result.endDate(),
                     "CONFIRMED", result.agreeCount(), result.disagreeCount(),
                     result.requiredCount(), result.myChoice());
@@ -224,6 +233,11 @@ public class TripPlanningService {
         return result;
     }
 
+    private Trip lockTripForUpdate(Long tripId) {
+        return tripRepository.findByIdForUpdate(tripId)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+    }
+
     private Proposal findProposal(Long tripId) {
         Proposal proposal = findProposalOptional(tripId);
         if (proposal == null) {
@@ -243,8 +257,13 @@ public class TripPlanningService {
 
     private DateProposalResponse summarize(Proposal proposal, Long memberId) {
         Map<String, Long> counts = jdbcClient.sql("""
-                SELECT choice, COUNT(*) vote_count FROM trip_date_votes
-                WHERE proposal_id=:proposalId GROUP BY choice
+                SELECT tdv.choice, COUNT(*) vote_count
+                FROM trip_date_votes tdv
+                JOIN trip_date_proposals tdp ON tdp.id = tdv.proposal_id
+                JOIN trip_members tm
+                  ON tm.trip_id = tdp.trip_id AND tm.member_id = tdv.member_id
+                WHERE tdv.proposal_id=:proposalId
+                GROUP BY tdv.choice
                 """).param("proposalId", proposal.id()).query((rs, rowNum) ->
                 Map.entry(rs.getString("choice"), rs.getLong("vote_count")))
                 .list().stream().collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));

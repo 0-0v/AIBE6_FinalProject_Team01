@@ -39,6 +39,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryServiceTest {
@@ -75,6 +76,8 @@ class ItineraryServiceTest {
         lenient().when(tripRepository.findByIdForItineraryInitialization(TRIP_ID))
                 .thenReturn(Optional.of(trip));
         lenient().when(tripRepository.findById(TRIP_ID))
+                .thenReturn(Optional.of(trip));
+        lenient().when(tripRepository.findByIdForUpdate(TRIP_ID))
                 .thenReturn(Optional.of(trip));
         lenient().when(trip.getTravelStyles()).thenReturn(Set.of());
 
@@ -850,5 +853,70 @@ class ItineraryServiceTest {
 
         assertThat(nextItem.getStartTime()).isEqualTo(LocalTime.of(11, 0));
         assertThat(nextItem.getEndTime()).isEqualTo(LocalTime.of(12, 0));
+    }
+
+    @Test
+    @DisplayName("t31 일정 항목을 삭제하면 남은 항목의 순번을 연속되게 재정렬한다")
+    void t31_removeItemCompactsRemainingSortOrders() {
+        ItineraryItem remainingItem = ItineraryItem.create(day, 301L, 2);
+        day.updateStatus(ItineraryDayStatus.CONFIRMED);
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(remainingItem));
+
+        itineraryService.removeItem(TRIP_ID, ITEM_ID);
+
+        assertThat(remainingItem.getSortOrder()).isZero();
+        assertThat(day.getStatus()).isEqualTo(ItineraryDayStatus.DRAFT);
+        then(itemRepository).should().saveAllAndFlush(List.of(remainingItem));
+    }
+
+    @Test
+    @DisplayName("t32 일정 변경은 여행방 행을 잠근 뒤 처리한다")
+    void t32_removeItemLocksTripBeforeMutation() {
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+
+        itineraryService.removeItem(TRIP_ID, ITEM_ID);
+
+        var inOrder = inOrder(tripRepository, itemRepository);
+        inOrder.verify(tripRepository).findByIdForUpdate(TRIP_ID);
+        inOrder.verify(itemRepository).delete(item);
+    }
+
+    @Test
+    @DisplayName("t33 일정 중간에 장소를 추가하면 기존 항목을 밀어 연속 순번으로 저장한다")
+    void t33_addItemInsertsAtRequestedPosition() {
+        ItineraryItem firstItem = ItineraryItem.create(day, 301L, 0);
+        ItineraryItem lastItem = ItineraryItem.create(day, 302L, 1);
+        given(dayRepository.findByIdAndTripId(DAY_ID, TRIP_ID))
+                .willReturn(Optional.of(day));
+        given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
+                .willReturn(Optional.of(savedTripPlace));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(firstItem, lastItem));
+        given(itemRepository.save(any(ItineraryItem.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+
+        itineraryService.addItem(
+                TRIP_ID,
+                DAY_ID,
+                new AddItineraryItemRequest(TRIP_PLACE_ID, 1)
+        );
+
+        ArgumentCaptor<List<ItineraryItem>> itemsCaptor =
+                ArgumentCaptor.forClass(List.class);
+        then(itemRepository).should(times(2))
+                .saveAllAndFlush(itemsCaptor.capture());
+        List<ItineraryItem> finalItems = itemsCaptor.getAllValues().get(1);
+        assertThat(finalItems)
+                .extracting(ItineraryItem::getTripPlaceId)
+                .containsExactly(301L, TRIP_PLACE_ID, 302L);
+        assertThat(finalItems)
+                .extracting(ItineraryItem::getSortOrder)
+                .containsExactly(0, 1, 2);
     }
 }

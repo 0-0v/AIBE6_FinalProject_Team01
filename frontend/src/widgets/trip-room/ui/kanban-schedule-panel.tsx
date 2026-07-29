@@ -1,11 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { CategoryIcon } from '@/entities/trip'
 import type { Place } from '@/entities/trip'
 import { DayColumn } from './day-column'
 import { PlaceSidebar } from './place-sidebar'
 import { KanbanMapPanel } from './kanban-map-panel'
+import {
+    ItineraryBoardFeedback,
+    ItineraryBoardGuide,
+} from './itinerary-board-feedback'
 import {
     itineraryCollisionDetection,
     useItineraryBoard,
@@ -18,6 +23,9 @@ type Props = {
 }
 
 export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
+    const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
+    const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+    const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null)
     const {
         days,
         setDays,
@@ -27,10 +35,17 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
         dndError,
         isDragging,
         isDraggingScheduledItem,
+        activeDragId,
+        previewDayId,
+        saving,
+        feedback,
+        clearFeedback,
+        undoLastAction,
         unscheduledPlaces,
         activePlaceForOverlay,
         addPlaceToDay,
         handleDragStart,
+        handleDragOver,
         handleDragCancel,
         handleDragEnd,
     } = useItineraryBoard(tripId, places, canWrite)
@@ -66,10 +81,11 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
             sensors={sensors}
             collisionDetection={itineraryCollisionDetection}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragCancel={handleDragCancel}
             onDragEnd={(e) => void handleDragEnd(e)}
         >
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="relative flex min-h-0 flex-1 flex-col">
                 {dndError && (
                     <div className="shrink-0 px-4 pt-2">
                         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
@@ -77,9 +93,27 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                         </p>
                     </div>
                 )}
+                <ItineraryBoardGuide />
 
                 {/* 접이식 지도 패널 */}
-                <KanbanMapPanel days={days} />
+                <KanbanMapPanel
+                    days={days}
+                    places={places}
+                    activeDragId={activeDragId}
+                    previewDayId={previewDayId}
+                    hoveredItemId={hoveredItemId}
+                    onItemHoverChange={setHoveredItemId}
+                    focusedItemId={focusedItemId}
+                    focusedPlaceId={focusedPlaceId}
+                    onItemFocus={(itemId) => {
+                        setFocusedItemId(itemId)
+                        if (itemId != null) setFocusedPlaceId(null)
+                    }}
+                    onPlaceFocus={(placeId) => {
+                        setFocusedPlaceId(placeId)
+                        if (placeId != null) setFocusedItemId(null)
+                    }}
+                />
 
                 {/* 사이드바 + 칸반 보드 */}
                 <div className="flex min-h-0 flex-1">
@@ -87,11 +121,15 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                     <PlaceSidebar
                         places={unscheduledPlaces}
                         days={days}
-                        canWrite={canWrite}
+                        canWrite={canWrite && !saving}
                         isDraggingScheduledItem={isDraggingScheduledItem}
                         onAddToDay={(placeId, dayId) =>
                             void addPlaceToDay(placeId, dayId)
                         }
+                        onFocusPlace={(placeId) => {
+                            setFocusedPlaceId(placeId)
+                            setFocusedItemId(null)
+                        }}
                     />
 
                     {/* 칸반 보드 — 수평 스크롤 */}
@@ -101,7 +139,7 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                                 <DayColumn
                                     day={day}
                                     tripId={tripId}
-                                    canWrite={canWrite}
+                                    canWrite={canWrite && !saving}
                                     days={days}
                                     isDragging={isDragging}
                                     unscheduledPlaces={unscheduledPlaces}
@@ -112,11 +150,23 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                                         )
                                     }
                                     onDaysChange={setDays}
+                                    hoveredItemId={hoveredItemId}
+                                    onItemHoverChange={setHoveredItemId}
+                                    onItemFocus={(itemId) => {
+                                        setFocusedItemId(itemId)
+                                        setFocusedPlaceId(null)
+                                    }}
                                 />
                             </div>
                         ))}
                     </div>
                 </div>
+                <ItineraryBoardFeedback
+                    saving={saving}
+                    feedback={feedback}
+                    onUndo={() => void undoLastAction()}
+                    onDismiss={clearFeedback}
+                />
             </div>
 
             <DragOverlay>

@@ -32,6 +32,7 @@ import type {
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ScheduleItemCard } from './schedule-item-card'
 import { buildGoogleMapsDirectionsUrl } from '../lib/google-maps-directions'
+import { buildItineraryDropZoneId } from '../lib/itinerary-drop-position'
 
 const TRANSPORT_MODE_OPTIONS: {
     value: ItineraryTransportMode
@@ -211,14 +212,48 @@ type Props = {
     unscheduledPlaces: Place[]
     onAddPlace: (placeId: string) => void
     onDaysChange: (days: ItineraryDay[]) => void
+    hoveredItemId?: string | null
+    onItemHoverChange?: (itemId: string | null) => void
+    onItemFocus?: (itemId: string) => void
 }
 
-export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduledPlaces, onAddPlace, onDaysChange }: Props) {
+function ItineraryDropZone({
+    dayId,
+    insertionIndex,
+    visible,
+}: {
+    dayId: string
+    insertionIndex: number
+    visible: boolean
+}) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: buildItineraryDropZoneId(dayId, insertionIndex),
+        data: { type: 'itinerary-drop-zone' },
+    })
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={`relative transition-[height] ${
+                visible ? 'h-3' : 'h-1'
+            }`}
+        >
+            {isOver && (
+                <div className="absolute inset-x-1 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_0_2px_white]" />
+            )}
+        </div>
+    )
+}
+
+export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduledPlaces, onAddPlace, onDaysChange, hoveredItemId, onItemHoverChange, onItemFocus }: Props) {
     const [error, setError] = useState<string | null>(null)
     const [toggling, setToggling] = useState(false)
     const [collapsed, setCollapsed] = useState(false)
     const [showAddPicker, setShowAddPicker] = useState(false)
-    const { setNodeRef, isOver } = useDroppable({ id: day.id })
+    const { setNodeRef, isOver } = useDroppable({
+        id: day.id,
+        data: { type: 'itinerary-day' },
+    })
 
     const isConfirmed = day.status === 'CONFIRMED'
     const dateLabel = new Date(day.itineraryDate + 'T00:00:00').toLocaleDateString(
@@ -389,27 +424,47 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
                                 {isOver ? '여기에 놓기' : isDragging ? '여기에 드롭' : canWrite ? '장소를 드래그하거나 + 추가' : '장소 없음'}
                             </div>
                         ) : (
-                            day.items.map((item, index) => (
-                                <React.Fragment key={item.id}>
-                                    <ScheduleItemCard
-                                        item={item}
-                                        tripId={tripId}
-                                        canWrite={canWrite}
-                                        days={days}
-                                        currentDayId={String(day.id)}
-                                        onDaysChange={onDaysChange}
-                                    />
-                                    {index < day.items.length - 1 && (
-                                        <TransportConnector
+                            <>
+                                <ItineraryDropZone
+                                    dayId={String(day.id)}
+                                    insertionIndex={0}
+                                    visible={isDragging}
+                                />
+                                {day.items.map((item, index) => (
+                                    <React.Fragment key={item.id}>
+                                        <ScheduleItemCard
                                             item={item}
-                                            nextItem={day.items[index + 1]}
                                             tripId={tripId}
                                             canWrite={canWrite}
+                                            days={days}
+                                            currentDayId={String(day.id)}
                                             onDaysChange={onDaysChange}
+                                            highlighted={
+                                                hoveredItemId ===
+                                                String(item.id)
+                                            }
+                                            onHoverChange={onItemHoverChange}
+                                            onFocusItem={onItemFocus}
                                         />
-                                    )}
-                                </React.Fragment>
-                            ))
+                                        {index < day.items.length - 1 && (
+                                            <TransportConnector
+                                                item={item}
+                                                nextItem={
+                                                    day.items[index + 1]
+                                                }
+                                                tripId={tripId}
+                                                canWrite={canWrite}
+                                                onDaysChange={onDaysChange}
+                                            />
+                                        )}
+                                        <ItineraryDropZone
+                                            dayId={String(day.id)}
+                                            insertionIndex={index + 1}
+                                            visible={isDragging}
+                                        />
+                                    </React.Fragment>
+                                ))}
+                            </>
                         )}
                     </SortableContext>
                 </div>

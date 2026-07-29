@@ -1,8 +1,10 @@
 import React, {
+    type CSSProperties,
     type FormEvent,
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from 'react'
 import {
@@ -34,7 +36,13 @@ import {
 } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
-import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
+import {
+    MapCanvas,
+    RoomDetailPanel,
+    RoomListPanel,
+    getNextSortOrder,
+    type TripRoomWorkspace,
+} from '@/widgets/trip-room'
 
 export function TripRoom() {
     const navigate = useNavigate()
@@ -103,7 +111,7 @@ export function TripRoom() {
                 tripId,
                 Number(dayId),
                 Number(placeId),
-                targetDay.items.length,
+                getNextSortOrder(targetDay.items),
             )
             const updated = await getItinerary(tripId)
             setItineraryState({ tripId, days: updated })
@@ -112,6 +120,13 @@ export function TripRoom() {
     )
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [collapsed, setCollapsed] = useState(false)
+    const [activeWorkspace, setActiveWorkspace] =
+        useState<TripRoomWorkspace>('places')
+    const [customPanelWidths, setCustomPanelWidths] = useState<
+        Partial<Record<TripRoomWorkspace, number>>
+    >({})
+    const [isResizingPanel, setIsResizingPanel] = useState(false)
+    const workspacePanelRef = useRef<HTMLElement>(null)
     const [aiOpen, setAiOpen] = useState(false)
     const [manageOpen, setManageOpen] = useState(false)
     const [placesError, setPlacesError] = useState<string | null>(null)
@@ -130,6 +145,91 @@ export function TripRoom() {
         Boolean(inviteCode) &&
         searchParams.get('join') === 'true' &&
         Boolean(currentUser)
+    const workspacePanelWidth = {
+        places: '400px',
+        itinerary: 'min(680px, 64vw)',
+        schedule: 'min(680px, 64vw)',
+        records: 'min(620px, 60vw)',
+        expenses: 'min(620px, 60vw)',
+    }[activeWorkspace]
+    const resolvedWorkspacePanelWidth =
+        customPanelWidths[activeWorkspace] == null
+            ? workspacePanelWidth
+            : `${customPanelWidths[activeWorkspace]}px`
+
+    const clampPanelWidth = useCallback((width: number) => {
+        const minimumWidth = 360
+        const workspaceWidth =
+            workspacePanelRef.current?.parentElement?.getBoundingClientRect()
+                .width ?? window.innerWidth
+        const maximumWidth = Math.max(
+            minimumWidth,
+            Math.min(900, workspaceWidth - 360),
+        )
+        return Math.min(Math.max(width, minimumWidth), maximumWidth)
+    }, [])
+
+    useEffect(() => {
+        if (!isResizingPanel) return
+
+        function handlePointerMove(event: PointerEvent) {
+            const panelRight =
+                workspacePanelRef.current?.getBoundingClientRect().right ??
+                window.innerWidth
+            const nextWidth = clampPanelWidth(panelRight - event.clientX)
+            setCustomPanelWidths((current) => ({
+                ...current,
+                [activeWorkspace]: nextWidth,
+            }))
+        }
+
+        function handlePointerUp() {
+            setIsResizingPanel(false)
+        }
+
+        const previousCursor = document.body.style.cursor
+        const previousUserSelect = document.body.style.userSelect
+        document.body.style.cursor = 'col-resize'
+        document.body.style.userSelect = 'none'
+        window.addEventListener('pointermove', handlePointerMove)
+        window.addEventListener('pointerup', handlePointerUp)
+        window.addEventListener('pointercancel', handlePointerUp)
+
+        return () => {
+            document.body.style.cursor = previousCursor
+            document.body.style.userSelect = previousUserSelect
+            window.removeEventListener('pointermove', handlePointerMove)
+            window.removeEventListener('pointerup', handlePointerUp)
+            window.removeEventListener('pointercancel', handlePointerUp)
+        }
+    }, [activeWorkspace, clampPanelWidth, isResizingPanel])
+
+    function handlePanelResizeKeyDown(
+        event: React.KeyboardEvent<HTMLDivElement>,
+    ) {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+
+        event.preventDefault()
+        const currentWidth =
+            customPanelWidths[activeWorkspace] ??
+            workspacePanelRef.current?.getBoundingClientRect().width ??
+            400
+        const direction = event.key === 'ArrowLeft' ? 1 : -1
+        setCustomPanelWidths((current) => ({
+            ...current,
+            [activeWorkspace]: clampPanelWidth(
+                currentWidth + direction * 20,
+            ),
+        }))
+    }
+
+    function resetActivePanelWidth() {
+        setCustomPanelWidths((current) => {
+            const next = { ...current }
+            delete next[activeWorkspace]
+            return next
+        })
+    }
 
     useEffect(() => {
         if (inviteCode) return
@@ -430,6 +530,7 @@ export function TripRoom() {
                 <div className="relative min-w-0 flex-1">
                     <MapCanvas
                         places={mapPlaces}
+                        initialLocation={room?.location}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                         onDeselect={() => setSelectedId(null)}
@@ -440,42 +541,40 @@ export function TripRoom() {
                                 : undefined
                         }
                     />
-                    {!inviteCode &&
-                        trip &&
-                        trip.status === 'COMPLETED' && (
-                            <button
-                                type="button"
-                                onClick={() => setManageOpen(true)}
-                                className="absolute left-5 top-5 z-20 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/95 px-4 py-3 text-left shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:shadow-xl"
-                                aria-label="완료된 여행방 공개 설정 열기"
+                    {!inviteCode && trip && trip.status === 'COMPLETED' && (
+                        <button
+                            type="button"
+                            onClick={() => setManageOpen(true)}
+                            className="absolute left-5 top-5 z-20 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/95 px-4 py-3 text-left shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:shadow-xl"
+                            aria-label="완료된 여행방 공개 설정 열기"
+                        >
+                            <span
+                                className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                                    trip.visibility === 'PUBLIC'
+                                        ? 'bg-brand-50 text-brand-700'
+                                        : 'bg-slate-100 text-slate-600'
+                                }`}
                             >
-                                <span
-                                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-                                        trip.visibility === 'PUBLIC'
-                                            ? 'bg-brand-50 text-brand-700'
-                                            : 'bg-slate-100 text-slate-600'
-                                    }`}
-                                >
-                                    {trip.visibility === 'PUBLIC' ? (
-                                        <Globe2Icon size={18} />
-                                    ) : (
-                                        <LockIcon size={18} />
-                                    )}
+                                {trip.visibility === 'PUBLIC' ? (
+                                    <Globe2Icon size={18} />
+                                ) : (
+                                    <LockIcon size={18} />
+                                )}
+                            </span>
+                            <span>
+                                <span className="block text-xs font-bold text-slate-400">
+                                    완료 여행방 ·{' '}
+                                    {trip.visibility === 'PUBLIC'
+                                        ? '공개'
+                                        : '비공개'}
                                 </span>
-                                <span>
-                                    <span className="block text-xs font-bold text-slate-400">
-                                        완료 여행방 ·{' '}
-                                        {trip.visibility === 'PUBLIC'
-                                            ? '공개'
-                                            : '비공개'}
-                                    </span>
-                                    <span className="mt-0.5 flex items-center gap-1 text-sm font-extrabold text-slate-800">
-                                        공개 설정 열기
-                                        <Settings2Icon size={14} />
-                                    </span>
+                                <span className="mt-0.5 flex items-center gap-1 text-sm font-extrabold text-slate-800">
+                                    공개 설정 열기
+                                    <Settings2Icon size={14} />
                                 </span>
-                            </button>
-                        )}
+                            </span>
+                        </button>
+                    )}
                     {!inviteCode && canManagePlaces && !aiOpen && (
                         <button
                             onClick={() => setAiOpen(true)}
@@ -496,7 +595,54 @@ export function TripRoom() {
                 </div>
 
                 {!collapsed && (
-                    <aside className="relative flex min-h-0 w-full shrink-0 flex-1 flex-col border-t border-slate-200 bg-white lg:w-[400px] lg:flex-none lg:border-l lg:border-t-0">
+                    <aside
+                        ref={workspacePanelRef}
+                        className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col border-t border-slate-200 bg-white lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none lg:border-l lg:border-t-0 ${
+                            isResizingPanel
+                                ? ''
+                                : 'transition-[width] duration-300 ease-out'
+                        }`}
+                        style={
+                            {
+                                '--workspace-panel-width':
+                                    resolvedWorkspacePanelWidth,
+                            } as CSSProperties
+                        }
+                    >
+                        <div
+                            role="separator"
+                            aria-label="여행방 패널 너비 조절"
+                            aria-orientation="vertical"
+                            tabIndex={0}
+                            onPointerDown={(event) => {
+                                if (event.button !== 0) return
+                                event.preventDefault()
+                                const currentWidth =
+                                    workspacePanelRef.current?.getBoundingClientRect()
+                                        .width
+                                if (currentWidth != null) {
+                                    setCustomPanelWidths((current) => ({
+                                        ...current,
+                                        [activeWorkspace]:
+                                            clampPanelWidth(currentWidth),
+                                    }))
+                                }
+                                setIsResizingPanel(true)
+                            }}
+                            onDoubleClick={resetActivePanelWidth}
+                            onKeyDown={handlePanelResizeKeyDown}
+                            title="드래그해서 패널 너비 조절 · 더블클릭해서 초기화"
+                            className="group absolute -left-1 top-0 z-20 hidden h-full w-2 cursor-col-resize touch-none items-center justify-center focus:outline-none lg:flex"
+                        >
+                            <span className="h-full w-px bg-transparent transition-colors group-hover:bg-brand group-focus:bg-brand" />
+                            {isResizingPanel && (
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
+                                    {customPanelWidths[activeWorkspace] == null
+                                        ? '너비 조절 중'
+                                        : `${Math.round(customPanelWidths[activeWorkspace])}px`}
+                                </span>
+                            )}
+                        </div>
                         <button
                             onClick={() => setCollapsed(true)}
                             className="absolute -left-3 top-1/2 z-30 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md hover:bg-slate-50 lg:flex"
@@ -533,10 +679,9 @@ export function TripRoom() {
                                 itineraryVersion={itineraryVersion}
                                 showBackButton={!inviteCode}
                                 guestView={Boolean(inviteCode)}
+                                onWorkspaceChange={setActiveWorkspace}
                                 onJoin={
-                                    inviteCode
-                                        ? handleLoginChoice
-                                        : undefined
+                                    inviteCode ? handleLoginChoice : undefined
                                 }
                             />
                         ) : (

@@ -119,8 +119,10 @@ export function recommendDateRanges(
             left.startDate.localeCompare(right.startDate),
     )
 
+    const bestAvailableCount = candidates[0]?.availableCount ?? 0
     const recommendations: DateRecommendation[] = []
     for (const candidate of candidates) {
+        if (candidate.availableCount < bestAvailableCount) break
         const overlaps = recommendations.some(
             (selected) =>
                 candidate.startDate <= selected.endDate &&
@@ -163,6 +165,20 @@ export function updateDateSet(
         else next.delete(date)
     })
     return next
+}
+
+export function updateDateSetWithinLimit(
+    current: Set<string>,
+    startDate: string,
+    endDate: string,
+    selecting: boolean,
+    limit: number,
+) {
+    const next = updateDateSet(current, startDate, endDate, selecting)
+    if (selecting && next.size > limit) {
+        return { dates: new Set(current), limitExceeded: true }
+    }
+    return { dates: next, limitExceeded: false }
 }
 
 function addDays(date: Date, amount: number) {

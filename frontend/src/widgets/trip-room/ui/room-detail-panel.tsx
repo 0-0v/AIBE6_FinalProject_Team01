@@ -26,10 +26,7 @@ import {
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
-import {
-    fetchTripMembers,
-    type TripMember,
-} from '@/features/manage-trip'
+import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
@@ -55,6 +52,7 @@ function mapApiComment(comment: PlaceCommentResponse) {
 type Mode = 'plan' | 'record'
 type PlanTab = 'places' | 'itinerary' | 'schedule'
 type RecordTab = 'records' | 'expenses'
+export type TripRoomWorkspace = PlanTab | 'records' | 'expenses'
 
 type Props = {
     room: Room
@@ -76,6 +74,7 @@ type Props = {
     showBackButton?: boolean
     guestView?: boolean
     onJoin?: () => void
+    onWorkspaceChange?: (workspace: TripRoomWorkspace) => void
 }
 
 export function RoomDetailPanel({
@@ -98,6 +97,7 @@ export function RoomDetailPanel({
     showBackButton = true,
     guestView = false,
     onJoin,
+    onWorkspaceChange,
 }: Props) {
     const [mode, setMode] = useState<Mode>(
         room.lifecycleStatus === 'COMPLETED' ? 'record' : 'plan',
@@ -129,6 +129,41 @@ export function RoomDetailPanel({
     const categoriesLoading =
         categoryState.tripId !== tripId || categoryState.loading
 
+    const activeWorkspace: TripRoomWorkspace =
+        mode === 'plan' ? planTab : recordTab
+    const activeWorkspaceInfo = {
+        places: {
+            eyebrow: '여행 계획',
+            title: '장소',
+            description: '가고 싶은 장소를 찾고 함께 의견을 모아보세요.',
+        },
+        itinerary: {
+            eyebrow: '여행 계획',
+            title: '날짜',
+            description:
+                '멤버들의 가능한 날짜를 확인하고 여행 기간을 정해보세요.',
+        },
+        schedule: {
+            eyebrow: '여행 계획',
+            title: '일정',
+            description: '저장한 장소를 날짜와 방문 순서에 맞게 배치해보세요.',
+        },
+        records: {
+            eyebrow: '여행 기록',
+            title: '로그',
+            description: '여행 중 남긴 사진과 메모를 한곳에서 확인해보세요.',
+        },
+        expenses: {
+            eyebrow: '여행 기록',
+            title: '정산',
+            description: '멤버별 여행 경비와 정산 내역을 관리해보세요.',
+        },
+    }[activeWorkspace]
+
+    useEffect(() => {
+        onWorkspaceChange?.(activeWorkspace)
+    }, [activeWorkspace, onWorkspaceChange])
+
     useEffect(() => {
         let active = true
         const loadMembers = async () => {
@@ -148,8 +183,7 @@ export function RoomDetailPanel({
     }, [tripId])
 
     const canWrite = canManage
-    const canPlanWrite =
-        canWrite && room.lifecycleStatus !== 'COMPLETED'
+    const canPlanWrite = canWrite && room.lifecycleStatus !== 'COMPLETED'
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
     const { setComments, addComment, removeComment } = useCommentStore()
@@ -202,6 +236,11 @@ export function RoomDetailPanel({
                 '저장하지 않은 가능 날짜가 있습니다. 이동하시겠습니까?',
             )
         )
+    }
+
+    function handleBack() {
+        if (!confirmDiscardDateChanges()) return
+        onBack()
     }
 
     async function withVoteError<T>(
@@ -376,102 +415,128 @@ export function RoomDetailPanel({
                 members={members}
                 onInvite={() => setInviteOpen(true)}
                 onJoin={guestView ? onJoin : undefined}
-                onBack={onBack}
+                onBack={handleBack}
                 onManage={onManage}
                 showBackButton={showBackButton}
             />
-            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
-                <div className="flex shrink-0 items-center gap-1 text-[11px] font-bold">
+            <div className="border-b border-slate-100 px-4 pb-3.5 pt-3.5">
+                <div className="mb-3.5 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-extrabold tracking-[0.12em] text-brand-600">
+                            {activeWorkspaceInfo.eyebrow}
+                        </p>
+                        <h2 className="mt-0.5 text-[22px] font-black leading-tight tracking-tight text-slate-900">
+                            {activeWorkspaceInfo.title}
+                        </h2>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">
+                            {activeWorkspaceInfo.description}
+                        </p>
+                    </div>
                     <button
-                        onClick={() => switchMode('plan')}
-                        className={`rounded-md px-1.5 py-1 transition ${mode === 'plan' ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:text-slate-600'}`}
+                        onClick={() => setActivityOpen((value) => !value)}
+                        className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${activityOpen ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                        aria-label="전체 활동 로그 열기"
                     >
-                        Plan
-                    </button>
-                    <span className="text-slate-300">/</span>
-                    <button
-                        onClick={() => switchMode('record')}
-                        className={`rounded-md px-1.5 py-1 transition ${mode === 'record' ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                        Record
+                        <HistoryIcon size={18} />
                     </button>
                 </div>
-                <span
-                    className="h-4 w-px shrink-0 bg-slate-200"
-                    aria-hidden="true"
-                />
-                <div
-                    className="flex min-w-0 flex-1 items-center gap-1"
-                    role="tablist"
-                    aria-label={`${mode === 'plan' ? '계획' : '기록'} 화면`}
-                >
-                    {(mode === 'plan'
-                        ? [
-                              {
-                                  key: 'places' as const,
-                                  label: '장소',
-                                  icon: ListIcon,
-                              },
-                              {
-                                  key: 'itinerary' as const,
-                                  label: '날짜',
-                                  icon: CalendarDaysIcon,
-                              },
-                              ...(room.startDate && room.endDate
-                                  ? [
-                                        {
-                                            key: 'schedule' as const,
-                                            label: '일정',
-                                            icon: MapIcon,
-                                        },
-                                    ]
-                                  : []),
-                          ]
-                        : [
-                              {
-                                  key: 'records' as const,
-                                  label: '로그',
-                                  icon: HistoryIcon,
-                              },
-                              {
-                                  key: 'expenses' as const,
-                                  label: '정산',
-                                  icon: ReceiptTextIcon,
-                              },
-                          ]
-                    ).map((item) => {
-                        const active =
-                            mode === 'plan'
-                                ? planTab === (item.key as PlanTab)
-                                : recordTab === (item.key as RecordTab)
-                        return (
-                            <button
-                                key={item.key}
-                                onClick={() => {
-                                    if (active) return
-                                    if (!confirmDiscardDateChanges()) return
-                                    if (mode === 'plan') {
-                                        setPlanTab(item.key as PlanTab)
-                                    } else {
-                                        setRecordTab(item.key as RecordTab)
-                                    }
-                                }}
-                                role="tab"
-                                aria-selected={active}
-                                className={`flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-extrabold transition ${active ? 'bg-brand text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
-                            >
-                                <item.icon size={14} /> {item.label}
-                            </button>
-                        )
-                    })}
+                <div className="flex items-center gap-2">
+                    <div
+                        className="flex h-9 shrink-0 items-center rounded-lg bg-slate-100 p-1"
+                        role="tablist"
+                        aria-label="여행방 모드"
+                    >
+                        <button
+                            onClick={() => switchMode('plan')}
+                            role="tab"
+                            aria-selected={mode === 'plan'}
+                            className={`flex h-7 items-center rounded-md px-2.5 text-xs font-bold transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand @min-[560px]:px-3 @min-[560px]:text-[13px] ${mode === 'plan' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'}`}
+                        >
+                            계획
+                        </button>
+                        <button
+                            onClick={() => switchMode('record')}
+                            role="tab"
+                            aria-selected={mode === 'record'}
+                            className={`flex h-7 items-center rounded-md px-2.5 text-xs font-bold transition focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand @min-[560px]:px-3 @min-[560px]:text-[13px] ${mode === 'record' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'}`}
+                        >
+                            기록
+                        </button>
+                    </div>
+                    <span
+                        className="h-6 w-px shrink-0 bg-slate-200"
+                        aria-hidden="true"
+                    />
+                    <div
+                        className="flex min-w-0 flex-1 items-center gap-1"
+                        role="tablist"
+                        aria-label={`${mode === 'plan' ? '계획' : '기록'} 화면`}
+                    >
+                        {(mode === 'plan'
+                            ? [
+                                  {
+                                      key: 'places' as const,
+                                      label: '장소',
+                                      icon: ListIcon,
+                                  },
+                                  {
+                                      key: 'itinerary' as const,
+                                      label: '날짜',
+                                      icon: CalendarDaysIcon,
+                                  },
+                                  ...(room.startDate && room.endDate
+                                      ? [
+                                            {
+                                                key: 'schedule' as const,
+                                                label: '일정',
+                                                icon: MapIcon,
+                                            },
+                                        ]
+                                      : []),
+                              ]
+                            : [
+                                  {
+                                      key: 'records' as const,
+                                      label: '로그',
+                                      icon: HistoryIcon,
+                                  },
+                                  {
+                                      key: 'expenses' as const,
+                                      label: '정산',
+                                      icon: ReceiptTextIcon,
+                                  },
+                              ]
+                        ).map((item) => {
+                            const active =
+                                mode === 'plan'
+                                    ? planTab === (item.key as PlanTab)
+                                    : recordTab === (item.key as RecordTab)
+                            return (
+                                <button
+                                    key={item.key}
+                                    onClick={() => {
+                                        if (active) return
+                                        if (!confirmDiscardDateChanges()) return
+                                        if (mode === 'plan') {
+                                            setPlanTab(item.key as PlanTab)
+                                        } else {
+                                            setRecordTab(item.key as RecordTab)
+                                        }
+                                    }}
+                                    role="tab"
+                                    aria-selected={active}
+                                    className={`flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 text-[13px] font-extrabold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand @min-[560px]:px-3 @min-[560px]:text-sm ${active ? 'bg-brand text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}
+                                >
+                                    <item.icon
+                                        size={16}
+                                        strokeWidth={active ? 2.5 : 2}
+                                    />{' '}
+                                    {item.label}
+                                </button>
+                            )
+                        })}
+                    </div>
                 </div>
-                <button
-                    onClick={() => setActivityOpen((value) => !value)}
-                    className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${activityOpen ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
-                    aria-label="전체 활동 로그 열기"
-                >
-                    <HistoryIcon size={17} />
-                </button>
             </div>
 
             {mode === 'plan' && planTab === 'places' && (
@@ -487,7 +552,7 @@ export function RoomDetailPanel({
                             </p>
                         )}
                     </div>
-                    <div className="mp-scroll flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
+                    <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2.5 overflow-y-auto px-3 py-3 @min-[760px]:grid-cols-2">
                         {places.length === 0 ? (
                             <p className="py-16 text-center text-sm text-slate-400">
                                 해당하는 장소가 없어요
@@ -558,6 +623,7 @@ export function RoomDetailPanel({
                     places={places}
                     canWrite={canPlanWrite}
                     onDaysLoaded={onItineraryDaysLoaded}
+                    onPlaceFocus={onSelectPlace}
                 />
             )}
             {mode === 'record' && recordTab === 'records' && (
