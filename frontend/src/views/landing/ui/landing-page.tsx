@@ -1,659 +1,749 @@
-import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import {
-    ArrowRightIcon,
-    CalendarDaysIcon,
-    CheckIcon,
-    MapPinnedIcon,
-    MessageCircleIcon,
-    PlusIcon,
-    SparklesIcon,
-    ThumbsUpIcon,
-    UsersRoundIcon,
-} from 'lucide-react'
-import { motion } from 'framer-motion'
+'use client'
 
-const places = [
-    {
-        name: '오설록 티 뮤지엄',
-        type: '카페',
-        image: '/5c004c76-d2d5-4fab-8307-e5df0c194dc1.jpg',
-        position: 'left-[31%] top-[30%]',
-        color: '#b45309',
-    },
-    {
-        name: '협재 해수욕장',
-        type: '자연',
-        image: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
-        position: 'left-[15%] top-[53%]',
-        color: '#0f766e',
-    },
-    {
-        name: '자매국수',
-        type: '맛집',
-        image: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
-        position: 'left-[57%] top-[59%]',
-        color: '#dc2626',
-    },
-]
+import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
+const LANDING_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
+  @font-face {
+    font-family: 'BMDOHYEON';
+    src: url('https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff2') format('woff2'),
+         url('https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  @keyframes pl-fadeUpIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pl-floatY { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-14px); } }
+  @keyframes pl-floatY2 { 0%,100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(10px) rotate(4deg); } }
+  @keyframes pl-heroBody { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
+  @keyframes pl-heroBag { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-2px); } }
+  @keyframes pl-floatPin { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-13px); } }
+  @keyframes pl-twinkle { 0%,100% { opacity: 0.5; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
+  .pl-h { font-family: 'BMDOHYEON', 'Gothic A1', 'Manrope', sans-serif !important; font-weight: 400 !important; letter-spacing: 0 !important; word-break: keep-all; }
+  .pl-nav-link { font-weight: 600; font-size: 15px; color: #3A2A28; position: relative; padding-bottom: 2px; background-image: linear-gradient(#FF7A59, #FF7A59); background-size: 0% 2px; background-repeat: no-repeat; background-position: left bottom; transition: background-size 0.25s ease; text-decoration: none; }
+  .pl-nav-link:hover { background-size: 100% 2px; }
+  .pl-cta-btn:hover { transform: translateY(-3px); box-shadow: 0 16px 28px rgba(255,90,60,0.42) !important; }
+  .pl-ghost-btn:hover { transform: translateY(-3px); border-color: #FFB4C6 !important; }
+  .pl-h2-hover:hover { transform: scale(1.015); }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+  @media (max-width: 720px) {
+    #pl-hero { flex-wrap: wrap !important; min-height: auto !important; }
+    #pl-hero > div { flex-basis: 100% !important; }
+  }
+`
 
 export function Landing() {
     const navigate = useNavigate()
 
+    const [scrolled, setScrolled] = useState(false)
+    const [revealed, setRevealed] = useState<Record<string, boolean>>({})
+    const [isMobile, setIsMobile] = useState(false)
+    const [reduced, setReduced] = useState(false)
+    const [ctaHover, setCtaHover] = useState(false)
+    const [activeSection, setActiveSection] = useState('problem')
+    const [smx, setSmx] = useState(0)
+    const [smy, setSmy] = useState(0)
+
+    const targetMxRef = useRef(0)
+    const targetMyRef = useRef(0)
+    const smxRef = useRef(0)
+    const smyRef = useRef(0)
+    const smoothRafRef = useRef<number | null>(null)
+    const scrollRafRef = useRef<number | null>(null)
+    const ioRef = useRef<IntersectionObserver | null>(null)
+
+    // CSS 주입
+    useEffect(() => {
+        const style = document.createElement('style')
+        style.textContent = LANDING_STYLES
+        document.head.appendChild(style)
+        return () => { document.head.removeChild(style) }
+    }, [])
+
+    // 스크롤 감지
+    useEffect(() => {
+        const onScroll = () => {
+            if (scrollRafRef.current) return
+            scrollRafRef.current = requestAnimationFrame(() => {
+                scrollRafRef.current = null
+                setScrolled(window.scrollY > 24)
+            })
+        }
+        window.addEventListener('scroll', onScroll, { passive: true })
+        return () => window.removeEventListener('scroll', onScroll)
+    }, [])
+
+    // 모바일 감지 + reduced motion
+    useEffect(() => {
+        const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+        setReduced(mq.matches)
+        setIsMobile(window.innerWidth <= 768)
+        const onResize = () => setIsMobile(window.innerWidth <= 768)
+        window.addEventListener('resize', onResize)
+        return () => window.removeEventListener('resize', onResize)
+    }, [])
+
+    // 마우스 패럴랙스
+    useEffect(() => {
+        const onMouse = (e: MouseEvent) => {
+            if (window.innerWidth <= 768) return
+            targetMxRef.current = e.clientX / window.innerWidth - 0.5
+            targetMyRef.current = e.clientY / window.innerHeight - 0.5
+        }
+        window.addEventListener('mousemove', onMouse)
+
+        const loop = () => {
+            smxRef.current += (targetMxRef.current - smxRef.current) * 0.08
+            smyRef.current += (targetMyRef.current - smyRef.current) * 0.08
+            setSmx(smxRef.current)
+            setSmy(smyRef.current)
+            smoothRafRef.current = requestAnimationFrame(loop)
+        }
+        smoothRafRef.current = requestAnimationFrame(loop)
+
+        return () => {
+            window.removeEventListener('mousemove', onMouse)
+            if (smoothRafRef.current) cancelAnimationFrame(smoothRafRef.current)
+        }
+    }, [])
+
+    // IntersectionObserver 스크롤 리빌
+    useEffect(() => {
+        ioRef.current = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('data-reveal-root')
+                        if (id) {
+                            setRevealed((prev) => ({ ...prev, [id]: true }))
+                            ioRef.current?.unobserve(entry.target)
+                        }
+                    }
+                })
+            },
+            { threshold: 0.22 },
+        )
+        document.querySelectorAll('[data-reveal-root]').forEach((el) =>
+            ioRef.current?.observe(el),
+        )
+        return () => ioRef.current?.disconnect()
+    }, [])
+
+    // 활성 섹션 추적
+    useEffect(() => {
+        const update = () => {
+            const centerY = window.innerHeight / 2
+            let best: string | null = null
+            let bestDist = Infinity
+            document.querySelectorAll('[data-reveal-root]').forEach((el) => {
+                const rect = el.getBoundingClientRect()
+                const mid = rect.top + rect.height / 2
+                const d = Math.abs(mid - centerY)
+                if (d < bestDist) {
+                    bestDist = d
+                    best = el.getAttribute('data-reveal-root')
+                }
+            })
+            if (best) setActiveSection(best)
+        }
+        update()
+        window.addEventListener('scroll', update, { passive: true })
+        window.addEventListener('resize', update)
+        return () => {
+            window.removeEventListener('scroll', update)
+            window.removeEventListener('resize', update)
+        }
+    }, [])
+
+    // 헬퍼
+    const scrollTo = (id: string) => (e: React.MouseEvent) => {
+        e.preventDefault()
+        document.getElementById(id)?.scrollIntoView({
+            behavior: reduced ? 'auto' : 'smooth',
+            block: 'start',
+        })
+    }
+
+    const reveal = (
+        id: string,
+        delay = 0,
+        dist = 26,
+        extra: { scale?: number; rotate?: number } = {},
+    ): React.CSSProperties => {
+        const shown = reduced || revealed[id]
+        return {
+            opacity: shown ? 1 : 0,
+            transform: shown
+                ? 'translateY(0) scale(1) rotate(0deg)'
+                : `translateY(${dist}px) scale(${extra.scale ?? 1}) rotate(${extra.rotate ?? 0}deg)`,
+            transition: `opacity 0.85s cubic-bezier(.22,1,.36,1) ${delay}ms, transform 0.85s cubic-bezier(.22,1,.36,1) ${delay}ms`,
+        }
+    }
+
+    const revealCard = (
+        id: string,
+        delay: number,
+        hiddenT: string,
+        shownT: string,
+    ): React.CSSProperties => {
+        const shown = reduced || revealed[id]
+        return {
+            opacity: shown ? 1 : 0,
+            transform: shown ? shownT : hiddenT,
+            transition: `opacity 0.95s cubic-bezier(.22,1,.36,1) ${delay}ms, transform 0.95s cubic-bezier(.22,1,.36,1) ${delay}ms`,
+        }
+    }
+
+    const sceneParallax = (id: string, strength: number): React.CSSProperties => {
+        if (isMobile || reduced) return {}
+        const el = document.getElementById(id)
+        if (!el) return {}
+        const rect = el.getBoundingClientRect()
+        const vh = window.innerHeight || 1
+        const progress = (rect.top + rect.height / 2 - vh / 2) / vh
+        const offset = Math.max(-26, Math.min(26, progress * strength))
+        return { transform: `translateY(${offset}px)`, transition: 'transform 0.12s linear' }
+    }
+
+    const gazeRotate =
+        isMobile || reduced ? 0 : Math.max(-3, Math.min(3, smx * 6))
+    const heroFlamingoStyle: React.CSSProperties = {
+        position: 'relative',
+        transform: `translate(${isMobile || reduced ? 0 : smx * 10}px, ${isMobile || reduced ? 0 : smy * 10}px) rotate(${ctaHover ? -6 : gazeRotate}deg) translateX(${ctaHover ? -10 : 0}px) translateY(${ctaHover ? -6 : 0}px)`,
+        transition: 'transform 0.45s cubic-bezier(.22,1,.36,1)',
+    }
+
+    const journeySteps = [
+        ['problem', '문제'],
+        ['place', '장소'],
+        ['vote', '투표'],
+        ['ai', 'AI'],
+        ['expense', '정산'],
+        ['cta', '출발'],
+    ]
+
+    // 공용 스타일 상수
+    const CARD_BASE: React.CSSProperties = {
+        background: '#FFFDF8',
+        border: '2.5px solid #3A2A28',
+        borderRadius: 16,
+        padding: '16px 18px',
+        boxShadow: '3px 3px 0 #3A2A28',
+        minHeight: 76,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        justifyContent: 'center',
+    }
+
     return (
-        <div className="min-h-full w-full overflow-x-hidden bg-[#f8faf9] text-slate-900">
-            <header className="mx-auto flex max-w-[1400px] items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-                <Link
-                    to="/"
-                    className="flex items-center gap-2.5"
-                    aria-label="Plamingo 홈"
+        <div
+            style={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: '100vw',
+                overflowX: 'hidden',
+                background: '#FDF3E7',
+                fontFamily: "'Manrope', sans-serif",
+                color: '#3A2A28',
+                WebkitFontSmoothing: 'antialiased',
+            }}
+        >
+            {/* ── NAV ── */}
+            <nav
+                style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 16,
+                    padding: '18px clamp(20px,5vw,64px)',
+                    transition: 'background 0.35s ease, box-shadow 0.35s ease',
+                }}
+            >
+                {/* nav 배경 블러 레이어 */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: -1,
+                        background: scrolled ? 'rgba(255,247,238,0.86)' : 'transparent',
+                        backdropFilter: scrolled ? 'blur(16px)' : 'none',
+                        boxShadow: scrolled ? '0 1.5px 0 rgba(35,38,75,0.06)' : 'none',
+                        transition: 'background 0.35s ease, box-shadow 0.35s ease',
+                    }}
+                />
+                <a
+                    href="#pl-hero"
+                    onClick={scrollTo('pl-hero')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontWeight: 800,
+                        fontSize: 20,
+                        color: '#3A2A28',
+                        zIndex: 1,
+                        textDecoration: 'none',
+                    }}
                 >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
-                        <SparklesIcon size={19} />
-                    </span>
-                    <span className="text-lg font-extrabold tracking-tight">
-                        Plamingo
-                    </span>
-                </Link>
-
-                <nav
-                    className="hidden items-center gap-7 text-sm font-medium text-slate-500 md:flex"
-                    aria-label="공개 메뉴"
-                >
-                    <a href="#features" className="hover:text-slate-900">
-                        서비스 살펴보기
-                    </a>
-                    <a href="#journey" className="hover:text-slate-900">
-                        함께 만드는 여행
-                    </a>
-                </nav>
-
-                <div className="flex items-center gap-2 sm:gap-3">
+                    <svg width="30" height="30" viewBox="0 0 30 30">
+                        <circle cx="15" cy="15" r="15" fill="#FF7A59" />
+                        <path d="M10 20c0-5 3-9 7-9" stroke="#FDF3E7" strokeWidth="3" strokeLinecap="round" fill="none" />
+                        <circle cx="19" cy="9" r="3.4" fill="#FDF3E7" />
+                    </svg>
+                    Plamingo
+                </a>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(16px,3vw,36px)', zIndex: 1, flexWrap: 'wrap' }}>
+                    <a href="#place-section" onClick={scrollTo('place-section')} className="pl-nav-link">주요 기능</a>
+                    <a href="#vote-section" onClick={scrollTo('vote-section')} className="pl-nav-link">이용 방법</a>
+                    <a href="#ai-section" onClick={scrollTo('ai-section')} className="pl-nav-link">AI 여행 계획</a>
+                    <a href="#footer-section" onClick={scrollTo('footer-section')} className="pl-nav-link">팀 소개</a>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, zIndex: 1 }}>
                     <button
                         onClick={() => navigate('/login')}
-                        className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 sm:px-4"
+                        style={{ background: 'transparent', color: '#3A2A28', fontWeight: 600, fontSize: 14, padding: '9px 18px', borderRadius: 999, border: '1.5px solid #EFE2D6', cursor: 'pointer', fontFamily: "'Manrope', sans-serif" }}
                     >
                         로그인
                     </button>
                     <button
                         onClick={() => navigate('/login')}
-                        className="flamingo-gradient flamingo-glow rounded-lg px-3.5 py-2 text-sm font-semibold text-white transition hover:opacity-90 sm:px-4"
+                        style={{ background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 14, padding: '9px 20px', borderRadius: 999, border: 'none', cursor: 'pointer', boxShadow: '0 8px 18px rgba(255,90,60,0.28)', fontFamily: "'Manrope', sans-serif" }}
                     >
                         시작하기
                     </button>
                 </div>
-            </header>
+            </nav>
 
-            <main>
-                <section className="mx-auto grid max-w-[1400px] gap-12 px-5 pb-16 pt-10 sm:px-8 sm:pt-16 lg:grid-cols-[minmax(0,0.9fr)_minmax(540px,1.1fr)] lg:items-center lg:px-10 lg:pb-24 lg:pt-20">
-                    <div className="max-w-2xl">
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.45 }}
-                            className="inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700"
+            {/* ── HERO ── */}
+            <section
+                id="pl-hero"
+                style={{
+                    position: 'relative',
+                    minHeight: '100vh',
+                    boxSizing: 'border-box',
+                    scrollSnapAlign: 'start',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '96px clamp(16px,4vw,80px) 40px',
+                    gap: 'clamp(16px,2.5vw,60px)',
+                    flexWrap: 'wrap',
+                    overflow: 'hidden',
+                }}
+            >
+                {/* 배경 점선 경로 */}
+                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0, opacity: 0.85 }} viewBox="0 0 1440 900" preserveAspectRatio="none">
+                    <path d="M-40 620 C 220 520, 340 720, 560 600 S 900 420, 1180 520 S 1500 380, 1560 460" stroke="#FF7A59" strokeWidth="3" strokeDasharray="3 12" strokeLinecap="round" fill="none" opacity="0.9" />
+                    <path d="M-60 220 C 180 300, 380 120, 620 220 S 1000 340, 1220 200" stroke="#8B7CFF" strokeWidth="3" strokeDasharray="3 12" strokeLinecap="round" fill="none" opacity="0.85" />
+                    {[
+                        { cx: 220, cy: 520, r: 5, fill: '#FF7A59', o: 0.5 },
+                        { cx: 620, cy: 220, r: 4, fill: '#D8CFFF', o: 0.6 },
+                        { cx: 1180, cy: 520, r: 4.5, fill: '#FFB4C6', o: 0.6 },
+                        { cx: 380, cy: 680, r: 3.5, fill: '#FFB4C6', o: 0.5 },
+                        { cx: 860, cy: 150, r: 4, fill: '#FF7A59', o: 0.45 },
+                        { cx: 1340, cy: 240, r: 3.5, fill: '#D8CFFF', o: 0.5 },
+                        { cx: 90, cy: 330, r: 3.5, fill: '#FF7A59', o: 0.4 },
+                        { cx: 1020, cy: 620, r: 4, fill: '#FFB4C6', o: 0.5 },
+                    ].map(({ cx, cy, r, fill, o }) => (
+                        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} fill={fill} opacity={o} />
+                    ))}
+                </svg>
+
+                {/* 플로팅 아이콘들 */}
+                <div style={{ position: 'absolute', left: '3%', bottom: '6%', zIndex: 0, width: 34, height: 34, borderRadius: 9, background: '#FFF', border: '2px solid #3A2A28', boxShadow: '2px 2px 0 #3A2A28', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pl-floatY 6s ease-in-out infinite' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2C7 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3-8-8-8z" fill="#FF7A59" /></svg>
+                </div>
+                <div style={{ position: 'absolute', right: '4%', top: '18%', zIndex: 0, width: 30, height: 30, borderRadius: 8, background: '#FFF', border: '2px solid #3A2A28', boxShadow: '2px 2px 0 #3A2A28', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pl-floatY2 5.4s ease-in-out infinite' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 21s-8-4.8-8-11a5 5 0 0 1 8-4 5 5 0 0 1 8 4c0 6.2-8 11-8 11z" fill="#8B7CFF" /></svg>
+                </div>
+                <div style={{ position: 'absolute', right: '6%', bottom: '10%', zIndex: 0, width: 32, height: 32, borderRadius: 8, background: '#FFF', border: '2px solid #3A2A28', boxShadow: '2px 2px 0 #3A2A28', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pl-floatPin 6.6s ease-in-out infinite' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2" fill="#D8CFFF" /><circle cx="12" cy="13.5" r="3.4" fill="#FFF" /></svg>
+                </div>
+
+                {/* 히어로 텍스트 */}
+                <div style={{ flex: '1 1 380px', position: 'relative', zIndex: 1, maxWidth: 760, minWidth: 0 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#FFE3EA', color: '#C7476B', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 999, marginBottom: 16, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) both' }}>
+                        함께 계획하는 AI 여행 플랫폼
+                    </div>
+                    <h1
+                        className="pl-h"
+                        style={{ fontSize: 'clamp(40px,6vh,88px)', lineHeight: 1.22, margin: '0 0 18px', animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 100ms both' }}
+                    >
+                        이번 여행,<br />단톡방 말고<br />여기서 짜자.
+                    </h1>
+                    <p style={{ fontSize: 'clamp(16px,1.7vw,20px)', lineHeight: 1.6, color: '#5B5F7E', fontWeight: 500, margin: '0 0 24px', maxWidth: 520, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 200ms both' }}>
+                        흩어진 장소랑 의견, 한곳에 모으고<br />AI가 정리까지 싹 다 해드려요.
+                    </p>
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 300ms both' }}>
+                        <a
+                            href="#place-section"
+                            onClick={scrollTo('place-section')}
+                            onMouseEnter={() => setCtaHover(true)}
+                            onMouseLeave={() => setCtaHover(false)}
+                            className="pl-cta-btn"
+                            style={{ background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 16, padding: '16px 28px', borderRadius: 999, boxShadow: '0 12px 24px rgba(255,90,60,0.34)', transition: 'transform 0.2s ease, box-shadow 0.2s ease', textDecoration: 'none', display: 'inline-block' }}
                         >
-                            <SparklesIcon size={14} /> Collaborative travel
-                            planning
-                        </motion.div>
-                        <motion.h1
-                            initial={{ opacity: 0, y: 14 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.06 }}
-                            className="mt-6 text-4xl font-extrabold leading-[1.12] tracking-[-0.055em] text-slate-950 sm:text-5xl lg:text-[62px]"
+                            바로 여행방 만들기
+                        </a>
+                        <a
+                            href="#ai-section"
+                            onClick={scrollTo('ai-section')}
+                            className="pl-ghost-btn"
+                            style={{ background: '#FFFDF9', color: '#3A2A28', fontWeight: 700, fontSize: 16, padding: '16px 28px', borderRadius: 999, border: '1.5px solid #EFE2D6', transition: 'transform 0.2s ease, border-color 0.2s ease', textDecoration: 'none', display: 'inline-block' }}
                         >
-                            Plan Together.
-                            <br />
-                            <span className="text-brand-700">
-                                Travel Better.
-                            </span>
-                        </motion.h1>
-                        <motion.p
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.12 }}
-                            className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg"
-                        >
-                            친구들과 흩어져 있던 여행 계획을 하나의 공간에서
-                            관리하세요. 장소를 모으고, 투표하고, 일정을 만들고,
-                            AI의 추천까지 함께 완성하는 여행 협업 플랫폼입니다.
-                        </motion.p>
-                        <motion.div
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.18 }}
-                            className="mt-8 flex flex-wrap items-center gap-3"
-                        >
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="flamingo-gradient flamingo-glow flex items-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold text-white transition hover:opacity-90"
-                            >
-                                무료로 여행방 만들기{' '}
-                                <ArrowRightIcon size={17} />
-                            </button>
-                            <a
-                                href="#features"
-                                className="rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
-                            >
-                                서비스 살펴보기
-                            </a>
-                        </motion.div>
-                        <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-slate-500">
-                            <span className="flex items-center gap-1.5">
-                                <CheckIcon size={14} className="text-brand" />{' '}
-                                소셜 계정으로 10초 가입
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                                <CheckIcon size={14} className="text-brand" />{' '}
-                                멤버와 함께 결정하는 여행
-                            </span>
+                            뭐가 다른지 보기
+                        </a>
+                    </div>
+                    <p style={{ fontSize: 14, color: '#8A8FA8', fontWeight: 600, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 380ms both' }}>
+                        ✓ 회원가입 30초, 카드 필요 없음
+                    </p>
+                </div>
+
+                {/* 히어로 이미지 */}
+                <div style={{ flex: '1 1 300px', position: 'relative', minHeight: 480, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', paddingRight: '2%', paddingBottom: '2%', zIndex: 1, minWidth: 0, overflow: 'visible' }}>
+                    <svg style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 'min(60vw,380px)', height: 'min(60vw,380px)', zIndex: 0, opacity: 0.7 }} viewBox="0 0 400 400">
+                        <circle cx="200" cy="200" r="196" fill="none" stroke="#8B7CFF" strokeWidth="2" strokeDasharray="3 9" />
+                    </svg>
+                    <div style={{ animation: 'pl-heroBody 4.6s ease-in-out infinite' }}>
+                        <div style={heroFlamingoStyle}>
+                            <img
+                                src="/assets/plamingo2-hero-v2.png"
+                                alt="Plamingo 캐릭터"
+                                style={{ width: 280, height: 'auto', display: 'block', filter: 'drop-shadow(0 26px 30px rgba(255,122,89,0.3))', animation: 'pl-heroBag 4.6s ease-in-out infinite 0.25s' }}
+                            />
+                            <div style={{ position: 'absolute', right: -6, top: 10, opacity: ctaHover ? 1 : 0, transform: ctaHover ? 'translate(0,0) rotate(0deg)' : 'translate(8px,-6px) rotate(-10deg)', transition: 'opacity 0.3s ease, transform 0.3s ease' }}>
+                                <svg width="46" height="46" viewBox="0 0 46 46"><path d="M6 23c8 0 16-8 16-16M22 7l6 0 0 6" stroke="#FF7A59" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </section>
 
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.97, y: 12 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ duration: 0.65, delay: 0.13 }}
-                        className="relative mx-auto w-full max-w-[720px]"
+            {/* ── 여정 레일 (좌측 고정) ── */}
+            {!isMobile && (
+                <div style={{ position: 'fixed', left: 28, top: '50%', transform: 'translateY(-50%)', zIndex: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    {journeySteps.map(([id, label], i) => {
+                        const idx = journeySteps.findIndex(([oid]) => oid === activeSection)
+                        const active = id === activeSection
+                        const passed = idx > i
+                        return (
+                            <React.Fragment key={id}>
+                                <div
+                                    title={label}
+                                    style={{ width: active ? 12 : 8, height: active ? 12 : 8, borderRadius: '50%', background: active ? '#FF7A59' : passed ? '#FFB4C6' : '#EFE2D6', transition: 'all 0.35s ease', boxShadow: active ? '0 0 0 5px rgba(255,122,89,0.16)' : 'none' }}
+                                />
+                                {i < journeySteps.length - 1 && (
+                                    <div style={{ width: 2, height: 22, background: passed ? '#FFB4C6' : '#EFE2D6', transition: 'background 0.35s ease' }} />
+                                )}
+                            </React.Fragment>
+                        )
+                    })}
+                </div>
+            )}
+
+            {/* ── SCENE 01 PROBLEM ── */}
+            <section
+                id="problem-section"
+                data-reveal-root="problem"
+                style={{ position: 'relative', minHeight: '100vh', boxSizing: 'border-box', scrollSnapAlign: 'start', padding: 'min(10vw,100px) clamp(20px,6vw,80px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', overflow: 'hidden' }}
+            >
+                <div style={{ position: 'absolute', left: '-8%', top: '-6%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, #D8CFFF 0%, transparent 70%)', opacity: 0.24, filter: 'blur(14px)', zIndex: 0 }} />
+                <div style={{ position: 'absolute', right: '-10%', bottom: '-10%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, #FFB4C6 0%, transparent 70%)', opacity: 0.2, filter: 'blur(14px)', zIndex: 0 }} />
+
+                <div style={{ ...reveal('problem', 0), position: 'relative', zIndex: 1 }}>
+                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: 8 }}>
+                        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-52%)', fontSize: 'clamp(90px,12vw,150px)', fontWeight: 800, color: 'transparent', WebkitTextStroke: '1.5px rgba(199,71,107,0.16)', lineHeight: 1, zIndex: -1, whiteSpace: 'nowrap' }}>01</div>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: '#C7476B', letterSpacing: '0.05em' }}>SCENE 01 · PROBLEM</div>
+                    </div>
+                    <h2
+                        className="pl-h pl-h2-hover"
+                        style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 60px', transition: 'transform 0.3s ease' }}
                     >
-                        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-2 shadow-[0_22px_70px_rgba(15,23,42,0.12)]">
-                            <div className="overflow-hidden rounded-[21px] border border-slate-100 bg-white">
-                                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5">
-                                    <div className="flex items-center gap-2.5">
-                                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white">
-                                            <SparklesIcon size={14} />
-                                        </span>
-                                        <div>
-                                            <p className="text-xs font-bold">
-                                                Plamingo · 제주도 여행 🌊
-                                            </p>
-                                            <p className="text-[10px] text-slate-400">
-                                                4명 · 2박 3일
-                                            </p>
+                        여행은 다 같이 가면서,<br />계획은 왜 맨날 나 혼자짤까?
+                    </h2>
+                </div>
+
+                <div style={{ zIndex: 1, width: '100%', maxWidth: 920, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'clamp(24px,4vw,56px)', flexWrap: 'wrap' }}>
+                    {/* 왼쪽 스크랩 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 22, flex: '1 1 240px', maxWidth: 280, marginTop: -10 }}>
+                        {[
+                            { delay: 60, rotate: '-4deg', ml: 14, label: '메신저', title: '여기 숙소 어때?? 🏝️', sub: '민지', icon: <svg width="14" height="14" viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4z" fill="#D8CFFF" /></svg> },
+                            { delay: 140, rotate: '3deg', ml: -10, label: '공유 링크', title: 'map.naver.com/p/entry/...', sub: '저장 12곳', icon: <svg width="14" height="14" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2" stroke="#8A8FA8" strokeWidth="2.2" fill="none" strokeLinecap="round" /></svg> },
+                            { delay: 220, rotate: '-6deg', ml: 18, label: '지도 캡처', title: '아라시야마 근처', sub: '', icon: <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 2C7 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3-8-8-8z" fill="#D8CFFF" /></svg> },
+                            { delay: 300, rotate: '-5deg', ml: -6, label: '맛집', title: '니시키 카페', sub: '', icon: <svg width="14" height="14" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" fill="none" stroke="#C7476B" strokeWidth="1.8" /></svg> },
+                        ].map(({ delay, rotate, ml, label, title, sub, icon }, idx) => (
+                            <div key={idx} style={{ ...revealCard('problem', delay, 'translateY(14px) rotate(0deg)', `translateY(0) rotate(${rotate})`), ...CARD_BASE, marginLeft: ml }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: '#8A8FA8', letterSpacing: '0.03em' }}>{icon}{label}</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#3A2A28', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+                                {sub && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8A8FA8' }}>{sub}</div>}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* 캐릭터 */}
+                    <div style={{ ...revealCard('problem', 440, 'translateY(18px) scale(0.94)', 'translateY(0) scale(1)'), position: 'absolute', right: 'clamp(16px,4vw,48px)', bottom: 'clamp(12px,3vw,36px)', width: 200, zIndex: 5 }}>
+                        <img src="/assets/plamingo2-hero-v2.png" alt="Plamingo 캐릭터" style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 16px 20px rgba(255,122,89,0.2))' }} />
+                    </div>
+
+                    {/* 오른쪽 스크랩 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 22, flex: '1 1 240px', maxWidth: 280, marginTop: 14 }}>
+                        {[
+                            { delay: 160, rotate: '5deg', ml: -8, label: '메모 · 여행 일정', title: 'Day1: 아라시야마?', sub: 'Day2: 오사카?', icon: <svg width="14" height="14" viewBox="0 0 24 24"><path d="M6 2h9l3 3v17H6z" fill="none" stroke="#8A8FA8" strokeWidth="1.8" /><path d="M9 11h6M9 15h6" stroke="#8A8FA8" strokeWidth="1.6" /></svg> },
+                            { delay: 240, rotate: '-3deg', ml: 16, label: '숙소 예약', title: '교토 게스트하우스', sub: '3박 4일 확정', icon: <svg width="14" height="14" viewBox="0 0 24 24"><path d="M3 10V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4M2 10h20v9H2z" fill="none" stroke="#8A8FA8" strokeWidth="1.8" /></svg> },
+                            { delay: 320, rotate: '4deg', ml: -14, label: 'e-티켓', title: '간사이공항', sub: '', icon: <svg width="14" height="14" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2" fill="none" stroke="#8A8FA8" strokeWidth="1.8" /><circle cx="12" cy="13.5" r="3" fill="none" stroke="#8A8FA8" strokeWidth="1.6" /></svg> },
+                            { delay: 380, rotate: '3deg', ml: 10, label: '체크리스트', title: '여권 확인', sub: '유심 구매', icon: <svg width="14" height="14" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4" stroke="#8A8FA8" strokeWidth="2" fill="none" strokeLinecap="round" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="#8A8FA8" strokeWidth="1.8" fill="none" /></svg> },
+                        ].map(({ delay, rotate, ml, label, title, sub, icon }, idx) => (
+                            <div key={idx} style={{ ...revealCard('problem', delay, 'translateY(14px) rotate(0deg)', `translateY(0) rotate(${rotate})`), ...CARD_BASE, marginLeft: ml }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 800, color: '#8A8FA8', letterSpacing: '0.03em' }}>{icon}{label}</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#3A2A28' }}>{title}</div>
+                                {sub && <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8A8FA8' }}>{sub}</div>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ── SCENE 02 PLACE ── */}
+            <section
+                id="place-section"
+                data-reveal-root="place"
+                style={{ position: 'relative', minHeight: '100vh', boxSizing: 'border-box', scrollSnapAlign: 'start', padding: 'min(10vw,100px) clamp(20px,6vw,80px)', display: 'flex', alignItems: 'center', gap: 'clamp(30px,5vw,72px)', flexWrap: 'wrap-reverse', overflow: 'hidden' }}
+            >
+                <div style={{ position: 'absolute', right: '-6%', top: '-8%', width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle, #FF7A59 0%, transparent 70%)', opacity: 0.14, filter: 'blur(14px)', zIndex: 0 }} />
+                <div style={{ flex: '1 1 420px', position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: 420 }}>
+                        <div style={{ ...reveal('place', 160, 34, { scale: 0.94, rotate: -2 }), ...sceneParallax('place-section', 30) }}>
+                            <div style={{ background: '#FFFDF8', border: '3px solid #3A2A28', borderRadius: 22, padding: 22, boxShadow: '5px 5px 0 #3A2A28' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F4F1EC', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2" stroke="#8A8FA8" strokeWidth="2" fill="none" strokeLinecap="round" /></svg>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: '#5B5F7E' }}>map.naver.com/p/entry/place/1934...</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 14, alignItems: 'center', border: '1.5px solid #F4F1EC', borderRadius: 16, padding: 14 }}>
+                                    <div style={{ width: 64, height: 64, borderRadius: 12, background: 'linear-gradient(135deg,#FFB4C6,#D8CFFF)', flexShrink: 0 }} />
+                                    <div>
+                                        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>교토 아라시야마 카페</div>
+                                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                                            <span style={{ fontSize: 11, fontWeight: 700, background: '#FFE3EA', color: '#C7476B', padding: '3px 8px', borderRadius: 999 }}>카페</span>
+                                            <span style={{ fontSize: 11, fontWeight: 700, background: '#EDE8FF', color: '#6B5FC7', padding: '3px 8px', borderRadius: 999 }}>대나무숲 근처</span>
                                         </div>
-                                    </div>
-                                    <div className="flex -space-x-1.5">
-                                        {['지', '민', '서', '준'].map(
-                                            (name, index) => (
-                                                <span
-                                                    key={name}
-                                                    className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[9px] font-bold text-white"
-                                                    style={{
-                                                        backgroundColor: [
-                                                            '#0f766e',
-                                                            '#ea580c',
-                                                            '#7c3aed',
-                                                            '#2563eb',
-                                                        ][index],
-                                                    }}
-                                                >
-                                                    {name}
-                                                </span>
-                                            ),
-                                        )}
+                                        <div style={{ fontSize: 12, color: '#8A8FA8', fontWeight: 600 }}>AI 메모 · "노을 시간대 추천"</div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style={{ flex: '1 1 380px', maxWidth: 520 }}>
+                    <div style={{ ...reveal('place', 0), position: 'relative', zIndex: 1 }}>
+                        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 8 }}>
+                            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-52%)', fontSize: 'clamp(80px,10vw,130px)', fontWeight: 800, color: 'transparent', WebkitTextStroke: '1.5px rgba(199,71,107,0.14)', lineHeight: 1, zIndex: -1, whiteSpace: 'nowrap' }}>02</div>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#C7476B', letterSpacing: '0.05em' }}>SCENE 02 · PLACE</div>
+                        </div>
+                        <h2 className="pl-h pl-h2-hover" style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 20px', transition: 'transform 0.3s ease' }}>링크만 툭 던져주세요.<br />정리는 AI가 다 해드릴게요.</h2>
+                        <p style={{ fontSize: 19, lineHeight: 1.75, color: '#5B5F7E', fontWeight: 500 }}>채팅으로 공유한 지도 링크, 붙여넣기만 하세요.<br />카테고리·위치·태그까지 AI가 알아서 정리해요.</p>
+                    </div>
+                </div>
+                <div style={{ position: 'absolute', right: 'clamp(16px,4vw,44px)', bottom: 'clamp(12px,3vw,32px)', width: 170, zIndex: 5 }}>
+                    <img src="/assets/plamingo2-place-v2.png" alt="Plamingo 캐릭터 - 지도 핀" style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.24))' }} />
+                </div>
+            </section>
 
-                                <div className="grid min-h-[350px] grid-cols-[1.28fr_0.72fr] sm:min-h-[410px]">
-                                    <div className="relative overflow-hidden bg-[#e5edeb]">
-                                        <div
-                                            className="absolute inset-0 opacity-70"
-                                            style={{
-                                                backgroundImage:
-                                                    'linear-gradient(#cbd8d3 1px, transparent 1px), linear-gradient(90deg, #cbd8d3 1px, transparent 1px)',
-                                                backgroundSize: '34px 34px',
-                                            }}
-                                        />
-                                        <div className="absolute -left-24 top-[43%] h-60 w-72 rounded-full bg-[#c8e0e7]" />
-                                        <div className="absolute bottom-[-45px] right-[-30px] h-52 w-72 rounded-tl-[80%] bg-[#d4e5d2]" />
-                                        <svg
-                                            className="absolute inset-0 h-full w-full opacity-35"
-                                            viewBox="0 0 480 410"
-                                            preserveAspectRatio="none"
-                                            aria-hidden="true"
-                                        >
-                                            <path
-                                                d="M-20 130 C90 60 190 185 500 100"
-                                                stroke="#82a99d"
-                                                strokeWidth="5"
-                                                fill="none"
-                                            />
-                                            <path
-                                                d="M125 -20 C220 150 80 280 260 440"
-                                                stroke="#82a99d"
-                                                strokeWidth="4"
-                                                fill="none"
-                                            />
-                                        </svg>
-                                        {places.map((place, index) => (
-                                            <div
-                                                key={place.name}
-                                                className={`absolute ${place.position} -translate-x-1/2 -translate-y-full`}
-                                            >
-                                                <span
-                                                    className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-sm shadow-md"
-                                                    style={{
-                                                        backgroundColor:
-                                                            place.color,
-                                                    }}
-                                                >
-                                                    {index === 0
-                                                        ? '☕'
-                                                        : index === 1
-                                                          ? '🌊'
-                                                          : '🍜'}
-                                                    <span
-                                                        className="absolute -bottom-1 h-2 w-2 rotate-45 border-b-2 border-r-2 border-white"
-                                                        style={{
-                                                            backgroundColor:
-                                                                place.color,
-                                                        }}
-                                                    />
-                                                </span>
-                                            </div>
-                                        ))}
-                                        <div className="absolute bottom-3 left-3 rounded-md bg-white/90 px-2 py-1 text-[9px] text-slate-500 shadow-sm">
-                                            지도에서 바로 확인
-                                        </div>
-                                    </div>
-
-                                    <div className="border-l border-slate-200 bg-white p-2.5 sm:p-3">
-                                        <div className="mb-2 flex items-center justify-between">
-                                            <span className="text-[10px] font-bold text-slate-800">
-                                                후보 장소{' '}
-                                                <span className="text-slate-400">
-                                                    6
-                                                </span>
-                                            </span>
-                                            <PlusIcon
-                                                size={13}
-                                                className="text-slate-400"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            {places.map((place, index) => (
-                                                <div
-                                                    key={place.name}
-                                                    className="rounded-lg border border-slate-100 p-1.5 shadow-sm"
-                                                >
-                                                    <div className="flex gap-1.5">
-                                                        <img
-                                                            src={place.image}
-                                                            alt=""
-                                                            className="h-8 w-8 rounded-md object-cover"
-                                                        />
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="truncate text-[9px] font-bold">
-                                                                {place.name}
-                                                            </p>
-                                                            <p className="mt-0.5 text-[8px] text-slate-400">
-                                                                {place.type} ·
-                                                                멤버 {index + 1}
-                                                                명 찬성
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    {index === 0 && (
-                                                        <div className="mt-1 flex items-center gap-1 rounded bg-brand-50 px-1.5 py-1 text-[8px] font-semibold text-brand-700">
-                                                            <CheckIcon
-                                                                size={9}
-                                                            />{' '}
-                                                            지도에 저장됨
-                                                        </div>
-                                                    )}
-                                                </div>
+            {/* ── SCENE 03 VOTE ── */}
+            <section
+                id="vote-section"
+                data-reveal-root="vote"
+                style={{ position: 'relative', minHeight: '100vh', boxSizing: 'border-box', scrollSnapAlign: 'start', padding: 'min(10vw,100px) clamp(20px,6vw,80px)', display: 'flex', alignItems: 'center', gap: 'clamp(30px,5vw,72px)', flexWrap: 'wrap', overflow: 'hidden' }}
+            >
+                <div style={{ position: 'absolute', left: '-8%', bottom: '-10%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, #FFB4C6 0%, transparent 70%)', opacity: 0.22, filter: 'blur(10px)', zIndex: 0 }} />
+                <div style={{ flex: '1 1 380px', maxWidth: 520 }}>
+                    <div style={{ ...reveal('vote', 0), position: 'relative', zIndex: 1 }}>
+                        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 8 }}>
+                            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-52%)', fontSize: 'clamp(80px,10vw,130px)', fontWeight: 800, color: 'transparent', WebkitTextStroke: '1.5px rgba(199,71,107,0.14)', lineHeight: 1, zIndex: -1, whiteSpace: 'nowrap' }}>03</div>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#C7476B', letterSpacing: '0.05em' }}>SCENE 03 · VOTE</div>
+                        </div>
+                        <h2 className="pl-h pl-h2-hover" style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 20px', transition: 'transform 0.3s ease' }}>투표 한 번이면<br />다수결 끝, 싸울 일 없음.</h2>
+                        <p style={{ fontSize: 19, lineHeight: 1.75, color: '#5B5F7E', fontWeight: 500 }}>멤버들이 장소마다 꼭 가기, 좋아요, 제외로 투표하고 댓글을 남기면, 모두의 의견이 자연스럽게 하나로 모여요.</p>
+                    </div>
+                </div>
+                <div style={{ flex: '1 1 420px', position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: 400 }}>
+                        <div style={{ ...reveal('vote', 120, 30, { scale: 0.94, rotate: 2 }), ...sceneParallax('vote-section', -26), position: 'relative' }}>
+                            <div style={{ background: '#FFFDF8', border: '3px solid #3A2A28', borderRadius: 22, padding: 22, boxShadow: '5px 5px 0 #3A2A28', position: 'relative' }}>
+                                <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+                                    <div style={{ width: 60, height: 60, borderRadius: 12, background: 'linear-gradient(135deg,#D8CFFF,#FFB4C6)', flexShrink: 0 }} />
+                                    <div>
+                                        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>교토 후시미이나리 신사</div>
+                                        <div style={{ display: 'flex', marginLeft: -2 }}>
+                                            {['#FFB4C6', '#D8CFFF', '#FF7A59'].map((bg, i) => (
+                                                <div key={i} style={{ width: 22, height: 22, borderRadius: '50%', background: bg, border: '2px solid #FFF', marginLeft: i > 0 ? -8 : 0, boxShadow: '0 2px 6px rgba(35,38,75,0.12)' }} />
                                             ))}
                                         </div>
-                                        <div className="mt-2 rounded-lg bg-brand p-2 text-[9px] font-bold text-white">
-                                            <SparklesIcon
-                                                className="mr-1 inline"
-                                                size={10}
-                                            />{' '}
-                                            AI가 정리안 2개를 찾았어요
-                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div className="absolute -bottom-5 -left-4 hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg sm:flex">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                                <ThumbsUpIcon size={14} />
-                            </span>
-                            <div className="text-[11px]">
-                                <b className="block text-slate-800">
-                                    4명이 함께 결정 중
-                                </b>
-                                <span className="text-slate-400">
-                                    의견이 한곳에 모여요
-                                </span>
-                            </div>
-                        </div>
-                    </motion.div>
-                </section>
-
-                <section
-                    id="features"
-                    className="border-y border-slate-200 bg-white"
-                >
-                    <div className="mx-auto max-w-[1160px] px-5 py-20 sm:px-8 lg:px-10">
-                        <div className="max-w-2xl">
-                            <p className="text-sm font-bold text-brand-700">
-                                MADE FOR THE WHOLE GROUP
-                            </p>
-                            <h2 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-5xl">
-                                함께 고르고, 함께 완성하는
-                                <br />
-                                여행의 모든 순간.
-                            </h2>
-                        </div>
-
-                        <div className="mt-16 grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
-                            <div>
-                                <p className="text-sm font-extrabold text-brand-700">
-                                    01
-                                </p>
-                                <h3 className="mt-3 text-3xl font-extrabold tracking-tight">
-                                    Shared Travel Rooms.
-                                </h3>
-                                <p className="mt-5 max-w-md text-lg leading-8 text-slate-600">
-                                    친구들과 하나의 여행방에서 장소를 모으고,
-                                    <br />
-                                    댓글과 투표를 통해 모두의 의견을 반영하며
-                                    여행을 완성해 보세요.
-                                </p>
-                            </div>
-                            <div className="rounded-[28px] bg-brand-50 p-5">
-                                <div className="rounded-[22px] bg-white p-4 shadow-sm">
-                                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                                        <span className="font-bold">
-                                            제주도 가족여행
-                                        </span>
-                                        <div className="flex -space-x-2">
-                                            {['지', '민', '서', '준'].map(
-                                                (name, index) => (
-                                                    <span
-                                                        key={name}
-                                                        className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[9px] font-bold text-white"
-                                                        style={{
-                                                            backgroundColor: [
-                                                                '#5b32ea',
-                                                                '#f97316',
-                                                                '#0ea5e9',
-                                                                '#16a34a',
-                                                            ][index],
-                                                        }}
-                                                    >
-                                                        {name}
-                                                    </span>
-                                                ),
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 grid grid-cols-2 gap-3">
-                                        <div className="rounded-xl bg-slate-50 p-3">
-                                            <MapPinnedIcon
-                                                className="text-brand"
-                                                size={18}
-                                            />
-                                            <b className="mt-3 block text-sm">
-                                                후보 장소 16곳
-                                            </b>
-                                            <span className="mt-1 block text-xs text-slate-400">
-                                                모두가 함께 추가해요
-                                            </span>
-                                        </div>
-                                        <div className="rounded-xl bg-slate-50 p-3">
-                                            <UsersRoundIcon
-                                                className="text-brand"
-                                                size={18}
-                                            />
-                                            <b className="mt-3 block text-sm">
-                                                멤버 4명
-                                            </b>
-                                            <span className="mt-1 block text-xs text-slate-400">
-                                                의견을 한곳에서
-                                            </span>
-                                        </div>
-                                    </div>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                                    <div style={{ flex: 1, textAlign: 'center', background: '#FFE3EA', color: '#C7476B', fontWeight: 700, fontSize: 13, padding: '9px 0', borderRadius: 10 }}>꼭 가기 · 3</div>
+                                    <div style={{ flex: 1, textAlign: 'center', background: '#EDE8FF', color: '#6B5FC7', fontWeight: 700, fontSize: 13, padding: '9px 0', borderRadius: 10 }}>좋아요 · 1</div>
+                                    <div style={{ flex: 1, textAlign: 'center', background: '#F4F1EC', color: '#8A8FA8', fontWeight: 700, fontSize: 13, padding: '9px 0', borderRadius: 10 }}>제외 · 0</div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-24 grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
-                            <div className="order-2 rounded-[28px] bg-[#fff6e8] p-5 lg:order-1">
-                                <div className="rounded-[22px] bg-white p-4 shadow-sm">
-                                    <div className="flex items-center justify-between">
-                                        <b className="text-sm">후보 장소</b>
-                                        <span className="rounded-full bg-orange-50 px-2 py-1 text-[10px] font-bold text-orange-600">
-                                            투표 진행 중
-                                        </span>
-                                    </div>
-                                    {[
-                                        '카페 델문도',
-                                        '자매국수',
-                                        '성산일출봉',
-                                    ].map((name, index) => (
-                                        <div
-                                            key={name}
-                                            className="mt-3 flex items-center gap-3 rounded-xl border border-slate-100 p-2"
-                                        >
-                                            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 text-base">
-                                                {['☕', '🍜', '🌋'][index]}
-                                            </span>
-                                            <span className="flex-1 text-sm font-bold">
-                                                {name}
-                                            </span>
-                                            <span className="flex items-center gap-1 text-xs font-bold text-brand">
-                                                <ThumbsUpIcon size={13} />{' '}
-                                                {index + 2}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="order-1 lg:order-2">
-                                <p className="text-sm font-extrabold text-orange-500">
-                                    02
-                                </p>
-                                <h3 className="mt-3 text-3xl font-extrabold tracking-tight">
-                                    Choose Before You Go.
-                                </h3>
-                                <p className="mt-5 max-w-md text-lg leading-8 text-slate-600">
-                                    검색한 장소는 바로 일정에 추가되지 않습니다.
-                                    <br />
-                                    후보 장소를 함께 검토하고 투표와 댓글을 통해
-                                    확정된 장소만 지도에 반영됩니다.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-24 grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
-                            <div>
-                                <p className="text-sm font-extrabold text-sky-600">
-                                    03
-                                </p>
-                                <h3 className="mt-3 text-3xl font-extrabold tracking-tight">
-                                    Build Every Day.
-                                </h3>
-                                <p className="mt-5 max-w-md text-lg leading-8 text-slate-600">
-                                    확정된 장소를 원하는 순서대로 배치하고,
-                                    <br />
-                                    드래그 앤 드롭으로 여행 동선을 자연스럽게
-                                    완성하세요.
-                                </p>
-                            </div>
-                            <div className="rounded-[28px] bg-[#eef8ff] p-5">
-                                <div className="rounded-[22px] bg-white p-4 shadow-sm">
-                                    <div className="flex items-center justify-between">
-                                        <b className="text-sm">
-                                            DAY 1 · 제주 동부
-                                        </b>
-                                        <CalendarDaysIcon
-                                            className="text-sky-600"
-                                            size={17}
-                                        />
-                                    </div>
-                                    {[
-                                        ['09:00', '함덕 해수욕장'],
-                                        ['11:30', '카페 델문도'],
-                                        ['14:00', '우도'],
-                                    ].map(([time, place], index) => (
-                                        <div
-                                            key={time}
-                                            className="relative mt-4 flex gap-3"
-                                        >
-                                            <b className="w-10 text-xs text-sky-600">
-                                                {time}
-                                            </b>
-                                            <span className="relative mt-1 h-3 w-3 rounded-full bg-sky-500 ring-4 ring-sky-50">
-                                                {index < 2 && (
-                                                    <span className="absolute left-1 top-3 h-7 border-l border-dashed border-sky-200" />
-                                                )}
-                                            </span>
-                                            <span className="rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold">
-                                                {place}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-24 grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
-                            <div className="order-2 rounded-[28px] bg-[#25213f] p-5 text-white lg:order-1">
-                                <div className="rounded-[22px] border border-white/10 bg-white/5 p-4">
-                                    <div className="flex items-center gap-2">
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                                            <SparklesIcon size={15} />
-                                        </span>
-                                        <b className="text-sm">AI 제안 2개</b>
-                                    </div>
-                                    <p className="mt-4 text-sm leading-6 text-white/70">
-                                        중복 장소 1곳 · 이동시간 충돌 1건을
-                                        발견했어요.
-                                    </p>
-                                    <div className="mt-4 grid grid-cols-2 gap-2">
-                                        <div className="rounded-lg bg-white/10 p-2 text-xs">
-                                            <b>1번 · 해안 우선</b>
-                                            <span className="mt-1 block text-white/60">
-                                                이동 42분
-                                            </span>
-                                        </div>
-                                        <div className="rounded-lg bg-white/10 p-2 text-xs">
-                                            <b>2번 · 카페 우선</b>
-                                            <span className="mt-1 block text-white/60">
-                                                이동 35분
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="order-1 lg:order-2">
-                                <p className="text-sm font-extrabold text-brand-700">
-                                    04
-                                </p>
-                                <h3 className="mt-3 text-3xl font-extrabold tracking-tight">
-                                    Smart Suggestions.
-                                </h3>
-                                <p className="mt-5 max-w-md text-lg leading-8 text-slate-600">
-                                    AI가 중복 장소와 일정 충돌을 찾아주고,
-                                    <br />더 효율적인 여행 동선을 제안합니다.
-                                </p>
-                                <p className="mt-4 text-sm font-bold text-slate-900">
-                                    최종 결정은 언제나 여행 멤버가 함께합니다.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-24 grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
-                            <div>
-                                <p className="text-sm font-extrabold text-emerald-600">
-                                    05
-                                </p>
-                                <h3 className="mt-3 text-3xl font-extrabold tracking-tight">
-                                    Split Without Stress.
-                                </h3>
-                                <p className="mt-5 max-w-md text-lg leading-8 text-slate-600">
-                                    여행 경비를 기록하고,
-                                    <br />
-                                    누가 누구에게 얼마를 보내야 하는지 한눈에
-                                    확인하세요.
-                                </p>
-                            </div>
-                            <div className="rounded-[28px] bg-[#ecfdf5] p-5">
-                                <div className="rounded-[22px] bg-white p-5 shadow-sm">
-                                    <div className="flex items-center justify-between">
-                                        <b>제주도 가족여행 · 정산</b>
-                                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600">
-                                            진행 중
-                                        </span>
-                                    </div>
-                                    <div className="mt-5 grid grid-cols-3 text-center">
-                                        <div>
-                                            <small className="text-slate-400">
-                                                총 지출
-                                            </small>
-                                            <b className="mt-1 block">
-                                                320,000원
-                                            </b>
-                                        </div>
-                                        <div>
-                                            <small className="text-slate-400">
-                                                내 부담
-                                            </small>
-                                            <b className="mt-1 block">
-                                                80,000원
-                                            </b>
-                                        </div>
-                                        <div>
-                                            <small className="text-slate-400">
-                                                받을 돈
-                                            </small>
-                                            <b className="mt-1 block text-emerald-600">
-                                                24,000원
-                                            </b>
-                                        </div>
-                                    </div>
-                                    <div className="mt-5 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-700">
-                                        민수님에게 24,000원을 받을 예정이에요.
-                                    </div>
+                                <div style={{ borderTop: '1.5px solid #F4F1EC', paddingTop: 12, fontSize: 13, fontWeight: 600, color: '#5B5F7E' }}>💬 "아침 일찍 가면 사람 없대!"</div>
+                                {/* 스탬프 */}
+                                <div style={{ position: 'absolute', right: -18, top: -18, ...revealCard('vote', 420, 'scale(0.3) rotate(-30deg)', 'scale(1) rotate(-8deg)') }}>
+                                    <svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#FFFFFF" stroke="#FF7A59" strokeWidth="2.5" /><path d="M32 44s-14-8.5-14-18a8 8 0 0 1 14-5 8 8 0 0 1 14 5c0 9.5-14 18-14 18z" fill="#FF7A59" /></svg>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </section>
+                </div>
+                <div style={{ position: 'absolute', right: 'clamp(16px,4vw,44px)', bottom: 'clamp(12px,3vw,32px)', width: 170, zIndex: 5 }}>
+                    <img src="/assets/plamingo2-vote-v2.png" alt="Plamingo 캐릭터 - 하트 스탬프" style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.24))' }} />
+                </div>
+            </section>
 
-                <section
-                    id="journey"
-                    className="mx-auto max-w-[1160px] px-5 py-20 sm:px-8 lg:px-10"
-                >
-                    <div className="flex flex-col items-start justify-between gap-8 rounded-[32px] bg-[#25213f] px-7 py-12 text-white sm:px-12 lg:flex-row lg:items-center">
-                        <div>
-                            <p className="flex items-center gap-2 text-sm font-semibold text-[#c7baff]">
-                                <MessageCircleIcon size={15} /> Start Your Next
-                                Journey.
-                            </p>
-                            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">
-                                혼자 계획하는 여행보다,
-                                <br />
-                                함께 만드는 여행이 더 즐겁습니다.
-                            </h2>
-                            <p className="mt-4 text-sm leading-6 text-white/65">
-                                지금 Plamingo에서 새로운 여행을 시작해 보세요.
-                            </p>
+            {/* ── SCENE 04 AI ── */}
+            <section
+                id="ai-section"
+                data-reveal-root="ai"
+                style={{ position: 'relative', minHeight: '100vh', boxSizing: 'border-box', scrollSnapAlign: 'start', padding: 'min(10vw,100px) clamp(20px,6vw,80px)', display: 'flex', alignItems: 'center', gap: 'clamp(30px,5vw,72px)', flexWrap: 'wrap-reverse', overflow: 'hidden' }}
+            >
+                <div style={{ position: 'absolute', right: '-8%', top: '-6%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, #D8CFFF 0%, transparent 70%)', opacity: 0.22, filter: 'blur(14px)', zIndex: 0 }} />
+                <div style={{ flex: '1 1 420px', position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ position: 'relative', width: '100%', maxWidth: 440 }}>
+                        <div style={{ ...reveal('ai', 140, 30, { scale: 0.95, rotate: -2 }), ...sceneParallax('ai-section', 30) }}>
+                            <div style={{ background: '#FFFDF8', border: '3px solid #3A2A28', borderRadius: 22, padding: 20, boxShadow: '5px 5px 0 #3A2A28' }}>
+                                <svg width="100%" height="140" viewBox="0 0 380 140" style={{ display: 'block', marginBottom: 14 }}>
+                                    <rect width="380" height="140" rx="14" fill="#EDE8FF" />
+                                    <path
+                                        d="M40 100 C 90 40, 160 120, 220 60 S 320 30, 340 50"
+                                        stroke="#8B7CFF"
+                                        strokeWidth="3"
+                                        strokeDasharray="500"
+                                        strokeDashoffset={revealed.ai || reduced ? 0 : 500}
+                                        strokeLinecap="round"
+                                        fill="none"
+                                        style={{ transition: 'stroke-dashoffset 1.7s cubic-bezier(.22,1,.36,1) 300ms' }}
+                                    />
+                                    <circle cx="40" cy="100" r="7" fill="#FF7A59" />
+                                    <circle cx="220" cy="60" r="6" fill="#FF7A59" />
+                                    <circle cx="340" cy="50" r="7" fill="#FF7A59" />
+                                </svg>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    {[{ day: 'DAY 1', items: ['10:00 아라시야마 대나무숲', '13:00 카페 & 강변산책'] }, { day: 'DAY 2', items: ['09:30 후시미이나리', '15:00 기온 거리'] }].map(({ day, items }) => (
+                                        <div key={day} style={{ flex: 1, background: '#F4F1EC', borderRadius: 12, padding: 12 }}>
+                                            <div style={{ fontSize: 11, fontWeight: 800, color: '#8A8FA8', marginBottom: 8 }}>{day}</div>
+                                            {items.map((item) => <div key={item} style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>{item}</div>)}
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                                    <div style={{ flex: 1, textAlign: 'center', background: '#FFF', border: '1.5px solid #F4F1EC', color: '#5B5F7E', fontWeight: 700, fontSize: 13, padding: '9px 0', borderRadius: 10 }}>수정하기</div>
+                                    <div style={{ flex: 1, textAlign: 'center', background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 13, padding: '9px 0', borderRadius: 10 }}>이 일정 승인</div>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+                <div style={{ flex: '1 1 380px', maxWidth: 520 }}>
+                    <div style={{ ...reveal('ai', 0), position: 'relative', zIndex: 1 }}>
+                        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 8 }}>
+                            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-52%)', fontSize: 'clamp(80px,10vw,130px)', fontWeight: 800, color: 'transparent', WebkitTextStroke: '1.5px rgba(199,71,107,0.14)', lineHeight: 1, zIndex: -1, whiteSpace: 'nowrap' }}>04</div>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#C7476B', letterSpacing: '0.05em' }}>SCENE 04 · AI</div>
+                        </div>
+                        <h2 className="pl-h pl-h2-hover" style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 20px', transition: 'transform 0.3s ease' }}>고르기만 하면<br />동선까지 AI가 짜드림.</h2>
+                        <p style={{ fontSize: 19, lineHeight: 1.75, color: '#5B5F7E', fontWeight: 500 }}>확정된 장소들을 동선까지 고려해 하루씩 배치해드려요. 마음에 안 들면 언제든 직접 수정할 수 있어요 — 결정은 늘 여러분의 몫이에요.</p>
+                    </div>
+                </div>
+                <div style={{ position: 'absolute', right: 'clamp(16px,4vw,44px)', bottom: 'clamp(12px,3vw,32px)', width: 170, zIndex: 5 }}>
+                    <img src="/assets/plamingo2-ai-v2.png" alt="Plamingo 캐릭터 - AI 동선" style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.24))' }} />
+                </div>
+            </section>
+
+            {/* ── SCENE 05 EXPENSE ── */}
+            <section
+                id="expense-section"
+                data-reveal-root="expense"
+                style={{ position: 'relative', minHeight: '100vh', boxSizing: 'border-box', scrollSnapAlign: 'start', padding: 'min(10vw,100px) clamp(20px,6vw,80px)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'clamp(30px,5vw,72px)', flexWrap: 'wrap', textAlign: 'center', overflow: 'hidden' }}
+            >
+                <div style={{ position: 'absolute', left: '50%', top: '-14%', transform: 'translateX(-50%)', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, #FF7A59 0%, transparent 70%)', opacity: 0.12, filter: 'blur(14px)', zIndex: 0 }} />
+                <div style={{ maxWidth: 640 }}>
+                    <div style={reveal('expense', 0)}>
+                        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 6 }}>
+                            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-52%)', fontSize: 'clamp(70px,9vw,110px)', fontWeight: 800, color: 'transparent', WebkitTextStroke: '1.5px rgba(199,71,107,0.14)', lineHeight: 1, zIndex: -1, whiteSpace: 'nowrap' }}>05</div>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#C7476B', letterSpacing: '0.05em' }}>SCENE 05 · EXPENSE</div>
+                        </div>
+                        <h2 className="pl-h pl-h2-hover" style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 24px', transition: 'transform 0.3s ease' }}>누가 얼마 냈는지,<br />더치페이 계산기 그만.</h2>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, background: '#FFFDF8', border: '3px solid #3A2A28', borderRadius: 20, padding: '16px 22px', boxShadow: '5px 5px 0 #3A2A28' }}>
+                            <svg width="30" height="30" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" fill="#EDE8FF" /><path d="M8 8h8M8 12h8M8 16h5" stroke="#8B7CFF" strokeWidth="1.6" strokeLinecap="round" /></svg>
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#8A8FA8' }}>교토 3박 4일 정산</div>
+                                <div style={{ fontSize: 15, fontWeight: 800 }}>1인당 128,000원 · N빵 완료</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style={{ position: 'absolute', right: 'clamp(16px,4vw,44px)', bottom: 'clamp(12px,3vw,32px)', width: 170, zIndex: 5 }}>
+                    <img src="/assets/plamingo2-expense-v2.png" alt="Plamingo 캐릭터 - 영수증" style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.22))' }} />
+                </div>
+            </section>
+
+            {/* ── SCENE 06 CTA ── */}
+            <section
+                id="cta-section"
+                data-reveal-root="cta"
+                style={{ position: 'relative', minHeight: '100vh', boxSizing: 'border-box', scrollSnapAlign: 'start', padding: 'min(10vw,100px) clamp(20px,6vw,80px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', background: 'linear-gradient(180deg,#FDF3E7 0%,#FBE8D8 100%)', overflow: 'hidden' }}
+            >
+                <div style={{ position: 'absolute', left: '-10%', top: '-16%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, #FFB4C6 0%, transparent 70%)', opacity: 0.24, filter: 'blur(14px)', zIndex: 0 }} />
+                <div style={{ position: 'absolute', right: '-10%', bottom: '-14%', width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle, #D8CFFF 0%, transparent 70%)', opacity: 0.22, filter: 'blur(10px)', zIndex: 0 }} />
+                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.85 }} viewBox="0 0 1440 500" preserveAspectRatio="none">
+                    <path d="M-40 400 C 300 300, 500 460, 780 340 S 1200 220, 1500 300" stroke="#FF7A59" strokeWidth="3" strokeDasharray="3 12" fill="none" opacity="0.9" />
+                </svg>
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                    <div style={reveal('cta', 0)}>
+                        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 8 }}>
+                            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-52%)', fontSize: 'clamp(80px,10vw,130px)', fontWeight: 800, color: 'transparent', WebkitTextStroke: '1.5px rgba(199,71,107,0.16)', lineHeight: 1, zIndex: -1, whiteSpace: 'nowrap' }}>06</div>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#C7476B', letterSpacing: '0.05em' }}>SCENE 06 · GO</div>
+                        </div>
+                        <h2 className="pl-h pl-h2-hover" style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 32px', transition: 'transform 0.3s ease' }}>고민은 그만,<br />여행은 이미 시작됐어요.</h2>
                         <button
                             onClick={() => navigate('/login')}
-                            className="flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-[#25213f] hover:bg-brand-50"
+                            className="pl-cta-btn"
+                            style={{ display: 'inline-block', background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 17, padding: '18px 36px', borderRadius: 999, boxShadow: '0 16px 30px rgba(255,90,60,0.36)', border: 'none', cursor: 'pointer', transition: 'transform 0.2s ease', fontFamily: "'Manrope', sans-serif" }}
                         >
-                            새 여행 시작하기 <ArrowRightIcon size={17} />
+                            첫 여행방 만들기
                         </button>
                     </div>
-                </section>
-            </main>
+                </div>
+                <div style={{ position: 'absolute', right: 'clamp(16px,4vw,48px)', bottom: 'clamp(16px,4vw,40px)', zIndex: 5 }}>
+                    <div style={{ ...reveal('cta', 200, 30, { scale: 0.92 }), ...sceneParallax('cta-section', -20), display: 'flex', alignItems: 'flex-end' }}>
+                        <img src="/assets/plamingo2-cta-v2.png" alt="Plamingo 캐릭터 - 출발" style={{ width: 150, height: 'auto', display: 'block', filter: 'drop-shadow(0 14px 16px rgba(255,122,89,0.26))' }} />
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#D8CFFF', margin: '0 -8px 20px', boxShadow: '0 8px 16px rgba(35,38,75,0.14)' }} />
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#FFB4C6', marginBottom: 34, boxShadow: '0 8px 16px rgba(35,38,75,0.14)' }} />
+                    </div>
+                </div>
+            </section>
 
-            <footer className="border-t border-slate-200 px-5 py-7 text-center text-xs text-slate-400">
-                © 2026 Plamingo · 함께 만드는 여행 협업 플랫폼
+            {/* ── FOOTER ── */}
+            <footer
+                id="footer-section"
+                style={{ padding: '36px clamp(20px,6vw,80px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', borderTop: '1.5px solid #F0E4D8' }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 15, color: '#3A2A28' }}>
+                    <svg width="20" height="20" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#FF7A59" /><path d="M10 20c0-5 3-9 7-9" stroke="#FDF3E7" strokeWidth="3" strokeLinecap="round" fill="none" /><circle cx="19" cy="9" r="3.4" fill="#FDF3E7" /></svg>
+                    Plamingo
+                </div>
+                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13, fontWeight: 600, color: '#8A8FA8' }}>
+                    {['이용약관', '개인정보처리방침', 'GitHub', '팀 소개'].map((label) => (
+                        <a key={label} href="#" style={{ color: '#8A8FA8', textDecoration: 'none' }}>{label}</a>
+                    ))}
+                </div>
+                <div style={{ fontSize: 12.5, color: '#B7BBCF', fontWeight: 600 }}>© 2026 Plamingo</div>
             </footer>
         </div>
     )
