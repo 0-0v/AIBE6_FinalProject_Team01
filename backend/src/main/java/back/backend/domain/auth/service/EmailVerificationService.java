@@ -4,6 +4,7 @@ import back.backend.domain.auth.config.EmailAuthProperties;
 import back.backend.domain.auth.dto.EmailVerificationPurpose;
 import back.backend.domain.auth.exception.AuthErrorCode;
 import back.backend.domain.member.entity.AuthProvider;
+import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.redis.RedisKeyFactory;
@@ -38,9 +39,14 @@ public class EmailVerificationService {
         if (purpose == EmailVerificationPurpose.SIGNUP && memberRepository.existsByEmail(email)) {
             throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
         }
-        if (purpose == EmailVerificationPurpose.PASSWORD_RESET
-                && memberRepository.findByEmailAndProvider(email, AuthProvider.LOCAL).isEmpty()) {
-            return;
+        if (purpose == EmailVerificationPurpose.PASSWORD_RESET) {
+            var member = memberRepository.findByEmail(email);
+            if (member.isEmpty() || member.get().getStatus() == MemberStatus.WITHDRAWN) {
+                return;
+            }
+            if (member.get().getProvider() != AuthProvider.LOCAL) {
+                throw new BusinessException(AuthErrorCode.SOCIAL_ACCOUNT_PASSWORD_RESET);
+            }
         }
 
         String code = "%06d".formatted(SECURE_RANDOM.nextInt(1_000_000));

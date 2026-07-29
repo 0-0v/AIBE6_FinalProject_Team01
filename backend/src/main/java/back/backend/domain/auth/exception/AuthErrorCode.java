@@ -9,6 +9,10 @@ public enum AuthErrorCode implements ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
     INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "AUTH_400_CODE", "인증번호가 올바르지 않거나 만료되었습니다."),
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_400_NOT_VERIFIED", "이메일 인증이 필요합니다."),
+    SOCIAL_ACCOUNT_PASSWORD_RESET(
+            HttpStatus.BAD_REQUEST,
+            "AUTH_400_SOCIAL_ACCOUNT",
+            "소셜로그인으로 가입된 계정입니다."),
     LOCAL_ACCOUNT_NOT_FOUND(HttpStatus.BAD_REQUEST, "AUTH_400_LOCAL_ACCOUNT", "비밀번호를 재설정할 수 없는 계정입니다."),
     SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_400_SAME_PASSWORD", "이전에 사용하던 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
 
