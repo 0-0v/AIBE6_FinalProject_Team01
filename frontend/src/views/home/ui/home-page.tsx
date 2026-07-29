@@ -4,16 +4,25 @@ import {
     CalendarDaysIcon,
     BookmarkIcon,
     CheckCircle2Icon,
+    ChevronDownIcon,
     ChevronRightIcon,
     CreditCardIcon,
+    HistoryIcon,
     LayoutGridIcon,
     ListIcon,
+    MapIcon,
     MapPinIcon,
+    PlaneIcon,
     PlusIcon,
     ThumbsUpIcon,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { getTripPlaces, getTripPlaceVotes } from '@/entities/trip'
+import {
+    getItinerary,
+    getTripPlaces,
+    getTripPlaceVotes,
+    type ItineraryDay,
+} from '@/entities/trip'
 import {
     fetchExpenseData,
     type ExpenseResponse,
@@ -25,14 +34,12 @@ import {
     type TripResponse,
 } from '@/features/manage-trip'
 import { NotificationPanel } from '@/features/manage-notification'
-import {
-    fetchBookmarkedCards,
-    type PublicCard,
-} from '@/features/explore-card'
+import { fetchBookmarkedCards, type PublicCard } from '@/features/explore-card'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import { Avatar } from '@/shared/ui'
+import { KanbanMapPanel } from '@/widgets/trip-room'
 import { TravelRooms } from '@/widgets/travel-rooms'
 
 type SurfaceId =
@@ -52,7 +59,7 @@ const initialTasks: {
 }[] = []
 
 const initialColors: Record<SurfaceId, string> = {
-    travel: '#fff3f5',
+    travel: '#213C51',
     tasks: '#ffffff',
     activity: '#ffffff',
     calendar: '#ffffff',
@@ -96,6 +103,11 @@ export function Home() {
     const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
     const [dashboardError, setDashboardError] = useState<string | null>(null)
     const [bookmarkedCards, setBookmarkedCards] = useState<PublicCard[]>([])
+    const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
+    const [selectedDate, setSelectedDate] = useState<string | null>(null)
+    const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+    const [insightSlide, setInsightSlide] = useState(0)
+    const [isInsightHovered, setIsInsightHovered] = useState(false)
     const activeTripData =
         trips.find((trip) => String(trip.id) === activeTripId) ?? trips[0]
     const [calendarCursor, setCalendarCursor] = useState<{
@@ -194,6 +206,30 @@ export function Home() {
     }, [activeTrip.apiTripId, activeTripData, currentUser])
 
     useEffect(() => {
+        Promise.resolve().then(() => {
+            setSelectedDate(null)
+            setFocusedItemId(null)
+        })
+        if (!currentUser || !activeTrip.apiTripId) {
+            Promise.resolve().then(() => setItineraryDays([]))
+            return
+        }
+
+        let cancelled = false
+        void getItinerary(activeTrip.apiTripId)
+            .then((days) => {
+                if (!cancelled) setItineraryDays(days)
+            })
+            .catch(() => {
+                if (!cancelled) setItineraryDays([])
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [activeTrip.apiTripId, currentUser])
+
+    useEffect(() => {
         if (!currentUser) {
             Promise.resolve().then(() => setBookmarkedCards([]))
             return
@@ -209,6 +245,21 @@ export function Home() {
         pendingVoteCount,
         expenseCount: expenses.length,
     })
+    const selectedItineraryDay =
+        itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
+    const recentActivitySlides = logs.slice(0, 4)
+    const insightSlideCount = recentActivitySlides.length + 1
+    const visibleInsightSlide = insightSlide % insightSlideCount
+
+    useEffect(() => {
+        if (isInsightHovered || insightSlideCount <= 1) return
+        const intervalId = window.setInterval(() => {
+            setInsightSlide(
+                (current) => (current + 1) % insightSlideCount,
+            )
+        }, 5_000)
+        return () => window.clearInterval(intervalId)
+    }, [insightSlideCount, isInsightHovered])
 
     function editable(
         id: SurfaceId,
@@ -229,25 +280,68 @@ export function Home() {
     }
 
     return (
-        <div className="min-h-full bg-white px-4 py-5 sm:px-7 sm:py-7 xl:px-8">
-            <header className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-1">
-                <div>
-                    <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
-                        안녕하세요, {currentUser?.nickname ?? '여행자'}님{' '}
-                        <span aria-hidden="true">👋</span>
-                    </h1>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">
-                        오늘의 여행 준비 현황을 확인해 보세요
-                    </p>
+        <div className="min-h-full bg-[#f9fafb] px-4 py-5 sm:px-7 sm:py-7 xl:px-8">
+            <header className="mx-auto grid max-w-[1440px] items-center gap-4 px-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="grid min-w-0 items-center gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
+                            안녕하세요, {currentUser?.nickname ?? '여행자'}님{' '}
+                            <span aria-hidden="true">👋</span>
+                        </h1>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                            오늘의 여행 준비 현황을 확인해 보세요
+                        </p>
+                    </div>
+                    {view === 'dashboard' && (
+                        <label className="relative block w-full">
+                            <span className="sr-only">여행방 선택</span>
+                            <div className="flex h-[68px] items-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-rose-200">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff0f3] text-[#e7657a]">
+                                    <PlaneIcon size={20} strokeWidth={2} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <b className="block truncate text-base font-black text-slate-900">
+                                        {activeTrip.title}
+                                    </b>
+                                    <span className="mt-0.5 block truncate text-xs font-bold text-slate-400">
+                                        ICN →{' '}
+                                        {getDestinationCode(
+                                            activeTrip.location,
+                                        )}{' '}
+                                        ·{' '}
+                                        {getTripScheduleLabel(
+                                            activeTripData?.startDate,
+                                            activeTripData?.endDate,
+                                        )}
+                                    </span>
+                                </span>
+                                <ChevronDownIcon
+                                    size={20}
+                                    className="shrink-0 text-slate-400"
+                                />
+                            </div>
+                            <select
+                                value={activeTrip.id}
+                                onChange={(event) =>
+                                    selectTrip(event.target.value)
+                                }
+                                disabled={rooms.length === 0}
+                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                            >
+                                {rooms.length === 0 ? (
+                                    <option value="">여행방이 없습니다</option>
+                                ) : (
+                                    rooms.map((room) => (
+                                        <option key={room.id} value={room.id}>
+                                            {room.title}
+                                        </option>
+                                    ))
+                                )}
+                            </select>
+                        </label>
+                    )}
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3">
-                    <label className="hidden h-11 w-[250px] items-center gap-2 rounded-full bg-[#f4f8f7] px-4 text-slate-400 lg:flex">
-                        <span className="text-lg">⌕</span>
-                        <input
-                            className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-slate-400"
-                            placeholder="여행방이나 장소 검색"
-                        />
-                    </label>
+                <div className="flex items-center gap-2 sm:gap-3 xl:justify-end">
                     <div className="flex h-11 items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
                         <button
                             onClick={() => setView('dashboard')}
@@ -322,494 +416,829 @@ export function Home() {
                     </section>
                 </div>
             ) : (
-                <main className="mx-auto mt-6 grid max-w-[1440px] gap-6 xl:grid-cols-[minmax(0,1fr)_318px]">
-                    <div className="min-w-0 space-y-5">
-                        {editable(
-                            'travel',
-                            '여행 현황',
-                            <motion.section
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.32 }}
-                                className="overflow-hidden rounded-[28px] border p-5 sm:p-6"
-                                style={{ borderColor: `${activeTrip.color}33` }}
-                            >
-                                <div className="grid gap-5 lg:grid-cols-[1.06fr_0.94fr]">
-                                    <div className="relative min-h-[250px] overflow-hidden rounded-[22px] bg-slate-950 p-6 text-white">
-                                        <img
-                                            src={activeTrip.cover}
-                                            alt={activeTrip.title}
-                                            className="absolute inset-0 h-full w-full object-cover opacity-55"
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-slate-950/10" />
-                                        <div className="relative flex h-full flex-col justify-between">
-                                            <div>
-                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold backdrop-blur">
-                                                    <MapPinIcon size={12} />{' '}
-                                                    진행 중인 여행
-                                                </span>
-                                                <div className="mt-4 flex items-center gap-2">
-                                                    <h2 className="text-2xl font-extrabold tracking-[-0.04em]">
-                                                        {activeTrip.title}
-                                                    </h2>
-                                                    <span
-                                                        className="rounded-full px-2.5 py-1 text-[11px] font-extrabold"
-                                                        style={{
-                                                            backgroundColor: `${activeTrip.color}22`,
-                                                            color: activeTrip.color,
-                                                        }}
-                                                    >
-                                                        {activeTrip.dday}
-                                                    </span>
-                                                </div>
-                                                <p className="mt-1.5 text-xs font-medium text-white/75">
-                                                    {activeTrip.date} ·{' '}
-                                                    {activeTrip.location}
+                <>
+                    <main className="mx-auto mt-6 grid max-w-[1440px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                        <div className="min-w-0 space-y-4">
+                            <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
+                                {editable(
+                                    'travel',
+                                    '여행 현황',
+                                    <motion.section
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.32 }}
+                                        className="relative h-full overflow-hidden rounded-[22px] border border-[#29485E] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] p-6 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+                                    >
+                                        <div className="relative">
+                                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                                <p className="text-2xl font-black uppercase tracking-[0.08em] text-[#EEEEEE] sm:text-3xl">
+                                                    Upcoming trip
                                                 </p>
-                                            </div>
-                                            <div className="flex items-end gap-4">
-                                                <div>
-                                                    <span className="mt-1.5 block text-[11px] font-medium text-white/75">
-                                                        {activeTrip.members}명
-                                                        함께 준비 중
-                                                    </span>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="mb-1.5 flex justify-between text-[11px] font-bold">
-                                                        <span>여행 준비도</span>
-                                                        <span>{progress}%</span>
-                                                    </div>
-                                                    <div className="h-2 overflow-hidden rounded-full bg-white/25">
-                                                        <div
-                                                            className="h-full rounded-full"
-                                                            style={{
-                                                                width: `${progress}%`,
-                                                                backgroundColor:
-                                                                    activeTrip.color,
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {[
-                                            {
-                                                title: '투표 대기',
-                                                text: `${pendingVoteCount}건`,
-                                                icon: ThumbsUpIcon,
-                                                tone: 'bg-amber-100 text-amber-600',
-                                            },
-                                            {
-                                                title: '후보 장소',
-                                                text: `${placeCount}곳`,
-                                                icon: MapPinIcon,
-                                                tone: 'bg-emerald-100 text-emerald-600',
-                                            },
-                                            {
-                                                title: '여행 일정',
-                                                text: getTripScheduleLabel(
-                                                    activeTripData?.startDate,
-                                                    activeTripData?.endDate,
-                                                ),
-                                                icon: CalendarDaysIcon,
-                                                tone: 'bg-sky-100 text-sky-600',
-                                            },
-                                            {
-                                                title: '누적 지출',
-                                                text: currency(
-                                                    settlement?.totalExpense ??
-                                                        0,
-                                                ),
-                                                icon: CreditCardIcon,
-                                                tone: 'bg-violet-100 text-violet-600',
-                                            },
-                                        ].map((item) => (
-                                            <button
-                                                onClick={() =>
-                                                    navigate('/app/room')
-                                                }
-                                                key={item.title}
-                                                className="flex flex-col items-start rounded-[22px] bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                                            >
-                                                <span
-                                                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${item.tone}`}
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        navigate('/app/room')
+                                                    }
+                                                    disabled={!activeTrip.id}
+                                                    className="flex items-center gap-1 rounded-full border border-[#EEEEEE]/35 bg-[#EEEEEE]/10 px-3 py-2 text-xs font-extrabold text-[#EEEEEE] transition hover:bg-[#EEEEEE]/20 disabled:cursor-not-allowed disabled:opacity-40"
                                                 >
-                                                    <item.icon size={17} />
-                                                </span>
-                                                <b className="mt-auto pt-5 text-sm text-slate-800">
-                                                    {item.title}
-                                                </b>
-                                                <span className="mt-1 text-[11px] font-medium text-slate-400">
-                                                    {item.text}
-                                                </span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </motion.section>,
-                            'overflow-visible rounded-[28px]',
-                        )}
+                                                    여행방 열기
+                                                    <ChevronRightIcon
+                                                        size={14}
+                                                    />
+                                                </button>
+                                            </div>
 
-                        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-                            {editable(
-                                'tasks',
-                                '오늘 할 일',
-                                <section className="rounded-2xl border border-slate-200 p-5 shadow-sm">
-                                    <SectionTitle
-                                        title="오늘 해야 하는 일"
-                                        action={
-                                            <span className="rounded-full bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700">
-                                                {tasks.length}개 남음
-                                            </span>
-                                        }
-                                    />
-                                    <div className="divide-y divide-slate-100">
-                                        {tasks.length === 0 ? (
-                                            <div className="py-10 text-center">
-                                                <CheckCircle2Icon
-                                                    className="mx-auto text-brand"
-                                                    size={28}
-                                                />
-                                                <p className="mt-2 text-sm font-semibold text-slate-700">
-                                                    연결된 할 일 데이터가
-                                                    없습니다.
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            tasks.map((task) => (
-                                                <div
-                                                    key={task.id}
-                                                    className="flex w-full items-center gap-3 py-3 text-left"
-                                                >
-                                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-brand bg-brand text-white">
-                                                        <CheckCircle2Icon
-                                                            size={14}
+                                            <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)] lg:items-center">
+                                                <div>
+                                                    <h2 className="text-3xl font-black tracking-[-0.05em] text-[#EEEEEE] sm:text-[38px]">
+                                                        ICN
+                                                        <span
+                                                            className="mx-3 inline-flex translate-y-[-0.08em] items-center gap-1.5 align-middle"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <span className="w-5 border-t-2 border-dotted border-[#EEEEEE]/75 sm:w-7" />
+                                                            <PlaneIcon
+                                                                size={24}
+                                                                className="rotate-45 text-[#E7657A]"
+                                                                strokeWidth={
+                                                                    2.4
+                                                                }
+                                                            />
+                                                            <span className="w-5 border-t-2 border-dotted border-[#EEEEEE]/75 sm:w-7" />
+                                                        </span>{' '}
+                                                        {getDestinationCode(
+                                                            activeTrip.location,
+                                                        )}
+                                                    </h2>
+                                                    <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-[#EEEEEE]">
+                                                        <MapPinIcon
+                                                            size={16}
+                                                            className="text-[#EEEEEE]"
                                                         />
-                                                    </span>
-                                                    <span className="min-w-0 flex-1">
-                                                        <span className="block text-sm font-semibold text-slate-700">
-                                                            {task.label}
-                                                        </span>
-                                                        <span className="mt-0.5 block truncate text-xs text-slate-400">
-                                                            {task.meta}
-                                                        </span>
-                                                    </span>
-                                                    {task.urgent && (
-                                                        <span className="h-2 w-2 shrink-0 rounded-full bg-orange-400" />
-                                                    )}
+                                                        {activeTrip.title} ·{' '}
+                                                        {activeTrip.location}
+                                                    </p>
                                                 </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </section>,
-                            )}
-                            {editable(
-                                'activity',
-                                '최근 활동',
-                                <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
-                                    <SectionTitle
-                                        title="최근 활동"
-                                        action={
-                                            <button
-                                                type="button"
-                                                disabled={!activeTrip.id}
-                                                onClick={() =>
-                                                    navigate(
-                                                        `/app/room/${activeTrip.id}?activity=open`,
-                                                    )
-                                                }
-                                                className="text-xs font-bold text-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-                                            >
-                                                모두 보기
-                                            </button>
-                                        }
-                                    />
-                                    <div className="relative ml-2 border-l border-slate-200 pl-5">
-                                        {logs.length === 0 ? (
-                                            <p className="py-6 text-sm text-slate-400">
-                                                아직 기록된 활동이 없습니다.
-                                            </p>
-                                        ) : (
-                                            logs.slice(0, 3).map((log) => (
-                                                <div
-                                                    className="relative pb-4 last:pb-0"
-                                                    key={log.id}
-                                                >
-                                                    <span className="absolute -left-[25px] top-1 flex h-3 w-3 rounded-full border-2 border-white bg-brand" />
-                                                    <p className="text-xs text-slate-400">
-                                                        {new Intl.DateTimeFormat(
-                                                            'ko-KR',
-                                                            {
-                                                                month: 'short',
-                                                                day: 'numeric',
-                                                                hour: '2-digit',
-                                                                minute: '2-digit',
-                                                            },
-                                                        ).format(
-                                                            new Date(
-                                                                log.createdAt,
-                                                            ),
+
+                                                <div className="border-[#EEEEEE]/25 lg:border-l lg:pl-8">
+                                                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#EEEEEE]">
+                                                        Travel date
+                                                    </p>
+                                                    <div className="mt-2 flex items-center gap-3">
+                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEEEEE]/10 text-[#EEEEEE]">
+                                                            <CalendarDaysIcon
+                                                                size={20}
+                                                            />
+                                                        </span>
+                                                        <strong className="text-2xl font-black text-[#EEEEEE]">
+                                                            {getTripScheduleLabel(
+                                                                activeTripData?.startDate,
+                                                                activeTripData?.endDate,
+                                                            )}
+                                                        </strong>
+                                                    </div>
+                                                    <p className="mt-2 text-sm font-bold text-[#EEEEEE]">
+                                                        {formatTripDateRange(
+                                                            activeTripData?.startDate,
+                                                            activeTripData?.endDate,
                                                         )}
                                                     </p>
-                                                    <p className="mt-0.5 text-sm leading-5 text-slate-600">
-                                                        {log.description}
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-8 grid gap-6 border-t border-[#EEEEEE]/25 pt-6 md:grid-cols-[auto_minmax(220px,1fr)] md:items-end">
+                                                <div>
+                                                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#EEEEEE]">
+                                                        People
+                                                    </p>
+                                                    <div className="mt-3 flex items-center">
+                                                        <span className="rounded-full bg-[#EEEEEE] p-1 shadow-sm">
+                                                            <Avatar
+                                                                name={
+                                                                    currentUser?.nickname ??
+                                                                    '여행자'
+                                                                }
+                                                                color="#e7657a"
+                                                                imageUrl={resolveMediaUrl(
+                                                                    currentUser?.profileImageUrl,
+                                                                )}
+                                                                size={42}
+                                                            />
+                                                        </span>
+                                                        <span className="ml-3 text-sm font-extrabold text-[#EEEEEE]">
+                                                            {activeTrip.members}
+                                                            명
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="mb-2 flex items-center justify-between text-sm font-extrabold">
+                                                        <span className="text-[#EEEEEE]">
+                                                            여행 준비도
+                                                        </span>
+                                                        <span className="text-[#EEEEEE]">
+                                                            {progress}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-3 overflow-hidden rounded-full bg-[#EEEEEE]/90">
+                                                        <motion.div
+                                                            initial={{
+                                                                width: 0,
+                                                            }}
+                                                            animate={{
+                                                                width: `${progress}%`,
+                                                            }}
+                                                            transition={{
+                                                                duration: 0.6,
+                                                                ease: 'easeOut',
+                                                            }}
+                                                            className="h-full rounded-full bg-gradient-to-r from-[#ef7890] to-[#e7657a]"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.section>,
+                                    'h-full overflow-hidden rounded-[22px]',
+                                )}
+
+                                {editable(
+                                    'tasks',
+                                    '투표 대기',
+                                    <section
+                                        className="flex h-full min-h-[300px] flex-col overflow-hidden rounded-[22px] border border-rose-200 bg-[#fff7f8] p-6 shadow-[0_12px_30px_rgba(190,79,103,0.08)]"
+                                        onMouseEnter={() =>
+                                            setIsInsightHovered(true)
+                                        }
+                                        onMouseLeave={() =>
+                                            setIsInsightHovered(false)
+                                        }
+                                    >
+                                        <div className="min-h-0 flex-1 overflow-hidden">
+                                            <div
+                                                className="flex h-full transition-transform duration-500 ease-out"
+                                                style={{
+                                                    transform: `translateX(-${visibleInsightSlide * 100}%)`,
+                                                }}
+                                            >
+                                                <div className="flex w-full shrink-0 flex-col">
+                                                    <div className="flex items-start gap-3">
+                                                        <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ec6680] text-white">
+                                                            <ThumbsUpIcon
+                                                                size={22}
+                                                            />
+                                                            {pendingVoteCount >
+                                                                0 && (
+                                                                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#fff7f8] bg-orange-400" />
+                                                            )}
+                                                        </span>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-lg font-black text-[#a94359]">
+                                                                투표 대기{' '}
+                                                                {
+                                                                    pendingVoteCount
+                                                                }
+                                                                건
+                                                            </p>
+                                                            <p className="mt-1 text-xs font-semibold text-[#cc788a]">
+                                                                내 투표를
+                                                                기다리고 있어요
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-6 flex flex-1 items-center justify-center rounded-[22px] bg-white/85 px-5 text-center">
+                                                        <div>
+                                                            <p className="text-sm font-extrabold text-slate-700">
+                                                                {pendingVoteCount >
+                                                                0
+                                                                    ? '여행방에서 후보 장소를 확인해 주세요.'
+                                                                    : '현재 참여할 투표가 없습니다.'}
+                                                            </p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    navigate(
+                                                                        `/app/room/${activeTrip.id}`,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    !activeTrip.id
+                                                                }
+                                                                className="mt-4 inline-flex items-center gap-1 text-xs font-extrabold text-[#d84f68] disabled:opacity-40"
+                                                            >
+                                                                투표하러 가기
+                                                                <ChevronRightIcon
+                                                                    size={14}
+                                                                />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {recentActivitySlides.map(
+                                                    (log) => (
+                                                        <div
+                                                            key={log.id}
+                                                            className="flex w-full shrink-0 flex-col"
+                                                        >
+                                                            <div className="flex items-start gap-3">
+                                                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e7657a] text-white">
+                                                                    <HistoryIcon
+                                                                        size={
+                                                                            22
+                                                                        }
+                                                                    />
+                                                                </span>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="text-lg font-black text-[#a94359]">
+                                                                        최근 활동
+                                                                    </p>
+                                                                    <p className="mt-1 text-xs font-semibold text-[#cc788a]">
+                                                                        여행방의
+                                                                        새로운
+                                                                        기록이에요
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-6 flex flex-1 flex-col justify-center rounded-[22px] bg-white/85 px-5">
+                                                                <time className="text-[11px] font-bold text-slate-400">
+                                                                    {new Intl.DateTimeFormat(
+                                                                        'ko-KR',
+                                                                        {
+                                                                            month: 'short',
+                                                                            day: 'numeric',
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit',
+                                                                        },
+                                                                    ).format(
+                                                                        new Date(
+                                                                            log.createdAt,
+                                                                        ),
+                                                                    )}
+                                                                </time>
+                                                                <p className="mt-2 line-clamp-3 text-sm font-bold leading-6 text-slate-700">
+                                                                    {
+                                                                        log.description
+                                                                    }
+                                                                </p>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        navigate(
+                                                                            `/app/room/${activeTrip.id}?activity=open`,
+                                                                        )
+                                                                    }
+                                                                    className="mt-4 inline-flex items-center gap-1 self-start text-xs font-extrabold text-[#d84f68]"
+                                                                >
+                                                                    활동 기록 보기
+                                                                    <ChevronRightIcon
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                    />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ),
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {insightSlideCount > 1 && (
+                                            <div
+                                                className="mt-5 flex justify-center gap-2"
+                                                role="tablist"
+                                                aria-label="투표 및 활동 슬라이드"
+                                            >
+                                                {Array.from({
+                                                    length: insightSlideCount,
+                                                }).map((_, index) => (
+                                                    <button
+                                                        key={index}
+                                                        type="button"
+                                                        role="tab"
+                                                        aria-selected={
+                                                            visibleInsightSlide ===
+                                                            index
+                                                        }
+                                                        aria-label={`${index + 1}번 슬라이드 보기`}
+                                                        onClick={() =>
+                                                            setInsightSlide(
+                                                                index,
+                                                            )
+                                                        }
+                                                        className={`h-2 rounded-full transition-all ${
+                                                            visibleInsightSlide ===
+                                                            index
+                                                                ? 'w-5 bg-[#e7657a]'
+                                                                : 'w-2 bg-rose-200 hover:bg-rose-300'
+                                                        }`}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </section>,
+                                    'h-full overflow-hidden rounded-[22px]',
+                                )}
+                            </div>
+
+                            <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)]">
+                                <div className="flex items-center justify-between px-6 py-5">
+                                    <div>
+                                        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#d84f68]">
+                                            Selected day
+                                        </p>
+                                        <h2 className="mt-1 text-lg font-black text-slate-900">
+                                            {selectedItineraryDay
+                                                ? `Day ${selectedItineraryDay.dayNumber} · ${selectedItineraryDay.title ?? '여행 일정'}`
+                                                : '날짜를 선택하면 지도가 표시됩니다'}
+                                        </h2>
+                                    </div>
+                                    <MapIcon
+                                        className="text-slate-300"
+                                        size={22}
+                                    />
+                                </div>
+                                {selectedItineraryDay ? (
+                                    <div className="[&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-[430px]">
+                                        <KanbanMapPanel
+                                            days={[selectedItineraryDay]}
+                                            places={[]}
+                                            activeDragId={null}
+                                            previewDayId={null}
+                                            hoveredItemId={null}
+                                            onItemHoverChange={() => undefined}
+                                            focusedItemId={focusedItemId}
+                                            focusedPlaceId={null}
+                                            onItemFocus={setFocusedItemId}
+                                            onPlaceFocus={() => undefined}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex h-[430px] items-center justify-center bg-slate-50">
+                                        <p className="text-sm font-semibold text-slate-400">
+                                            오른쪽 달력에서 여행 날짜를 선택해
+                                            주세요.
+                                        </p>
+                                    </div>
+                                )}
+                            </section>
+
+                            <div className="hidden">
+                                {editable(
+                                    'tasks',
+                                    '오늘 할 일',
+                                    <section className="rounded-2xl border border-slate-200 p-5 shadow-sm">
+                                        <SectionTitle
+                                            title="오늘 해야 하는 일"
+                                            action={
+                                                <span className="rounded-full bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand-700">
+                                                    {tasks.length}개 남음
+                                                </span>
+                                            }
+                                        />
+                                        <div className="divide-y divide-slate-100">
+                                            {tasks.length === 0 ? (
+                                                <div className="py-10 text-center">
+                                                    <CheckCircle2Icon
+                                                        className="mx-auto text-brand"
+                                                        size={28}
+                                                    />
+                                                    <p className="mt-2 text-sm font-semibold text-slate-700">
+                                                        연결된 할 일 데이터가
+                                                        없습니다.
                                                     </p>
                                                 </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </section>,
-                            )}
-                        </div>
-
-                        <section>
-                            <SectionTitle
-                                title="내 여행방"
-                                action={
-                                    <button className="flex items-center gap-0.5 text-xs font-bold text-slate-400 hover:text-slate-700">
-                                        전체 보기 <ChevronRightIcon size={14} />
-                                    </button>
-                                }
-                            />
-                            <div className="grid gap-4 sm:grid-cols-3">
-                                {rooms.length === 0 && (
-                                    <button
-                                        onClick={() => navigate('/app/room')}
-                                        className="col-span-full rounded-2xl border border-dashed border-brand-200 bg-brand-50 px-5 py-12 text-center"
-                                    >
-                                        <PlusIcon
-                                            className="mx-auto text-brand"
-                                            size={24}
-                                        />
-                                        <b className="mt-3 block text-sm text-slate-800">
-                                            첫 여행방을 만들어 보세요
-                                        </b>
-                                        <span className="mt-1 block text-xs text-slate-500">
-                                            여행방 생성 화면으로 이동합니다.
-                                        </span>
-                                    </button>
+                                            ) : (
+                                                tasks.map((task) => (
+                                                    <div
+                                                        key={task.id}
+                                                        className="flex w-full items-center gap-3 py-3 text-left"
+                                                    >
+                                                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-brand bg-brand text-white">
+                                                            <CheckCircle2Icon
+                                                                size={14}
+                                                            />
+                                                        </span>
+                                                        <span className="min-w-0 flex-1">
+                                                            <span className="block text-sm font-semibold text-slate-700">
+                                                                {task.label}
+                                                            </span>
+                                                            <span className="mt-0.5 block truncate text-xs text-slate-400">
+                                                                {task.meta}
+                                                            </span>
+                                                        </span>
+                                                        {task.urgent && (
+                                                            <span className="h-2 w-2 shrink-0 rounded-full bg-orange-400" />
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </section>,
                                 )}
-                                {rooms.map((room, index) => (
-                                    <motion.button
-                                        key={room.id}
-                                        whileHover={{
-                                            y: -3,
-                                            rotate: index === 1 ? 0.4 : -0.4,
-                                        }}
-                                        onClick={() => selectTrip(room.id)}
-                                        aria-pressed={room.id === activeTrip.id}
-                                        className={`group relative min-h-[205px] overflow-hidden rounded-sm border bg-white p-3 text-left shadow-[0_7px_14px_rgba(15,23,42,0.08)] transition hover:shadow-md ${room.id === activeTrip.id ? 'border-brand ring-2 ring-brand/20' : 'border-slate-200'}`}
-                                    >
-                                        <div className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 rounded-b bg-[#d9d4c6]/90" />
-                                        <img
-                                            src={room.cover}
-                                            alt=""
-                                            className="h-[116px] w-full rounded-sm object-cover"
-                                        />
-                                        <div className="px-1 pt-3">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <h3 className="truncate text-sm font-extrabold">
-                                                    {room.title}
-                                                </h3>
-                                                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
-                                                    {room.status}
-                                                </span>
-                                            </div>
-                                            <p className="mt-1 text-[11px] text-slate-500">
-                                                {room.members}명 · {room.dday}
-                                            </p>
-                                            <p className="mt-2 truncate text-[10px] text-slate-400">
-                                                {room.location} · {room.date}
-                                            </p>
-                                        </div>
-                                    </motion.button>
-                                ))}
-                            </div>
-                        </section>
-                    </div>
-
-                    <aside className="min-w-0 space-y-5 border-l border-slate-100 pl-0 xl:pl-6">
-                        {editable(
-                            'calendar',
-                            '캘린더',
-                            <section className="rounded-[24px] p-1">
-                                <div className="flex items-center gap-3 px-3 pb-5 pt-2">
-                                    <Avatar
-                                        name={currentUser?.nickname ?? '여행자'}
-                                        color="#e7657a"
-                                        imageUrl={resolveMediaUrl(
-                                            currentUser?.profileImageUrl,
-                                        )}
-                                        size={44}
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="font-extrabold text-slate-900">
-                                            {currentUser?.nickname ?? '여행자'}
-                                            님
-                                        </p>
-                                        <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
-                                            여행 플래너
-                                        </p>
-                                    </div>
-                                    <button className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                                        ⌄
-                                    </button>
-                                </div>
-                                <div className="border-t border-slate-100 px-3 pb-3 pt-5">
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="text-lg font-extrabold tracking-tight">
-                                            {calendarMonth.getFullYear()}년{' '}
-                                            {calendarMonth.getMonth() + 1}월
-                                        </h2>
-                                        <div className="flex gap-1">
-                                            <button
-                                                onClick={() =>
-                                                    setCalendarCursor({
-                                                        tripId:
-                                                            activeTripData?.id ??
-                                                            null,
-                                                        month: addMonths(
-                                                            calendarMonth,
-                                                            -1,
-                                                        ),
-                                                    })
-                                                }
-                                                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
-                                                aria-label="이전 달"
-                                            >
-                                                ‹
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    setCalendarCursor({
-                                                        tripId:
-                                                            activeTripData?.id ??
-                                                            null,
-                                                        month: addMonths(
-                                                            calendarMonth,
-                                                            1,
-                                                        ),
-                                                    })
-                                                }
-                                                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
-                                                aria-label="다음 달"
-                                            >
-                                                ›
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 grid grid-cols-7 gap-y-3 text-center text-[10px] font-bold text-slate-400">
-                                        <span>일</span>
-                                        <span>월</span>
-                                        <span>화</span>
-                                        <span>수</span>
-                                        <span>목</span>
-                                        <span>금</span>
-                                        <span>토</span>
-                                        {createCalendarDays(calendarMonth).map(
-                                            (day) => (
-                                                <span
-                                                    key={toDateKey(day)}
-                                                    className={`${isTripDate(day, activeTripData?.startDate, activeTripData?.endDate) ? 'rounded-full bg-[#e7657a] py-1 text-white shadow-sm' : ''} ${day.getMonth() !== calendarMonth.getMonth() ? 'text-slate-300' : ''}`}
+                                {editable(
+                                    'activity',
+                                    '최근 활동',
+                                    <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
+                                        <SectionTitle
+                                            title="최근 활동"
+                                            action={
+                                                <button
+                                                    type="button"
+                                                    disabled={!activeTrip.id}
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/app/room/${activeTrip.id}?activity=open`,
+                                                        )
+                                                    }
+                                                    className="text-xs font-bold text-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
                                                 >
-                                                    {day.getDate()}
-                                                </span>
-                                            ),
-                                        )}
-                                    </div>
-                                </div>
-                            </section>,
-                        )}
-                        {editable(
-                            'schedule',
-                            '여행 일정 상태',
-                            <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
-                                <SectionTitle
-                                    title="여행 일정 상태"
-                                    action={
-                                        <button
-                                            onClick={() =>
-                                                navigate(
-                                                    `/app/room/${activeTrip.id}`,
-                                                )
+                                                    모두 보기
+                                                </button>
                                             }
-                                            disabled={!activeTrip.id}
-                                            className="text-xs font-bold text-brand-700"
-                                        >
-                                            전체 일정
+                                        />
+                                        <div className="relative ml-2 border-l border-slate-200 pl-5">
+                                            {logs.length === 0 ? (
+                                                <p className="py-6 text-sm text-slate-400">
+                                                    아직 기록된 활동이 없습니다.
+                                                </p>
+                                            ) : (
+                                                logs.slice(0, 3).map((log) => (
+                                                    <div
+                                                        className="relative pb-4 last:pb-0"
+                                                        key={log.id}
+                                                    >
+                                                        <span className="absolute -left-[25px] top-1 flex h-3 w-3 rounded-full border-2 border-white bg-brand" />
+                                                        <p className="text-xs text-slate-400">
+                                                            {new Intl.DateTimeFormat(
+                                                                'ko-KR',
+                                                                {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit',
+                                                                },
+                                                            ).format(
+                                                                new Date(
+                                                                    log.createdAt,
+                                                                ),
+                                                            )}
+                                                        </p>
+                                                        <p className="mt-0.5 text-sm leading-5 text-slate-600">
+                                                            {log.description}
+                                                        </p>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </section>,
+                                )}
+                            </div>
+
+                            <section className="hidden">
+                                <SectionTitle
+                                    title="내 여행방"
+                                    action={
+                                        <button className="flex items-center gap-0.5 text-xs font-bold text-slate-400 hover:text-slate-700">
+                                            전체 보기{' '}
+                                            <ChevronRightIcon size={14} />
                                         </button>
                                     }
                                 />
-                                <p className="py-6 text-center text-xs text-slate-400">
-                                    {getTodayTripStatus(
-                                        activeTripData?.startDate,
-                                        activeTripData?.endDate,
-                                    )}
-                                </p>
-                            </section>,
-                        )}
-                        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
-                            {editable(
-                                'expenses',
-                                '지출',
-                                <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
-                                    <SectionTitle
-                                        title="지출"
-                                        action={
-                                            <CreditCardIcon
-                                                size={16}
-                                                className="text-slate-400"
+                                <div className="grid gap-4 sm:grid-cols-3">
+                                    {rooms.length === 0 && (
+                                        <button
+                                            onClick={() =>
+                                                navigate('/app/room')
+                                            }
+                                            className="col-span-full rounded-2xl border border-dashed border-brand-200 bg-brand-50 px-5 py-12 text-center"
+                                        >
+                                            <PlusIcon
+                                                className="mx-auto text-brand"
+                                                size={24}
                                             />
+                                            <b className="mt-3 block text-sm text-slate-800">
+                                                첫 여행방을 만들어 보세요
+                                            </b>
+                                            <span className="mt-1 block text-xs text-slate-500">
+                                                여행방 생성 화면으로 이동합니다.
+                                            </span>
+                                        </button>
+                                    )}
+                                    {rooms.map((room, index) => (
+                                        <motion.button
+                                            key={room.id}
+                                            whileHover={{
+                                                y: -3,
+                                                rotate:
+                                                    index === 1 ? 0.4 : -0.4,
+                                            }}
+                                            onClick={() => selectTrip(room.id)}
+                                            aria-pressed={
+                                                room.id === activeTrip.id
+                                            }
+                                            className={`group relative min-h-[205px] overflow-hidden rounded-sm border bg-white p-3 text-left shadow-[0_7px_14px_rgba(15,23,42,0.08)] transition hover:shadow-md ${room.id === activeTrip.id ? 'border-brand ring-2 ring-brand/20' : 'border-slate-200'}`}
+                                        >
+                                            <div className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 rounded-b bg-[#d9d4c6]/90" />
+                                            <img
+                                                src={room.cover}
+                                                alt=""
+                                                className="h-[116px] w-full rounded-sm object-cover"
+                                            />
+                                            <div className="px-1 pt-3">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <h3 className="truncate text-sm font-extrabold">
+                                                        {room.title}
+                                                    </h3>
+                                                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
+                                                        {room.status}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 text-[11px] text-slate-500">
+                                                    {room.members}명 ·{' '}
+                                                    {room.dday}
+                                                </p>
+                                                <p className="mt-2 truncate text-[10px] text-slate-400">
+                                                    {room.location} ·{' '}
+                                                    {room.date}
+                                                </p>
+                                            </div>
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
+
+                        <aside className="min-w-0 space-y-4">
+                            {editable(
+                                'calendar',
+                                '캘린더',
+                                <section className="h-full rounded-[22px] bg-white p-5">
+                                    <div className="px-1 pb-2">
+                                        <div className="flex items-center justify-between">
+                                            <h2 className="text-lg font-extrabold tracking-tight">
+                                                {calendarMonth.getFullYear()}년{' '}
+                                                {calendarMonth.getMonth() + 1}월
+                                            </h2>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() =>
+                                                        setCalendarCursor({
+                                                            tripId:
+                                                                activeTripData?.id ??
+                                                                null,
+                                                            month: addMonths(
+                                                                calendarMonth,
+                                                                -1,
+                                                            ),
+                                                        })
+                                                    }
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
+                                                    aria-label="이전 달"
+                                                >
+                                                    ‹
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        setCalendarCursor({
+                                                            tripId:
+                                                                activeTripData?.id ??
+                                                                null,
+                                                            month: addMonths(
+                                                                calendarMonth,
+                                                                1,
+                                                            ),
+                                                        })
+                                                    }
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
+                                                    aria-label="다음 달"
+                                                >
+                                                    ›
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 grid grid-cols-7 gap-y-3 text-center text-[10px] font-bold text-slate-400">
+                                            <span>일</span>
+                                            <span>월</span>
+                                            <span>화</span>
+                                            <span>수</span>
+                                            <span>목</span>
+                                            <span>금</span>
+                                            <span>토</span>
+                                            {createCalendarDays(
+                                                calendarMonth,
+                                            ).map((day) => {
+                                                const dateKey = toDateKey(day)
+                                                const isAvailable = isTripDate(
+                                                    day,
+                                                    activeTripData?.startDate,
+                                                    activeTripData?.endDate,
+                                                )
+                                                const isSelected =
+                                                    selectedDate === dateKey
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={dateKey}
+                                                        disabled={!isAvailable}
+                                                        onClick={() => {
+                                                            setSelectedDate(
+                                                                dateKey,
+                                                            )
+                                                            setFocusedItemId(
+                                                                null,
+                                                            )
+                                                        }}
+                                                        aria-pressed={
+                                                            isSelected
+                                                        }
+                                                        aria-label={`${dateKey}${isAvailable ? ' 여행 일정 선택' : ''}`}
+                                                        className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full transition ${
+                                                            isSelected
+                                                                ? 'bg-[#e7657a] text-white shadow-sm'
+                                                                : isAvailable
+                                                                  ? 'bg-[#fff0f3] text-[#d84f68] hover:bg-rose-200'
+                                                                  : ''
+                                                        } ${day.getMonth() !== calendarMonth.getMonth() ? 'text-slate-300' : ''}`}
+                                                    >
+                                                        {day.getDate()}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </section>,
+                                'overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)]',
+                            )}
+                            {editable(
+                                'schedule',
+                                '여행 일정 상태',
+                                <section className="h-full rounded-[30px] bg-white p-6">
+                                    <SectionTitle
+                                        title={
+                                            selectedItineraryDay
+                                                ? `Day ${selectedItineraryDay.dayNumber}`
+                                                : '선택 날짜 일정'
+                                        }
+                                        action={
+                                            <button
+                                                onClick={() =>
+                                                    navigate(
+                                                        `/app/room/${activeTrip.id}`,
+                                                    )
+                                                }
+                                                disabled={!activeTrip.id}
+                                                className="text-xs font-bold text-brand-700"
+                                            >
+                                                전체 일정
+                                            </button>
                                         }
                                     />
-                                    <p className="text-xl font-extrabold text-slate-900">
-                                        {currency(
-                                            settlement?.totalExpense ?? 0,
-                                        )}
-                                    </p>
-                                    {expenses.length === 0 ? (
-                                        <p className="py-5 text-center text-xs text-slate-400">
-                                            등록된 지출이 없습니다.
+                                    {selectedItineraryDay == null ? (
+                                        <p className="py-10 text-center text-xs text-slate-400">
+                                            달력에서 여행 날짜를 선택해 주세요.
+                                        </p>
+                                    ) : selectedItineraryDay.items.length ===
+                                      0 ? (
+                                        <p className="py-10 text-center text-xs text-slate-400">
+                                            선택한 날짜에 등록된 일정이
+                                            없습니다.
                                         </p>
                                     ) : (
-                                        <div className="mt-3 space-y-2">
-                                            {expenses
-                                                .slice(-3)
-                                                .reverse()
-                                                .map((expense) => (
-                                                    <div
-                                                        key={expense.id}
-                                                        className="flex justify-between gap-3 text-xs"
+                                        <ol className="mt-5">
+                                            {selectedItineraryDay.items.map(
+                                                (item, index) => (
+                                                    <li
+                                                        key={item.id}
+                                                        className="relative flex gap-4 pb-5 last:pb-0"
                                                     >
-                                                        <span className="truncate text-slate-500">
-                                                            DAY{' '}
-                                                            {expense.dayNumber}{' '}
-                                                            · {expense.title}
-                                                        </span>
-                                                        <b className="shrink-0 text-slate-700">
-                                                            {currency(
-                                                                expense.totalAmount,
+                                                        <div className="relative flex w-9 shrink-0 justify-center">
+                                                            {index <
+                                                                selectedItineraryDay
+                                                                    .items
+                                                                    .length -
+                                                                    1 && (
+                                                                <span
+                                                                    aria-hidden="true"
+                                                                    className="absolute left-1/2 top-8 h-[calc(100%+0.25rem)] -translate-x-1/2 border-l-2 border-dotted border-slate-300"
+                                                                />
                                                             )}
-                                                        </b>
-                                                    </div>
-                                                ))}
-                                        </div>
+                                                            <span
+                                                                className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 bg-white text-xs font-black shadow-sm ${
+                                                                    focusedItemId ===
+                                                                    String(
+                                                                        item.id,
+                                                                    )
+                                                                        ? 'border-[#e7657a] text-[#e7657a]'
+                                                                        : 'border-slate-400 text-slate-600'
+                                                                }`}
+                                                            >
+                                                                {index + 1}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setFocusedItemId(
+                                                                    String(
+                                                                        item.id,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            className={`min-w-0 flex-1 rounded-2xl px-4 py-3 text-left transition ${
+                                                                focusedItemId ===
+                                                                String(item.id)
+                                                                    ? 'bg-[#fff0f3]'
+                                                                    : 'bg-slate-50 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            <b className="block truncate text-sm text-slate-800">
+                                                                {item.placeName ??
+                                                                    '장소 미정'}
+                                                            </b>
+                                                            <span className="mt-1 block truncate text-[11px] text-slate-400">
+                                                                {item.placeAddress ??
+                                                                    item.categoryName ??
+                                                                    '상세 정보 없음'}
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                ),
+                                            )}
+                                        </ol>
                                     )}
                                 </section>,
+                                'min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)]',
                             )}
-                            {editable(
-                                'notifications',
-                                '알림',
-                                <NotificationPanel
-                                    maxItems={4}
-                                    onViewAll={() => navigate('/app/updates')}
-                                />,
-                            )}
-                        </div>
-                    </aside>
-                </main>
+                            <div className="hidden">
+                                {editable(
+                                    'expenses',
+                                    '지출',
+                                    <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">
+                                        <SectionTitle
+                                            title="지출"
+                                            action={
+                                                <CreditCardIcon
+                                                    size={16}
+                                                    className="text-slate-400"
+                                                />
+                                            }
+                                        />
+                                        <p className="text-xl font-extrabold text-slate-900">
+                                            {currency(
+                                                settlement?.totalExpense ?? 0,
+                                            )}
+                                        </p>
+                                        {expenses.length === 0 ? (
+                                            <p className="py-5 text-center text-xs text-slate-400">
+                                                등록된 지출이 없습니다.
+                                            </p>
+                                        ) : (
+                                            <div className="mt-3 space-y-2">
+                                                {expenses
+                                                    .slice(-3)
+                                                    .reverse()
+                                                    .map((expense) => (
+                                                        <div
+                                                            key={expense.id}
+                                                            className="flex justify-between gap-3 text-xs"
+                                                        >
+                                                            <span className="truncate text-slate-500">
+                                                                DAY{' '}
+                                                                {
+                                                                    expense.dayNumber
+                                                                }{' '}
+                                                                ·{' '}
+                                                                {expense.title}
+                                                            </span>
+                                                            <b className="shrink-0 text-slate-700">
+                                                                {currency(
+                                                                    expense.totalAmount,
+                                                                )}
+                                                            </b>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        )}
+                                    </section>,
+                                )}
+                                {editable(
+                                    'notifications',
+                                    '알림',
+                                    <NotificationPanel
+                                        maxItems={4}
+                                        onViewAll={() =>
+                                            navigate('/app/updates')
+                                        }
+                                    />,
+                                )}
+                            </div>
+                        </aside>
+                    </main>
+                </>
             )}
             {createTripOpen && (
                 <CreateTripModal
@@ -958,23 +1387,36 @@ function getTripScheduleLabel(
     return `${days}일`
 }
 
-function getTodayTripStatus(
+function formatTripDateRange(
     startDate: string | null | undefined,
     endDate: string | null | undefined,
 ) {
-    if (!startDate || !endDate) return '여행 기간이 아직 정해지지 않았습니다.'
-    const today = toDateKey(new Date())
-    if (today < startDate)
-        return `여행 시작일까지 ${daysBetween(today, startDate)}일 남았습니다.`
-    if (today > endDate) return '완료된 여행입니다.'
-    return `오늘은 여행 DAY ${daysBetween(startDate, today) + 1}입니다.`
+    if (!startDate || !endDate) return '여행 날짜 미정'
+    return `${startDate.replaceAll('-', '. ')} - ${endDate.replaceAll('-', '. ')}`
 }
 
-function daysBetween(from: string, to: string) {
-    return Math.round(
-        (parseLocalDate(to).getTime() - parseLocalDate(from).getTime()) /
-            86_400_000,
-    )
+function getDestinationCode(destination: string | null | undefined) {
+    if (!destination || destination === '장소 미정') return '...'
+
+    const normalized = destination.replaceAll(' ', '').toLowerCase()
+    const destinationCodes: Record<string, string> = {
+        제주: 'JEJU',
+        제주도: 'JEJU',
+        부산: 'PUS',
+        서울: 'SEL',
+        도쿄: 'TYO',
+        동경: 'TYO',
+        오사카: 'OSA',
+        후쿠오카: 'FUK',
+        다낭: 'DAD',
+        방콕: 'BKK',
+        파리: 'PAR',
+        런던: 'LON',
+        로마: 'ROM',
+        뉴욕: 'NYC',
+    }
+
+    return destinationCodes[normalized] ?? destination.trim().toUpperCase()
 }
 
 function currency(value: number) {

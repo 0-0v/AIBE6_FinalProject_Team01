@@ -62,9 +62,7 @@ export function Sidebar() {
             <button
                 type="button"
                 onClick={() => setIsExpanded((expanded) => !expanded)}
-                aria-label={
-                    isExpanded ? '사이드바 접기' : '사이드바 펼치기'
-                }
+                aria-label={isExpanded ? '사이드바 접기' : '사이드바 펼치기'}
                 aria-expanded={isExpanded}
                 className="absolute -right-3.5 top-28 z-10 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
             >
@@ -95,10 +93,12 @@ export function Sidebar() {
                 )}
             </NavLink>
 
-            <nav className="mt-16 flex flex-1 flex-col gap-3" aria-label="주요 메뉴">
+            <nav
+                className="mt-16 flex flex-1 flex-col gap-3"
+                aria-label="주요 메뉴"
+            >
                 {nav.map((item) => {
-                    const badge =
-                        item.to === '/app/updates' ? unreadCount : 0
+                    const badge = item.to === '/app/updates' ? unreadCount : 0
                     return (
                         <NavLink
                             key={item.to}
