@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class PublicCardServiceTest {
@@ -27,6 +28,7 @@ class PublicCardServiceTest {
     @Mock TripTagRepository tagRepository;
     @Mock TripRepository tripRepository;
     @Mock MemberRepository memberRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     @Test
     @DisplayName("t1 본인이 만든 공개 카드를 북마크하면 권한 예외가 발생한다")
@@ -36,7 +38,7 @@ class PublicCardServiceTest {
         when(cardRepository.findById(20L)).thenReturn(Optional.of(card));
         PublicCardService service = new PublicCardService(
                 cardRepository, savedRepository, commentRepository, cardTagRepository,
-                tagRepository, tripRepository, memberRepository);
+                tagRepository, tripRepository, memberRepository, eventPublisher);
 
         assertThatThrownBy(() -> service.bookmark(1L, 20L))
                 .isInstanceOfSatisfying(BusinessException.class,

@@ -8,6 +8,8 @@ import back.backend.domain.collaboration.activitylog.port.TripMemberAccessChecke
 import back.backend.domain.collaboration.activitylog.repository.ActivityLogRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.response.PageResponse;
+import back.backend.global.realtime.RealtimeEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,13 +20,16 @@ public class ActivityLogService {
 
     private final ActivityLogRepository activityLogRepository;
     private final TripMemberAccessChecker tripMemberAccessChecker;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ActivityLogService(
             ActivityLogRepository activityLogRepository,
-            TripMemberAccessChecker tripMemberAccessChecker
+            TripMemberAccessChecker tripMemberAccessChecker,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.activityLogRepository = activityLogRepository;
         this.tripMemberAccessChecker = tripMemberAccessChecker;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -39,7 +44,10 @@ public class ActivityLogService {
                 command.description(),
                 command.metadata()
         );
-        return activityLogRepository.save(activityLog).getId();
+        Long activityLogId = activityLogRepository.save(activityLog).getId();
+        eventPublisher.publishEvent(RealtimeEvent.activity(
+                command.tripId(), command.targetType(), command.targetId()));
+        return activityLogId;
     }
 
     public PageResponse<ActivityLogResponse> getActivityLogs(
