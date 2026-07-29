@@ -243,8 +243,13 @@ public class TripPlanningService {
 
     private DateProposalResponse summarize(Proposal proposal, Long memberId) {
         Map<String, Long> counts = jdbcClient.sql("""
-                SELECT choice, COUNT(*) vote_count FROM trip_date_votes
-                WHERE proposal_id=:proposalId GROUP BY choice
+                SELECT tdv.choice, COUNT(*) vote_count
+                FROM trip_date_votes tdv
+                JOIN trip_date_proposals tdp ON tdp.id = tdv.proposal_id
+                JOIN trip_members tm
+                  ON tm.trip_id = tdp.trip_id AND tm.member_id = tdv.member_id
+                WHERE tdv.proposal_id=:proposalId
+                GROUP BY tdv.choice
                 """).param("proposalId", proposal.id()).query((rs, rowNum) ->
                 Map.entry(rs.getString("choice"), rs.getLong("vote_count")))
                 .list().stream().collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));

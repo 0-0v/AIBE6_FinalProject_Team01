@@ -354,6 +354,21 @@ class TripPlanningServiceTest {
         assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
     }
 
+    @Test
+    @DisplayName("t12 여행방에서 나간 멤버의 기존 투표는 집계하지 않는다")
+    void t12_departedMemberVoteIsExcludedFromSummary() {
+        long proposalId = insertProposal("OPEN");
+        insertVote(proposalId, 99L, "AGREE");
+
+        DateProposalResponse result = tripPlanningService.propose(
+                10L,
+                new DateProposalRequest(LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15))
+        );
+
+        assertThat(result.agreeCount()).isZero();
+        assertThat(result.disagreeCount()).isZero();
+    }
+
     private long insertProposal(String status) {
         jdbcClient.sql("""
                 INSERT INTO trip_date_proposals(

@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react'
 import {
     ChevronLeftIcon,
     ChevronRightIcon,
@@ -31,7 +37,7 @@ import {
     parseLocalDate,
     recommendDateRanges,
     startOfMonth,
-    updateDateSet,
+    updateDateSetWithinLimit,
 } from '../lib/date-availability'
 
 type Props = {
@@ -53,6 +59,7 @@ type SelectionGesture = {
 
 const DRAG_THRESHOLD_PX = 8
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+const AVAILABILITY_LIMIT_ERROR = `가능 날짜는 최대 ${MAX_AVAILABILITY_DATES}개까지 선택할 수 있습니다.`
 
 export function DateVotePanel({
     tripId,
@@ -76,23 +83,44 @@ export function DateVotePanel({
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
     const [proposal, setProposal] = useState<DateProposal | null>(null)
+    const [proposalSubmitting, setProposalSubmitting] = useState(false)
+    const [voteSubmitting, setVoteSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const gestureRef = useRef<SelectionGesture | null>(null)
     const lastPointerType = useRef('mouse')
+
+    const commitDraftRange = useCallback(
+        (rangeStart: string, rangeEnd: string, selecting: boolean) => {
+            const result = updateDateSetWithinLimit(
+                draftDates,
+                rangeStart,
+                rangeEnd,
+                selecting,
+                MAX_AVAILABILITY_DATES,
+            )
+            if (result.limitExceeded) {
+                setError(AVAILABILITY_LIMIT_ERROR)
+                return false
+            }
+            setDraftDates(result.dates)
+            setDirty(true)
+            setError((current) =>
+                current === AVAILABILITY_LIMIT_ERROR ? null : current,
+            )
+            return true
+        },
+        [draftDates],
+    )
 
     useEffect(() => {
         const finishDragging = () => {
             const currentGesture = gestureRef.current
             if (!currentGesture || currentGesture.input !== 'mouse') return
-            setDraftDates((current) =>
-                updateDateSet(
-                    current,
-                    currentGesture.anchor,
-                    currentGesture.current,
-                    currentGesture.selecting,
-                ),
+            commitDraftRange(
+                currentGesture.anchor,
+                currentGesture.current,
+                currentGesture.selecting,
             )
-            setDirty(true)
             gestureRef.current = null
             setGesture(null)
         }
@@ -102,13 +130,19 @@ export function DateVotePanel({
             setGesture(null)
             setTouchAnchor(null)
         }
+        const cancelWithEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape' || !gestureRef.current) return
+            cancelDragging()
+        }
         window.addEventListener('pointerup', finishDragging)
         window.addEventListener('pointercancel', cancelDragging)
+        window.addEventListener('keydown', cancelWithEscape)
         return () => {
             window.removeEventListener('pointerup', finishDragging)
             window.removeEventListener('pointercancel', cancelDragging)
+            window.removeEventListener('keydown', cancelWithEscape)
         }
-    }, [])
+    }, [commitDraftRange])
 
     useEffect(() => {
         onDirtyChange?.(dirty)
@@ -278,15 +312,12 @@ export function DateVotePanel({
         rangeEnd: string,
         selecting: boolean,
     ) {
-        if (!canWrite) return
-        setDraftDates((current) =>
-            updateDateSet(current, rangeStart, rangeEnd, selecting),
-        )
-        setDirty(true)
+        if (!canWrite || saving) return
+        commitDraftRange(rangeStart, rangeEnd, selecting)
     }
 
     function startDragging(event: React.PointerEvent, date: string) {
-        if (!canWrite || event.button !== 0) return
+        if (!canWrite || saving || event.button !== 0) return
         lastPointerType.current = event.pointerType
         if (event.pointerType === 'touch') return
         event.preventDefault()
@@ -306,7 +337,7 @@ export function DateVotePanel({
     }
 
     function selectWithTouch(date: string) {
-        if (!canWrite) return
+        if (!canWrite || saving) return
         if (touchAnchor == null) {
             const nextGesture: SelectionGesture = {
                 anchor: date,
@@ -337,15 +368,11 @@ export function DateVotePanel({
         if (!currentGesture || currentGesture.input !== 'mouse') return
         if (!(event.buttons & 1)) {
             // 브라우저 밖에서 마우스를 놓고 돌아온 경우 — 제스처를 자동 커밋
-            setDraftDates((prev) =>
-                updateDateSet(
-                    prev,
-                    currentGesture.anchor,
-                    currentGesture.current,
-                    currentGesture.selecting,
-                ),
+            commitDraftRange(
+                currentGesture.anchor,
+                currentGesture.current,
+                currentGesture.selecting,
             )
-            setDirty(true)
             gestureRef.current = null
             setGesture(null)
             return
@@ -363,10 +390,9 @@ export function DateVotePanel({
     }
 
     async function saveDraft() {
+        if (saving) return
         if (draftDates.size > MAX_AVAILABILITY_DATES) {
-            setError(
-                `가능 날짜는 최대 ${MAX_AVAILABILITY_DATES}개까지 선택할 수 있습니다.`,
-            )
+            setError(AVAILABILITY_LIMIT_ERROR)
             return
         }
         setSaving(true)
@@ -399,8 +425,14 @@ export function DateVotePanel({
         gestureRef.current = null
     }
 
+    function changeCalendarMonth(amount: number) {
+        cancelGesture()
+        setHoveredDate(null)
+        setCalendarMonth((current) => addMonths(current, amount))
+    }
+
     return (
-        <div className="mp-scroll flex-1 space-y-4 overflow-y-auto p-4">
+        <div className="mp-scroll mx-auto w-full max-w-[760px] flex-1 space-y-4 overflow-y-auto p-4">
             {error && (
                 <p
                     role="alert"
@@ -480,11 +512,7 @@ export function DateVotePanel({
                 <div className="mt-4 flex items-center justify-between">
                     <button
                         type="button"
-                        onClick={() =>
-                            setCalendarMonth((current) =>
-                                addMonths(current, -1),
-                            )
-                        }
+                        onClick={() => changeCalendarMonth(-1)}
                         className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
                         aria-label="이전 달"
                     >
@@ -496,15 +524,19 @@ export function DateVotePanel({
                     </b>
                     <button
                         type="button"
-                        onClick={() =>
-                            setCalendarMonth((current) => addMonths(current, 1))
-                        }
+                        onClick={() => changeCalendarMonth(1)}
                         className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
                         aria-label="다음 달"
                     >
                         <ChevronRightIcon size={17} />
                     </button>
                 </div>
+
+                <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-500">
+                    PC에서는 날짜를 드래그하고, 모바일에서는 시작일과
+                    종료일을 차례로 눌러 선택하세요. Esc를 누르면 선택을
+                    취소할 수 있어요.
+                </p>
 
                 <div className="mt-2 grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
                     {WEEKDAYS.map((weekday, index) => (
@@ -546,7 +578,7 @@ export function DateVotePanel({
                             <button
                                 key={dateKey}
                                 type="button"
-                                disabled={!canWrite || !supported}
+                                disabled={!canWrite || !supported || saving}
                                 onPointerDown={(event) =>
                                     startDragging(event, dateKey)
                                 }
@@ -556,14 +588,16 @@ export function DateVotePanel({
                                 }}
                                 onFocus={() => setHoveredDate(dateKey)}
                                 onClick={(event) => {
-                                    if (lastPointerType.current === 'touch') {
-                                        selectWithTouch(dateKey)
-                                    } else if (event.detail === 0) {
+                                    if (event.detail === 0) {
                                         applyDraftRange(
                                             dateKey,
                                             dateKey,
                                             !draftDates.has(dateKey),
                                         )
+                                    } else if (
+                                        lastPointerType.current === 'touch'
+                                    ) {
+                                        selectWithTouch(dateKey)
                                     }
                                     event.preventDefault()
                                 }}
@@ -747,11 +781,16 @@ export function DateVotePanel({
                 <button
                     disabled={
                         !canWrite ||
+                        dirty ||
+                        proposalSubmitting ||
+                        voteSubmitting ||
                         !startDate ||
                         !endDate ||
                         selectionIsCurrentProposal
                     }
                     onClick={async () => {
+                        if (dirty || proposalSubmitting || voteSubmitting) return
+                        setProposalSubmitting(true)
                         setError(null)
                         try {
                             const nextProposal = await proposeDates(
@@ -768,6 +807,8 @@ export function DateVotePanel({
                                     '날짜 제안에 실패했습니다.',
                                 ),
                             )
+                        } finally {
+                            setProposalSubmitting(false)
                         }
                     }}
                     className="mt-2 w-full rounded-lg bg-slate-900 py-2 text-xs font-bold text-white disabled:opacity-40"
@@ -779,7 +820,9 @@ export function DateVotePanel({
                           ? '기간 변경 제안하기'
                           : selectionIsCurrentProposal
                             ? '현재 제안된 기간'
-                            : '이 기간 제안하기'}
+                            : proposalSubmitting
+                              ? '제안 중...'
+                              : '이 기간 제안하기'}
                 </button>
                 {proposal && (
                     <div className="mt-3 rounded-lg bg-slate-50 p-2 text-xs">
@@ -800,8 +843,19 @@ export function DateVotePanel({
                                     (choice) => (
                                         <button
                                             key={choice}
-                                            disabled={!canWrite}
+                                            disabled={
+                                                !canWrite ||
+                                                proposalSubmitting ||
+                                                voteSubmitting
+                                            }
                                             onClick={async () => {
+                                                if (
+                                                    proposalSubmitting ||
+                                                    voteSubmitting
+                                                ) {
+                                                    return
+                                                }
+                                                setVoteSubmitting(true)
                                                 setError(null)
                                                 try {
                                                     const nextProposal =
@@ -824,6 +878,8 @@ export function DateVotePanel({
                                                             '날짜 투표에 실패했습니다.',
                                                         ),
                                                     )
+                                                } finally {
+                                                    setVoteSubmitting(false)
                                                 }
                                             }}
                                             className={`rounded-lg border bg-white py-1.5 font-bold ${
