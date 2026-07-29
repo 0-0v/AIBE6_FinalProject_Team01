@@ -1,16 +1,19 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { Columns3Icon, ListIcon } from 'lucide-react'
 import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
 import { Badge, Button } from '@/shared/ui'
+import { getTimetableHourRange } from '../lib/timetable-layout'
 import { useItineraryDays } from '../model/use-itinerary-days'
 import { useItineraryItemEditor } from '../model/use-itinerary-item-editor'
 import { TimeRangeFields } from './time-range-fields'
 
 const HOUR_HEIGHT = 64 // px per hour
-const START_HOUR = 6 // 06:00
-const END_HOUR = 24 // 24:00
+const OVERVIEW_DAY_WIDTH = 156
+
+type TimetableView = 'day' | 'overview'
 
 function parseTime(t: string): { h: number; m: number } {
     const parts = t.split(':').map(Number)
@@ -22,17 +25,22 @@ function toMinutes(time: string): number {
     return h * 60 + m
 }
 
-function getItemTop(startTime: string): number {
+function getItemTop(startTime: string, startHour: number): number {
     const { h, m } = parseTime(startTime)
-    const top = (h - START_HOUR) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
+    const top = (h - startHour) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
     return Math.max(0, top)
 }
 
-function getItemHeight(startTime: string, endTime: string): number {
+function getItemHeight(
+    startTime: string,
+    endTime: string,
+    startHour: number,
+    endHour: number,
+): number {
     const s = parseTime(startTime)
     const e = parseTime(endTime)
-    const startMinutes = Math.max(s.h * 60 + s.m, START_HOUR * 60)
-    const endMinutes = Math.min(e.h * 60 + e.m, END_HOUR * 60)
+    const startMinutes = Math.max(s.h * 60 + s.m, startHour * 60)
+    const endMinutes = Math.min(e.h * 60 + e.m, endHour * 60)
     const minutes = endMinutes - startMinutes
     return Math.max(HOUR_HEIGHT * 0.75, (minutes / 60) * HOUR_HEIGHT)
 }
@@ -50,7 +58,10 @@ function layoutTimedItems(items: ItineraryItem[]): LayoutedItem[] {
     }
 
     function overlaps(a: ItineraryItem, b: ItineraryItem): boolean {
-        return toMinutes(a.startTime!) < endOf(b) && toMinutes(b.startTime!) < endOf(a)
+        return (
+            toMinutes(a.startTime!) < endOf(b) &&
+            toMinutes(b.startTime!) < endOf(a)
+        )
     }
 
     const n = items.length
@@ -81,7 +92,8 @@ function layoutTimedItems(items: ItineraryItem[]): LayoutedItem[] {
     for (const component of components) {
         // 시작 시간순 정렬 후 greedy 컬럼 배정
         const sorted = [...component].sort(
-            (a, b) => toMinutes(items[a].startTime!) - toMinutes(items[b].startTime!),
+            (a, b) =>
+                toMinutes(items[a].startTime!) - toMinutes(items[b].startTime!),
         )
         const colEnds: number[] = []
         const cols = new Array<number>(n)
@@ -114,12 +126,12 @@ function layoutTimedItems(items: ItineraryItem[]): LayoutedItem[] {
 }
 
 /** 현재 시각의 그리드 내 top(px)을 반환. 범위 밖이면 null */
-function getCurrentTimeTop(): number | null {
+function getCurrentTimeTop(startHour: number, endHour: number): number | null {
     const now = new Date()
     const h = now.getHours()
     const m = now.getMinutes()
-    if (h < START_HOUR || h >= END_HOUR) return null
-    return (h - START_HOUR) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
+    if (h < startHour || h >= endHour) return null
+    return (h - startHour) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
 }
 
 // ──────────────────────────────────────────
@@ -263,17 +275,14 @@ type Props = {
 export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
     const { days, setDays, loading, error } = useItineraryDays(tripId, canWrite)
     const [selectedDayId, setSelectedDayId] = useState<string>('')
-    const [currentTimeTop, setCurrentTimeTop] = useState<number | null>(
-        getCurrentTimeTop,
-    )
-    // 현재 시각 선 1분마다 갱신
-    useEffect(() => {
-        const id = setInterval(
-            () => setCurrentTimeTop(getCurrentTimeTop()),
-            60_000,
-        )
-        return () => clearInterval(id)
-    }, [])
+    const [view, setViewState] = useState<TimetableView>(() => {
+        if (typeof window === 'undefined') return 'day'
+        return window.localStorage.getItem('trip-room-timetable-view') ===
+            'overview'
+            ? 'overview'
+            : 'day'
+    })
+    const [, setClockTick] = useState(0)
 
     const effectiveSelectedDayId = days.some(
         (day) => String(day.id) === selectedDayId,
@@ -285,6 +294,30 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
     )
     const timedItems = selectedDay?.items.filter((i) => !!i.startTime) ?? []
     const untimedItems = selectedDay?.items.filter((i) => !i.startTime) ?? []
+    const visibleItems =
+        view === 'overview'
+            ? days.flatMap((day) => day.items)
+            : (selectedDay?.items ?? [])
+    const { startHour, endHour } = getTimetableHourRange(visibleItems)
+    const currentTimeTop = getCurrentTimeTop(startHour, endHour)
+
+    useEffect(() => {
+        const id = setInterval(
+            () => setClockTick((current) => current + 1),
+            60_000,
+        )
+        return () => clearInterval(id)
+    }, [])
+
+    function setView(nextView: TimetableView) {
+        setViewState(nextView)
+        window.localStorage.setItem('trip-room-timetable-view', nextView)
+    }
+
+    function openDay(dayId: string) {
+        setSelectedDayId(dayId)
+        setView('day')
+    }
 
     const scheduledTripPlaceIds = new Set(
         days
@@ -298,7 +331,7 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
 
     const hasUnscheduled =
         untimedItems.length > 0 || unscheduledPlaces.length > 0
-    const gridHeight = (END_HOUR - START_HOUR) * HOUR_HEIGHT
+    const gridHeight = (endHour - startHour) * HOUR_HEIGHT
 
     // 오늘 날짜 (yyyy-MM-dd 형식)
     const todayStr = new Date().toISOString().slice(0, 10)
@@ -331,62 +364,114 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
-            {/* Day 탭 */}
-            <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-100 bg-white px-3 py-2">
-                {days.map((day) => {
-                    const isSelected = String(day.id) === effectiveSelectedDayId
-                    const isToday = day.itineraryDate === todayStr
-                    return (
-                        <button
-                            key={day.id}
-                            type="button"
-                            onClick={() => setSelectedDayId(String(day.id))}
-                            className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                                isSelected
-                                    ? 'bg-brand text-white'
-                                    : 'text-slate-500 hover:bg-slate-100'
-                            }`}
-                        >
-                            <span>Day {day.dayNumber}</span>
-                            <span
-                                className={`font-normal ${isSelected ? 'opacity-80' : 'opacity-60'}`}
-                            >
-                                {new Date(
-                                    day.itineraryDate + 'T00:00:00',
-                                ).toLocaleDateString('ko-KR', {
-                                    month: 'numeric',
-                                    day: 'numeric',
-                                })}
-                            </span>
-                            {isToday && (
-                                <Badge
-                                    className={
-                                        isSelected
-                                            ? 'bg-white/20 text-white'
-                                            : 'bg-brand/10 text-brand'
-                                    }
-                                >
-                                    오늘
-                                </Badge>
-                            )}
-                            {day.items.length > 0 && (
-                                <Badge
-                                    className={
-                                        isSelected
-                                            ? 'bg-white/20 text-white'
-                                            : 'bg-slate-100 text-slate-500'
-                                    }
-                                >
-                                    {day.items.length}
-                                </Badge>
-                            )}
-                        </button>
-                    )
-                })}
+            <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 bg-white px-3 py-2">
+                <div className="min-w-0 flex-1">
+                    {view === 'day' ? (
+                        <div className="mp-scroll flex gap-1 overflow-x-auto">
+                            {days.map((day) => {
+                                const isSelected =
+                                    String(day.id) === effectiveSelectedDayId
+                                const isToday = day.itineraryDate === todayStr
+                                return (
+                                    <button
+                                        key={day.id}
+                                        type="button"
+                                        onClick={() =>
+                                            setSelectedDayId(String(day.id))
+                                        }
+                                        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                                            isSelected
+                                                ? 'bg-brand text-white'
+                                                : 'text-slate-500 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        <span>Day {day.dayNumber}</span>
+                                        <span
+                                            className={`font-normal ${
+                                                isSelected
+                                                    ? 'opacity-80'
+                                                    : 'opacity-60'
+                                            }`}
+                                        >
+                                            {new Date(
+                                                `${day.itineraryDate}T00:00:00`,
+                                            ).toLocaleDateString('ko-KR', {
+                                                month: 'numeric',
+                                                day: 'numeric',
+                                            })}
+                                        </span>
+                                        {isToday && (
+                                            <Badge
+                                                className={
+                                                    isSelected
+                                                        ? 'bg-white/20 text-white'
+                                                        : 'bg-brand/10 text-brand'
+                                                }
+                                            >
+                                                오늘
+                                            </Badge>
+                                        )}
+                                        {day.items.length > 0 && (
+                                            <Badge
+                                                className={
+                                                    isSelected
+                                                        ? 'bg-white/20 text-white'
+                                                        : 'bg-slate-100 text-slate-500'
+                                                }
+                                            >
+                                                {day.items.length}
+                                            </Badge>
+                                        )}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    ) : (
+                        <div>
+                            <p className="text-xs font-bold text-slate-700">
+                                전체 일정 비교
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                                장소를 누르면 해당 Day를 자세히 볼 수 있어요.
+                            </p>
+                        </div>
+                    )}
+                </div>
+                <div
+                    className="flex shrink-0 rounded-lg bg-slate-100 p-0.5"
+                    role="group"
+                    aria-label="시간표 보기 방식"
+                >
+                    <button
+                        type="button"
+                        aria-pressed={view === 'day'}
+                        onClick={() => setView('day')}
+                        className={`flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-bold transition ${
+                            view === 'day'
+                                ? 'bg-white text-slate-800 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                    >
+                        <ListIcon size={12} aria-hidden />
+                        일별 보기
+                    </button>
+                    <button
+                        type="button"
+                        aria-pressed={view === 'overview'}
+                        onClick={() => setView('overview')}
+                        className={`flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-bold transition ${
+                            view === 'overview'
+                                ? 'bg-white text-slate-800 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                    >
+                        <Columns3Icon size={12} aria-hidden />
+                        전체 보기
+                    </button>
+                </div>
             </div>
 
-            {/* 미정 섹션 */}
-            {hasUnscheduled && (
+            {view === 'day' && hasUnscheduled && (
                 <div className="shrink-0 border-b border-slate-100 bg-slate-50 px-4 py-2">
                     <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                         미정 · {untimedItems.length + unscheduledPlaces.length}
@@ -444,106 +529,295 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                 </div>
             )}
 
-            {/* 시간 그리드 */}
-            <div className="flex-1 overflow-y-auto bg-white">
-                <div className="flex" style={{ minHeight: gridHeight }}>
-                    {/* 시간 레이블 열 */}
-                    <div
-                        className="relative w-14 shrink-0 border-r border-slate-100"
-                        style={{ height: gridHeight }}
-                    >
-                        {Array.from(
-                            { length: END_HOUR - START_HOUR },
-                            (_, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute right-2 text-[10px] text-slate-300"
-                                    style={{ top: i * HOUR_HEIGHT - 6 }}
-                                >
-                                    {String(START_HOUR + i).padStart(2, '0')}:00
+            {view === 'day' ? (
+                <div className="flex-1 overflow-y-auto bg-white">
+                    <div className="flex" style={{ minHeight: gridHeight }}>
+                        <div
+                            className="relative w-14 shrink-0 border-r border-slate-100"
+                            style={{ height: gridHeight }}
+                        >
+                            {Array.from(
+                                { length: endHour - startHour },
+                                (_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute right-2 text-[10px] text-slate-300"
+                                        style={{
+                                            top: i * HOUR_HEIGHT - 6,
+                                        }}
+                                    >
+                                        {String(startHour + i).padStart(2, '0')}
+                                        :00
+                                    </div>
+                                ),
+                            )}
+                        </div>
+
+                        <div
+                            className="relative flex-1"
+                            style={{ height: gridHeight }}
+                        >
+                            {Array.from(
+                                { length: endHour - startHour + 1 },
+                                (_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute left-0 right-0 border-t border-slate-100"
+                                        style={{ top: i * HOUR_HEIGHT }}
+                                    />
+                                ),
+                            )}
+                            {Array.from(
+                                { length: endHour - startHour },
+                                (_, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute left-0 right-0 border-t border-dashed border-slate-50"
+                                        style={{
+                                            top:
+                                                i * HOUR_HEIGHT +
+                                                HOUR_HEIGHT / 2,
+                                        }}
+                                    />
+                                ),
+                            )}
+
+                            {currentTimeTop !== null &&
+                                selectedDay?.itineraryDate === todayStr && (
+                                    <div
+                                        className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
+                                        style={{ top: currentTimeTop }}
+                                    >
+                                        <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" />
+                                        <div className="h-px flex-1 bg-red-400" />
+                                    </div>
+                                )}
+
+                            {layoutTimedItems(timedItems).map(
+                                ({ item, col, colSpan }) => {
+                                    const top = getItemTop(
+                                        item.startTime!,
+                                        startHour,
+                                    )
+                                    const height = item.endTime
+                                        ? getItemHeight(
+                                              item.startTime!,
+                                              item.endTime,
+                                              startHour,
+                                              endHour,
+                                          )
+                                        : HOUR_HEIGHT
+                                    return (
+                                        <TimetableItemBlock
+                                            key={item.id}
+                                            item={item}
+                                            tripId={tripId}
+                                            top={top}
+                                            height={height}
+                                            leftPct={(col / colSpan) * 100}
+                                            widthPct={100 / colSpan}
+                                            canWrite={canWrite}
+                                            onUpdate={setDays}
+                                            dayItems={selectedDay?.items ?? []}
+                                        />
+                                    )
+                                },
+                            )}
+
+                            {timedItems.length === 0 && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <p className="px-8 text-center text-xs text-slate-300">
+                                        {canWrite
+                                            ? '칸반 보기에서 장소를 배치하고 시간을 입력하면 여기에 표시됩니다.'
+                                            : '배치된 장소가 없습니다.'}
+                                    </p>
                                 </div>
-                            ),
-                        )}
-                    </div>
-
-                    {/* 이벤트 그리드 */}
-                    <div
-                        className="relative flex-1"
-                        style={{ height: gridHeight }}
-                    >
-                        {/* 정시 선 */}
-                        {Array.from(
-                            { length: END_HOUR - START_HOUR + 1 },
-                            (_, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute left-0 right-0 border-t border-slate-100"
-                                    style={{ top: i * HOUR_HEIGHT }}
-                                />
-                            ),
-                        )}
-                        {/* 30분 점선 */}
-                        {Array.from(
-                            { length: END_HOUR - START_HOUR },
-                            (_, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute left-0 right-0 border-t border-dashed border-slate-50"
-                                    style={{
-                                        top: i * HOUR_HEIGHT + HOUR_HEIGHT / 2,
-                                    }}
-                                />
-                            ),
-                        )}
-
-                        {/* 현재 시각 표시선 — 오늘 날짜 탭에서만 표시 */}
-                        {currentTimeTop !== null && selectedDay?.itineraryDate === todayStr && (
-                            <div
-                                className="pointer-events-none absolute left-0 right-0 z-20 flex items-center"
-                                style={{ top: currentTimeTop }}
-                            >
-                                <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" />
-                                <div className="h-px flex-1 bg-red-400" />
-                            </div>
-                        )}
-
-                        {/* 시간 배치된 장소 블록 */}
-                        {layoutTimedItems(timedItems).map(({ item, col, colSpan }) => {
-                            const top = getItemTop(item.startTime!)
-                            const height = item.endTime
-                                ? getItemHeight(item.startTime!, item.endTime)
-                                : HOUR_HEIGHT
-                            const widthPct = 100 / colSpan
-                            const leftPct = (col / colSpan) * 100
-                            return (
-                                <TimetableItemBlock
-                                    key={item.id}
-                                    item={item}
-                                    tripId={tripId}
-                                    top={top}
-                                    height={height}
-                                    leftPct={leftPct}
-                                    widthPct={widthPct}
-                                    canWrite={canWrite}
-                                    onUpdate={setDays}
-                                    dayItems={selectedDay?.items ?? []}
-                                />
-                            )
-                        })}
-
-                        {/* 빈 Day 안내 */}
-                        {timedItems.length === 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <p className="px-8 text-center text-xs text-slate-300">
-                                    {canWrite
-                                        ? '칸반 보기에서 장소를 배치하고 시간을 입력하면 여기에 표시됩니다.'
-                                        : '배치된 장소가 없습니다.'}
-                                </p>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
+            ) : (
+                <div className="mp-scroll flex-1 overflow-auto bg-white">
+                    <div
+                        style={{
+                            minWidth: 56 + days.length * OVERVIEW_DAY_WIDTH,
+                        }}
+                    >
+                        <div className="sticky top-0 z-30 flex h-14 border-b border-slate-200 bg-white/95 backdrop-blur">
+                            <div className="sticky left-0 z-40 flex w-14 shrink-0 items-center justify-center border-r border-slate-200 bg-white text-[10px] font-bold text-slate-400">
+                                시간
+                            </div>
+                            {days.map((day) => {
+                                const untimedCount = day.items.filter(
+                                    (item) => !item.startTime,
+                                ).length
+                                return (
+                                    <button
+                                        key={day.id}
+                                        type="button"
+                                        onClick={() => openDay(String(day.id))}
+                                        className="flex shrink-0 flex-col items-center justify-center border-r border-slate-100 px-2 transition hover:bg-brand/5"
+                                        style={{
+                                            width: OVERVIEW_DAY_WIDTH,
+                                        }}
+                                    >
+                                        <span className="flex items-center gap-1 text-xs font-bold text-slate-700">
+                                            Day {day.dayNumber}
+                                            {day.itineraryDate === todayStr && (
+                                                <Badge className="bg-brand/10 text-brand">
+                                                    오늘
+                                                </Badge>
+                                            )}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400">
+                                            {new Date(
+                                                `${day.itineraryDate}T00:00:00`,
+                                            ).toLocaleDateString('ko-KR', {
+                                                month: 'numeric',
+                                                day: 'numeric',
+                                                weekday: 'short',
+                                            })}
+                                            {untimedCount > 0 &&
+                                                ` · 시간 미정 ${untimedCount}`}
+                                        </span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        <div className="flex">
+                            <div
+                                className="sticky left-0 z-20 w-14 shrink-0 border-r border-slate-200 bg-white"
+                                style={{ height: gridHeight }}
+                            >
+                                {Array.from(
+                                    { length: endHour - startHour },
+                                    (_, i) => (
+                                        <div
+                                            key={i}
+                                            className="absolute right-2 text-[10px] text-slate-300"
+                                            style={{
+                                                top: i * HOUR_HEIGHT - 6,
+                                            }}
+                                        >
+                                            {String(startHour + i).padStart(
+                                                2,
+                                                '0',
+                                            )}
+                                            :00
+                                        </div>
+                                    ),
+                                )}
+                            </div>
+                            {days.map((day) => {
+                                const dayTimedItems = day.items.filter(
+                                    (item) => !!item.startTime,
+                                )
+                                return (
+                                    <div
+                                        key={day.id}
+                                        className="relative shrink-0 border-r border-slate-100"
+                                        style={{
+                                            width: OVERVIEW_DAY_WIDTH,
+                                            height: gridHeight,
+                                        }}
+                                    >
+                                        {Array.from(
+                                            {
+                                                length: endHour - startHour + 1,
+                                            },
+                                            (_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="absolute left-0 right-0 border-t border-slate-100"
+                                                    style={{
+                                                        top: i * HOUR_HEIGHT,
+                                                    }}
+                                                />
+                                            ),
+                                        )}
+                                        {Array.from(
+                                            {
+                                                length: endHour - startHour,
+                                            },
+                                            (_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="absolute left-0 right-0 border-t border-dashed border-slate-50"
+                                                    style={{
+                                                        top:
+                                                            i * HOUR_HEIGHT +
+                                                            HOUR_HEIGHT / 2,
+                                                    }}
+                                                />
+                                            ),
+                                        )}
+                                        {currentTimeTop !== null &&
+                                            day.itineraryDate === todayStr && (
+                                                <div
+                                                    className="pointer-events-none absolute left-0 right-0 z-20 h-px bg-red-400"
+                                                    style={{
+                                                        top: currentTimeTop,
+                                                    }}
+                                                />
+                                            )}
+                                        {layoutTimedItems(dayTimedItems).map(
+                                            ({ item, col, colSpan }) => {
+                                                const color =
+                                                    item.categoryColor ??
+                                                    '#94a3b8'
+                                                const height = item.endTime
+                                                    ? getItemHeight(
+                                                          item.startTime!,
+                                                          item.endTime,
+                                                          startHour,
+                                                          endHour,
+                                                      )
+                                                    : HOUR_HEIGHT
+                                                return (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            openDay(
+                                                                String(day.id),
+                                                            )
+                                                        }
+                                                        title={`${item.placeName ?? '장소'} · 자세히 보기`}
+                                                        className="absolute overflow-hidden rounded-md border-l-2 px-1.5 py-1 text-left shadow-sm transition hover:z-10 hover:brightness-95 hover:shadow-md focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-brand"
+                                                        style={{
+                                                            top: getItemTop(
+                                                                item.startTime!,
+                                                                startHour,
+                                                            ),
+                                                            minHeight: height,
+                                                            left: `calc(${(col / colSpan) * 100}% + 2px)`,
+                                                            width: `calc(${100 / colSpan}% - 4px)`,
+                                                            color,
+                                                            borderColor: color,
+                                                            backgroundColor: `${color}18`,
+                                                        }}
+                                                    >
+                                                        <span className="block truncate text-[10px] font-bold">
+                                                            {item.placeName ??
+                                                                '(제목 없음)'}
+                                                        </span>
+                                                        <span className="block text-[9px] opacity-70">
+                                                            {item.startTime}
+                                                            {item.endTime
+                                                                ? `–${item.endTime}`
+                                                                : ''}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            },
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
