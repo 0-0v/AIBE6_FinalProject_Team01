@@ -40,6 +40,7 @@ import {
     MapCanvas,
     RoomDetailPanel,
     RoomListPanel,
+    getNextSortOrder,
     type TripRoomWorkspace,
 } from '@/widgets/trip-room'
 
@@ -110,7 +111,7 @@ export function TripRoom() {
                 tripId,
                 Number(dayId),
                 Number(placeId),
-                targetDay.items.length,
+                getNextSortOrder(targetDay.items),
             )
             const updated = await getItinerary(tripId)
             setItineraryState({ tripId, days: updated })

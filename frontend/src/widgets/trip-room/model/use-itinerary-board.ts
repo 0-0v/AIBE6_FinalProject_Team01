@@ -83,6 +83,21 @@ export function useItineraryBoard(
         setSaving(false)
     }
 
+    async function restoreAfterMutationFailure(
+        previousDays: ItineraryDay[],
+    ): Promise<string | null> {
+        setDays(previousDays)
+        try {
+            await refresh()
+            return null
+        } catch (refreshError) {
+            return getApiErrorMessage(
+                refreshError,
+                '서버 상태를 다시 확인하지 못했습니다. 화면은 변경 전 상태로 복원했습니다.',
+            )
+        }
+    }
+
     const savedPlaces = places.filter((place) => place.status === 'saved')
     const scheduledTripPlaceIds = new Set(
         days.flatMap((day) =>
@@ -209,14 +224,11 @@ export function useItineraryBoard(
         )
         if (overId === UNSCHEDULED_DROP_ZONE_ID) {
             if (!beginSaving()) return
+            const previousDays = days
             const sourceDay = findDayById(sourceDayId)
             const movingItem = sourceDay?.items.find(
                 (item) => String(item.id) === activeId,
             )
-            const sourceIndex =
-                sourceDay?.items.findIndex(
-                    (item) => String(item.id) === activeId,
-                ) ?? -1
             setDays((currentDays) =>
                 currentDays.map((day) => ({
                     ...day,
@@ -231,26 +243,27 @@ export function useItineraryBoard(
                 setFeedback({
                     message: '장소를 저장된 장소로 되돌렸어요.',
                     undo:
-                        sourceDay != null &&
-                        movingItem?.tripPlaceId != null
+                        sourceDay != null && movingItem?.tripPlaceId != null
                             ? async () => {
                                   await addItineraryItem(
                                       tripId,
                                       Number(sourceDay.id),
                                       Number(movingItem.tripPlaceId),
-                                      sourceIndex,
+                                      movingItem.sortOrder,
                                   )
                                   setDays(await getItinerary(tripId))
                               }
                             : undefined,
                 })
             } catch (error) {
-                try { await refresh() } catch { /* refresh 실패 시 내부에서 에러 상태 처리됨 */ }
+                const refreshError =
+                    await restoreAfterMutationFailure(previousDays)
                 setDndError(
-                    getApiErrorMessage(
-                        error,
-                        '저장된 장소로 되돌리지 못했습니다.',
-                    ),
+                    refreshError ??
+                        getApiErrorMessage(
+                            error,
+                            '저장된 장소로 되돌리지 못했습니다.',
+                        ),
                 )
             } finally {
                 finishSaving()
@@ -264,6 +277,7 @@ export function useItineraryBoard(
 
         if (sourceDayId !== targetDayId) {
             if (!beginSaving()) return
+            const previousDays = days
             const targetIndex = targetDay.items.findIndex(
                 (item) => String(item.id) === overId,
             )
@@ -311,8 +325,7 @@ export function useItineraryBoard(
                             Math.max(
                                 0,
                                 sourceDay?.items.findIndex(
-                                    (item) =>
-                                        String(item.id) === activeId,
+                                    (item) => String(item.id) === activeId,
                                 ) ?? 0,
                             ),
                         )
@@ -320,8 +333,12 @@ export function useItineraryBoard(
                     },
                 })
             } catch (error) {
-                try { await refresh() } catch { /* refresh 실패 시 내부에서 에러 상태 처리됨 */ }
-                setDndError(getApiErrorMessage(error, '이동에 실패했습니다.'))
+                const refreshError =
+                    await restoreAfterMutationFailure(previousDays)
+                setDndError(
+                    refreshError ??
+                        getApiErrorMessage(error, '이동에 실패했습니다.'),
+                )
             } finally {
                 finishSaving()
             }
@@ -339,6 +356,7 @@ export function useItineraryBoard(
         if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
         if (!beginSaving()) return
 
+        const previousDays = days
         const reorderedItems = [...sourceDay.items]
         const previousOrder = sourceDay.items.map((item) => Number(item.id))
         const [movedItem] = reorderedItems.splice(oldIndex, 1)
@@ -369,8 +387,11 @@ export function useItineraryBoard(
                 },
             })
         } catch (error) {
-            try { await refresh() } catch { /* refresh 실패 시 내부에서 에러 상태 처리됨 */ }
-            setDndError(getApiErrorMessage(error, '순서 변경에 실패했습니다.'))
+            const refreshError = await restoreAfterMutationFailure(previousDays)
+            setDndError(
+                refreshError ??
+                    getApiErrorMessage(error, '순서 변경에 실패했습니다.'),
+            )
         } finally {
             finishSaving()
         }
@@ -383,9 +404,7 @@ export function useItineraryBoard(
             await feedback.undo()
             setFeedback({ message: '이전 상태로 되돌렸어요.' })
         } catch (error) {
-            setDndError(
-                getApiErrorMessage(error, '실행 취소에 실패했습니다.'),
-            )
+            setDndError(getApiErrorMessage(error, '실행 취소에 실패했습니다.'))
         } finally {
             finishSaving()
         }
