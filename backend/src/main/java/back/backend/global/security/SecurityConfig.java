@@ -3,6 +3,7 @@ package back.backend.global.security;
 import back.backend.global.config.FrontendProperties;
 import back.backend.global.security.jwt.JwtAuthenticationFilter;
 import back.backend.global.security.oauth2.CustomOAuth2UserService;
+import back.backend.global.security.oauth2.GoogleAccountSelectionAuthorizationRequestResolver;
 import back.backend.global.security.oauth2.OAuth2LoginFailureHandler;
 import back.backend.global.security.oauth2.OAuth2LoginSuccessHandler;
 import java.util.List;
@@ -91,8 +92,14 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        if (clientRegistrationRepositoryProvider.getIfAvailable() != null) {
+        ClientRegistrationRepository clientRegistrationRepository =
+                clientRegistrationRepositoryProvider.getIfAvailable();
+        if (clientRegistrationRepository != null) {
+            GoogleAccountSelectionAuthorizationRequestResolver authorizationRequestResolver =
+                    new GoogleAccountSelectionAuthorizationRequestResolver(clientRegistrationRepository);
             http.oauth2Login(oauth2 -> oauth2
+                    .authorizationEndpoint(endpoint -> endpoint
+                            .authorizationRequestResolver(authorizationRequestResolver))
                     .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                     .successHandler(oAuth2LoginSuccessHandler)
                     .failureHandler(oAuth2LoginFailureHandler));
