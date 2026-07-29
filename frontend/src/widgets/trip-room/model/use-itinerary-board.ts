@@ -23,6 +23,12 @@ import {
     type Place,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
+import {
+    getCrossDayInsertionIndex,
+    getSameDayInsertionIndex,
+    getSameDayInsertionIndexAtBoundary,
+    parseItineraryDropZoneId,
+} from '../lib/itinerary-drop-position'
 import { getNextSortOrder } from '../lib/itinerary-time'
 import { useItineraryDays } from './use-itinerary-days'
 
@@ -35,9 +41,19 @@ export type ItineraryBoardFeedback = {
 
 export const itineraryCollisionDetection: CollisionDetection = (args) => {
     const pointerCollisions = pointerWithin(args)
-    return pointerCollisions.length > 0
-        ? pointerCollisions
-        : closestCorners(args)
+    if (pointerCollisions.length === 0) return closestCorners(args)
+
+    return [...pointerCollisions].sort((left, right) => {
+        const priority = (id: string | number) => {
+            const data = args.droppableContainers.find(
+                (container) => container.id === id,
+            )?.data.current
+            if (data?.type === 'itinerary-drop-zone') return 0
+            if (data?.sortable != null) return 1
+            return 2
+        }
+        return priority(left.id) - priority(right.id)
+    })
 }
 
 export function useItineraryBoard(
@@ -111,7 +127,11 @@ export function useItineraryBoard(
         (place) => !scheduledTripPlaceIds.has(String(place.id)),
     )
 
-    async function addPlaceToDay(placeId: string, dayId: string) {
+    async function addPlaceToDay(
+        placeId: string,
+        dayId: string,
+        insertionIndex?: number,
+    ) {
         if (!beginSaving()) return
         const targetDay = findDayById(dayId)
         if (!targetDay) {
@@ -124,7 +144,7 @@ export function useItineraryBoard(
                 tripId,
                 Number(dayId),
                 Number(placeId),
-                getNextSortOrder(targetDay.items),
+                insertionIndex ?? getNextSortOrder(targetDay.items),
             )
             setDays(await getItinerary(tripId))
             const createdItem = created.items.find(
@@ -152,7 +172,9 @@ export function useItineraryBoard(
     }
 
     function resolveTargetDay(overId: string): ItineraryDay | undefined {
+        const dropZone = parseItineraryDropZoneId(overId)
         return (
+            (dropZone == null ? undefined : findDayById(dropZone.dayId)) ??
             findDayById(overId) ??
             days.find((day) =>
                 day.items.some((item) => String(item.id) === overId),
@@ -192,6 +214,17 @@ export function useItineraryBoard(
         setPreviewDayId(null)
     }
 
+    function isPlacedAfterOverItem(event: DragEndEvent): boolean {
+        const activeRect =
+            event.active.rect.current.translated ??
+            event.active.rect.current.initial
+        if (activeRect == null || event.over == null) return false
+        return (
+            activeRect.top + activeRect.height / 2 >
+            event.over.rect.top + event.over.rect.height / 2
+        )
+    }
+
     async function handleDragEnd(event: DragEndEvent) {
         if (savingRef.current) {
             handleDragCancel()
@@ -211,9 +244,18 @@ export function useItineraryBoard(
         if (activeId.startsWith('place-')) {
             const targetDay = resolveTargetDay(overId)
             if (targetDay) {
+                const dropZone = parseItineraryDropZoneId(overId)
+                const insertionIndex =
+                    dropZone?.insertionIndex ??
+                    getCrossDayInsertionIndex(
+                        targetDay.items,
+                        overId,
+                        isPlacedAfterOverItem(event),
+                    )
                 await addPlaceToDay(
                     activeId.replace('place-', ''),
                     String(targetDay.id),
+                    insertionIndex,
                 )
             }
             return
@@ -278,17 +320,20 @@ export function useItineraryBoard(
         if (sourceDayId !== targetDayId) {
             if (!beginSaving()) return
             const previousDays = days
-            const targetIndex = targetDay.items.findIndex(
-                (item) => String(item.id) === overId,
-            )
+            const dropZone = parseItineraryDropZoneId(overId)
+            const insertionIndex =
+                dropZone?.insertionIndex ??
+                getCrossDayInsertionIndex(
+                    targetDay.items,
+                    overId,
+                    isPlacedAfterOverItem(event),
+                )
             const sourceDay = findDayById(sourceDayId)
             const movingItem = sourceDay?.items.find(
                 (item) => String(item.id) === activeId,
             )
             if (sourceDay && movingItem) {
                 const nextTargetItems = [...targetDay.items]
-                const insertionIndex =
-                    targetIndex >= 0 ? targetIndex : nextTargetItems.length
                 nextTargetItems.splice(insertionIndex, 0, movingItem)
                 setDays((currentDays) =>
                     currentDays.map((day) => {
@@ -312,7 +357,7 @@ export function useItineraryBoard(
                     tripId,
                     Number(activeId),
                     Number(targetDayId),
-                    targetIndex >= 0 ? targetIndex : targetDay.items.length,
+                    insertionIndex,
                 )
                 setDays(await getItinerary(tripId))
                 setFeedback({
@@ -350,9 +395,20 @@ export function useItineraryBoard(
         const oldIndex = sourceDay.items.findIndex(
             (item) => String(item.id) === activeId,
         )
-        const newIndex = sourceDay.items.findIndex(
-            (item) => String(item.id) === overId,
-        )
+        const dropZone = parseItineraryDropZoneId(overId)
+        const newIndex =
+            dropZone == null
+                ? getSameDayInsertionIndex(
+                      sourceDay.items,
+                      activeId,
+                      overId,
+                      isPlacedAfterOverItem(event),
+                  )
+                : getSameDayInsertionIndexAtBoundary(
+                      sourceDay.items,
+                      activeId,
+                      dropZone.insertionIndex,
+                  )
         if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
         if (!beginSaving()) return
 

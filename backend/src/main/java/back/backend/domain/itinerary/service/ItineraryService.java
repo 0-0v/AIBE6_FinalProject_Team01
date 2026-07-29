@@ -78,14 +78,38 @@ public class ItineraryService {
         )) {
             throw new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_ALREADY_EXISTS);
         }
-        if (itemRepository.existsByItineraryDayAndSortOrder(day, request.sortOrder())) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_SORT_ORDER_CONFLICT);
+        List<ItineraryItem> existingItems =
+                new ArrayList<>(
+                        itemRepository.findAllByItineraryDayOrderBySortOrderAsc(
+                                day
+                        )
+                );
+        if (request.sortOrder() > existingItems.size()) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ITEM_ORDER
+            );
         }
 
-        ItineraryItem item = ItineraryItem.create(day, request.tripPlaceId(), request.sortOrder());
+        for (int index = 0; index < existingItems.size(); index++) {
+            existingItems.get(index).updateSortOrder(-(index + 1));
+        }
+        if (!existingItems.isEmpty()) {
+            itemRepository.saveAllAndFlush(existingItems);
+        }
+
+        ItineraryItem item = ItineraryItem.create(
+                day,
+                request.tripPlaceId(),
+                -(existingItems.size() + 1)
+        );
         itemRepository.save(item);
+        itemRepository.flush();
+
+        existingItems.add(request.sortOrder(), item);
+        updateSortOrders(existingItems);
+        itemRepository.saveAllAndFlush(existingItems);
         markDayDraft(item.getItineraryDay());
-        recalculateDay(day);
+        recalculateItems(existingItems);
 
         return getDayResponseById(tripId, dayId);
     }
