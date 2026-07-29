@@ -11,6 +11,7 @@ import {
     useLocation,
 } from 'react-router-dom'
 import { Sidebar } from '@/widgets/sidebar'
+import { RealtimeSync } from '@/widgets/realtime-sync'
 import { Home } from '@/views/home'
 import { Explore, ExploreDetail, Updates } from '@/views/discovery'
 import { MyPage } from '@/views/my-page'
@@ -76,6 +77,7 @@ function AppShell() {
 
     return (
         <div className="relative flex h-full w-full overflow-hidden bg-white">
+            <RealtimeSync />
             {isGuestInvite ? (
                 <NavLink
                     to="/"

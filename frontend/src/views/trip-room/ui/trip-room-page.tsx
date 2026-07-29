@@ -42,6 +42,10 @@ import {
     RoomListPanel,
     getNextSortOrder,
 } from '@/widgets/trip-room'
+import {
+    REALTIME_EVENT_NAME,
+    type RealtimeEvent,
+} from '@/widgets/realtime-sync'
 
 export function TripRoom() {
     const navigate = useNavigate()
@@ -83,6 +87,7 @@ export function TripRoom() {
         days: ItineraryDay[]
     }>({ tripId: undefined, days: [] })
     const [itineraryVersion, setItineraryVersion] = useState(0)
+    const [realtimeVersion, setRealtimeVersion] = useState(0)
     const itineraryDays =
         itineraryState.tripId === tripId ? itineraryState.days : []
     const handleItineraryDaysLoaded = useCallback(
@@ -215,6 +220,21 @@ export function TripRoom() {
     }
 
     useEffect(() => {
+        const handleRealtimeChange = (event: Event) => {
+            const detail = (event as CustomEvent<RealtimeEvent>).detail
+            if (detail.tripId === tripId) {
+                setRealtimeVersion((current) => current + 1)
+            }
+        }
+        window.addEventListener(REALTIME_EVENT_NAME, handleRealtimeChange)
+        return () =>
+            window.removeEventListener(
+                REALTIME_EVENT_NAME,
+                handleRealtimeChange,
+            )
+    }, [tripId])
+
+    useEffect(() => {
         if (inviteCode) return
         if (!isUserInitialized) return
         else if (currentUser) void loadTrips()
@@ -296,7 +316,7 @@ export function TripRoom() {
                 )
             })
         return () => controller.abort()
-    }, [activeRoomId, inviteCode, tripId])
+    }, [activeRoomId, inviteCode, realtimeVersion, tripId])
 
     useEffect(() => {
         if (!tripId) return
@@ -312,7 +332,7 @@ export function TripRoom() {
         return () => {
             active = false
         }
-    }, [tripId])
+    }, [realtimeVersion, tripId])
 
     const displayedPlaces = useMemo(
         () =>
@@ -717,6 +737,7 @@ export function TripRoom() {
                                         handleItineraryDaysLoaded
                                     }
                                     itineraryVersion={itineraryVersion}
+                                    realtimeVersion={realtimeVersion}
                                     showBackButton={false}
                                     guestView={Boolean(inviteCode)}
                                         headerContainer={headerContainer}

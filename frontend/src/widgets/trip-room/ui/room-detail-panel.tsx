@@ -75,6 +75,7 @@ type Props = {
     onTripDatesChanged?: () => void | Promise<void>
     onItineraryDaysLoaded?: (days: ItineraryDay[]) => void
     itineraryVersion?: number
+    realtimeVersion?: number
     showBackButton?: boolean
     guestView?: boolean
     onJoin?: () => void
@@ -99,6 +100,7 @@ export function RoomDetailPanel({
     onTripDatesChanged,
     onItineraryDaysLoaded,
     itineraryVersion = 0,
+    realtimeVersion = 0,
     showBackButton = true,
     guestView = false,
     onJoin,
@@ -674,6 +676,7 @@ export function RoomDetailPanel({
                                 () => setPlanTab('schedule'),
                             )
                         }}
+                        realtimeVersion={realtimeVersion}
                     />
                 </div>
             )}

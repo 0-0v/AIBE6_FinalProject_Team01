@@ -15,13 +15,17 @@ import { useTripStore } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import { KanbanSchedulePanel, TimetableSchedulePanel } from '@/widgets/trip-room'
+import {
+    REALTIME_EVENT_NAME,
+    type RealtimeEvent,
+} from '@/widgets/realtime-sync'
 
 export function ScheduleKanbanPage() {
     const { roomId } = useParams<{ roomId: string }>()
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isUserInitialized = useCurrentUserStore((state) => state.isInitialized)
-    const { rooms, isLoading, loadTrips } = useTripStore()
+    const { rooms, isLoading, loadTrips, selectTrip } = useTripStore()
 
     const room = rooms.find((r) => r.id === roomId)
     const tripId = room?.apiTripId
@@ -30,6 +34,26 @@ export function ScheduleKanbanPage() {
     const [canManage, setCanManage] = useState(false)
     const [placesError, setPlacesError] = useState<string | null>(null)
     const [view, setView] = useState<'kanban' | 'timetable'>('kanban')
+    const [realtimeVersion, setRealtimeVersion] = useState(0)
+
+    useEffect(() => {
+        if (roomId) selectTrip(roomId)
+    }, [roomId, selectTrip])
+
+    useEffect(() => {
+        const handleRealtimeChange = (event: Event) => {
+            const detail = (event as CustomEvent<RealtimeEvent>).detail
+            if (detail.tripId !== tripId) return
+            setRealtimeVersion((current) => current + 1)
+            void loadTrips()
+        }
+        window.addEventListener(REALTIME_EVENT_NAME, handleRealtimeChange)
+        return () =>
+            window.removeEventListener(
+                REALTIME_EVENT_NAME,
+                handleRealtimeChange,
+            )
+    }, [loadTrips, tripId])
 
     // trips 미로드 상태에서 직접 접근한 경우 로드
     useEffect(() => {
@@ -78,7 +102,7 @@ export function ScheduleKanbanPage() {
                 setPlacesError(getApiErrorMessage(err, '장소를 불러오지 못했습니다.'))
             })
         return () => controller.abort()
-    }, [room?.id, tripId])
+    }, [realtimeVersion, room?.id, tripId])
 
     const canPlanWrite = canManage && room?.lifecycleStatus !== 'COMPLETED'
 
@@ -159,12 +183,14 @@ export function ScheduleKanbanPage() {
             {/* 뷰 패널 */}
             {view === 'kanban' ? (
                 <KanbanSchedulePanel
+                    key={`kanban-${tripId}-${realtimeVersion}`}
                     tripId={tripId}
                     places={places}
                     canWrite={canPlanWrite}
                 />
             ) : (
                 <TimetableSchedulePanel
+                    key={`timetable-${tripId}-${realtimeVersion}`}
                     tripId={tripId}
                     places={places}
                     canWrite={canPlanWrite}
