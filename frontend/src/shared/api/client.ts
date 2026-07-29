@@ -43,7 +43,7 @@ export function setAccessToken(token: string | null) {
 // 서버가 재발급마다 Refresh Token을 rotation하므로, 동시에 여러 요청이 401을 받아도
 // 재발급 호출은 한 번만 나가야 한다. 두 번째 호출이 이미 폐기된 쿠키로 요청하면
 // 서버가 탈취로 간주해 세션 전체를 강제 로그아웃시키기 때문.
-let refreshPromise: Promise<string> | null = null
+let refreshPromise: Promise<string | null> | null = null
 
 function clearSession() {
     setAccessToken(null)
@@ -57,11 +57,15 @@ function redirectToLogin() {
     }
 }
 
-async function refreshAccessToken(): Promise<string> {
+async function refreshAccessToken(): Promise<string | null> {
     const res = await fetch(`${BASE_URL}/api/auth/reissue`, {
         method: 'POST',
         credentials: 'include',
     })
+
+    if (res.status === 204) {
+        return null
+    }
 
     if (!res.ok) {
         throw new Error('토큰 재발급에 실패했습니다.')
@@ -163,6 +167,9 @@ async function request<T>(
 
         try {
             const newAccessToken = await refreshPromise
+            if (!newAccessToken) {
+                throw new Error('로그인 세션이 없습니다.')
+            }
             return request<T>(
                 path,
                 {
