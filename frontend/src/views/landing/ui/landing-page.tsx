@@ -1,7 +1,12 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ConfettiButton } from '@/shared/ui/confetti-button'
+import { Marquee } from '@/shared/ui/marquee'
+import { NumberTicker } from '@/shared/ui/number-ticker'
+import { ScrollProgressBar } from '@/shared/ui/scroll-progress-bar'
+import { WordRotate } from '@/shared/ui/word-rotate'
 
 const LANDING_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
@@ -34,6 +39,10 @@ const LANDING_STYLES = `
     #pl-hero > div { flex-basis: 100% !important; }
   }
 `
+
+/** 반복되는 fadeUpIn 애니메이션 문자열 생성 헬퍼 */
+const fadeUpIn = (delayMs: number) =>
+    `pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) ${delayMs}ms both`
 
 export function Landing() {
     const navigate = useNavigate()
@@ -129,7 +138,10 @@ export function Landing() {
         document.querySelectorAll('[data-reveal-root]').forEach((el) =>
             ioRef.current?.observe(el),
         )
-        return () => ioRef.current?.disconnect()
+        return () => {
+            ioRef.current?.disconnect()
+            ioRef.current = null
+        }
     }, [])
 
     // 활성 섹션 추적
@@ -159,13 +171,16 @@ export function Landing() {
     }, [])
 
     // 헬퍼
-    const scrollTo = (id: string) => (e: React.MouseEvent) => {
-        e.preventDefault()
-        document.getElementById(id)?.scrollIntoView({
-            behavior: reduced ? 'auto' : 'smooth',
-            block: 'start',
-        })
-    }
+    const scrollTo = useCallback(
+        (id: string) => (e: React.MouseEvent) => {
+            e.preventDefault()
+            document.getElementById(id)?.scrollIntoView({
+                behavior: reduced ? 'auto' : 'smooth',
+                block: 'start',
+            })
+        },
+        [reduced],
+    )
 
     const reveal = (
         id: string,
@@ -252,6 +267,8 @@ export function Landing() {
                 WebkitFontSmoothing: 'antialiased',
             }}
         >
+            <ScrollProgressBar color="#FF7A59" />
+
             {/* ── NAV ── */}
             <nav
                 style={{
@@ -370,19 +387,25 @@ export function Landing() {
 
                 {/* 히어로 텍스트 */}
                 <div style={{ flex: '1 1 380px', position: 'relative', zIndex: 1, maxWidth: 760, minWidth: 0 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#FFE3EA', color: '#C7476B', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 999, marginBottom: 16, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) both' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#FFE3EA', color: '#C7476B', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 999, marginBottom: 16, animation: fadeUpIn(0) }}>
                         함께 계획하는 AI 여행 플랫폼
                     </div>
                     <h1
                         className="pl-h"
-                        style={{ fontSize: 'clamp(40px,6vh,88px)', lineHeight: 1.22, margin: '0 0 18px', animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 100ms both' }}
+                        style={{ fontSize: 'clamp(40px,6vh,88px)', lineHeight: 1.22, margin: '0 0 18px', animation: fadeUpIn(100) }}
                     >
-                        이번 여행,<br />단톡방 말고<br />여기서 짜자.
+                        이번 여행,<br />
+                        <WordRotate
+                            words={['단톡방 말고', '엑셀 말고', '메모장 말고', '카카오맵 말고']}
+                            interval={2200}
+                            style={{ color: '#FF7A59' }}
+                        /><br />
+                        여기서 짜자.
                     </h1>
-                    <p style={{ fontSize: 'clamp(16px,1.7vw,20px)', lineHeight: 1.6, color: '#5B5F7E', fontWeight: 500, margin: '0 0 24px', maxWidth: 520, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 200ms both' }}>
+                    <p style={{ fontSize: 'clamp(16px,1.7vw,20px)', lineHeight: 1.6, color: '#5B5F7E', fontWeight: 500, margin: '0 0 24px', maxWidth: 520, animation: fadeUpIn(200) }}>
                         흩어진 장소랑 의견, 한곳에 모으고<br />AI가 정리까지 싹 다 해드려요.
                     </p>
-                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 300ms both' }}>
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12, animation: fadeUpIn(300) }}>
                         <a
                             href="#place-section"
                             onClick={scrollTo('place-section')}
@@ -402,9 +425,25 @@ export function Landing() {
                             뭐가 다른지 보기
                         </a>
                     </div>
-                    <p style={{ fontSize: 14, color: '#8A8FA8', fontWeight: 600, animation: 'pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) 380ms both' }}>
+                    <p style={{ fontSize: 14, color: '#8A8FA8', fontWeight: 600, animation: fadeUpIn(380) }}>
                         ✓ 회원가입 30초, 카드 필요 없음
                     </p>
+                    <div style={{ display: 'flex', gap: 'clamp(20px,4vw,48px)', marginTop: 28, flexWrap: 'wrap', animation: fadeUpIn(460) }}>
+                        {[
+                            { value: 1200, suffix: '+', label: '여행방' },
+                            { value: 4800, suffix: '+', label: '여행자' },
+                            { value: 38000, suffix: '+', label: '저장 장소' },
+                        ].map(({ value, suffix, label }) => (
+                            <div key={label} style={{ textAlign: 'center' }}>
+                                <NumberTicker
+                                    value={value}
+                                    suffix={suffix}
+                                    style={{ fontSize: 'clamp(22px,3.2vw,36px)', fontWeight: 800, color: '#FF7A59', fontFamily: "'Manrope', sans-serif", lineHeight: 1 }}
+                                />
+                                <div style={{ fontSize: 12, color: '#8A8FA8', fontWeight: 600, marginTop: 4 }}>{label}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* 히어로 이미지 */}
@@ -426,6 +465,20 @@ export function Landing() {
                     </div>
                 </div>
             </section>
+
+            {/* ── 마르키 배너 ── */}
+            <div style={{ background: '#3A2A28', padding: '14px 0', overflow: 'hidden' }}>
+                <Marquee
+                    items={[
+                        '🌸 교토', '🗼 도쿄', '🏝 발리', '🎰 라스베이거스', '🗽 뉴욕',
+                        '🌊 제주', '🏔 스위스', '🎡 파리', '🎭 바르셀로나', '🌅 산토리니',
+                        '🍜 하노이', '🛕 방콕', '🦁 케이프타운', '🏜 두바이', '🌃 홍콩',
+                    ]}
+                    speed={32}
+                    gap={52}
+                    itemStyle={{ fontSize: 15, fontWeight: 700, color: '#FDF3E7', letterSpacing: '0.03em' }}
+                />
+            </div>
 
             {/* ── 여정 레일 (좌측 고정) ── */}
             {!isMobile && (
@@ -711,13 +764,13 @@ export function Landing() {
                             <div style={{ fontWeight: 800, fontSize: 15, color: '#C7476B', letterSpacing: '0.05em' }}>SCENE 06 · GO</div>
                         </div>
                         <h2 className="pl-h pl-h2-hover" style={{ fontSize: 'clamp(44px,6.4vw,72px)', lineHeight: 1.36, margin: '0 0 32px', transition: 'transform 0.3s ease' }}>고민은 그만,<br />여행은 이미 시작됐어요.</h2>
-                        <button
+                        <ConfettiButton
                             onClick={() => navigate('/login')}
                             className="pl-cta-btn"
                             style={{ display: 'inline-block', background: '#FF7A59', color: '#FDF3E7', fontWeight: 700, fontSize: 17, padding: '18px 36px', borderRadius: 999, boxShadow: '0 16px 30px rgba(255,90,60,0.36)', border: 'none', cursor: 'pointer', transition: 'transform 0.2s ease', fontFamily: "'Manrope', sans-serif" }}
                         >
-                            첫 여행방 만들기
-                        </button>
+                            첫 여행방 만들기 🎉
+                        </ConfettiButton>
                     </div>
                 </div>
                 <div style={{ position: 'absolute', right: 'clamp(16px,4vw,48px)', bottom: 'clamp(16px,4vw,40px)', zIndex: 5 }}>
