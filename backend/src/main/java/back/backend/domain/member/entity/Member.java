@@ -24,6 +24,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 public class Member {
 
+    public static final String WITHDRAWN_NICKNAME = "탈퇴한 사용자";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -58,6 +60,12 @@ public class Member {
 
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
+
+    @Column(name = "personal_info_expires_at")
+    private LocalDateTime personalInfoExpiresAt;
+
+    @Column(name = "personal_info_deleted_at")
+    private LocalDateTime personalInfoDeletedAt;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -105,10 +113,16 @@ public class Member {
     }
 
     public String getNickname() {
+        if (status == MemberStatus.WITHDRAWN) {
+            return WITHDRAWN_NICKNAME;
+        }
         return nickname;
     }
 
     public String getProfileImageUrl() {
+        if (status == MemberStatus.WITHDRAWN) {
+            return null;
+        }
         return profileImageUrl;
     }
 
@@ -140,6 +154,14 @@ public class Member {
         return withdrawnAt;
     }
 
+    public LocalDateTime getPersonalInfoExpiresAt() {
+        return personalInfoExpiresAt;
+    }
+
+    public LocalDateTime getPersonalInfoDeletedAt() {
+        return personalInfoDeletedAt;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -165,5 +187,31 @@ public class Member {
             throw new IllegalStateException("로컬 회원만 비밀번호를 변경할 수 있습니다.");
         }
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
+    }
+
+    public void withdraw(LocalDateTime withdrawnAt, LocalDateTime personalInfoExpiresAt) {
+        if (status == MemberStatus.WITHDRAWN) {
+            return;
+        }
+        this.status = MemberStatus.WITHDRAWN;
+        this.withdrawnAt = Objects.requireNonNull(withdrawnAt, "withdrawnAt must not be null");
+        this.personalInfoExpiresAt =
+                Objects.requireNonNull(personalInfoExpiresAt, "personalInfoExpiresAt must not be null");
+    }
+
+    public String anonymizePersonalInfo(LocalDateTime deletedAt) {
+        if (id == null) {
+            throw new IllegalStateException("저장되지 않은 회원은 익명화할 수 없습니다.");
+        }
+        String storedProfileImageUrl = profileImageUrl;
+        this.email = "withdrawn-" + id + "@deleted.invalid";
+        this.nickname = "withdrawn-" + id;
+        this.profileImageUrl = null;
+        this.providerId = "withdrawn-" + id;
+        this.passwordHash = null;
+        this.emailVerifiedAt = null;
+        this.lastLoginAt = null;
+        this.personalInfoDeletedAt = Objects.requireNonNull(deletedAt, "deletedAt must not be null");
+        return storedProfileImageUrl;
     }
 }

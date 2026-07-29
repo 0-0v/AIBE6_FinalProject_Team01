@@ -5,9 +5,13 @@ import back.backend.domain.member.dto.NicknameUpdateRequest;
 import back.backend.domain.member.service.MemberService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
+import back.backend.global.security.jwt.RefreshTokenCookieProvider;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,10 +27,16 @@ public class MemberController {
 
     private final MemberService memberService;
     private final SecurityContextAccessor securityContextAccessor;
+    private final RefreshTokenCookieProvider refreshTokenCookieProvider;
 
-    public MemberController(MemberService memberService, SecurityContextAccessor securityContextAccessor) {
+    public MemberController(
+            MemberService memberService,
+            SecurityContextAccessor securityContextAccessor,
+            RefreshTokenCookieProvider refreshTokenCookieProvider
+    ) {
         this.memberService = memberService;
         this.securityContextAccessor = securityContextAccessor;
+        this.refreshTokenCookieProvider = refreshTokenCookieProvider;
     }
 
     @GetMapping("/me")
@@ -47,5 +57,14 @@ public class MemberController {
     public ApiResponse<MemberResponse> updateProfileImage(@RequestPart("file") MultipartFile file) {
         Long memberId = securityContextAccessor.getCurrentMemberId();
         return ApiResponse.success(memberService.updateProfileImage(memberId, file));
+    }
+
+    @DeleteMapping("/me")
+    @Operation(summary = "회원 탈퇴")
+    public ApiResponse<Void> withdraw(HttpServletResponse response) {
+        Long memberId = securityContextAccessor.getCurrentMemberId();
+        memberService.withdraw(memberId);
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.expire().toString());
+        return ApiResponse.successMessage("회원 탈퇴가 완료되었습니다.");
     }
 }

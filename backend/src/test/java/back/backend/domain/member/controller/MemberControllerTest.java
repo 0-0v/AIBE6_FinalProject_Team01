@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -17,6 +18,8 @@ import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityConfig;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.security.jwt.JwtAuthenticationFilter;
+import back.backend.global.security.jwt.RefreshTokenCookieProvider;
+import org.springframework.http.ResponseCookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +49,9 @@ class MemberControllerTest {
 
     @MockitoBean
     private SecurityContextAccessor securityContextAccessor;
+
+    @MockitoBean
+    private RefreshTokenCookieProvider refreshTokenCookieProvider;
 
     @Test
     @DisplayName("t1 인증된 사용자가 내 정보를 조회하면 200과 회원 정보를 반환한다")
@@ -113,5 +119,22 @@ class MemberControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.profileImageUrl").value("/uploads/profile-images/1-uuid.png"));
+    }
+
+    @Test
+    @DisplayName("t6 인증된 사용자가 탈퇴하면 회원 상태를 변경하고 리프레시 토큰 쿠키를 만료한다")
+    void t6_withdrawMemberExpiresRefreshTokenCookie() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(refreshTokenCookieProvider.expire()).thenReturn(
+                ResponseCookie.from("refreshToken", "").path("/api/auth").maxAge(0).build());
+
+        mockMvc.perform(delete("/api/members/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("회원 탈퇴가 완료되었습니다."))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")));
+
+        org.mockito.Mockito.verify(memberService).withdraw(1L);
     }
 }

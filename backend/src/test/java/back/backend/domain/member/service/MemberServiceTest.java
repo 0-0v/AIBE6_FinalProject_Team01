@@ -3,14 +3,21 @@ package back.backend.domain.member.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import back.backend.domain.member.dto.MemberResponse;
+import back.backend.domain.member.config.MemberWithdrawalProperties;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.port.ProfileImageStorage;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.security.jwt.RefreshTokenRepository;
 import java.util.Optional;
+import java.util.List;
+import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,11 +36,23 @@ class MemberServiceTest {
     @Mock
     private ProfileImageStorage profileImageStorage;
 
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
     private MemberService memberService;
+    private MemberWithdrawalProperties withdrawalProperties;
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 29, 12, 0);
 
     @BeforeEach
     void setUp() {
-        memberService = new MemberService(memberRepository, profileImageStorage);
+        withdrawalProperties = new MemberWithdrawalProperties();
+        withdrawalProperties.setRetentionDays(90);
+        memberService = new MemberService(
+                memberRepository,
+                profileImageStorage,
+                refreshTokenRepository,
+                withdrawalProperties,
+                Clock.fixed(NOW.atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul")));
     }
 
     @Test
@@ -106,5 +125,62 @@ class MemberServiceTest {
 
         assertThatThrownBy(() -> memberService.updateProfileImage(6L, file))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("t7 회원 탈퇴 시 작성 데이터는 유지하고 회원 상태 변경과 세션 폐기를 수행한다")
+    void t7_withdrawMemberChangesStatusAndRevokesSession() {
+        Member member = Member.create(
+                "withdraw@example.com", "탈퇴전닉네임", null, AuthProvider.LOCAL, "withdraw@example.com");
+        ReflectionTestUtils.setField(member, "id", 7L);
+        when(memberRepository.findById(7L)).thenReturn(Optional.of(member));
+
+        memberService.withdraw(7L);
+
+        assertThat(member.getStatus()).isEqualTo(back.backend.domain.member.entity.MemberStatus.WITHDRAWN);
+        assertThat(member.getPersonalInfoExpiresAt()).isEqualTo(NOW.plusDays(90));
+        assertThat(member.getEmail()).isEqualTo("withdraw@example.com");
+        verify(refreshTokenRepository).deleteByMemberId(7L);
+        verify(memberRepository, org.mockito.Mockito.never()).delete(member);
+    }
+
+    @Test
+    @DisplayName("t8 개인정보 보관 만료 회원을 파기하면 작성 데이터는 유지하고 식별정보와 프로필 파일만 제거한다")
+    void t8_purgeExpiredPersonalInfoAnonymizesMemberAndDeletesProfileFile() {
+        Member member = Member.create(
+                "expired@example.com", "기존닉네임", "/uploads/profile-images/8.png",
+                AuthProvider.GOOGLE, "google-8");
+        ReflectionTestUtils.setField(member, "id", 8L);
+        LocalDateTime now = LocalDateTime.of(2027, 7, 29, 12, 0);
+        member.withdraw(now.minusYears(1), now);
+        when(memberRepository
+                .findAllByStatusAndPersonalInfoExpiresAtLessThanEqualAndPersonalInfoDeletedAtIsNull(
+                        back.backend.domain.member.entity.MemberStatus.WITHDRAWN, now))
+                .thenReturn(List.of(member));
+
+        int purgedCount = memberService.purgeExpiredPersonalInfo(now);
+
+        assertThat(purgedCount).isEqualTo(1);
+        assertThat(member.getEmail()).isEqualTo("withdrawn-8@deleted.invalid");
+        verify(profileImageStorage).delete("/uploads/profile-images/8.png");
+        verify(memberRepository, org.mockito.Mockito.never()).delete(member);
+    }
+
+    @Test
+    @DisplayName("t9 보관기간이 0일이면 탈퇴 즉시 개인정보를 익명화하여 동일 이메일 재가입을 허용한다")
+    void t9_withdrawImmediatelyAnonymizesPersonalInfoWhenRetentionIsZero() {
+        withdrawalProperties.setRetentionDays(0);
+        Member member = Member.create(
+                "local@example.com", "로컬회원", "/uploads/profile-images/9.png",
+                AuthProvider.LOCAL, "local@example.com");
+        ReflectionTestUtils.setField(member, "id", 9L);
+        when(memberRepository.findById(9L)).thenReturn(Optional.of(member));
+
+        memberService.withdraw(9L);
+
+        assertThat(member.getEmail()).isEqualTo("withdrawn-9@deleted.invalid");
+        assertThat(member.getProviderId()).isEqualTo("withdrawn-9");
+        assertThat(member.getPersonalInfoDeletedAt()).isEqualTo(NOW);
+        verify(profileImageStorage).delete("/uploads/profile-images/9.png");
     }
 }
