@@ -60,7 +60,6 @@ public class ItineraryService {
     public List<ItineraryDayResponse> initializeItinerary(Long tripId) {
         accessChecker.requireEdit(tripId);
         synchronizeItineraryDays(tripId);
-        publishChanged(tripId, null);
         return buildDayResponses(tripId);
     }
 

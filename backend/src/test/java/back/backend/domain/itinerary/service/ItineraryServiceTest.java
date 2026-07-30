@@ -523,6 +523,7 @@ class ItineraryServiceTest {
                         && ((List<ItineraryDay>) days).get(0).getDayNumber() == 1
                         && ((List<ItineraryDay>) days).get(1).getDayNumber() == 2
         ));
+        then(eventPublisher).shouldHaveNoInteractions();
     }
 
     @Test

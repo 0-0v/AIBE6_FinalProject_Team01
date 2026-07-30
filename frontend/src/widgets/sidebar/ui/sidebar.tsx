@@ -8,7 +8,6 @@ import {
     HomeIcon,
     LogOutIcon,
     MapIcon,
-    PlusIcon,
     SparklesIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -147,23 +146,6 @@ export function Sidebar() {
                     )
                 })}
 
-                <NavLink
-                    to="/app/room"
-                    title="새 여행방"
-                    aria-label="새 여행방"
-                    className={`mt-2 flex h-12 items-center overflow-hidden rounded-2xl border border-dashed border-slate-300 text-slate-400 transition hover:border-brand hover:bg-brand-50 hover:text-brand-700 ${
-                        isExpanded
-                            ? 'w-full gap-3 px-4'
-                            : 'w-12 justify-center self-center'
-                    }`}
-                >
-                    <PlusIcon className="shrink-0" size={20} />
-                    {isExpanded && (
-                        <span className="whitespace-nowrap text-sm font-bold">
-                            새 여행방
-                        </span>
-                    )}
-                </NavLink>
             </nav>
 
             <div className="flex flex-col gap-3">
