@@ -81,6 +81,26 @@ public class ItineraryTravelEstimator {
         );
     }
 
+    public void recalculateSegmentAutomatically(
+            ItineraryItem item,
+            TripPlace currentPlace,
+            TripPlace nextPlace
+    ) {
+        int distanceMeters = (int) Math.round(
+                GeoDistanceCalculator.distanceMeters(
+                        currentPlace,
+                        nextPlace
+                )
+        );
+        calculateSegment(
+                item,
+                currentPlace,
+                nextPlace,
+                ItineraryTransportMode.infer(distanceMeters),
+                false
+        );
+    }
+
     private void calculateSegment(
             ItineraryItem item,
             TripPlace currentPlace,
@@ -115,7 +135,11 @@ public class ItineraryTravelEstimator {
         item.updateTravelInformation(
                 durationMinutes,
                 distanceMeters,
-                resolvedModeLabel(routeInfo.orElse(null), transportMode),
+                resolvedModeLabel(
+                        routeInfo.orElse(null),
+                        transportMode,
+                        manual
+                ),
                 routeInfo
                         .map(GoogleRoutesClient.RouteInfo::transportDetail)
                         .filter(detail -> !detail.isBlank())
@@ -142,10 +166,16 @@ public class ItineraryTravelEstimator {
 
     private String resolvedModeLabel(
             GoogleRoutesClient.RouteInfo routeInfo,
-            ItineraryTransportMode requestedMode
+            ItineraryTransportMode requestedMode,
+            boolean manual
     ) {
         if (requestedMode == ItineraryTransportMode.TAXI) {
             return requestedMode.displayName();
+        }
+        if (manual
+                && routeInfo == null
+                && "transit".equals(requestedMode.directionsMode())) {
+            return "대중교통";
         }
         return routeInfo != null
                 && routeInfo.actualTransportMode() != null

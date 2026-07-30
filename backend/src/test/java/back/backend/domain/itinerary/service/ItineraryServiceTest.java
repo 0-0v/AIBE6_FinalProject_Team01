@@ -919,4 +919,34 @@ class ItineraryServiceTest {
                 .extracting(ItineraryItem::getSortOrder)
                 .containsExactly(0, 1, 2);
     }
+
+    @Test
+    @DisplayName("t34 자동 추천을 선택하면 해당 구간의 수동 이동수단 설정을 해제한다")
+    void t34_updateTransportModeRestoresAutomaticRecommendation() {
+        ItineraryItem nextItem = ItineraryItem.create(day, 301L, 1);
+        ReflectionTestUtils.setField(nextItem, "id", 201L);
+        TripPlace nextPlace = mock(TripPlace.class);
+        given(itemRepository.findByIdAndTripId(ITEM_ID, TRIP_ID))
+                .willReturn(Optional.of(item));
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(item, nextItem));
+        given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
+                .willReturn(Optional.of(savedTripPlace));
+        given(tripPlaceRepository.findByIdAndTripId(301L, TRIP_ID))
+                .willReturn(Optional.of(nextPlace));
+
+        itineraryService.updateTransportMode(
+                TRIP_ID,
+                ITEM_ID,
+                new UpdateItineraryTransportModeRequest(
+                        ItineraryTransportMode.AUTO
+                )
+        );
+
+        then(travelEstimator).should().recalculateSegmentAutomatically(
+                item,
+                savedTripPlace,
+                nextPlace
+        );
+    }
 }

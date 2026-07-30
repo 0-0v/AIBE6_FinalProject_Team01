@@ -202,7 +202,10 @@ public class GoogleRoutesClient {
         ).intValueExact();
     }
 
-    private static String actualTransportMode(Route route, String requestedMode) {
+    private static String actualTransportMode(
+            Route route,
+            String requestedMode
+    ) {
         if (!"transit".equals(requestedMode)) {
             return "walking".equals(requestedMode) ? "도보" : "자동차";
         }
@@ -221,6 +224,11 @@ public class GoogleRoutesClient {
         return switch (vehicleTypes.getFirst()) {
             case "BUS", "INTERCITY_BUS", "TROLLEYBUS" -> "버스";
             case "SUBWAY", "METRO_RAIL", "HEAVY_RAIL" -> "지하철";
+            case "TRAM", "LIGHT_RAIL" -> "트램";
+            case "TRAIN", "COMMUTER_TRAIN", "HIGH_SPEED_TRAIN",
+                    "LONG_DISTANCE_TRAIN", "MONORAIL", "RAIL" -> "기차";
+            case "FERRY" -> "페리";
+            case "CABLE_CAR", "FUNICULAR", "GONDOLA_LIFT" -> "케이블카";
             default -> "대중교통";
         };
     }

@@ -30,6 +30,8 @@ import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { globalModal } from '@/shared/model'
+import { UNSAVED_DATE_MODAL_COPY } from '../lib/unsaved-date-modal-copy'
 import { ActivityLogPanel } from './activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -223,24 +225,27 @@ export function RoomDetailPanel({
             ((nextMode === 'plan' && planTab === 'places') ||
                 (nextMode === 'record' && recordTab === 'records'))
         if (alreadyAtDefaultTab) return
-        if (!confirmDiscardDateChanges()) return
-        setMode(nextMode)
-        if (nextMode === 'plan') setPlanTab('places')
-        else setRecordTab('records')
+        requestDiscardDateChanges(() => {
+            setMode(nextMode)
+            if (nextMode === 'plan') setPlanTab('places')
+            else setRecordTab('records')
+        })
     }
 
-    function confirmDiscardDateChanges() {
-        return (
-            !dateAvailabilityDirty ||
-            window.confirm(
-                '저장하지 않은 가능 날짜가 있습니다. 이동하시겠습니까?',
-            )
-        )
+    function requestDiscardDateChanges(onDiscard: () => void) {
+        if (!dateAvailabilityDirty) {
+            onDiscard()
+            return
+        }
+        globalModal.open({
+            ...UNSAVED_DATE_MODAL_COPY,
+            showCancel: true,
+            onConfirm: onDiscard,
+        })
     }
 
     function handleBack() {
-        if (!confirmDiscardDateChanges()) return
-        onBack()
+        requestDiscardDateChanges(onBack)
     }
 
     async function withVoteError<T>(
@@ -516,12 +521,17 @@ export function RoomDetailPanel({
                                     key={item.key}
                                     onClick={() => {
                                         if (active) return
-                                        if (!confirmDiscardDateChanges()) return
-                                        if (mode === 'plan') {
-                                            setPlanTab(item.key as PlanTab)
-                                        } else {
-                                            setRecordTab(item.key as RecordTab)
-                                        }
+                                        requestDiscardDateChanges(() => {
+                                            if (mode === 'plan') {
+                                                setPlanTab(
+                                                    item.key as PlanTab,
+                                                )
+                                            } else {
+                                                setRecordTab(
+                                                    item.key as RecordTab,
+                                                )
+                                            }
+                                        })
                                     }}
                                     role="tab"
                                     aria-selected={active}

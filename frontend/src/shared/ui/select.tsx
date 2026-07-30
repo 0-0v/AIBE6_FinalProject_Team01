@@ -27,6 +27,7 @@ type SelectProps = {
     loading?: boolean
     className?: string
     menuClassName?: string
+    menuColumns?: 1 | 2
 }
 
 type MenuPosition = {
@@ -46,6 +47,7 @@ export function Select({
     loading = false,
     className,
     menuClassName,
+    menuColumns = 1,
 }: SelectProps) {
     const [open, setOpen] = useState(false)
     const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null)
@@ -72,7 +74,7 @@ export function Select({
             const spaceAbove = rect.top - gap - viewportPadding
             const openBelow =
                 spaceBelow >= Math.min(preferredHeight, spaceAbove)
-            const width = Math.max(rect.width, 160)
+            const width = Math.max(rect.width, menuColumns === 2 ? 280 : 160)
             const left = Math.min(
                 Math.max(viewportPadding, rect.right - width),
                 window.innerWidth - width - viewportPadding,
@@ -143,7 +145,7 @@ export function Select({
             document.removeEventListener('pointerdown', closeOnOutsidePointer)
             document.removeEventListener('keydown', closeOnEscape)
         }
-    }, [open])
+    }, [menuColumns, open])
 
     useEffect(() => {
         if (!open || !menuPosition || focusedOnOpenRef.current) return
@@ -245,7 +247,13 @@ export function Select({
                             } as CSSProperties
                         }
                     >
-                        <div className="mp-scroll max-h-[var(--select-menu-max-height)] overflow-y-auto">
+                        <div
+                            className={cn(
+                                'mp-scroll max-h-[var(--select-menu-max-height)] overflow-y-auto',
+                                menuColumns === 2 &&
+                                    'grid grid-cols-2 gap-0.5',
+                            )}
+                        >
                             {options.map((option) => {
                                 const active = option.value === value
                                 return (

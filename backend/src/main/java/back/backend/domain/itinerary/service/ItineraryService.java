@@ -204,12 +204,20 @@ public class ItineraryService {
                 nextItem,
                 previousTransportMinutes
         );
-        travelEstimator.recalculateSegment(
-                item,
-                currentPlace,
-                nextPlace,
-                request.transportMode()
-        );
+        if (request.transportMode() == ItineraryTransportMode.AUTO) {
+            travelEstimator.recalculateSegmentAutomatically(
+                    item,
+                    currentPlace,
+                    nextPlace
+            );
+        } else {
+            travelEstimator.recalculateSegment(
+                    item,
+                    currentPlace,
+                    nextPlace,
+                    request.transportMode()
+            );
+        }
         shiftFollowingTimesIfNeeded(
                 dayItems.subList(itemIndex + 1, dayItems.size()),
                 previousTransportMinutes,

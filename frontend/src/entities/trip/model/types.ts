@@ -58,6 +58,7 @@ export type Comment = {
 
 export type Place = {
     id: string
+    googlePlaceId?: string
     roomId: string
     name: string
     address: string
@@ -112,11 +113,14 @@ export type Expense = {
 export type ItineraryDayStatus = 'DRAFT' | 'CONFIRMED'
 
 export type ItineraryTransportMode =
+    | 'AUTO'
     | 'WALKING'
     | 'DRIVING'
     | 'TAXI'
+    | 'TRANSIT'
     | 'SUBWAY'
     | 'BUS'
+    | 'RAIL'
 
 export type ItineraryItem = {
     id: string
