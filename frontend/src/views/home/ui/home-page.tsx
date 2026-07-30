@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     CalendarDaysIcon,
@@ -32,7 +32,10 @@ import {
     useTripStore,
     type TripResponse,
 } from '@/features/manage-trip'
-import { NotificationPanel } from '@/features/manage-notification'
+import {
+    NotificationPanel,
+    useNotificationStore,
+} from '@/features/manage-notification'
 import { fetchBookmarkedCards, type PublicCard } from '@/features/explore-card'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { resolveMediaUrl } from '@/shared/api/client'
@@ -49,6 +52,15 @@ type SurfaceId =
     | 'schedule'
     | 'expenses'
     | 'notifications'
+
+type OpenPlaceVote = {
+    voteRequestId: number
+    placeName: string
+    categoryName: string
+    responseCount: number
+    requiredResponseCount: number
+    myChoice: 'AGREE' | 'DISAGREE' | null
+}
 
 const initialTasks: {
     id: string
@@ -98,6 +110,7 @@ export function Home() {
     const [createTripOpen, setCreateTripOpen] = useState(false)
     const [placeCount, setPlaceCount] = useState(0)
     const [pendingVoteCount, setPendingVoteCount] = useState(0)
+    const [openPlaceVotes, setOpenPlaceVotes] = useState<OpenPlaceVote[]>([])
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
     const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
     const [dashboardError, setDashboardError] = useState<string | null>(null)
@@ -107,8 +120,20 @@ export function Home() {
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
     const [insightSlide, setInsightSlide] = useState(0)
     const [isInsightHovered, setIsInsightHovered] = useState(false)
+    const [isTripSelectorOpen, setIsTripSelectorOpen] = useState(false)
+    const tripSelectorRef = useRef<HTMLDivElement>(null)
     const activeTripData =
         trips.find((trip) => String(trip.id) === activeTripId) ?? trips[0]
+    const voteNotificationRevision = useNotificationStore((state) =>
+        state.notifications
+            .filter(
+                (notification) =>
+                    notification.notificationType === 'VOTE' &&
+                    notification.tripId === activeTripData?.id,
+            )
+            .map((notification) => notification.id)
+            .join(','),
+    )
     const [calendarCursor, setCalendarCursor] = useState<{
         tripId: number | null
         month: Date
@@ -162,6 +187,7 @@ export function Home() {
             Promise.resolve().then(() => {
                 setPlaceCount(0)
                 setPendingVoteCount(0)
+                setOpenPlaceVotes([])
                 setExpenses([])
                 setSettlement(null)
                 setTasks([])
@@ -178,16 +204,34 @@ export function Home() {
                 if (controller.signal.aborted) return
                 const openVotes = votes.filter(
                     (vote) => vote.status === 'OPEN',
-                ).length
+                )
+                const pendingVotes = openVotes.filter(
+                    (vote) => vote.myChoice === null,
+                )
+                const openPlaceVoteItems = openVotes.map((vote) => {
+                    const place = places.find(
+                        (candidate) =>
+                            candidate.tripPlaceId === vote.tripPlaceId,
+                    )
+                    return {
+                        voteRequestId: vote.voteRequestId,
+                        placeName: place?.name ?? '장소 정보 없음',
+                        categoryName: place?.category.name ?? '기타',
+                        responseCount: vote.responseCount,
+                        requiredResponseCount: vote.requiredResponseCount,
+                        myChoice: vote.myChoice,
+                    }
+                })
                 setPlaceCount(places.length)
-                setPendingVoteCount(openVotes)
+                setPendingVoteCount(pendingVotes.length)
+                setOpenPlaceVotes(openPlaceVoteItems)
                 setExpenses(expenseData.expenses)
                 setSettlement(expenseData.settlement)
                 setTasks(
                     createDashboardTasks({
                         trip: activeTripData,
                         placeCount: places.length,
-                        pendingVoteCount: openVotes,
+                        pendingVoteCount: pendingVotes.length,
                         transferCount: expenseData.settlement.transfers.length,
                     }),
                 )
@@ -202,7 +246,12 @@ export function Home() {
                 )
             })
         return () => controller.abort()
-    }, [activeTrip.apiTripId, activeTripData, currentUser])
+    }, [
+        activeTrip.apiTripId,
+        activeTripData,
+        currentUser,
+        voteNotificationRevision,
+    ])
 
     useEffect(() => {
         Promise.resolve().then(() => {
@@ -257,6 +306,33 @@ export function Home() {
         return () => window.clearInterval(intervalId)
     }, [insightSlideCount, isInsightHovered])
 
+    useEffect(() => {
+        if (!isTripSelectorOpen) return
+
+        function closeTripSelector(event: MouseEvent) {
+            if (
+                event.target instanceof Node &&
+                !tripSelectorRef.current?.contains(event.target)
+            ) {
+                setIsTripSelectorOpen(false)
+            }
+        }
+
+        function closeTripSelectorOnEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') setIsTripSelectorOpen(false)
+        }
+
+        document.addEventListener('mousedown', closeTripSelector)
+        document.addEventListener('keydown', closeTripSelectorOnEscape)
+        return () => {
+            document.removeEventListener('mousedown', closeTripSelector)
+            document.removeEventListener(
+                'keydown',
+                closeTripSelectorOnEscape,
+            )
+        }
+    }, [isTripSelectorOpen])
+
     function editable(
         id: SurfaceId,
         label: string,
@@ -289,52 +365,76 @@ export function Home() {
                         </p>
                     </div>
                     {view === 'dashboard' && (
-                        <label className="relative block w-full">
-                            <span className="sr-only">여행방 선택</span>
-                            <div className="flex h-[68px] items-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-rose-200">
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff0f3] text-[#e7657a]">
-                                    <PlaneIcon size={20} strokeWidth={2} />
+                        <div
+                            ref={tripSelectorRef}
+                            className="relative block w-full"
+                        >
+                            <button
+                                type="button"
+                                aria-haspopup="listbox"
+                                aria-expanded={isTripSelectorOpen}
+                                aria-label="여행방 선택"
+                                disabled={rooms.length === 0}
+                                onClick={() =>
+                                    setIsTripSelectorOpen((open) => !open)
+                                }
+                                className="flex h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff0f3] text-[#e7657a]">
+                                    <PlaneIcon size={19} strokeWidth={2} />
                                 </span>
-                                <span className="min-w-0 flex-1">
-                                    <b className="block truncate text-base font-black text-slate-900">
-                                        {activeTrip.title}
-                                    </b>
-                                    <span className="mt-0.5 block truncate text-xs font-bold text-slate-400">
-                                        ICN →{' '}
-                                        {getDestinationCode(
-                                            activeTrip.location,
-                                        )}{' '}
-                                        ·{' '}
-                                        {getTripScheduleLabel(
-                                            activeTripData?.startDate,
-                                            activeTripData?.endDate,
-                                        )}
-                                    </span>
+                                <span className="min-w-0 flex-1 truncate text-left text-sm font-black text-slate-900">
+                                    {rooms.length > 0
+                                        ? activeTrip.title
+                                        : '여행방이 없습니다'}
                                 </span>
                                 <ChevronDownIcon
-                                    size={20}
-                                    className="shrink-0 text-slate-400"
+                                    size={17}
+                                    className={`shrink-0 text-slate-400 transition-transform ${
+                                        isTripSelectorOpen ? 'rotate-180' : ''
+                                    }`}
                                 />
-                            </div>
-                            <select
-                                value={activeTrip.id}
-                                onChange={(event) =>
-                                    selectTrip(event.target.value)
-                                }
-                                disabled={rooms.length === 0}
-                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                            >
-                                {rooms.length === 0 ? (
-                                    <option value="">여행방이 없습니다</option>
-                                ) : (
-                                    rooms.map((room) => (
-                                        <option key={room.id} value={room.id}>
-                                            {room.title}
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                        </label>
+                            </button>
+                            {isTripSelectorOpen && rooms.length > 0 && (
+                                <div
+                                    role="listbox"
+                                    aria-label="여행방 목록"
+                                    className="mp-scroll absolute left-0 top-[calc(100%+8px)] z-50 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
+                                >
+                                    {rooms.map((room) => {
+                                        const isSelected =
+                                            room.id === activeTrip.id
+                                        return (
+                                            <button
+                                                key={room.id}
+                                                type="button"
+                                                role="option"
+                                                aria-selected={isSelected}
+                                                onClick={() => {
+                                                    selectTrip(room.id)
+                                                    setIsTripSelectorOpen(false)
+                                                }}
+                                                className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-extrabold transition ${
+                                                    isSelected
+                                                        ? 'bg-[#fff0f2] text-[#c94c63]'
+                                                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <span className="min-w-0 flex-1 truncate">
+                                                    {room.title}
+                                                </span>
+                                                {isSelected && (
+                                                    <CheckCircle2Icon
+                                                        size={16}
+                                                        className="shrink-0"
+                                                    />
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 xl:justify-end">
@@ -427,7 +527,7 @@ export function Home() {
                                     >
                                         <div className="relative">
                                             <div className="flex flex-wrap items-center justify-between gap-4">
-                                                <p className="font-['JejuStoneWall'] text-2xl font-normal uppercase tracking-[0.08em] text-[#EEEEEE] sm:text-3xl">
+                                                <p className="font-['JejuStoneWall'] text-2xl font-normal uppercase tracking-[0.08em] text-[#eeeeee] sm:text-3xl">
                                                     Upcoming trip
                                                 </p>
                                                 <button
@@ -596,13 +696,15 @@ export function Home() {
                                                     }`}
                                                 >
                                                     <div className="flex items-start gap-3">
-                                                        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ec6680] text-white">
-                                                            <ThumbsUpIcon
-                                                                size={18}
-                                                            />
+                                                        <span className="relative h-11 w-11 shrink-0">
+                                                            <span className="absolute bottom-0 left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[#ec6680] text-white">
+                                                                <ThumbsUpIcon
+                                                                    size={18}
+                                                                />
+                                                            </span>
                                                             {pendingVoteCount >
                                                                 0 && (
-                                                                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#fff7f8] bg-orange-400" />
+                                                                <span className="absolute right-0 top-0 z-20 block h-3.5 w-3.5 rounded-full border-2 border-[#fff7f8] bg-orange-400 shadow-sm" />
                                                             )}
                                                         </span>
                                                         <div className="min-w-0 flex-1">
@@ -618,14 +720,116 @@ export function Home() {
                                                                 기다리고 있어요
                                                             </p>
                                                         </div>
+                                                        {pendingVoteCount >
+                                                            0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    navigate(
+                                                                        `/app/room/${activeTrip.id}`,
+                                                                    )
+                                                                }
+                                                                className="ml-auto inline-flex shrink-0 items-center gap-1 pt-1 text-xs font-black text-[#d84f68]"
+                                                            >
+                                                                투표하기
+                                                                <ChevronRightIcon
+                                                                    size={16}
+                                                                />
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                    <div className="mt-4 flex flex-1 items-center justify-center rounded-[18px] bg-white/85 px-4 text-center">
-                                                        <div>
+                                                    {openPlaceVotes.length >
+                                                    0 ? (
+                                                        <div className="mp-scroll mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
+                                                            {openPlaceVotes.map(
+                                                                (vote) => {
+                                                                    const hasVoted =
+                                                                        vote.myChoice !==
+                                                                        null
+                                                                    const requiredCount =
+                                                                        Math.max(
+                                                                            vote.requiredResponseCount,
+                                                                            1,
+                                                                        )
+                                                                    const voteProgress =
+                                                                        Math.min(
+                                                                            100,
+                                                                            (vote.responseCount /
+                                                                                requiredCount) *
+                                                                                100,
+                                                                        )
+
+                                                                    return (
+                                                                        <button
+                                                                            key={
+                                                                                vote.voteRequestId
+                                                                            }
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                navigate(
+                                                                                    `/app/room/${activeTrip.id}`,
+                                                                                )
+                                                                            }
+                                                                            className={`flex w-full items-center gap-4 rounded-[18px] px-4 py-3 text-left transition ${
+                                                                                hasVoted
+                                                                                    ? 'bg-white/65 hover:bg-white/80'
+                                                                                    : 'bg-white/90 hover:bg-white'
+                                                                            }`}
+                                                                        >
+                                                                            <span className="min-w-0 flex-1">
+                                                                                <span className="block truncate text-sm font-black text-slate-800">
+                                                                                    {
+                                                                                        vote.placeName
+                                                                                    }
+                                                                                </span>
+                                                                                <span className="mt-1 block truncate text-xs font-semibold text-slate-400">
+                                                                                    {
+                                                                                        vote.categoryName
+                                                                                    }
+                                                                                </span>
+                                                                            </span>
+                                                                            <span className="w-20 shrink-0">
+                                                                                {hasVoted ? (
+                                                                                    <span className="flex items-center justify-end gap-1 text-xs font-black text-emerald-600">
+                                                                                        <CheckCircle2Icon
+                                                                                            size={
+                                                                                                15
+                                                                                            }
+                                                                                        />
+                                                                                        투표
+                                                                                        완료
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="block text-right text-sm font-black text-[#d84f68]">
+                                                                                        {
+                                                                                            vote.responseCount
+                                                                                        }
+                                                                                        /
+                                                                                        {
+                                                                                            vote.requiredResponseCount
+                                                                                        }
+                                                                                    </span>
+                                                                                )}
+                                                                                <span className="mt-2 block h-2 overflow-hidden rounded-full bg-rose-100">
+                                                                                    <span
+                                                                                        className="block h-full rounded-full bg-[#e7657a]"
+                                                                                        style={{
+                                                                                            width: `${voteProgress}%`,
+                                                                                        }}
+                                                                                    />
+                                                                                </span>
+                                                                            </span>
+                                                                        </button>
+                                                                    )
+                                                                },
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="mt-4 flex flex-1 items-center justify-center rounded-[18px] bg-white/85 px-4 text-center">
+                                                            <div>
                                                             <p className="text-xs font-extrabold leading-5 text-slate-700">
-                                                                {pendingVoteCount >
-                                                                0
-                                                                    ? '여행방에서 후보 장소를 확인해 주세요.'
-                                                                    : '현재 참여할 투표가 없습니다.'}
+                                                                현재 참여할
+                                                                투표가 없습니다.
                                                             </p>
                                                             <button
                                                                 type="button"
@@ -644,8 +848,9 @@ export function Home() {
                                                                     size={14}
                                                                 />
                                                             </button>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
 
                                                 {logs.length > 0 && (
