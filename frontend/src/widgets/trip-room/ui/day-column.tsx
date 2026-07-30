@@ -12,6 +12,7 @@ import {
     ExternalLinkIcon,
     FootprintsIcon,
     PlusIcon,
+    SparklesIcon,
     TrainFrontIcon,
 } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -39,6 +40,7 @@ const TRANSPORT_MODE_OPTIONS: {
     label: string
     icon: typeof FootprintsIcon
 }[] = [
+    { value: 'AUTO', label: '자동 추천', icon: SparklesIcon },
     { value: 'WALKING', label: '도보', icon: FootprintsIcon },
     { value: 'DRIVING', label: '자동차', icon: CarIcon },
     { value: 'TAXI', label: '택시', icon: CarIcon },
@@ -64,15 +66,16 @@ function TransportConnector({
     const [open, setOpen] = useState(false)
     const [updating, setUpdating] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const currentPreference = item.transportModePreference ?? 'AUTO'
+    const [pendingMode, setPendingMode] =
+        useState<ItineraryTransportMode>(currentPreference)
     const { transportMinutes, transportMeters, transportMode } = item
     const hasTransport = transportMinutes != null
     const timeText = hasTransport
         ? transportMinutes < 60
             ? `${transportMinutes}분`
             : `${Math.floor(transportMinutes / 60)}시간${
-                  transportMinutes % 60 > 0
-                      ? ` ${transportMinutes % 60}분`
-                      : ''
+                  transportMinutes % 60 > 0 ? ` ${transportMinutes % 60}분` : ''
               }`
         : null
     const distText =
@@ -88,24 +91,41 @@ function TransportConnector({
         transportMode,
     )
 
-    async function changeMode(mode: ItineraryTransportMode) {
+    function toggleModeMenu() {
         if (!canWrite || updating) return
+        if (!open) {
+            setPendingMode(currentPreference)
+            setError(null)
+        }
+        setOpen((current) => !current)
+    }
+
+    async function applyMode() {
+        if (!canWrite || updating) return
+        if (pendingMode === currentPreference) {
+            setOpen(false)
+            return
+        }
         setUpdating(true)
         setError(null)
         try {
             await updateItineraryTransportMode(
                 tripId,
                 Number(item.id),
-                mode,
+                pendingMode,
             )
+        } catch (err) {
+            setError(getApiErrorMessage(err, '이동수단을 변경하지 못했습니다.'))
+            setUpdating(false)
+            return
+        }
+        try {
             onDaysChange(await getItinerary(tripId))
             setOpen(false)
-        } catch (err) {
+        } catch {
+            setOpen(false)
             setError(
-                getApiErrorMessage(
-                    err,
-                    '이동수단을 변경하지 못했습니다.',
-                ),
+                '이동수단은 변경됐지만 최신 일정을 불러오지 못했습니다. 일정을 다시 열어 확인해 주세요.',
             )
         } finally {
             setUpdating(false)
@@ -119,16 +139,12 @@ function TransportConnector({
             <div className="relative z-10 flex items-center rounded-full border border-brand/25 bg-white text-brand shadow-sm">
                 <button
                     type="button"
-                    onClick={() =>
-                        canWrite && setOpen((current) => !current)
-                    }
+                    onClick={toggleModeMenu}
                     disabled={!canWrite || updating}
                     aria-expanded={open}
                     aria-label={`${modeLabel} 이동수단 변경`}
                     className={`flex items-center gap-1 rounded-l-full px-2.5 py-1 text-[10px] font-medium ${
-                        hasTransport
-                            ? 'text-brand'
-                            : 'text-slate-300'
+                        hasTransport ? 'text-brand' : 'text-slate-300'
                     } ${canWrite ? 'cursor-pointer transition hover:bg-brand/5' : 'cursor-default'} disabled:opacity-60`}
                 >
                     <ArrowDownIcon size={9} strokeWidth={2.5} aria-hidden />
@@ -157,21 +173,19 @@ function TransportConnector({
                         aria-label="이동수단 메뉴 닫기"
                         onClick={() => setOpen(false)}
                     />
-                    <div className="absolute top-full z-50 mt-1 w-32 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className="absolute top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                        <p className="px-2 py-1 text-[10px] font-bold text-slate-400">
+                            이동수단 선택
+                        </p>
                         {TRANSPORT_MODE_OPTIONS.map((option) => {
                             const Icon = option.icon
-                            const selected =
-                                option.value === item.transportModePreference ||
-                                (item.transportModePreference == null &&
-                                    option.label === transportMode)
+                            const selected = option.value === pendingMode
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     disabled={updating}
-                                    onClick={() =>
-                                        void changeMode(option.value)
-                                    }
+                                    onClick={() => setPendingMode(option.value)}
                                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
                                         selected
                                             ? 'bg-brand/10 font-bold text-brand'
@@ -183,6 +197,32 @@ function TransportConnector({
                                 </button>
                             )
                         })}
+                        {pendingMode === 'TAXI' && (
+                            <p className="mx-1 mt-1 rounded-lg bg-amber-50 px-2 py-1.5 text-[9px] leading-relaxed text-amber-700">
+                                택시는 자동차 경로 기준으로 계산해요.
+                            </p>
+                        )}
+                        <div className="mt-1.5 flex gap-1 border-t border-slate-100 pt-1.5">
+                            <button
+                                type="button"
+                                disabled={updating}
+                                onClick={() => setOpen(false)}
+                                className="flex-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-500 transition hover:bg-slate-50"
+                            >
+                                취소
+                            </button>
+                            <button
+                                type="button"
+                                disabled={
+                                    updating ||
+                                    pendingMode === currentPreference
+                                }
+                                onClick={() => void applyMode()}
+                                className="flex-1 rounded-lg bg-brand px-2 py-1.5 text-[10px] font-bold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                {updating ? '적용 중...' : '적용'}
+                            </button>
+                        </div>
                     </div>
                 </>
             )}
@@ -245,7 +285,19 @@ function ItineraryDropZone({
     )
 }
 
-export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduledPlaces, onAddPlace, onDaysChange, hoveredItemId, onItemHoverChange, onItemFocus }: Props) {
+export function DayColumn({
+    day,
+    tripId,
+    canWrite,
+    days,
+    isDragging,
+    unscheduledPlaces,
+    onAddPlace,
+    onDaysChange,
+    hoveredItemId,
+    onItemHoverChange,
+    onItemFocus,
+}: Props) {
     const [error, setError] = useState<string | null>(null)
     const [toggling, setToggling] = useState(false)
     const [collapsed, setCollapsed] = useState(false)
@@ -256,10 +308,13 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
     })
 
     const isConfirmed = day.status === 'CONFIRMED'
-    const dateLabel = new Date(day.itineraryDate + 'T00:00:00').toLocaleDateString(
-        'ko-KR',
-        { month: 'long', day: 'numeric', weekday: 'short' },
-    )
+    const dateLabel = new Date(
+        day.itineraryDate + 'T00:00:00',
+    ).toLocaleDateString('ko-KR', {
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short',
+    })
 
     async function toggleStatus() {
         if (!canWrite || toggling) return
@@ -310,7 +365,9 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
                     >
                         Day {day.dayNumber}
                     </span>
-                    <span className="truncate text-xs text-slate-500">{dateLabel}</span>
+                    <span className="truncate text-xs text-slate-500">
+                        {dateLabel}
+                    </span>
                     {isConfirmed && (
                         <span className="shrink-0 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-600">
                             확정
@@ -359,14 +416,28 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
                                                 {place.categoryIcon && (
                                                     <span
                                                         className="shrink-0"
-                                                        style={{ color: place.categoryColor ?? '#94a3b8' }}
+                                                        style={{
+                                                            color:
+                                                                place.categoryColor ??
+                                                                '#94a3b8',
+                                                        }}
                                                     >
-                                                        <CategoryIcon icon={place.categoryIcon} size={11} strokeWidth={2.5} />
+                                                        <CategoryIcon
+                                                            icon={
+                                                                place.categoryIcon
+                                                            }
+                                                            size={11}
+                                                            strokeWidth={2.5}
+                                                        />
                                                     </span>
                                                 )}
                                                 <span
                                                     className="truncate text-xs font-medium"
-                                                    style={{ color: place.categoryColor ?? '#475569' }}
+                                                    style={{
+                                                        color:
+                                                            place.categoryColor ??
+                                                            '#475569',
+                                                    }}
                                                 >
                                                     {place.name}
                                                 </span>
@@ -421,7 +492,13 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
                                           : 'border-slate-200 text-slate-300'
                                 }`}
                             >
-                                {isOver ? '여기에 놓기' : isDragging ? '여기에 드롭' : canWrite ? '장소를 드래그하거나 + 추가' : '장소 없음'}
+                                {isOver
+                                    ? '여기에 놓기'
+                                    : isDragging
+                                      ? '여기에 드롭'
+                                      : canWrite
+                                        ? '장소를 드래그하거나 + 추가'
+                                        : '장소 없음'}
                             </div>
                         ) : (
                             <>
@@ -449,9 +526,7 @@ export function DayColumn({ day, tripId, canWrite, days, isDragging, unscheduled
                                         {index < day.items.length - 1 && (
                                             <TransportConnector
                                                 item={item}
-                                                nextItem={
-                                                    day.items[index + 1]
-                                                }
+                                                nextItem={day.items[index + 1]}
                                                 tripId={tripId}
                                                 canWrite={canWrite}
                                                 onDaysChange={onDaysChange}
