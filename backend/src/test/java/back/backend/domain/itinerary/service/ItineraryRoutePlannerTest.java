@@ -28,12 +28,19 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryRoutePlannerTest {
 
     @Mock
     private GoogleRoutesClient routesClient;
+
+    @Mock
+    private OpenAiRouteAdvisor openAiRouteAdvisor;
+
+    @Mock
+    private ConstraintSorter constraintSorter;
 
     private ItineraryRoutePlanner planner;
 
@@ -50,7 +57,15 @@ class ItineraryRoutePlannerTest {
                 nullable(java.time.Instant.class)
         ))
                 .thenReturn(Optional.empty());
-        planner = new ItineraryRoutePlanner(routesClient);
+        // ConstraintSorter: 입력 리스트를 그대로 반환 (정렬 없이 통과)
+        lenient().when(constraintSorter.sort(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        planner = new ItineraryRoutePlanner(
+                routesClient,
+                openAiRouteAdvisor,
+                constraintSorter
+        );
     }
 
     @Test
@@ -409,5 +424,42 @@ class ItineraryRoutePlannerTest {
         assertThat(options).hasSize(1);
         assertThat(options.getFirst().routeLabel())
                 .isEqualTo("지리 최적 코스");
+    }
+
+    @Test
+    @DisplayName("t14 OpenAI 추천이 유효하면 AI 코스를 첫 번째 옵션으로 반환한다")
+    void t14_planMultiPlacesAiRecommendationFirst() {
+        List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
+        List<TripPlace> places = List.of(
+                tripPlace(
+                        10L,
+                        "장소 A",
+                        PlaceCategoryType.ATTRACTION,
+                        33.45,
+                        126.50
+                ),
+                tripPlace(
+                        11L,
+                        "장소 B",
+                        PlaceCategoryType.CAFE,
+                        33.55,
+                        126.60
+                )
+        );
+        when(openAiRouteAdvisor.recommend(days, places, Set.of()))
+                .thenReturn(Optional.of(
+                        new OpenAiRouteAdvisor.Recommendation(
+                                "AI가 여행 스타일을 고려해 배치했어요.",
+                                List.of(List.of(11L), List.of(10L))
+                        )
+                ));
+
+        var options = planner.planMulti(days, places, Set.of());
+
+        assertThat(options.getFirst().routeLabel())
+                .isEqualTo("AI 추천 코스");
+        assertThat(options.getFirst().plan().days().getFirst().items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactly(11L);
     }
 }

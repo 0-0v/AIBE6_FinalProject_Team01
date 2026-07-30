@@ -81,6 +81,8 @@ public class ItineraryRoutePlanner {
     );
 
     private final GoogleRoutesClient routesClient;
+    private final OpenAiRouteAdvisor openAiRouteAdvisor;
+    private final ConstraintSorter constraintSorter;
 
     /**
      * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
@@ -99,22 +101,58 @@ public class ItineraryRoutePlanner {
         }
 
         List<RoutePlanOption> options = new ArrayList<>();
+        Set<String> routeSignatures = new HashSet<>();
 
-        // 항상 지리 우선 코스 포함
+        openAiRouteAdvisor.recommend(days, tripPlaces, travelStyles)
+                .ifPresent(recommendation -> {
+                    Map<Long, TripPlace> placeById = tripPlaces.stream()
+                            .collect(Collectors.toMap(
+                                    TripPlace::getId,
+                                    place -> place
+                            ));
+                    List<List<TripPlace>> aiClusters =
+                            recommendation.tripPlaceIdsByDay().stream()
+                                    .map(ids -> ids.stream()
+                                            .map(placeById::get)
+                                            .toList())
+                                    .toList();
+                    RoutePlanPreviewResponse aiPlan =
+                            buildResponseFromClusters(
+                                    days,
+                                    aiClusters,
+                                    tripPlaces.size(),
+                                    recommendation.summary(),
+                                    "AI가 장소 위치와 여행 스타일을 함께 고려해 추천했어요."
+                            );
+                    options.add(new RoutePlanOption(
+                            "AI 추천 코스",
+                            aiPlan
+                    ));
+                    routeSignatures.add(routeSignature(aiPlan));
+                });
+
+        // OpenAI 미설정 또는 실패 시에도 항상 규칙 기반 코스를 제공한다.
         List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
-        options.add(new RoutePlanOption("지리 최적 코스",
-                buildResponseFromClusters(days, geoClusters, tripPlaces.size(),
-                        String.format("저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
-                                tripPlaces.size(), days.size()),
-                        null)));
+        RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
+                days,
+                geoClusters,
+                tripPlaces.size(),
+                String.format(
+                        "저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
+                        tripPlaces.size(),
+                        days.size()
+                ),
+                null
+        );
+        if (routeSignatures.add(routeSignature(geoPlan))) {
+            options.add(new RoutePlanOption("지리 최적 코스", geoPlan));
+        }
 
         // 스타일별 코스 추가
         if (!travelStyles.isEmpty()) {
             log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
                     tripPlaces.size(), days.size(), travelStyles);
         }
-        Set<String> routeSignatures = new HashSet<>();
-        routeSignatures.add(routeSignature(options.getFirst().plan()));
         List<TravelStyle> orderedStyles = travelStyles.stream()
                 .sorted(Comparator.comparingInt(Enum::ordinal))
                 .toList();
@@ -415,8 +453,10 @@ public class ItineraryRoutePlanner {
         int totalDistanceMeters = 0;
 
         for (int i = 0; i < days.size(); i++) {
+            ItineraryDay day = days.get(i);
             List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
-            RoutePlanDayResponse plannedDay = planDay(days.get(i), dayPlaces, defaultReason);
+            List<TripPlace> sortedPlaces = constraintSorter.sort(dayPlaces, day.getItineraryDate());
+            RoutePlanDayResponse plannedDay = planDay(day, sortedPlaces, defaultReason);
             plannedDays.add(plannedDay);
             totalDistanceMeters += plannedDay.totalDistanceMeters();
         }
