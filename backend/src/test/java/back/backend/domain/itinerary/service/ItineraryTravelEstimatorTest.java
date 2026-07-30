@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.ArgumentMatchers.eq;
@@ -151,8 +152,8 @@ class ItineraryTravelEstimatorTest {
     }
 
     @Test
-    @DisplayName("t5 실제 경로가 버스여도 사용자의 지하철 선호를 별도로 보존한다")
-    void t5_keepsPreferenceWhenActualTransitModeDiffers() {
+    @DisplayName("t5 실제 경로에 선택한 지하철이 없으면 변경을 거부한다")
+    void t5_rejectsWhenActualTransitModeDiffers() {
         ItineraryTravelEstimator estimator =
                 new ItineraryTravelEstimator(routesClient);
         ItineraryDay day = ItineraryDay.create(
@@ -180,15 +181,78 @@ class ItineraryTravelEstimatorTest {
                 )
         ));
 
-        estimator.recalculateSegment(
+        assertThatThrownBy(() -> estimator.recalculateSegment(
                 item,
                 from,
                 to,
                 ItineraryTransportMode.SUBWAY
+        )).isInstanceOf(back.backend.global.exception.BusinessException.class);
+
+        assertThat(item.getTransportMode()).isNull();
+        assertThat(item.getTransportModePreference()).isNull();
+    }
+
+    @Test
+    @DisplayName("t6 자동 추천을 선택하면 거리 기반 이동수단으로 계산하고 수동 설정을 해제한다")
+    void t6_recalculateSegmentAutomaticallyClearsManualPreference() {
+        ItineraryTravelEstimator estimator =
+                new ItineraryTravelEstimator(routesClient);
+        ItineraryDay day = ItineraryDay.create(
+                1L,
+                LocalDate.of(2026, 8, 1),
+                1
         );
+        ItineraryItem item = ItineraryItem.create(day, 10L, 0);
+        item.updateTravelInformation(
+                10,
+                1000,
+                "택시",
+                null,
+                true,
+                "TAXI"
+        );
+        TripPlace from = tripPlace(10L, 33.4500, 126.5000);
+        TripPlace to = tripPlace(11L, 33.4600, 126.5100);
+
+        estimator.recalculateSegmentAutomatically(item, from, to);
+
+        assertThat(item.isTransportModeManual()).isFalse();
+        assertThat(item.getTransportModePreference()).isNull();
+        assertThat(item.getTransportMode()).isEqualTo("버스");
+    }
+
+    @Test
+    @DisplayName("t7 선택한 대중교통 경로가 없으면 기존 이동정보를 변경하지 않는다")
+    void t7_manualTransitWithoutRouteIsRejected() {
+        ItineraryTravelEstimator estimator =
+                new ItineraryTravelEstimator(routesClient);
+        ItineraryDay day = ItineraryDay.create(
+                1L,
+                LocalDate.of(2026, 8, 1),
+                1
+        );
+        ItineraryItem item = ItineraryItem.create(day, 10L, 0);
+        item.updateTravelInformation(
+                15,
+                1200,
+                "버스",
+                "기존 경로",
+                true,
+                "BUS"
+        );
+        TripPlace from = tripPlace(10L, 33.4500, 126.5000);
+        TripPlace to = tripPlace(11L, 33.4600, 126.5100);
+
+        assertThatThrownBy(() -> estimator.recalculateSegment(
+                item,
+                from,
+                to,
+                ItineraryTransportMode.SUBWAY
+        )).isInstanceOf(back.backend.global.exception.BusinessException.class);
 
         assertThat(item.getTransportMode()).isEqualTo("버스");
-        assertThat(item.getTransportModePreference()).isEqualTo("SUBWAY");
+        assertThat(item.getTransportModePreference()).isEqualTo("BUS");
+        assertThat(item.getTransportMinutes()).isEqualTo(15);
     }
 
     private TripPlace tripPlace(Long id, double latitude, double longitude) {

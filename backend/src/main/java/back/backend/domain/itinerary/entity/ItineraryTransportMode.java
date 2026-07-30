@@ -2,6 +2,7 @@ package back.backend.domain.itinerary.entity;
 
 public enum ItineraryTransportMode {
 
+    AUTO("자동 추천", null, null, 0.0),
     WALKING("도보", "walking", null, 5.0),
     DRIVING("자동차", "driving", null, 30.0),
     TAXI("택시", "driving", null, 30.0),

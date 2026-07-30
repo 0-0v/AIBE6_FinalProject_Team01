@@ -2,7 +2,9 @@ package back.backend.domain.itinerary.service;
 
 import back.backend.domain.itinerary.entity.ItineraryItem;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
+import back.backend.domain.itinerary.exception.ItineraryErrorCode;
 import back.backend.domain.place.entity.TripPlace;
+import back.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -61,7 +63,8 @@ public class ItineraryTravelEstimator {
                     preserveManualMode
                             ? selectedMode
                             : ItineraryTransportMode.infer(distanceMeters),
-                    preserveManualMode
+                    preserveManualMode,
+                    false
             );
         }
     }
@@ -77,7 +80,29 @@ public class ItineraryTravelEstimator {
                 currentPlace,
                 nextPlace,
                 transportMode,
+                true,
                 true
+        );
+    }
+
+    public void recalculateSegmentAutomatically(
+            ItineraryItem item,
+            TripPlace currentPlace,
+            TripPlace nextPlace
+    ) {
+        int distanceMeters = (int) Math.round(
+                GeoDistanceCalculator.distanceMeters(
+                        currentPlace,
+                        nextPlace
+                )
+        );
+        calculateSegment(
+                item,
+                currentPlace,
+                nextPlace,
+                ItineraryTransportMode.infer(distanceMeters),
+                false,
+                false
         );
     }
 
@@ -86,7 +111,8 @@ public class ItineraryTravelEstimator {
             TripPlace currentPlace,
             TripPlace nextPlace,
             ItineraryTransportMode transportMode,
-            boolean manual
+            boolean manual,
+            boolean requireSelectedTransitRoute
     ) {
         var routeInfo = routesClient.getRouteInfo(
                 currentPlace.getPlace().getLatitude().doubleValue(),
@@ -97,6 +123,13 @@ public class ItineraryTravelEstimator {
                 transportMode.transitMode(),
                 departureTime(item)
         );
+        if (requireSelectedTransitRoute
+                && isSpecificTransitMode(transportMode)
+                && !matchesSelectedTransitMode(routeInfo, transportMode)) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_TRANSPORT_ROUTE_NOT_FOUND
+            );
+        }
         int fallbackDistance = (int) Math.round(
                 GeoDistanceCalculator.distanceMeters(
                         currentPlace,
@@ -123,6 +156,23 @@ public class ItineraryTravelEstimator {
                 manual,
                 manual ? transportMode.name() : null
         );
+    }
+
+    private boolean isSpecificTransitMode(
+            ItineraryTransportMode transportMode
+    ) {
+        return transportMode == ItineraryTransportMode.SUBWAY
+                || transportMode == ItineraryTransportMode.BUS;
+    }
+
+    private boolean matchesSelectedTransitMode(
+            java.util.Optional<GoogleRoutesClient.RouteInfo> routeInfo,
+            ItineraryTransportMode transportMode
+    ) {
+        return routeInfo
+                .map(GoogleRoutesClient.RouteInfo::actualTransportMode)
+                .map(transportMode.displayName()::equals)
+                .orElse(false);
     }
 
     private ItineraryTransportMode selectedPreference(
