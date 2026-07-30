@@ -46,6 +46,9 @@ public class Place {
     @Column(name = "website_url", length = 500)
     private String websiteUrl;
 
+    @Column(name = "opening_hours_json", columnDefinition = "TEXT")
+    private String openingHoursJson;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
