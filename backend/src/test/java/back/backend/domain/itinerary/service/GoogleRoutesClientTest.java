@@ -153,4 +153,113 @@ class GoogleRoutesClientTest {
 
         server.verify();
     }
+
+    @Test
+    @DisplayName("t4 여러 수단이 포함된 환승 경로는 대중교통으로 표시한다")
+    void t4_labelsMixedTransitRouteAsTransit() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server =
+                MockRestServiceServer.bindTo(builder).build();
+        GoogleRoutesClient client = new GoogleRoutesClient(
+                builder,
+                "test-key",
+                "https://routes.googleapis.com"
+        );
+        server.expect(requestTo(
+                        "https://routes.googleapis.com/directions/v2:computeRoutes"
+                ))
+                .andRespond(withSuccess(
+                        """
+                        {
+                          "routes": [{
+                            "distanceMeters": 4200,
+                            "duration": "1800s",
+                            "legs": [{"steps": [
+                              {"transitDetails": {
+                                "transitLine": {
+                                  "nameShort": "12",
+                                  "vehicle": {"type": "BUS"}
+                                }
+                              }},
+                              {"transitDetails": {
+                                "transitLine": {
+                                  "nameShort": "1호선",
+                                  "vehicle": {"type": "SUBWAY"}
+                                }
+                              }}
+                            ]}]
+                          }]
+                        }
+                        """,
+                        MediaType.APPLICATION_JSON
+                ));
+
+        var result = client.getRouteInfo(
+                37.1,
+                127.1,
+                37.2,
+                127.2,
+                "transit",
+                "bus"
+        );
+
+        assertThat(result)
+                .get()
+                .extracting(GoogleRoutesClient.RouteInfo::actualTransportMode)
+                .isEqualTo("대중교통");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t5 트램 경로는 실제 이동수단을 트램으로 표시한다")
+    void t5_labelsLightRailRouteAsTram() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server =
+                MockRestServiceServer.bindTo(builder).build();
+        GoogleRoutesClient client = new GoogleRoutesClient(
+                builder,
+                "test-key",
+                "https://routes.googleapis.com"
+        );
+        server.expect(requestTo(
+                        "https://routes.googleapis.com/directions/v2:computeRoutes"
+                ))
+                .andExpect(jsonPath(
+                        "$.transitPreferences.allowedTravelModes[0]"
+                ).value("RAIL"))
+                .andRespond(withSuccess(
+                        """
+                        {
+                          "routes": [{
+                            "distanceMeters": 1800,
+                            "duration": "720s",
+                            "legs": [{"steps": [{
+                              "transitDetails": {
+                                "transitLine": {
+                                  "nameShort": "T2",
+                                  "vehicle": {"type": "TRAM"}
+                                }
+                              }
+                            }]}]
+                          }]
+                        }
+                        """,
+                        MediaType.APPLICATION_JSON
+                ));
+
+        var result = client.getRouteInfo(
+                37.1,
+                127.1,
+                37.2,
+                127.2,
+                "transit",
+                "rail"
+        );
+
+        assertThat(result)
+                .get()
+                .extracting(GoogleRoutesClient.RouteInfo::actualTransportMode)
+                .isEqualTo("트램");
+        server.verify();
+    }
 }

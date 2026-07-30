@@ -7,6 +7,7 @@ import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
 import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.ItineraryDayStatus;
+import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.itinerary.service.ItineraryService;
 import back.backend.global.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -297,5 +298,33 @@ class ItineraryControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(200));
+    }
+
+    @Test
+    @DisplayName("t17 자동 추천 요청을 이동수단 변경 서비스에 전달한다")
+    void t17_autoTransportModeDelegatesToService() throws Exception {
+        given(itineraryService.updateTransportMode(
+                eq(1L),
+                eq(200L),
+                any(UpdateItineraryTransportModeRequest.class)
+        )).willReturn(itemResponse);
+
+        mockMvc.perform(patch(
+                        "/api/trips/1/itinerary/items/200/transport-mode"
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"transportMode":"AUTO"}
+                                """))
+                .andExpect(status().isOk());
+
+        then(itineraryService).should().updateTransportMode(
+                eq(1L),
+                eq(200L),
+                argThat(request ->
+                        request.transportMode()
+                                == ItineraryTransportMode.AUTO
+                )
+        );
     }
 }

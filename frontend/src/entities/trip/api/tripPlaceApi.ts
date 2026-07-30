@@ -69,10 +69,13 @@ export function fromApiToPlace(
     roomId: string,
     voteSummary?: PlaceVoteSummary,
 ): Place {
-    const presentation = resolvePlaceCategoryPresentation(tp.category.categoryType)
+    const presentation = resolvePlaceCategoryPresentation(
+        tp.category.categoryType,
+    )
     const category = presentation.category
     return {
         id: String(tp.tripPlaceId),
+        googlePlaceId: tp.googlePlaceId,
         roomId,
         name: tp.name,
         address: tp.address ?? '',

@@ -4,6 +4,9 @@ type Props = {
     color: string
     label?: string | number
     categoryIcon?: string | null
+    categoryColor?: string | null
+    categoryLabel?: string | null
+    showCategoryBadge?: boolean
     selected?: boolean
     hovered?: boolean
     preview?: boolean
@@ -13,12 +16,16 @@ export function ItineraryMapMarker({
     color,
     label,
     categoryIcon,
+    categoryColor,
+    categoryLabel,
+    showCategoryBadge = true,
     selected = false,
     hovered = false,
     preview = false,
 }: Props) {
     const emphasized = selected || hovered
     const sizeClass = selected ? 'size-10' : emphasized ? 'size-9' : 'size-8'
+    const hasOrderLabel = label != null
 
     return (
         <div
@@ -34,13 +41,20 @@ export function ItineraryMapMarker({
                 }`}
                 style={{ backgroundColor: color }}
             >
+                {selected && (
+                    <span
+                        className="itinerary-marker-pulse pointer-events-none absolute -inset-1 z-0 rounded-full border-2"
+                        style={{ borderColor: color }}
+                        aria-hidden
+                    />
+                )}
                 <span
                     className="absolute -bottom-1.5 left-1/2 z-0 size-3 -translate-x-1/2 rotate-45 rounded-[2px] border-b-[3px] border-r-[3px] border-white"
                     style={{ backgroundColor: color }}
                     aria-hidden
                 />
                 <span className="relative z-10 flex items-center justify-center font-extrabold text-white">
-                    {categoryIcon ? (
+                    {!hasOrderLabel && categoryIcon ? (
                         <CategoryIcon
                             icon={categoryIcon}
                             size={selected ? 18 : 15}
@@ -52,6 +66,22 @@ export function ItineraryMapMarker({
                         </span>
                     )}
                 </span>
+                {hasOrderLabel && categoryIcon && showCategoryBadge && (
+                    <span
+                        className={`absolute -right-2 -top-2 z-20 flex items-center justify-center rounded-full border-2 border-white bg-white shadow-sm ${
+                            selected ? 'size-6' : 'size-5'
+                        }`}
+                        style={{ color: categoryColor ?? color }}
+                        title={categoryLabel ?? undefined}
+                        aria-hidden
+                    >
+                        <CategoryIcon
+                            icon={categoryIcon}
+                            size={selected ? 13 : 11}
+                            strokeWidth={2.75}
+                        />
+                    </span>
+                )}
             </div>
         </div>
     )

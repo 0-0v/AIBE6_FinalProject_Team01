@@ -11,6 +11,7 @@ import {
     RotateCcwIcon,
     SaveIcon,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import {
     DateAvailability,
     DateProposal,
@@ -25,7 +26,7 @@ import {
     getApiErrorStatus,
     resolveMediaUrl,
 } from '@/shared/api/client'
-import { useCurrentUserStore } from '@/shared/model'
+import { globalModal, useCurrentUserStore } from '@/shared/model'
 import {
     addMonths,
     createCalendarDays,
@@ -39,6 +40,7 @@ import {
     startOfMonth,
     updateDateSetWithinLimit,
 } from '../lib/date-availability'
+import { UNSAVED_DATE_MODAL_COPY } from '../lib/unsaved-date-modal-copy'
 
 type Props = {
     tripId: number
@@ -68,6 +70,8 @@ export function DateVotePanel({
     onCollaborationChanged,
     onTripDatesChanged,
 }: Props) {
+    const navigate = useNavigate()
+    const allowNavigationRef = useRef(false)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const memberId = currentUser?.id
     const [availability, setAvailability] = useState<DateAvailability[]>([])
@@ -149,6 +153,7 @@ export function DateVotePanel({
         if (!dirty) return
 
         const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (allowNavigationRef.current) return
             event.preventDefault()
         }
         const warnBeforeLinkNavigation = (event: MouseEvent) => {
@@ -165,7 +170,7 @@ export function DateVotePanel({
             const target = event.target
             if (!(target instanceof Element)) return
             const link = target.closest<HTMLAnchorElement>('a[href]')
-            if (!link) return
+            if (!link || link.hasAttribute('download')) return
             const destination = new URL(link.href, window.location.href)
             const current = new URL(window.location.href)
             if (
@@ -175,14 +180,30 @@ export function DateVotePanel({
             ) {
                 return
             }
-            if (
-                !window.confirm(
-                    '저장하지 않은 가능 날짜가 있습니다. 이동하시겠습니까?',
-                )
-            ) {
-                event.preventDefault()
-                event.stopPropagation()
-            }
+            event.preventDefault()
+            event.stopPropagation()
+            globalModal.open({
+                ...UNSAVED_DATE_MODAL_COPY,
+                showCancel: true,
+                onConfirm: () => {
+                    if (link.target === '_blank') {
+                        window.open(
+                            destination.href,
+                            '_blank',
+                            'noopener,noreferrer',
+                        )
+                        return
+                    }
+                    allowNavigationRef.current = true
+                    if (destination.origin === current.origin) {
+                        navigate(
+                            `${destination.pathname}${destination.search}${destination.hash}`,
+                        )
+                        return
+                    }
+                    window.location.assign(destination.href)
+                },
+            })
         }
         window.addEventListener('beforeunload', warnBeforeUnload)
         document.addEventListener('click', warnBeforeLinkNavigation, true)
@@ -194,7 +215,7 @@ export function DateVotePanel({
                 true,
             )
         }
-    }, [dirty, onDirtyChange])
+    }, [dirty, navigate, onDirtyChange])
 
     useEffect(
         () => () => {

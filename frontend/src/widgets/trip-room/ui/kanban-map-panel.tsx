@@ -1,7 +1,14 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { ChevronDownIcon, ChevronUpIcon, MapIcon } from 'lucide-react'
+import {
+    ChevronDownIcon,
+    ChevronUpIcon,
+    ClockIcon,
+    ExternalLinkIcon,
+    MapIcon,
+    NavigationIcon,
+} from 'lucide-react'
 import {
     AdvancedMarker,
     Map as GoogleMap,
@@ -9,17 +16,109 @@ import {
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
-import type { ItineraryDay, Place } from '@/entities/trip'
+import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
+import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
     getItineraryDayColor,
     hasMapCoordinates,
     ITINERARY_MAP_BOUNDS,
     ITINERARY_MAP_MIN_ZOOM,
 } from '../lib/itinerary-map'
+import { formatTimeRange } from '../lib/itinerary-time'
+import { formatTransportSummary } from '../lib/itinerary-transport'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import { ItineraryMapMarker } from './itinerary-map-marker'
 
 const DEFAULT_CENTER = { lat: 33.489, lng: 126.4983 }
+const CATEGORY_BADGE_MIN_ZOOM = 10
+
+function FocusedItineraryItemCard({
+    dayNumber,
+    order,
+    item,
+    nextItem,
+    place,
+}: {
+    dayNumber: number
+    order: number
+    item: ItineraryItem
+    nextItem: ItineraryItem | null
+    place?: Place
+}) {
+    return (
+        <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl">
+            <div className="flex items-start gap-2">
+                <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">
+                    {item.placeName ?? '장소'}
+                </p>
+                <span className="shrink-0 text-[10px] font-bold text-brand">
+                    Day {dayNumber} · {order}번째
+                </span>
+            </div>
+            <p className="mt-1 flex items-center gap-1 text-[10px] text-slate-600">
+                <ClockIcon size={11} aria-hidden />
+                {formatTimeRange(item.startTime, item.endTime)}
+            </p>
+            {nextItem != null && (
+                <p className="mt-1 flex items-start gap-1 text-[10px] text-slate-500">
+                    <NavigationIcon
+                        size={11}
+                        className="mt-px shrink-0"
+                        aria-hidden
+                    />
+                    <span className="line-clamp-2">
+                        다음 장소까지 {formatTransportSummary(item)}
+                    </span>
+                </p>
+            )}
+            {item.memo && (
+                <p className="mt-1.5 line-clamp-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-500">
+                    메모 · {item.memo}
+                </p>
+            )}
+            <a
+                href={buildGoogleMapsPlaceUrl({
+                    name: item.placeName ?? '장소',
+                    lat: item.lat,
+                    lng: item.lng,
+                    googlePlaceId: place?.googlePlaceId,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="mt-2 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-[10px] font-bold text-slate-600 transition hover:border-brand/30 hover:bg-brand/5 hover:text-brand"
+            >
+                Google Maps에서 최신 정보 확인
+                <ExternalLinkIcon size={10} aria-hidden />
+            </a>
+        </div>
+    )
+}
+
+function FocusedSavedPlaceCard({ place }: { place: Place }) {
+    return (
+        <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-52 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl">
+            <p className="truncate text-xs font-bold text-slate-800">
+                {place.name}
+            </p>
+            {place.address && (
+                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
+                    {place.address}
+                </p>
+            )}
+            <a
+                href={buildGoogleMapsPlaceUrl(place)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="mt-2 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-[10px] font-bold text-slate-600 transition hover:border-brand/30 hover:bg-brand/5 hover:text-brand"
+            >
+                Google Maps에서 최신 정보 확인
+                <ExternalLinkIcon size={10} aria-hidden />
+            </a>
+        </div>
+    )
+}
 
 type Props = {
     days: ItineraryDay[]
@@ -69,8 +168,13 @@ function MapContent({
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? 'DEMO_MAP_ID'
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
+    const [showCategoryBadges, setShowCategoryBadges] = useState(true)
 
     const allItems = useMemo(() => days.flatMap((d) => d.items), [days])
+    const placeById = useMemo(
+        () => new Map(places.map((place) => [String(place.id), place])),
+        [places],
+    )
 
     const center = useMemo(() => {
         const valid = allItems.filter(hasMapCoordinates)
@@ -180,19 +284,46 @@ function MapContent({
                 gestureHandling="greedy"
                 streetViewControl={false}
                 style={{ width: '100%', height: '100%' }}
+                onCameraChanged={(event) => {
+                    const shouldShow =
+                        event.detail.zoom >= CATEGORY_BADGE_MIN_ZOOM
+                    setShowCategoryBadges((current) =>
+                        current === shouldShow ? current : shouldShow,
+                    )
+                }}
+                onClick={() => {
+                    onItemHoverChange(null)
+                    onItemFocus(null)
+                    onPlaceFocus(null)
+                }}
             >
                 <MapFocusController
                     lat={activeFocusPosition?.lat ?? null}
                     lng={activeFocusPosition?.lng ?? null}
                 />
                 {routes.map((route, i) => (
-                    <Polyline
-                        key={i}
-                        path={route.path}
-                        strokeColor={route.color}
-                        strokeWeight={2.5}
-                        strokeOpacity={0.7}
-                    />
+                    <React.Fragment key={i}>
+                        <Polyline
+                            path={route.path}
+                            strokeColor={
+                                mapDisplayType === 'hybrid'
+                                    ? '#0f172a'
+                                    : '#ffffff'
+                            }
+                            strokeWeight={8}
+                            strokeOpacity={
+                                mapDisplayType === 'hybrid' ? 0.72 : 0.9
+                            }
+                            zIndex={1}
+                        />
+                        <Polyline
+                            path={route.path}
+                            strokeColor={route.color}
+                            strokeWeight={4}
+                            strokeOpacity={0.9}
+                            zIndex={2}
+                        />
+                    </React.Fragment>
                 ))}
                 {days.map((day) => {
                     return day.items
@@ -206,13 +337,34 @@ function MapContent({
                                 }
                                 onMouseLeave={() => onItemHoverChange(null)}
                                 onClick={() => onItemFocus(String(item.id))}
+                                zIndex={
+                                    effectiveFocusedItemId === String(item.id)
+                                        ? 100
+                                        : hoveredItemId === String(item.id)
+                                          ? 90
+                                          : 5
+                                }
                             >
                                 <div className="relative flex flex-col items-center">
                                     {effectiveFocusedItemId ===
                                         String(item.id) && (
-                                        <span className="absolute bottom-full mb-1 max-w-40 truncate rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
-                                            {item.placeName ?? '장소'}
-                                        </span>
+                                        <FocusedItineraryItemCard
+                                            dayNumber={day.dayNumber}
+                                            order={index + 1}
+                                            item={item}
+                                            nextItem={
+                                                day.items[index + 1] ?? null
+                                            }
+                                            place={
+                                                item.tripPlaceId == null
+                                                    ? undefined
+                                                    : placeById.get(
+                                                          String(
+                                                              item.tripPlaceId,
+                                                          ),
+                                                      )
+                                            }
+                                        />
                                     )}
                                     <ItineraryMapMarker
                                         color={
@@ -226,6 +378,10 @@ function MapContent({
                                                   )
                                         }
                                         label={index + 1}
+                                        categoryIcon={item.categoryIcon}
+                                        categoryColor={item.categoryColor}
+                                        categoryLabel={item.categoryName}
+                                        showCategoryBadge={showCategoryBadges}
                                         selected={
                                             effectiveFocusedItemId ===
                                             String(item.id)
@@ -243,16 +399,17 @@ function MapContent({
                         key={`saved-${place.id}`}
                         position={{ lat: place.lat, lng: place.lng }}
                         onClick={() => onPlaceFocus(String(place.id))}
+                        zIndex={focusedPlaceId === String(place.id) ? 100 : 1}
                     >
                         <div className="relative flex flex-col items-center">
                             {focusedPlaceId === String(place.id) && (
-                                <span className="absolute bottom-full mb-1 max-w-40 truncate rounded-lg bg-slate-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
-                                    {place.name}
-                                </span>
+                                <FocusedSavedPlaceCard place={place} />
                             )}
                             <ItineraryMapMarker
                                 color={place.categoryColor ?? '#64748b'}
                                 categoryIcon={place.categoryIcon}
+                                categoryColor={place.categoryColor}
+                                categoryLabel={place.categoryName}
                                 selected={focusedPlaceId === String(place.id)}
                             />
                         </div>
@@ -267,6 +424,19 @@ function MapContent({
                             <ItineraryMapMarker
                                 color={getItineraryDayColor(previewDayNumber)}
                                 label="+"
+                                categoryIcon={
+                                    draggedItem?.categoryIcon ??
+                                    draggedPlace?.categoryIcon
+                                }
+                                categoryColor={
+                                    draggedItem?.categoryColor ??
+                                    draggedPlace?.categoryColor
+                                }
+                                categoryLabel={
+                                    draggedItem?.categoryName ??
+                                    draggedPlace?.categoryName
+                                }
+                                showCategoryBadge={showCategoryBadges}
                                 preview
                             />
                         </AdvancedMarker>

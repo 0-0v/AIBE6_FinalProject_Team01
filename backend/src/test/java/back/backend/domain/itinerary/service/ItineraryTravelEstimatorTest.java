@@ -151,8 +151,8 @@ class ItineraryTravelEstimatorTest {
     }
 
     @Test
-    @DisplayName("t5 실제 경로가 버스여도 사용자의 지하철 선호를 별도로 보존한다")
-    void t5_keepsPreferenceWhenActualTransitModeDiffers() {
+    @DisplayName("t5 선호 수단과 달라도 실제 반환된 대중교통 경로를 적용한다")
+    void t5_usesActualTransitRouteWhenPreferenceIsUnavailable() {
         ItineraryTravelEstimator estimator =
                 new ItineraryTravelEstimator(routesClient);
         ItineraryDay day = ItineraryDay.create(
@@ -189,6 +189,70 @@ class ItineraryTravelEstimatorTest {
 
         assertThat(item.getTransportMode()).isEqualTo("버스");
         assertThat(item.getTransportModePreference()).isEqualTo("SUBWAY");
+        assertThat(item.getTransportMinutes()).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("t6 자동 추천을 선택하면 거리 기반 이동수단으로 계산하고 수동 설정을 해제한다")
+    void t6_recalculateSegmentAutomaticallyClearsManualPreference() {
+        ItineraryTravelEstimator estimator =
+                new ItineraryTravelEstimator(routesClient);
+        ItineraryDay day = ItineraryDay.create(
+                1L,
+                LocalDate.of(2026, 8, 1),
+                1
+        );
+        ItineraryItem item = ItineraryItem.create(day, 10L, 0);
+        item.updateTravelInformation(
+                10,
+                1000,
+                "택시",
+                null,
+                true,
+                "TAXI"
+        );
+        TripPlace from = tripPlace(10L, 33.4500, 126.5000);
+        TripPlace to = tripPlace(11L, 33.4600, 126.5100);
+
+        estimator.recalculateSegmentAutomatically(item, from, to);
+
+        assertThat(item.isTransportModeManual()).isFalse();
+        assertThat(item.getTransportModePreference()).isNull();
+        assertThat(item.getTransportMode()).isEqualTo("버스");
+    }
+
+    @Test
+    @DisplayName("t7 대중교통 API 경로가 없으면 추정값으로 선호 설정을 저장한다")
+    void t7_manualTransitWithoutRouteUsesFallbackEstimate() {
+        ItineraryTravelEstimator estimator =
+                new ItineraryTravelEstimator(routesClient);
+        ItineraryDay day = ItineraryDay.create(
+                1L,
+                LocalDate.of(2026, 8, 1),
+                1
+        );
+        ItineraryItem item = ItineraryItem.create(day, 10L, 0);
+        item.updateTravelInformation(
+                15,
+                1200,
+                "버스",
+                "기존 경로",
+                true,
+                "BUS"
+        );
+        TripPlace from = tripPlace(10L, 33.4500, 126.5000);
+        TripPlace to = tripPlace(11L, 33.4600, 126.5100);
+
+        estimator.recalculateSegment(
+                item,
+                from,
+                to,
+                ItineraryTransportMode.SUBWAY
+        );
+
+        assertThat(item.getTransportMode()).isEqualTo("대중교통");
+        assertThat(item.getTransportModePreference()).isEqualTo("SUBWAY");
+        assertThat(item.getTransportMinutes()).isPositive();
     }
 
     private TripPlace tripPlace(Long id, double latitude, double longitude) {

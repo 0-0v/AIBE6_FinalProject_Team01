@@ -135,6 +135,7 @@ export function PlaceCard({
                                         )
                                     }}
                                     className="w-32"
+                                    menuColumns={2}
                                     options={categoryOptions}
                                 />
                             </div>
