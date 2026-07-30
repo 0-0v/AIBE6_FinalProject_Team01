@@ -58,6 +58,7 @@ export type Comment = {
 
 export type Place = {
     id: string
+    googlePlaceId?: string
     roomId: string
     name: string
     address: string

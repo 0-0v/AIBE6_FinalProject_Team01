@@ -9,22 +9,33 @@ import {
     useMap,
     useMapsLibrary,
 } from '@vis.gl/react-google-maps'
-import { ArrowUpIcon, CalendarPlusIcon, MessageCircleIcon } from 'lucide-react'
+import {
+    ArrowUpIcon,
+    CalendarPlusIcon,
+    ClockIcon,
+    ExternalLinkIcon,
+    MessageCircleIcon,
+    NavigationIcon,
+} from 'lucide-react'
 import { Place } from '@/entities/trip'
-import type { ItineraryDay } from '@/entities/trip'
+import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
+import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
     getItineraryDayColor,
     hasMapCoordinates,
     ITINERARY_MAP_BOUNDS,
     ITINERARY_MAP_MIN_ZOOM,
 } from '../lib/itinerary-map'
+import { formatTimeRange } from '../lib/itinerary-time'
+import { formatTransportSummary } from '../lib/itinerary-transport'
 
 const JEJU_CENTER = { lat: 33.489, lng: 126.4983 }
 const DEFAULT_ZOOM = 10
 const DESTINATION_FOCUS_ZOOM = 12
+const CATEGORY_BADGE_MIN_ZOOM = 10
 
 type GeocoderResponse = {
     results: Array<{
@@ -110,31 +121,31 @@ function GoogleMapCanvas({
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
         null,
     )
+    const [showCategoryBadges, setShowCategoryBadges] = useState(true)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
 
-    const scheduledPlaceMap = useMemo(() => {
-        const map = new Map<string, number>()
-        for (const day of days ?? []) {
-            for (const item of day.items) {
-                if (item.tripPlaceId != null) {
-                    map.set(String(item.tripPlaceId), day.dayNumber)
-                }
-            }
-        }
-        return map
-    }, [days])
-
-    // 일정에 배치된 장소 순서 맵: tripPlaceId → { order, color }
-    const placeOrderMap = useMemo(() => {
+    const scheduledPlaceDetailsMap = useMemo(() => {
         if (!days) {
             return new Map<
                 string,
-                { order: number; color: string; dayNumber: number }
+                {
+                    order: number
+                    color: string
+                    dayNumber: number
+                    item: ItineraryItem
+                    nextItem: ItineraryItem | null
+                }
             >()
         }
         const map = new Map<
             string,
-            { order: number; color: string; dayNumber: number }
+            {
+                order: number
+                color: string
+                dayNumber: number
+                item: ItineraryItem
+                nextItem: ItineraryItem | null
+            }
         >()
         for (const day of days) {
             const color = getItineraryDayColor(day.dayNumber)
@@ -144,6 +155,8 @@ function GoogleMapCanvas({
                         order: index + 1,
                         color,
                         dayNumber: day.dayNumber,
+                        item,
+                        nextItem: day.items[index + 1] ?? null,
                     })
                 }
             })
@@ -183,7 +196,15 @@ function GoogleMapCanvas({
             : itineraryRoutes.filter(
                   (route) => route.dayNumber === activeRouteDay,
               )
-
+    const selectedRoutePoints = useMemo(
+        () =>
+            activeRouteDay == null
+                ? []
+                : itineraryRoutes
+                      .filter((route) => route.dayNumber === activeRouteDay)
+                      .flatMap((route) => route.points),
+        [activeRouteDay, itineraryRoutes],
+    )
     if (!isLoaded) {
         return (
             <div className="flex h-full w-full items-center justify-center bg-slate-100">
@@ -208,6 +229,13 @@ function GoogleMapCanvas({
                 gestureHandling="greedy"
                 streetViewControl={false}
                 style={{ width: '100%', height: '100%' }}
+                onCameraChanged={(event) => {
+                    const shouldShow =
+                        event.detail.zoom >= CATEGORY_BADGE_MIN_ZOOM
+                    setShowCategoryBadges((current) =>
+                        current === shouldShow ? current : shouldShow,
+                    )
+                }}
                 onClick={() => {
                     setHoveredId(null)
                     setDayPickerPlaceId(null)
@@ -220,12 +248,16 @@ function GoogleMapCanvas({
                     initialLocation={initialLocation}
                     selectedId={selectedId}
                 />
-                <RouteLayer routes={visibleRoutes} />
+                <RouteFocusController points={selectedRoutePoints} />
+                <RouteLayer
+                    routes={visibleRoutes}
+                    emphasized={activeRouteDay != null}
+                    mapDisplayType={mapDisplayType}
+                />
                 {places.map((place) => {
                     const isSelected = place.id === selectedId
                     const isHovered = place.id === hoveredId
-                    const scheduledDayNumber = scheduledPlaceMap.get(place.id)
-                    const scheduled = placeOrderMap.get(place.id)
+                    const scheduled = scheduledPlaceDetailsMap.get(place.id)
                     const belongsToVisibleRoute =
                         selectedRouteDay == null ||
                         scheduled == null ||
@@ -236,10 +268,10 @@ function GoogleMapCanvas({
                             position={{ lat: place.lat, lng: place.lng }}
                             onClick={() => onSelect(place.id)}
                             zIndex={
-                                isHovered
-                                    ? 20
-                                    : isSelected
-                                      ? 10
+                                isSelected
+                                    ? 100
+                                    : isHovered
+                                      ? 90
                                       : scheduled
                                         ? 5
                                         : 1
@@ -256,7 +288,7 @@ function GoogleMapCanvas({
                             >
                                 {/* 호버 인포카드 */}
                                 {isHovered && !isSelected && (
-                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 overflow-hidden rounded-xl bg-white shadow-xl border border-slate-100 pointer-events-none">
+                                    <div className="itinerary-map-card-enter pointer-events-none absolute bottom-full left-1/2 mb-2 w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
                                         {place.image && (
                                             <img
                                                 src={place.image}
@@ -304,14 +336,15 @@ function GoogleMapCanvas({
                                             : place.categoryColor
                                     }
                                     label={scheduled?.order}
-                                    categoryIcon={
-                                        scheduled ? null : place.categoryIcon
-                                    }
+                                    categoryIcon={place.categoryIcon}
+                                    categoryColor={place.categoryColor}
+                                    categoryLabel={place.categoryName}
+                                    showCategoryBadge={showCategoryBadges}
                                     selected={isSelected}
                                     hovered={isHovered}
                                 />
                                 {isSelected && (
-                                    <div className="absolute left-1/2 top-full mt-1.5 w-52 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                                    <div className="itinerary-map-card-enter absolute left-1/2 top-full mt-1.5 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
                                         {place.image && (
                                             <img
                                                 src={place.image}
@@ -319,32 +352,83 @@ function GoogleMapCanvas({
                                                 className="h-20 w-full object-cover"
                                             />
                                         )}
-                                        <div className="px-2.5 pb-2.5 pt-2">
-                                            <p className="truncate text-xs font-bold text-slate-800">
-                                                {place.name}
-                                            </p>
-                                            {place.categoryName && (
-                                                <span
-                                                    className="mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                                                    style={{
-                                                        backgroundColor:
-                                                            place.categoryColor +
-                                                            '20',
-                                                        color: place.categoryColor,
-                                                    }}
-                                                >
-                                                    {place.categoryName}
-                                                </span>
-                                            )}
-                                            {scheduledDayNumber != null ? (
-                                                <div className="mt-2 flex items-center justify-center rounded-lg bg-green-50 py-1.5 text-[11px] font-bold text-green-600">
-                                                    Day {scheduledDayNumber} ·
-                                                    일정 등록됨
+                                        <div className="space-y-2 px-3 pb-3 pt-2.5">
+                                            <div>
+                                                <div className="flex items-start gap-2">
+                                                    <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">
+                                                        {place.name}
+                                                    </p>
+                                                    {place.categoryName && (
+                                                        <span
+                                                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    place.categoryColor +
+                                                                    '20',
+                                                                color: place.categoryColor,
+                                                            }}
+                                                        >
+                                                            {place.categoryName}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {place.address && (
+                                                    <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
+                                                        {place.address}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {scheduled != null ? (
+                                                <div className="space-y-1.5 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px]">
+                                                    <p className="font-bold text-brand">
+                                                        Day{' '}
+                                                        {scheduled.dayNumber} ·{' '}
+                                                        {scheduled.order}번째
+                                                        장소
+                                                    </p>
+                                                    <p className="flex items-center gap-1 text-slate-600">
+                                                        <ClockIcon
+                                                            size={11}
+                                                            aria-hidden
+                                                        />
+                                                        {formatTimeRange(
+                                                            scheduled.item
+                                                                .startTime,
+                                                            scheduled.item
+                                                                .endTime,
+                                                        )}
+                                                    </p>
+                                                    {scheduled.nextItem !=
+                                                        null && (
+                                                        <p className="flex items-start gap-1 text-slate-500">
+                                                            <NavigationIcon
+                                                                size={11}
+                                                                className="mt-px shrink-0"
+                                                                aria-hidden
+                                                            />
+                                                            <span className="line-clamp-2">
+                                                                다음 장소까지{' '}
+                                                                {formatTransportSummary(
+                                                                    scheduled.item,
+                                                                )}
+                                                            </span>
+                                                        </p>
+                                                    )}
+                                                    {scheduled.item.memo && (
+                                                        <p className="line-clamp-2 border-t border-slate-200 pt-1.5 text-slate-500">
+                                                            메모 ·{' '}
+                                                            {
+                                                                scheduled.item
+                                                                    .memo
+                                                            }
+                                                        </p>
+                                                    )}
                                                 </div>
                                             ) : onAddToSchedule &&
                                               days &&
                                               days.length > 0 ? (
-                                                <div className="relative mt-2">
+                                                <div className="relative">
                                                     <button
                                                         type="button"
                                                         disabled={
@@ -479,6 +563,28 @@ function GoogleMapCanvas({
                                                     )}
                                                 </div>
                                             ) : null}
+
+                                            <a
+                                                href={buildGoogleMapsPlaceUrl(
+                                                    place,
+                                                )}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(event) =>
+                                                    event.stopPropagation()
+                                                }
+                                                className="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-[10px] font-bold text-slate-600 transition hover:border-brand/30 hover:bg-brand/5 hover:text-brand"
+                                            >
+                                                Google Maps에서 최신 정보 확인
+                                                <ExternalLinkIcon
+                                                    size={10}
+                                                    aria-hidden
+                                                />
+                                            </a>
+                                            <p className="text-center text-[9px] text-slate-400">
+                                                영업시간은 방문 전에 다시 확인해
+                                                주세요.
+                                            </p>
                                         </div>
                                     </div>
                                 )}
@@ -492,7 +598,6 @@ function GoogleMapCanvas({
                 value={mapDisplayType}
                 onChange={setMapDisplayType}
             />
-
             {itineraryRoutes.length > 0 && (
                 <MapRouteFilter
                     routes={itineraryRoutes}
@@ -513,6 +618,8 @@ function GoogleMapCanvas({
 // 일정 Day 경로선 렌더링 (확정 전은 연하게, 확정 후는 선명하게 표시)
 function RouteLayer({
     routes,
+    emphasized,
+    mapDisplayType,
 }: {
     routes: Array<{
         points: Array<{
@@ -529,8 +636,11 @@ function RouteLayer({
         dayNumber: number
         confirmed: boolean
     }>
+    emphasized: boolean
+    mapDisplayType: 'roadmap' | 'hybrid'
 }) {
     const [hoveredSegment, setHoveredSegment] = useState<string | null>(null)
+    const casingColor = mapDisplayType === 'hybrid' ? '#0f172a' : '#ffffff'
 
     return (
         <>
@@ -539,13 +649,34 @@ function RouteLayer({
                 return (
                     <React.Fragment key={route.dayId}>
                         {path.length >= 2 && (
-                            <Polyline
-                                path={path}
-                                strokeColor={route.color}
-                                strokeOpacity={route.confirmed ? 0.9 : 0.65}
-                                strokeWeight={route.confirmed ? 5 : 4}
-                                geodesic
-                            />
+                            <>
+                                <Polyline
+                                    path={path}
+                                    strokeColor={casingColor}
+                                    strokeOpacity={
+                                        mapDisplayType === 'hybrid' ? 0.72 : 0.9
+                                    }
+                                    strokeWeight={emphasized ? 10 : 8}
+                                    zIndex={1}
+                                    geodesic
+                                />
+                                <Polyline
+                                    path={path}
+                                    strokeColor={route.color}
+                                    strokeOpacity={
+                                        emphasized
+                                            ? 1
+                                            : route.confirmed
+                                              ? 0.92
+                                              : 0.72
+                                    }
+                                    strokeWeight={
+                                        emphasized ? 6 : route.confirmed ? 5 : 4
+                                    }
+                                    zIndex={2}
+                                    geodesic
+                                />
+                            </>
                         )}
                         {route.points.slice(0, -1).map((point, index) => {
                             const next = route.points[index + 1]
@@ -573,12 +704,14 @@ function RouteLayer({
                                                     {next.placeName}
                                                 </p>
                                                 <p className="mt-0.5 text-[10px] text-slate-400">
-                                                    {formatRouteSegment(point)}
+                                                    {formatTransportSummary(
+                                                        point,
+                                                    )}
                                                 </p>
                                             </div>
                                         )}
                                         <span
-                                            className="flex h-5 w-5 items-center justify-center drop-shadow-[0_1px_1px_rgba(255,255,255,1)]"
+                                            className="flex size-6 items-center justify-center rounded-full border-2 border-white bg-white/95 shadow-md"
                                             style={{
                                                 color: route.color,
                                                 transform: `rotate(${angle}deg)`,
@@ -587,6 +720,11 @@ function RouteLayer({
                                             <ArrowUpIcon
                                                 size={15}
                                                 strokeWidth={4}
+                                                className={
+                                                    emphasized
+                                                        ? 'itinerary-route-arrow-flow'
+                                                        : ''
+                                                }
                                             />
                                         </span>
                                     </div>
@@ -600,38 +738,40 @@ function RouteLayer({
     )
 }
 
-function formatRouteSegment({
-    transportMinutes,
-    transportMeters,
-    transportMode,
-    transportDetail,
+function RouteFocusController({
+    points,
 }: {
-    transportMinutes: number | null
-    transportMeters: number | null
-    transportMode: string | null
-    transportDetail: string | null
-}): string {
-    if (
-        transportMinutes == null &&
-        transportMeters == null &&
-        transportMode == null
-    ) {
-        return '이동 정보 미설정'
-    }
-    const distance =
-        transportMeters == null
-            ? null
-            : transportMeters >= 1000
-              ? `${(transportMeters / 1000).toFixed(1)}km`
-              : `${transportMeters}m`
-    return [
-        transportMode,
-        transportMinutes == null ? null : `예상 ${transportMinutes}분`,
-        distance,
-        transportDetail,
-    ]
-        .filter(Boolean)
-        .join(' · ')
+    points: Array<{ lat: number; lng: number }>
+}) {
+    const map = useMap()
+
+    useEffect(() => {
+        if (map == null || points.length === 0) return
+        if (points.length === 1) {
+            map.panTo(points[0])
+            map.setZoom(14)
+            return
+        }
+
+        const latitudes = points.map((point) => point.lat)
+        const longitudes = points.map((point) => point.lng)
+        map.fitBounds(
+            {
+                north: Math.max(...latitudes),
+                south: Math.min(...latitudes),
+                east: Math.max(...longitudes),
+                west: Math.min(...longitudes),
+            },
+            96,
+        )
+        const listener = map.addListener('idle', () => {
+            if ((map.getZoom() ?? 0) > 15) map.setZoom(15)
+            listener.remove()
+        })
+        return () => listener.remove()
+    }, [map, points])
+
+    return null
 }
 
 function getBearing(

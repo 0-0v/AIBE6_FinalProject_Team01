@@ -91,29 +91,86 @@ button,
 }
 
 @keyframes itinerary-marker-bounce {
-    0%,
-    100% {
-        transform: translateY(0) scale(1);
-    }
-    30% {
-        transform: translateY(-7px) scale(1.06);
+    0% {
+        transform: translateY(4px) scale(0.9);
+        opacity: 0.7;
     }
     55% {
-        transform: translateY(0) scale(0.98);
+        transform: translateY(-4px) scale(1.08);
+        opacity: 1;
     }
-    75% {
-        transform: translateY(-3px) scale(1.02);
+    78% {
+        transform: translateY(1px) scale(0.98);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
     }
 }
 
 .itinerary-marker-bounce {
-    animation: itinerary-marker-bounce 650ms ease-out 2;
+    animation: itinerary-marker-bounce 480ms ease-out;
     transform-origin: 50% 100%;
+}
+
+@keyframes itinerary-marker-pulse {
+    0% {
+        transform: scale(0.82);
+        opacity: 0.5;
+    }
+    75%,
+    100% {
+        transform: scale(1.65);
+        opacity: 0;
+    }
+}
+
+.itinerary-marker-pulse {
+    animation: itinerary-marker-pulse 1.8s ease-out infinite;
+}
+
+@keyframes itinerary-map-card-enter {
+    0% {
+        opacity: 0;
+        translate: 0 6px;
+        scale: 0.97;
+    }
+    100% {
+        opacity: 1;
+        translate: 0 0;
+        scale: 1;
+    }
+}
+
+.itinerary-map-card-enter {
+    animation: itinerary-map-card-enter 180ms ease-out;
+    transform-origin: 50% 100%;
+}
+
+@keyframes itinerary-route-arrow-flow {
+    0% {
+        transform: translateY(3px);
+        opacity: 0.35;
+    }
+    55% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-3px);
+        opacity: 0.35;
+    }
+}
+
+.itinerary-route-arrow-flow {
+    animation: itinerary-route-arrow-flow 1.35s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .auth-field-shake,
-    .itinerary-marker-bounce {
+    .itinerary-marker-bounce,
+    .itinerary-marker-pulse,
+    .itinerary-map-card-enter,
+    .itinerary-route-arrow-flow {
         animation: none;
     }
 }
