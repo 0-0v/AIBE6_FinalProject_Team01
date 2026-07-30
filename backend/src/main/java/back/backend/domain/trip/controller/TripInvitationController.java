@@ -1,6 +1,7 @@
 package back.backend.domain.trip.controller;
 
 import back.backend.domain.trip.dto.TripInvitationResponse;
+import back.backend.domain.trip.dto.ClaimTripInvitationRequest;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.GuestAccessGrant;
 import back.backend.domain.trip.service.GuestAccessCookieProvider;
@@ -9,6 +10,7 @@ import back.backend.domain.trip.service.TripInvitationService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -73,9 +76,13 @@ public class TripInvitationController {
     @PostMapping("/trip-invitations/claim")
     @Operation(summary = "게스트 여행방 권한을 로그인 회원에게 이전")
     public ResponseEntity<ApiResponse<Void>> claim(
-            @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken
+            @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken,
+            @Valid @RequestBody ClaimTripInvitationRequest request
     ) {
-        guestTripAccessService.claimIfPresent(securityContextAccessor.getCurrentMemberId(), guestToken);
+        guestTripAccessService.claimInvitation(
+                securityContextAccessor.getCurrentMemberId(),
+                request.inviteCode(),
+                guestToken);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, guestAccessCookieProvider.expire().toString())
                 .body(ApiResponse.ok());

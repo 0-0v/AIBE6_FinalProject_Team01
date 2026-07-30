@@ -110,6 +110,20 @@ public class GuestTripAccessService {
                 .orElse(false);
     }
 
+    @Transactional
+    public void claimInvitation(Long memberId, String inviteCode, String token) {
+        LocalDateTime now = LocalDateTime.now();
+        TripInvitation invitation = invitationRepository.findByInviteCode(inviteCode)
+                .filter(value -> value.isUsable(now))
+                .orElseThrow(() -> new BusinessException(TripErrorCode.INVITATION_NOT_FOUND));
+        Trip trip = findActiveTrip(invitation.getTripId());
+
+        if (!tripMemberRepository.existsByTripIdAndMemberId(trip.getId(), memberId)) {
+            tripMemberRepository.save(TripMember.viewer(trip.getId(), memberId));
+        }
+        claimIfPresent(memberId, token);
+    }
+
     private boolean claim(Long memberId, GuestSession session) {
         for (TripGuestMember guestMember : tripGuestMemberRepository.findAllByGuestSessionId(session.getId())) {
             if (!tripMemberRepository.existsByTripIdAndMemberId(guestMember.getTripId(), memberId)) {

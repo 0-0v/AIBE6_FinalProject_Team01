@@ -11,8 +11,6 @@ import back.backend.global.redis.RedisKeyFactory;
 import back.backend.global.redis.RedisValueService;
 import java.security.SecureRandom;
 import java.util.Locale;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,14 +19,14 @@ public class EmailVerificationService {
     private static final String VERIFIED_NAMESPACE = "email-verification-verified";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private final JavaMailSender mailSender;
+    private final BrevoEmailClient emailClient;
     private final RedisValueService redisValueService;
     private final MemberRepository memberRepository;
     private final EmailAuthProperties properties;
 
-    public EmailVerificationService(JavaMailSender mailSender, RedisValueService redisValueService,
+    public EmailVerificationService(BrevoEmailClient emailClient, RedisValueService redisValueService,
                                     MemberRepository memberRepository, EmailAuthProperties properties) {
-        this.mailSender = mailSender;
+        this.emailClient = emailClient;
         this.redisValueService = redisValueService;
         this.memberRepository = memberRepository;
         this.properties = properties;
@@ -51,13 +49,12 @@ public class EmailVerificationService {
 
         String code = "%06d".formatted(SECURE_RANDOM.nextInt(1_000_000));
         redisValueService.set(codeKey(email, purpose), code, properties.getCodeExpiration());
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(properties.getFrom());
-        message.setTo(email);
-        message.setSubject("[Plamingo] 이메일 인증번호");
-        message.setText("인증번호는 " + code + "입니다. "
-                + properties.getCodeExpiration().toMinutes() + "분 안에 입력해 주세요.");
-        mailSender.send(message);
+        emailClient.sendVerificationEmail(
+                email,
+                code,
+                properties.getCodeExpiration().toMinutes(),
+                purpose
+        );
     }
 
     public void verifyCode(String rawEmail, String code, EmailVerificationPurpose purpose) {

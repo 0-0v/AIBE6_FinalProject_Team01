@@ -3,6 +3,7 @@ package back.backend.domain.auth.controller;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -10,6 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.auth.dto.TokenResponse;
+import back.backend.domain.auth.dto.LoginRequest;
+import back.backend.domain.auth.exception.AuthErrorCode;
 import back.backend.domain.auth.service.AuthService;
 import back.backend.domain.auth.service.EmailVerificationService;
 import back.backend.global.exception.BusinessException;
@@ -136,5 +139,26 @@ class AuthControllerTest {
                         .contentType("application/json")
                         .content("{\"nickname\":\"a\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("t8 탈퇴한 로컬 회원이 로그인하면 409와 개인정보 보관기간 안내를 반환한다")
+    void t8_loginReturnsConflictForWithdrawnLocalMember() throws Exception {
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new BusinessException(AuthErrorCode.WITHDRAWN_ACCOUNT));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "identifier": "user@example.com",
+                                  "password": "Password1!"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("AUTH_409_WITHDRAWN_ACCOUNT"))
+                .andExpect(jsonPath("$.message").value(
+                        "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 같은 이메일 또는 소셜 계정으로 "
+                                + "재가입할 수 없습니다. 보관기간이 끝난 후 다시 시도해 주세요."));
     }
 }

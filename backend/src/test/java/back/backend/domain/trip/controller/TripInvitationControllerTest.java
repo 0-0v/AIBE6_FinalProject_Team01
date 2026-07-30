@@ -33,6 +33,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -84,12 +85,15 @@ class TripInvitationControllerTest {
                 ResponseCookie.from(GuestAccessCookieProvider.COOKIE_NAME, "").maxAge(0).build());
 
         mockMvc.perform(post("/api/trip-invitations/claim")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"inviteCode\":\"invite-code\"}")
                         .cookie(new jakarta.servlet.http.Cookie(
                                 GuestAccessCookieProvider.COOKIE_NAME, "guest-token")))
                 .andExpect(status().isOk())
                 .andExpect(cookie().maxAge(GuestAccessCookieProvider.COOKIE_NAME, 0));
 
-        verify(guestTripAccessService).claimIfPresent(1L, "guest-token");
+        verify(guestTripAccessService)
+                .claimInvitation(1L, "invite-code", "guest-token");
     }
 
     @Test

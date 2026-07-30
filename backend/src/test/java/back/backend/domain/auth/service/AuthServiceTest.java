@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
 
 import back.backend.domain.auth.dto.TokenResponse;
@@ -210,8 +211,27 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("t12 비밀번호 재설정은 새 비밀번호를 해시하고 기존 리프레시 토큰을 폐기한다")
-    void t12_resetPasswordHashesPasswordAndRevokesRefreshToken() {
+    @DisplayName("t12 탈퇴한 로컬 회원이 로그인하면 개인정보 보관기간 안내를 반환한다")
+    void t12_loginRejectsWithdrawnMemberWithRetentionMessage() {
+        Member member = Member.createLocal("user@example.com", "여행자", "hashed-password");
+        ReflectionTestUtils.setField(member, "id", 13L);
+        ReflectionTestUtils.setField(member, "status", MemberStatus.WITHDRAWN);
+        when(memberRepository.findByEmailAndProvider("user@example.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest("user@example.com", "Password1!")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage(
+                        "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 같은 이메일 또는 소셜 계정으로 "
+                                + "재가입할 수 없습니다. 보관기간이 끝난 후 다시 시도해 주세요.");
+
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    @DisplayName("t13 비밀번호 재설정은 새 비밀번호를 해시하고 기존 리프레시 토큰을 폐기한다")
+    void t13_resetPasswordHashesPasswordAndRevokesRefreshToken() {
         Member member = Member.createLocal("user@example.com", "여행자", "old-hash");
         ReflectionTestUtils.setField(member, "id", 13L);
         when(memberRepository.findByEmailAndProvider("user@example.com", AuthProvider.LOCAL))
@@ -227,8 +247,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("t13 새 비밀번호가 현재 비밀번호와 같으면 비밀번호 재설정을 거부한다")
-    void t13_resetPasswordRejectsCurrentPassword() {
+    @DisplayName("t14 새 비밀번호가 현재 비밀번호와 같으면 비밀번호 재설정을 거부한다")
+    void t14_resetPasswordRejectsCurrentPassword() {
         Member member = Member.createLocal("user@example.com", "여행자", "old-hash");
         ReflectionTestUtils.setField(member, "id", 14L);
         when(memberRepository.findByEmailAndProvider("user@example.com", AuthProvider.LOCAL))
@@ -244,8 +264,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("t14 사용 중인 로컬 닉네임이면 사용할 수 없다고 반환한다")
-    void t14_isNicknameAvailableReturnsFalseForExistingLocalNickname() {
+    @DisplayName("t15 사용 중인 로컬 닉네임이면 사용할 수 없다고 반환한다")
+    void t15_isNicknameAvailableReturnsFalseForExistingLocalNickname() {
         when(memberRepository.existsByNicknameAndProvider("여행자", AuthProvider.LOCAL))
                 .thenReturn(true);
 
@@ -253,8 +273,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("t15 회원가입 닉네임이 이미 사용 중이면 회원가입을 거부한다")
-    void t15_signupRejectsExistingLocalNickname() {
+    @DisplayName("t16 회원가입 닉네임이 이미 사용 중이면 회원가입을 거부한다")
+    void t16_signupRejectsExistingLocalNickname() {
         SignupRequest request = new SignupRequest("user@example.com", "Password1!", "여행자");
         when(memberRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(memberRepository.existsByNicknameAndProvider("여행자", AuthProvider.LOCAL))
@@ -266,8 +286,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("t16 동시 회원가입으로 닉네임 유니크 제약이 충돌하면 닉네임 중복 오류를 반환한다")
-    void t16_signupMapsNicknameConstraintViolationToNicknameError() {
+    @DisplayName("t17 동시 회원가입으로 닉네임 유니크 제약이 충돌하면 닉네임 중복 오류를 반환한다")
+    void t17_signupMapsNicknameConstraintViolationToNicknameError() {
         SignupRequest request = new SignupRequest("user@example.com", "Password1!", "여행자");
         when(memberRepository.existsByEmail("user@example.com")).thenReturn(false);
         when(memberRepository.existsByNicknameAndProvider("여행자", AuthProvider.LOCAL))

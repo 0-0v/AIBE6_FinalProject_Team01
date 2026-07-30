@@ -70,7 +70,8 @@ class TripPlanningServiceTest {
                 CREATE TABLE members (
                     id BIGINT PRIMARY KEY,
                     nickname VARCHAR(50) NOT NULL,
-                    profile_image_url VARCHAR(500)
+                    profile_image_url VARCHAR(500),
+                    status VARCHAR(20) NOT NULL
                 )
                 """).update();
         jdbcClient.sql("""
@@ -115,7 +116,10 @@ class TripPlanningServiceTest {
                     CONSTRAINT uk_test_date_vote UNIQUE (proposal_id, member_id)
                 )
                 """).update();
-        jdbcClient.sql("INSERT INTO members(id, nickname) VALUES (1, '민지'), (2, '준호')").update();
+        jdbcClient.sql("""
+                INSERT INTO members(id, nickname, status)
+                VALUES (1, '민지', 'ACTIVE'), (2, '준호', 'ACTIVE')
+                """).update();
         jdbcClient.sql("""
                 INSERT INTO trip_members(trip_id, member_id, role, joined_at)
                 VALUES (10, 1, 'OWNER', CURRENT_TIMESTAMP), (10, 2, 'VIEWER', CURRENT_TIMESTAMP)
@@ -145,8 +149,27 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t2 내 가능 날짜를 교체하면 정렬된 최신 날짜와 전체 멤버 현황을 반환한다")
-    void t2_replaceAvailabilityReturnsUpdatedHeatmap() {
+    @DisplayName("t2 탈퇴한 멤버의 가능 날짜 작성자 정보는 마스킹한다")
+    void t2_withdrawnMemberAvailabilityIsMasked() {
+        jdbcClient.sql("""
+                UPDATE members
+                SET status = 'WITHDRAWN', profile_image_url = 'https://example.com/profile.jpg'
+                WHERE id = 2
+                """).update();
+
+        List<DateAvailabilityResponse> result = tripPlanningService.getAvailability(10L);
+
+        DateAvailabilityResponse withdrawnMember = result.stream()
+                .filter(member -> member.memberId().equals(2L))
+                .findFirst()
+                .orElseThrow();
+        assertThat(withdrawnMember.nickname()).isEqualTo("탈퇴한 사용자");
+        assertThat(withdrawnMember.profileImageUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("t3 내 가능 날짜를 교체하면 정렬된 최신 날짜와 전체 멤버 현황을 반환한다")
+    void t3_replaceAvailabilityReturnsUpdatedHeatmap() {
         List<DateAvailabilityResponse> result = tripPlanningService.replaceAvailability(
                 10L,
                 Set.of(LocalDate.of(2026, 8, 15), LocalDate.of(2026, 8, 13))
@@ -174,8 +197,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t3 가능 날짜가 최대 개수를 초과하면 저장을 거부한다")
-    void t3_replaceAvailabilityRejectsTooManyDates() {
+    @DisplayName("t4 가능 날짜가 최대 개수를 초과하면 저장을 거부한다")
+    void t4_replaceAvailabilityRejectsTooManyDates() {
         Set<LocalDate> dates = IntStream.range(0, 367)
                 .mapToObj(day -> LocalDate.of(2026, 1, 1).plusDays(day))
                 .collect(Collectors.toSet());
@@ -187,8 +210,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t4 지원 범위를 벗어난 가능 날짜가 있으면 저장을 거부한다")
-    void t4_replaceAvailabilityRejectsUnsupportedDate() {
+    @DisplayName("t5 지원 범위를 벗어난 가능 날짜가 있으면 저장을 거부한다")
+    void t5_replaceAvailabilityRejectsUnsupportedDate() {
         Set<LocalDate> dates = Set.of(LocalDate.of(2101, 1, 1));
 
         assertThatThrownBy(() -> tripPlanningService.replaceAvailability(10L, dates))
@@ -198,8 +221,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t5 날짜 범위를 제안하면 열린 제안으로 저장한다")
-    void t5_proposeCreatesOpenProposal() {
+    @DisplayName("t6 날짜 범위를 제안하면 열린 제안으로 저장한다")
+    void t6_proposeCreatesOpenProposal() {
         DateProposalResponse result = tripPlanningService.propose(
                 10L,
                 new DateProposalRequest(LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15))
@@ -222,8 +245,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t6 날짜 제안을 덮어쓰면 기존 투표를 초기화한다")
-    void t6_overwriteProposalClearsExistingVotes() {
+    @DisplayName("t7 날짜 제안을 덮어쓰면 기존 투표를 초기화한다")
+    void t7_overwriteProposalClearsExistingVotes() {
         long proposalId = insertProposal("OPEN");
         insertVote(proposalId, 2L, "AGREE");
 
@@ -240,8 +263,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t7 날짜 제안이 과반 찬성을 얻으면 여행 기간을 확정한다")
-    void t7_voteConfirmsProposalOnMajorityAgreement() {
+    @DisplayName("t8 날짜 제안이 과반 찬성을 얻으면 여행 기간을 확정한다")
+    void t8_voteConfirmsProposalOnMajorityAgreement() {
         long proposalId = insertProposal("OPEN");
         insertVote(proposalId, 2L, "AGREE");
         Trip trip = org.mockito.Mockito.mock(Trip.class);
@@ -279,8 +302,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t8 종료된 날짜 제안에는 투표할 수 없다")
-    void t8_voteRejectsClosedProposal() {
+    @DisplayName("t9 종료된 날짜 제안에는 투표할 수 없다")
+    void t9_voteRejectsClosedProposal() {
         insertProposal("CONFIRMED");
 
         assertThatThrownBy(() -> tripPlanningService.vote(
@@ -293,8 +316,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t9 같은 멤버가 다시 투표하면 기존 응답을 변경한다")
-    void t9_voteUpdatesExistingChoice() {
+    @DisplayName("t10 같은 멤버가 다시 투표하면 기존 응답을 변경한다")
+    void t10_voteUpdatesExistingChoice() {
         long proposalId = insertProposal("OPEN");
         insertVote(proposalId, 1L, "DISAGREE");
 
@@ -317,8 +340,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t10 동일한 열린 날짜 제안을 다시 제출하면 기존 투표를 유지한다")
-    void t10_sameOpenProposalPreservesExistingVotes() {
+    @DisplayName("t11 동일한 열린 날짜 제안을 다시 제출하면 기존 투표를 유지한다")
+    void t11_sameOpenProposalPreservesExistingVotes() {
         long proposalId = insertProposal("OPEN");
         insertVote(proposalId, 2L, "AGREE");
 
@@ -337,8 +360,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t11 확정된 여행 기간에 새로운 날짜를 제안하면 투표를 초기화하고 다시 연다")
-    void t11_confirmedProposalCanBeReopenedWithNewDates() {
+    @DisplayName("t12 확정된 여행 기간에 새로운 날짜를 제안하면 투표를 초기화하고 다시 연다")
+    void t12_confirmedProposalCanBeReopenedWithNewDates() {
         long proposalId = insertProposal("CONFIRMED");
         insertVote(proposalId, 2L, "AGREE");
 
@@ -358,8 +381,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t12 여행방에서 나간 멤버의 기존 투표는 집계하지 않는다")
-    void t12_departedMemberVoteIsExcludedFromSummary() {
+    @DisplayName("t13 여행방에서 나간 멤버의 기존 투표는 집계하지 않는다")
+    void t13_departedMemberVoteIsExcludedFromSummary() {
         long proposalId = insertProposal("OPEN");
         insertVote(proposalId, 99L, "AGREE");
 
@@ -373,8 +396,8 @@ class TripPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("t13 날짜 제안과 투표는 여행방 행을 잠가 동시에 확정되는 것을 막는다")
-    void t13_proposalMutationLocksTrip() {
+    @DisplayName("t14 날짜 제안과 투표는 여행방 행을 잠가 동시에 확정되는 것을 막는다")
+    void t14_proposalMutationLocksTrip() {
         insertProposal("OPEN");
 
         tripPlanningService.vote(

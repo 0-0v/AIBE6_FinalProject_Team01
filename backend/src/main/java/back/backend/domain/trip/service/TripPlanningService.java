@@ -68,7 +68,10 @@ public class TripPlanningService {
         accessChecker.requireView(tripId);
         Map<Long, AvailabilityBuilder> grouped = new LinkedHashMap<>();
         jdbcClient.sql("""
-                SELECT tm.member_id, m.nickname, m.profile_image_url, tda.available_date
+                SELECT tm.member_id,
+                       CASE WHEN m.status = 'WITHDRAWN' THEN '탈퇴한 사용자' ELSE m.nickname END AS nickname,
+                       CASE WHEN m.status = 'WITHDRAWN' THEN NULL ELSE m.profile_image_url END AS profile_image_url,
+                       tda.available_date
                 FROM trip_members tm
                 JOIN members m ON m.id = tm.member_id
                 LEFT JOIN trip_date_availabilities tda

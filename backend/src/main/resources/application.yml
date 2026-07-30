@@ -59,6 +59,8 @@ app:
       refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS:1209600000}
     email:
       from: ${BREVO_FROM_EMAIL:}
+      brevo-api-key: ${BREVO_API_KEY:}
+      verification-template-id: ${BREVO_EMAIL_VERIFICATION_TEMPLATE_ID:}
       code-expiration: ${EMAIL_VERIFICATION_CODE_EXPIRATION:5m}
       verified-expiration: ${EMAIL_VERIFICATION_VERIFIED_EXPIRATION:10m}
   cors:
