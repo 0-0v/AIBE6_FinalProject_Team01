@@ -83,8 +83,10 @@ public class AuthService {
                 ? memberRepository.findByEmailAndProvider(
                         EmailVerificationService.normalize(identifier), AuthProvider.LOCAL)
                 : memberRepository.findByNicknameAndProvider(identifier, AuthProvider.LOCAL))
-                .filter(found -> found.getStatus() == MemberStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
+        if (member.getStatus() == MemberStatus.WITHDRAWN) {
+            throw new BusinessException(AuthErrorCode.WITHDRAWN_ACCOUNT);
+        }
         if (!passwordEncoder.matches(request.password(), member.getPasswordHash())) {
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
         }

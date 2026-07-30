@@ -6,6 +6,11 @@ import org.springframework.http.HttpStatus;
 public enum AuthErrorCode implements ErrorCode {
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_409_EMAIL", "이미 사용 중인 이메일입니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "AUTH_409_NICKNAME", "이미 사용 중인 닉네임입니다."),
+    WITHDRAWN_ACCOUNT(
+            HttpStatus.CONFLICT,
+            "AUTH_409_WITHDRAWN_ACCOUNT",
+            "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 같은 이메일 또는 소셜 계정으로 "
+                    + "재가입할 수 없습니다. 보관기간이 끝난 후 다시 시도해 주세요."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
     INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "AUTH_400_CODE", "인증번호가 올바르지 않거나 만료되었습니다."),
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_400_NOT_VERIFIED", "이메일 인증이 필요합니다."),
