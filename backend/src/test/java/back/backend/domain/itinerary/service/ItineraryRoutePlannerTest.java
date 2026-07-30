@@ -20,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -427,39 +428,24 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t14 OpenAI 추천이 유효하면 AI 코스를 첫 번째 옵션으로 반환한다")
-    void t14_planMultiPlacesAiRecommendationFirst() {
+    @DisplayName("t14 AI_describe_성공시_AI_추천_코스가_첫_번째_옵션으로_반환된다")
+    void t14_planMultiPlacesAiDescribeFirst() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
-                tripPlace(
-                        10L,
-                        "장소 A",
-                        PlaceCategoryType.ATTRACTION,
-                        33.45,
-                        126.50
-                ),
-                tripPlace(
-                        11L,
-                        "장소 B",
-                        PlaceCategoryType.CAFE,
-                        33.55,
-                        126.60
-                )
+                tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
+                tripPlace(11L, "장소 B", PlaceCategoryType.CAFE, 33.55, 126.60)
         );
-        when(openAiRouteAdvisor.recommend(days, places, Set.of()))
+        when(openAiRouteAdvisor.describe(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.of(
-                        new OpenAiRouteAdvisor.Recommendation(
-                                "AI가 여행 스타일을 고려해 배치했어요.",
-                                List.of(List.of(11L), List.of(10L))
-                        )
+                        Map.of(1L, "교토 역사 지구 탐방", 2L, "아라시야마 자연 힐링")
                 ));
 
         var options = planner.planMulti(days, places, Set.of());
 
-        assertThat(options.getFirst().routeLabel())
-                .isEqualTo("AI 추천 코스");
-        assertThat(options.getFirst().plan().days().getFirst().items())
-                .extracting(item -> item.tripPlaceId())
-                .containsExactly(11L);
+        assertThat(options.getFirst().routeLabel()).isEqualTo("AI 추천 코스");
+        assertThat(options.getFirst().plan().summary())
+                .contains("교토 역사 지구 탐방");
     }
 }

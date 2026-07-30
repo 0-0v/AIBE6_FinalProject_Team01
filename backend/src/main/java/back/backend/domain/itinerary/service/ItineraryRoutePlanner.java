@@ -103,48 +103,46 @@ public class ItineraryRoutePlanner {
         List<RoutePlanOption> options = new ArrayList<>();
         Set<String> routeSignatures = new HashSet<>();
 
-        openAiRouteAdvisor.recommend(days, tripPlaces, travelStyles)
-                .ifPresent(recommendation -> {
-                    Map<Long, TripPlace> placeById = tripPlaces.stream()
-                            .collect(Collectors.toMap(
-                                    TripPlace::getId,
-                                    place -> place
-                            ));
-                    List<List<TripPlace>> aiClusters =
-                            recommendation.tripPlaceIdsByDay().stream()
-                                    .map(ids -> ids.stream()
-                                            .map(placeById::get)
-                                            .toList())
-                                    .toList();
-                    RoutePlanPreviewResponse aiPlan =
-                            buildResponseFromClusters(
-                                    days,
-                                    aiClusters,
-                                    tripPlaces.size(),
-                                    recommendation.summary(),
-                                    "AI가 장소 위치와 여행 스타일을 함께 고려해 추천했어요."
-                            );
-                    options.add(new RoutePlanOption(
-                            "AI 추천 코스",
-                            aiPlan
-                    ));
-                    routeSignatures.add(routeSignature(aiPlan));
-                });
-
-        // OpenAI 미설정 또는 실패 시에도 항상 규칙 기반 코스를 제공한다.
+        // 지리 기반 클러스터링 + 제약 정렬 (ConstraintSorter는 buildResponseFromClusters 내부에서 적용)
         List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
-        RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
-                days,
-                geoClusters,
+        String defaultGeoSummary = String.format(
+                "저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
                 tripPlaces.size(),
-                String.format(
-                        "저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
-                        tripPlaces.size(),
-                        days.size()
-                ),
-                null
+                days.size()
         );
-        if (routeSignatures.add(routeSignature(geoPlan))) {
+        RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
+                days, geoClusters, tripPlaces.size(), defaultGeoSummary, null);
+
+        // AI describe: 완성된 초안을 받아 날짜별 한 줄 설명 생성 (실패해도 geoPlan 유지)
+        Map<Long, List<Long>> draft = new LinkedHashMap<>();
+        for (int i = 0; i < days.size(); i++) {
+            Long dayId = days.get(i).getId();
+            List<Long> placeIds = i < geoClusters.size()
+                    ? geoClusters.get(i).stream().map(TripPlace::getId).toList()
+                    : List.of();
+            draft.put(dayId, placeIds);
+        }
+
+        boolean aiDescribed = false;
+        Optional<Map<Long, String>> aiSummaries = openAiRouteAdvisor.describe(draft, travelStyles);
+        if (aiSummaries.isPresent()) {
+            String combinedSummary = aiSummaries.get().values().stream()
+                    .filter(s -> s != null && !s.isBlank())
+                    .collect(Collectors.joining(" · "));
+            if (!combinedSummary.isBlank()) {
+                RoutePlanPreviewResponse aiDescribedPlan = new RoutePlanPreviewResponse(
+                        combinedSummary,
+                        geoPlan.totalPlaceCount(),
+                        geoPlan.totalDistanceMeters(),
+                        geoPlan.days()
+                );
+                options.add(new RoutePlanOption("AI 추천 코스", aiDescribedPlan));
+                routeSignatures.add(routeSignature(aiDescribedPlan));
+                aiDescribed = true;
+            }
+        }
+
+        if (!aiDescribed && routeSignatures.add(routeSignature(geoPlan))) {
             options.add(new RoutePlanOption("지리 최적 코스", geoPlan));
         }
 
