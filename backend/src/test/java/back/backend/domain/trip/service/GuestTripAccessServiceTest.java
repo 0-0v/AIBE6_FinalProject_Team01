@@ -171,6 +171,30 @@ class GuestTripAccessServiceTest {
         assertThat(service.canView(10L, "guest-token")).isTrue();
     }
 
+    @Test
+    @DisplayName("t8 게스트 쿠키가 없어도 유효한 초대 코드로 로그인 회원을 여행방에 추가한다")
+    void t8_claimInvitationAddsMemberWithoutGuestCookie() {
+        TripInvitation invitation = TripInvitation.create(
+                10L, "invite-code", 1L, LocalDateTime.now().plusDays(1));
+        Trip trip = trip();
+        ReflectionTestUtils.setField(trip, "id", 10L);
+        when(invitationRepository.findByInviteCode("invite-code"))
+                .thenReturn(Optional.of(invitation));
+        when(tripRepository.findByIdAndStatusNot(10L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 2L))
+                .thenReturn(false);
+
+        service.claimInvitation(2L, "invite-code", null);
+
+        ArgumentCaptor<TripMember> memberCaptor =
+                ArgumentCaptor.forClass(TripMember.class);
+        verify(tripMemberRepository).save(memberCaptor.capture());
+        assertThat(memberCaptor.getValue().getTripId()).isEqualTo(10L);
+        assertThat(memberCaptor.getValue().getMemberId()).isEqualTo(2L);
+        assertThat(memberCaptor.getValue().getRole().name()).isEqualTo("VIEWER");
+    }
+
     private GuestSession guestSession() {
         GuestSession session = GuestSession.create(
                 tokenHasher.hash("guest-token"), LocalDateTime.now().plusDays(1));

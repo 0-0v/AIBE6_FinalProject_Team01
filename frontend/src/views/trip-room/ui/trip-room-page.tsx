@@ -392,11 +392,12 @@ export function TripRoom() {
     }
 
     async function handleJoinTrip() {
-        if (!tripId) return
+        if (!tripId || !inviteCode) return
         setIsJoining(true)
         setJoinError(null)
         try {
-            await claimGuestTripAccess()
+            await claimGuestTripAccess(inviteCode)
+            await loadTrips()
             selectTrip(String(tripId))
             navigate(`/app/room/${tripId}`, { replace: true })
         } catch (claimError) {

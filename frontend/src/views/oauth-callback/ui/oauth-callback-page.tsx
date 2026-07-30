@@ -28,22 +28,27 @@ export function OAuthCallback() {
 
         fetchCurrentUser(accessToken)
             .then((user) => {
-                if (user) {
-                    setCurrentUser(user)
-                    if (
-                        user.provider === 'GOOGLE' ||
-                        user.provider === 'KAKAO'
-                    ) {
-                        setLastLoginProvider(user.provider)
-                    }
+                if (!user) {
+                    throw new Error('사용자 정보를 불러오지 못했습니다.')
                 }
-            })
-            .finally(() => {
+                setCurrentUser(user)
+                if (
+                    user.provider === 'GOOGLE' ||
+                    user.provider === 'KAKAO'
+                ) {
+                    setLastLoginProvider(user.provider)
+                }
                 const returnPath = sessionStorage.getItem(
                     'postLoginReturnPath',
                 )
                 sessionStorage.removeItem('postLoginReturnPath')
                 navigate(returnPath ?? '/app', { replace: true })
+            })
+            .catch(() => {
+                setAccessToken(null)
+                navigate('/login?error=oauth2_login_failed', {
+                    replace: true,
+                })
             })
     }, [navigate, setCurrentUser])
 

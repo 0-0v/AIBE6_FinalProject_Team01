@@ -75,7 +75,9 @@ export function Login() {
         setBusy(true)
         try {
             await login(identifier.trim(), password)
-            navigate('/app', { replace: true })
+            const returnPath = sessionStorage.getItem('postLoginReturnPath')
+            sessionStorage.removeItem('postLoginReturnPath')
+            navigate(returnPath ?? '/app', { replace: true })
         } catch (error) {
             setMessage(getApiErrorMessage(error, '로그인에 실패했습니다.'))
         } finally {
