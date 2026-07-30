@@ -41,6 +41,13 @@ export function resolveSelectableTransportMode(
     return 'WALKING'
 }
 
+export function isSelectedTransportMode(
+    item: Pick<ItineraryItem, 'transportMode' | 'transportModePreference'>,
+    mode: SelectableItineraryTransportMode,
+): boolean {
+    return resolveSelectableTransportMode(item) === mode
+}
+
 export function formatTransportSummary({
     transportMinutes,
     transportMeters,

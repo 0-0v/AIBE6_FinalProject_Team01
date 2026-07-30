@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
     formatTransportSummary,
+    isSelectedTransportMode,
     resolveSelectableTransportMode,
 } from './itinerary-transport.ts'
 
@@ -44,5 +45,18 @@ test('t4 숨겨진 자동값은 실제 이동수단에 맞는 선택지로 표�
             transportModePreference: null,
         }),
         'BUS',
+    )
+})
+
+test('t5 기존 지하철 선호는 철도 우선과 같은 선택으로 처리한다', () => {
+    assert.equal(
+        isSelectedTransportMode(
+            {
+                transportMode: '지하철',
+                transportModePreference: 'SUBWAY',
+            },
+            'RAIL',
+        ),
+        true,
     )
 })
