@@ -14,6 +14,7 @@ public enum AuthErrorCode implements ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
     INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "AUTH_400_CODE", "인증번호가 올바르지 않거나 만료되었습니다."),
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_400_NOT_VERIFIED", "이메일 인증이 필요합니다."),
+    EMAIL_SEND_FAILED(HttpStatus.BAD_GATEWAY, "AUTH_502_EMAIL", "인증 메일을 발송하지 못했습니다. 잠시 후 다시 시도해 주세요."),
     SOCIAL_ACCOUNT_PASSWORD_RESET(
             HttpStatus.BAD_REQUEST,
             "AUTH_400_SOCIAL_ACCOUNT",

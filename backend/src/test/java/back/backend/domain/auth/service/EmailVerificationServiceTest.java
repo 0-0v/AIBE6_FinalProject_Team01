@@ -21,14 +21,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 
 @ExtendWith(MockitoExtension.class)
 class EmailVerificationServiceTest {
 
     @Mock
-    private JavaMailSender mailSender;
+    private BrevoEmailClient emailClient;
     @Mock
     private RedisValueService redisValueService;
     @Mock
@@ -42,7 +40,7 @@ class EmailVerificationServiceTest {
         properties.setFrom("no-reply@example.com");
         properties.setCodeExpiration(Duration.ofMinutes(5));
         properties.setVerifiedExpiration(Duration.ofMinutes(10));
-        service = new EmailVerificationService(mailSender, redisValueService, memberRepository, properties);
+        service = new EmailVerificationService(emailClient, redisValueService, memberRepository, properties);
     }
 
     @Test
@@ -53,7 +51,7 @@ class EmailVerificationServiceTest {
         assertThatThrownBy(() -> service.sendCode("USER@example.com", EmailVerificationPurpose.SIGNUP))
                 .isInstanceOf(BusinessException.class);
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailClient, never()).sendVerificationEmail(any(), any(), any(Long.class), any());
     }
 
     @Test
@@ -63,7 +61,7 @@ class EmailVerificationServiceTest {
 
         service.sendCode("user@example.com", EmailVerificationPurpose.PASSWORD_RESET);
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailClient, never()).sendVerificationEmail(any(), any(), any(Long.class), any());
     }
 
     @Test
@@ -91,6 +89,26 @@ class EmailVerificationServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("소셜로그인으로 가입된 계정입니다.");
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailClient, never()).sendVerificationEmail(any(), any(), any(Long.class), any());
+    }
+
+    @Test
+    @DisplayName("t5 인증번호를 생성하면 Brevo 템플릿 메일과 Redis 만료 시간을 함께 설정한다")
+    void t5_sendCodeUsesBrevoTemplate() {
+        when(memberRepository.existsByEmail("user@example.com")).thenReturn(false);
+
+        service.sendCode("USER@example.com", EmailVerificationPurpose.SIGNUP);
+
+        verify(redisValueService).set(
+                org.mockito.ArgumentMatchers.eq("email-verification-code:signup:user@example.com"),
+                org.mockito.ArgumentMatchers.matches("\\d{6}"),
+                org.mockito.ArgumentMatchers.eq(Duration.ofMinutes(5))
+        );
+        verify(emailClient).sendVerificationEmail(
+                org.mockito.ArgumentMatchers.eq("user@example.com"),
+                org.mockito.ArgumentMatchers.matches("\\d{6}"),
+                org.mockito.ArgumentMatchers.eq(5L),
+                org.mockito.ArgumentMatchers.eq(EmailVerificationPurpose.SIGNUP)
+        );
     }
 }
