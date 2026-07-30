@@ -351,7 +351,7 @@ export function MyPage() {
                     aria-modal="true"
                     aria-labelledby="withdraw-title"
                 >
-                    <div className="relative w-full max-w-[420px] rounded-[28px] bg-white px-7 py-8 shadow-2xl sm:px-9">
+                    <div className="relative w-full max-w-[520px] rounded-[28px] bg-white px-7 py-8 shadow-2xl sm:px-9">
                         <button
                             type="button"
                             onClick={closeWithdrawModal}
