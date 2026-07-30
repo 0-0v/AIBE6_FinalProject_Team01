@@ -14,8 +14,8 @@ import {
     CalendarPlusIcon,
     ClockIcon,
     ExternalLinkIcon,
-    MessageCircleIcon,
     NavigationIcon,
+    XIcon,
 } from 'lucide-react'
 import { Place } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
@@ -288,20 +288,13 @@ function GoogleMapCanvas({
                             >
                                 {/* 호버 인포카드 */}
                                 {isHovered && !isSelected && (
-                                    <div className="itinerary-map-card-enter pointer-events-none absolute bottom-full left-1/2 mb-2 w-48 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
-                                        {place.image && (
-                                            <img
-                                                src={place.image}
-                                                alt={place.name}
-                                                className="h-24 w-full object-cover"
-                                            />
-                                        )}
-                                        <div className="p-2.5">
-                                            <p className="truncate text-xs font-bold text-slate-800">
+                                    <div className="itinerary-map-card-enter pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-xl border border-slate-100 bg-white p-2.5 shadow-xl">
+                                        <div className="flex items-start gap-2">
+                                            <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">
                                                 {place.name}
                                             </p>
                                             <span
-                                                className="mt-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                                className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
                                                 style={{
                                                     backgroundColor:
                                                         place.categoryColor +
@@ -311,18 +304,12 @@ function GoogleMapCanvas({
                                             >
                                                 {place.categoryName}
                                             </span>
-                                            <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
+                                        </div>
+                                        {place.address && (
+                                            <p className="mt-1 line-clamp-1 text-[10px] text-slate-400">
                                                 {place.address}
                                             </p>
-                                            {place.commentCount > 0 && (
-                                                <p className="mt-1.5 flex items-center gap-1 text-[10px] text-slate-400">
-                                                    <MessageCircleIcon
-                                                        size={10}
-                                                    />
-                                                    댓글 {place.commentCount}개
-                                                </p>
-                                            )}
-                                        </div>
+                                        )}
                                         {/* 말풍선 꼬리 */}
                                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-white" />
                                     </div>
@@ -344,7 +331,21 @@ function GoogleMapCanvas({
                                     hovered={isHovered}
                                 />
                                 {isSelected && (
-                                    <div className="itinerary-map-card-enter absolute left-1/2 top-full mt-1.5 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                                    <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                                        <button
+                                            type="button"
+                                            aria-label={`${place.name} 상세 정보 닫기`}
+                                            onClick={(event) => {
+                                                event.stopPropagation()
+                                                setHoveredId(null)
+                                                setDayPickerPlaceId(null)
+                                                setScheduleError(null)
+                                                onDeselect()
+                                            }}
+                                            className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-white/95 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                        >
+                                            <XIcon size={14} aria-hidden />
+                                        </button>
                                         {place.image && (
                                             <img
                                                 src={place.image}
@@ -586,6 +587,7 @@ function GoogleMapCanvas({
                                                 주세요.
                                             </p>
                                         </div>
+                                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-white" />
                                     </div>
                                 )}
                             </div>
