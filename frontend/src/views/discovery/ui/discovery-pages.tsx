@@ -4,27 +4,34 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import {
     BookmarkIcon,
     CalendarPlusIcon,
+    CalendarDaysIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     LoaderCircleIcon,
+    ListIcon,
+    MapPinIcon,
     MessageCircleIcon,
     SearchIcon,
     SearchXIcon,
+    PanelLeftCloseIcon,
     Trash2Icon,
     XIcon,
 } from 'lucide-react'
 import {
     copyCardItinerary,
     fetchCopyTargets,
+    fetchPublicCardDetail,
     type CardSort,
     type CopyTarget,
     type PublicCard,
+    type PublicCardDetail,
     useExploreCardStore,
 } from '@/features/explore-card'
 import { CreateTripModal } from '@/features/manage-trip'
 import { NotificationList } from '@/features/manage-notification'
 import { resolveMediaUrl } from '@/shared/api/client'
-import { useNavigate } from 'react-router-dom'
+import { KanbanMapPanel } from '@/widgets/trip-room'
+import { useNavigate, useParams } from 'react-router-dom'
 
 const SORTS: { value: CardSort; label: string }[] = [
     { value: 'LATEST', label: '최신순' },
@@ -57,6 +64,7 @@ function PageHeader({
 }
 
 export function Explore() {
+    const navigate = useNavigate()
     const [query, setQuery] = useState('')
     const [submittedQuery, setSubmittedQuery] = useState('')
     const [sort, setSort] = useState<CardSort>('LATEST')
@@ -164,6 +172,9 @@ export function Explore() {
                             onBookmark={() => void toggleBookmark(card.id)}
                             onComments={() => setSelectedCardId(card.id)}
                             onCopy={() => setCopyCard(card)}
+                            onOpen={() =>
+                                navigate(`/app/explore/${card.id}`)
+                            }
                         />
                     ))}
                 </div>
@@ -232,14 +243,24 @@ function TravelCard({
     onBookmark,
     onComments,
     onCopy,
+    onOpen,
 }: {
     card: PublicCard
     onBookmark: () => void
     onComments: () => void
     onCopy: () => void
+    onOpen: () => void
 }) {
     return (
-        <article className="flex min-w-0 flex-col overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md">
+        <article
+            role="button"
+            tabIndex={0}
+            onClick={onOpen}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') onOpen()
+            }}
+            className="flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md"
+        >
             <img
                 src={
                     resolveMediaUrl(card.coverImageUrl) ??
@@ -262,7 +283,10 @@ function TravelCard({
                     {!card.ownCard && (
                         <button
                             type="button"
-                            onClick={onBookmark}
+                            onClick={(event) => {
+                                event.stopPropagation()
+                                onBookmark()
+                            }}
                             title={card.bookmarked ? '북마크 해제' : '북마크'}
                             aria-label={
                                 card.bookmarked ? '북마크 해제' : '북마크'
@@ -295,7 +319,10 @@ function TravelCard({
                     </span>
                     <button
                         type="button"
-                        onClick={onComments}
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onComments()
+                        }}
                         className="flex shrink-0 items-center gap-1 whitespace-nowrap font-bold text-slate-600 hover:text-brand-700"
                     >
                         <MessageCircleIcon size={14} />
@@ -305,7 +332,10 @@ function TravelCard({
                 {!card.ownCard && (
                     <button
                         type="button"
-                        onClick={onCopy}
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onCopy()
+                        }}
                         className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-extrabold text-white hover:bg-brand-700"
                     >
                         <CalendarPlusIcon size={16} /> 일정 담기
@@ -314,6 +344,350 @@ function TravelCard({
             </div>
         </article>
     )
+}
+
+export function ExploreDetail() {
+    const navigate = useNavigate()
+    const { cardId } = useParams()
+    const [detail, setDetail] = useState<PublicCardDetail | null>(null)
+    const [selectedDayId, setSelectedDayId] = useState<string | null>(null)
+    const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+    const [isListOpen, setIsListOpen] = useState(true)
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const parsedCardId = Number(cardId)
+        if (!Number.isInteger(parsedCardId) || parsedCardId <= 0) {
+            Promise.resolve().then(() => {
+                setError('잘못된 여행 카드 주소입니다.')
+                setIsLoading(false)
+            })
+            return
+        }
+
+        let cancelled = false
+        void fetchPublicCardDetail(parsedCardId)
+            .then((response) => {
+                if (cancelled) return
+                setDetail(response)
+                setSelectedDayId(
+                    response.itinerary[0]
+                        ? String(response.itinerary[0].id)
+                        : null,
+                )
+                setError(null)
+            })
+            .catch((caught: unknown) => {
+                if (cancelled) return
+                setError(
+                    caught instanceof Error
+                        ? caught.message
+                        : '여행 상세 정보를 불러오지 못했습니다.',
+                )
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoading(false)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [cardId])
+
+    const isAllDays = selectedDayId === 'all'
+    const selectedDay = isAllDays
+        ? null
+        : (detail?.itinerary.find(
+              (day) => String(day.id) === selectedDayId,
+          ) ??
+          detail?.itinerary[0] ??
+          null)
+    const displayedDays = isAllDays
+        ? (detail?.itinerary ?? [])
+        : selectedDay
+          ? [selectedDay]
+          : []
+
+    if (isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center bg-[#f8fafb] text-brand">
+                <LoaderCircleIcon className="animate-spin" size={28} />
+            </div>
+        )
+    }
+
+    if (error || !detail) {
+        return (
+            <div className="flex h-full flex-col items-center justify-center bg-[#f8fafb] px-6 text-center">
+                <SearchXIcon size={32} className="text-slate-300" />
+                <p className="mt-4 text-sm font-bold text-slate-600">
+                    {error ?? '여행 카드를 찾을 수 없습니다.'}
+                </p>
+                <button
+                    type="button"
+                    onClick={() => navigate('/app/explore')}
+                    className="mt-5 rounded-full bg-brand px-5 py-2.5 text-sm font-extrabold text-white"
+                >
+                    둘러보기로 돌아가기
+                </button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex min-h-full flex-col bg-[#f8fafb] p-4 sm:p-6 xl:h-full xl:min-h-0 xl:overflow-hidden">
+            <header className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
+                <button
+                    type="button"
+                    onClick={() => navigate('/app/explore')}
+                    className="flex items-center gap-1.5 text-sm font-extrabold text-slate-500 transition hover:text-brand-700"
+                >
+                    <ChevronLeftIcon size={18} />
+                    둘러보기
+                </button>
+                <span className="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-extrabold text-brand-700">
+                    공개 여행 일정
+                </span>
+            </header>
+
+            <main className="relative min-h-[680px] flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-slate-100 shadow-[0_20px_50px_rgba(15,23,42,0.08)] xl:min-h-0">
+                <section
+                    className={`mp-scroll absolute inset-y-4 left-4 z-20 w-[min(560px,calc(100%-2rem))] overflow-y-auto rounded-[24px] border border-slate-200 bg-white/95 p-5 shadow-[0_22px_55px_rgba(15,23,42,0.18)] backdrop-blur-md transition-transform duration-300 ease-out sm:p-7 ${
+                        isListOpen
+                            ? 'translate-x-0'
+                            : '-translate-x-[120%]'
+                    }`}
+                    aria-hidden={!isListOpen}
+                >
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-brand-700">
+                                Itinerary detail
+                            </p>
+                            <h1 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950 sm:text-3xl">
+                                {detail.title}
+                            </h1>
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
+                                {detail.summary ??
+                                    '공개된 여행의 날짜별 장소와 이동 경로를 확인해 보세요.'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsListOpen(false)}
+                            aria-label="일정 목록 접기"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
+                        >
+                            <PanelLeftCloseIcon size={18} />
+                        </button>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
+                        <span className="flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-2">
+                            <MapPinIcon size={14} className="text-brand" />
+                            {detail.destination ?? '여행지 미정'}
+                        </span>
+                        <span className="flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-2">
+                            <CalendarDaysIcon
+                                size={14}
+                                className="text-brand"
+                            />
+                            {formatPublicTripDates(
+                                detail.startDate,
+                                detail.endDate,
+                            )}
+                        </span>
+                    </div>
+
+                    <div className="mt-6 border-t border-slate-100 pt-5">
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                            {detail.itinerary.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedDayId('all')
+                                        setFocusedItemId(null)
+                                    }}
+                                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-extrabold transition ${
+                                        isAllDays
+                                            ? 'bg-brand text-white'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-brand-50 hover:text-brand-700'
+                                    }`}
+                                >
+                                    전체 일정
+                                </button>
+                            )}
+                            {detail.itinerary.map((day) => (
+                                <button
+                                    key={day.id}
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedDayId(String(day.id))
+                                        setFocusedItemId(null)
+                                    }}
+                                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-extrabold transition ${
+                                        selectedDay?.id === day.id
+                                            ? 'bg-brand text-white'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-brand-50 hover:text-brand-700'
+                                    }`}
+                                >
+                                    Day {day.dayNumber}
+                                </button>
+                            ))}
+                        </div>
+
+                        {displayedDays.length === 0 ? (
+                            <div className="mt-8 rounded-[22px] border border-dashed border-slate-200 py-16 text-center text-sm text-slate-400">
+                                공개된 일정이 없습니다.
+                            </div>
+                        ) : (
+                            <PublicItineraryDays
+                                days={displayedDays}
+                                focusedItemId={focusedItemId}
+                                onFocusItem={setFocusedItemId}
+                            />
+                        )}
+                    </div>
+                </section>
+
+                <section className="absolute inset-0 overflow-hidden bg-slate-100">
+                    {displayedDays.length > 0 ? (
+                        <div className="h-full [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
+                            <KanbanMapPanel
+                                days={displayedDays}
+                                places={[]}
+                                activeDragId={null}
+                                previewDayId={null}
+                                hoveredItemId={null}
+                                onItemHoverChange={() => undefined}
+                                focusedItemId={focusedItemId}
+                                focusedPlaceId={null}
+                                onItemFocus={setFocusedItemId}
+                                onPlaceFocus={() => undefined}
+                            />
+                        </div>
+                    ) : (
+                        <div className="flex h-full items-center justify-center px-6 text-center text-sm font-semibold text-slate-400">
+                            지도에 표시할 일정 장소가 없습니다.
+                        </div>
+                    )}
+                </section>
+
+                {!isListOpen && (
+                    <button
+                        type="button"
+                        onClick={() => setIsListOpen(true)}
+                        aria-label="일정 목록 열기"
+                        className="flamingo-gradient flamingo-glow absolute left-5 top-5 z-30 flex h-12 w-12 items-center justify-center rounded-2xl text-white transition hover:scale-105"
+                    >
+                        <ListIcon size={21} />
+                    </button>
+                )}
+            </main>
+        </div>
+    )
+}
+
+function PublicItineraryDays({
+    days,
+    focusedItemId,
+    onFocusItem,
+}: {
+    days: PublicCardDetail['itinerary']
+    focusedItemId: string | null
+    onFocusItem: (itemId: string) => void
+}) {
+    return (
+        <div className="space-y-8">
+            {days.map((day) => (
+                <section key={day.id}>
+                    <div className="mt-5 flex items-end justify-between gap-4">
+                        <div>
+                            <p className="text-xs font-extrabold text-brand-700">
+                                Day {day.dayNumber}
+                            </p>
+                            <h2 className="mt-1 text-xl font-black text-slate-900">
+                                {day.title ?? `${day.itineraryDate} 일정`}
+                            </h2>
+                        </div>
+                        <span className="text-xs font-bold text-slate-400">
+                            {day.items.length}개 장소
+                        </span>
+                    </div>
+
+                    {day.items.length === 0 ? (
+                        <div className="mt-5 rounded-[22px] bg-slate-50 py-10 text-center text-sm text-slate-400">
+                            이 날짜에 저장된 장소가 없습니다.
+                        </div>
+                    ) : (
+                        <ol className="mt-6">
+                            {day.items.map((item, index) => (
+                                <li
+                                    key={item.id}
+                                    className="relative flex gap-4 pb-5 last:pb-0"
+                                >
+                                    <div className="relative flex w-9 shrink-0 justify-center">
+                                        {index < day.items.length - 1 && (
+                                            <span className="absolute left-1/2 top-8 h-[calc(100%+0.25rem)] -translate-x-1/2 border-l-2 border-dotted border-brand-200" />
+                                        )}
+                                        <span
+                                            className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 bg-white text-xs font-black ${
+                                                focusedItemId ===
+                                                String(item.id)
+                                                    ? 'border-brand text-brand'
+                                                    : 'border-slate-300 text-slate-500'
+                                            }`}
+                                        >
+                                            {index + 1}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            onFocusItem(String(item.id))
+                                        }
+                                        className={`min-w-0 flex-1 rounded-[18px] border p-4 text-left transition ${
+                                            focusedItemId === String(item.id)
+                                                ? 'border-brand-200 bg-brand-50'
+                                                : 'border-slate-100 bg-white hover:border-brand-100 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <b className="block truncate text-sm text-slate-900">
+                                                    {item.placeName ??
+                                                        '장소 미정'}
+                                                </b>
+                                                <span className="mt-1 block truncate text-xs text-slate-400">
+                                                    {item.placeAddress ??
+                                                        item.categoryName ??
+                                                        '상세 정보 없음'}
+                                                </span>
+                                            </div>
+                                            {item.startTime && (
+                                                <time className="shrink-0 text-xs font-extrabold text-brand-700">
+                                                    {item.startTime}
+                                                </time>
+                                            )}
+                                        </div>
+                                    </button>
+                                </li>
+                            ))}
+                        </ol>
+                    )}
+                </section>
+            ))}
+        </div>
+    )
+}
+
+function formatPublicTripDates(
+    startDate: string | null,
+    endDate: string | null,
+) {
+    if (!startDate || !endDate) return '날짜 미정'
+    return `${startDate.replaceAll('-', '.')} - ${endDate.replaceAll('-', '.')}`
 }
 
 function ItineraryCopyFlow({ card, onClose }: { card: PublicCard; onClose: () => void }) {

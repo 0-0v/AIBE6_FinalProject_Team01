@@ -2,6 +2,7 @@ package back.backend.domain.card.controller;
 
 import back.backend.domain.card.dto.*;
 import back.backend.domain.card.service.PublicCardService;
+import back.backend.domain.card.service.PublicCardDetailService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import jakarta.validation.Valid;
@@ -13,12 +14,19 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/cards")
 public class PublicCardController {
     private final PublicCardService service;
+    private final PublicCardDetailService detailService;
     private final back.backend.domain.card.service.PublicCardCopyService copyService;
     private final SecurityContextAccessor security;
     public PublicCardController(PublicCardService service,
+            PublicCardDetailService detailService,
             back.backend.domain.card.service.PublicCardCopyService copyService,
             SecurityContextAccessor security) {
-        this.service = service; this.copyService = copyService; this.security = security;
+        this.service = service; this.detailService = detailService;
+        this.copyService = copyService; this.security = security;
+    }
+    @GetMapping("/{cardId}/detail")
+    public ApiResponse<PublicCardDetailResponse> getDetail(@PathVariable Long cardId) {
+        return ApiResponse.success(detailService.getDetail(cardId));
     }
     @GetMapping("/public")
     public ApiResponse<PublicCardPageResponse> getPublicCards(

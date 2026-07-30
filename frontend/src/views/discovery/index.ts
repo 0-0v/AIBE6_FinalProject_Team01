@@ -1,1 +1,1 @@
-export { Explore, Updates } from './ui/discovery-pages'
+export { Explore, ExploreDetail, Updates } from './ui/discovery-pages'
