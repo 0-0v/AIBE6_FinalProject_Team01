@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PlusIcon } from 'lucide-react'
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from 'lucide-react'
 import { RoomCard } from '@/entities/trip'
 import { CreateTripModal, useTripStore } from '@/features/manage-trip'
 import { useCurrentUserStore } from '@/shared/model'
@@ -13,6 +13,7 @@ type Props = {
 export function TravelRooms({ embedded = false, compact = false }: Props) {
     const navigate = useNavigate()
     const [createOpen, setCreateOpen] = React.useState(false)
+    const [page, setPage] = React.useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const { rooms, isLoading, error, loadTrips, resetTrips } = useTripStore()
 
@@ -20,6 +21,13 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
         if (currentUser) void loadTrips()
         else resetTrips()
     }, [currentUser, loadTrips, resetTrips])
+
+    const pageSize = compact ? 4 : rooms.length || 1
+    const totalPages = Math.max(1, Math.ceil(rooms.length / pageSize))
+    const visiblePage = Math.min(page, totalPages - 1)
+    const visibleRooms = compact
+        ? rooms.slice(visiblePage * pageSize, (visiblePage + 1) * pageSize)
+        : rooms
 
     const content = (
         <>
@@ -58,7 +66,7 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
             </header>
 
             <section
-                className={`${compact ? 'mt-4 gap-3 lg:grid-cols-2 2xl:grid-cols-3' : 'mt-8 gap-5 md:grid-cols-2 xl:grid-cols-3'} grid`}
+                className={`${compact ? 'mt-4 gap-4 sm:grid-cols-2 xl:grid-cols-4' : 'mt-8 gap-5 md:grid-cols-2 xl:grid-cols-3'} grid`}
             >
                 {isLoading && (
                     <p className="text-sm text-slate-400">
@@ -71,7 +79,7 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
                         아직 생성된 여행방이 없습니다.
                     </p>
                 )}
-                {rooms.map((room) => (
+                {visibleRooms.map((room) => (
                     <RoomCard
                         key={room.id}
                         room={room}
@@ -80,6 +88,34 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
                     />
                 ))}
             </section>
+            {compact && totalPages > 1 && (
+                <nav
+                    aria-label="여행방 페이지"
+                    className="mt-4 flex items-center justify-center gap-3"
+                >
+                    <button
+                        type="button"
+                        onClick={() => setPage(visiblePage - 1)}
+                        disabled={visiblePage === 0}
+                        aria-label="이전 여행방"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                        <ChevronLeftIcon size={15} />
+                    </button>
+                    <span className="text-xs font-extrabold text-slate-500">
+                        {visiblePage + 1} / {totalPages}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setPage(visiblePage + 1)}
+                        disabled={visiblePage + 1 >= totalPages}
+                        aria-label="다음 여행방"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                        <ChevronRightIcon size={15} />
+                    </button>
+                </nav>
+            )}
 
             {createOpen && (
                 <CreateTripModal

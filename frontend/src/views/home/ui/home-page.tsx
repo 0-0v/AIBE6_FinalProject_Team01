@@ -5,6 +5,7 @@ import {
     BookmarkIcon,
     CheckCircle2Icon,
     ChevronDownIcon,
+    ChevronLeftIcon,
     ChevronRightIcon,
     CreditCardIcon,
     LayoutGridIcon,
@@ -116,6 +117,7 @@ export function Home() {
     const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
     const [dashboardError, setDashboardError] = useState<string | null>(null)
     const [bookmarkedCards, setBookmarkedCards] = useState<PublicCard[]>([])
+    const [bookmarkPage, setBookmarkPage] = useState(0)
     const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
@@ -298,6 +300,16 @@ export function Home() {
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
     const insightSlideCount = logs.length > 0 ? 2 : 1
     const visibleInsightSlide = insightSlide % insightSlideCount
+    const bookmarkPageSize = 4
+    const bookmarkPageCount = Math.max(
+        1,
+        Math.ceil(bookmarkedCards.length / bookmarkPageSize),
+    )
+    const visibleBookmarkPage = Math.min(bookmarkPage, bookmarkPageCount - 1)
+    const visibleBookmarkedCards = bookmarkedCards.slice(
+        visibleBookmarkPage * bookmarkPageSize,
+        (visibleBookmarkPage + 1) * bookmarkPageSize,
+    )
 
     useEffect(() => {
         if (isInsightHovered || insightSlideCount <= 1) return
@@ -474,7 +486,7 @@ export function Home() {
             )}
 
             {view === 'list' ? (
-                <div className="mx-auto mt-6 grid max-w-[1440px] items-start gap-5 px-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+                <div className="mx-auto mt-6 max-w-[1440px] space-y-5 px-1">
                     <section className="rounded-[24px] border border-slate-100 bg-white/60 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-5">
                         <TravelRooms embedded compact />
                     </section>
@@ -511,83 +523,129 @@ export function Home() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                                {bookmarkedCards.slice(0, 4).map((card) => (
-                                    <article
-                                        key={card.id}
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() =>
-                                            navigate(`/app/explore/${card.id}`)
-                                        }
-                                        onKeyDown={(event) => {
-                                            if (
-                                                event.key === 'Enter' ||
-                                                event.key === ' '
-                                            ) {
+                            <>
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                    {visibleBookmarkedCards.map((card) => (
+                                        <article
+                                            key={card.id}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() =>
                                                 navigate(
                                                     `/app/explore/${card.id}`,
                                                 )
                                             }
-                                        }}
-                                        className="group grid min-w-0 cursor-pointer grid-cols-[92px_minmax(0,1fr)] overflow-hidden rounded-[18px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md"
-                                    >
-                                        <img
-                                            src={
-                                                resolveMediaUrl(
-                                                    card.coverImageUrl,
-                                                ) ??
-                                                '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg'
-                                            }
-                                            alt={`${card.title} 여행 카드`}
-                                            className="h-full min-h-28 w-full object-cover transition duration-500 group-hover:scale-105"
-                                        />
-                                        <div className="flex min-w-0 flex-col p-3.5">
-                                            <div className="flex min-w-0 items-start justify-between gap-2">
-                                                <h3 className="truncate text-sm font-extrabold text-slate-900">
-                                                    {card.title}
-                                                </h3>
-                                                <BookmarkIcon
-                                                    size={15}
-                                                    fill="currentColor"
-                                                    className="shrink-0 text-brand-700"
-                                                />
-                                            </div>
-                                            <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">
-                                                {card.destination ??
-                                                    '여행지 미정'}{' '}
-                                                · {card.authorNickname}
-                                            </p>
-                                            {card.tags.length > 0 && (
-                                                <div className="mt-2 flex min-w-0 gap-1 overflow-hidden">
-                                                    {card.tags
-                                                        .slice(0, 2)
-                                                        .map((tag) => (
-                                                            <span
-                                                                key={tag}
-                                                                className="max-w-24 truncate rounded-full bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700"
-                                                            >
-                                                                #{tag}
-                                                            </span>
-                                                        ))}
-                                                </div>
-                                            )}
-                                            <div className="mt-auto flex items-center gap-3 pt-2 text-[10px] font-bold text-slate-400">
-                                                <span className="flex items-center gap-1">
-                                                    <BookmarkIcon size={11} />
-                                                    {card.bookmarkCount}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <MessageCircleIcon
-                                                        size={11}
+                                            onKeyDown={(event) => {
+                                                if (
+                                                    event.key === 'Enter' ||
+                                                    event.key === ' '
+                                                ) {
+                                                    navigate(
+                                                        `/app/explore/${card.id}`,
+                                                    )
+                                                }
+                                            }}
+                                            className="group min-w-0 cursor-pointer overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md"
+                                        >
+                                            <img
+                                                src={
+                                                    resolveMediaUrl(
+                                                        card.coverImageUrl,
+                                                    ) ??
+                                                    '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg'
+                                                }
+                                                alt={`${card.title} 여행 카드`}
+                                                className="aspect-[16/8] w-full object-cover transition duration-500 group-hover:scale-105"
+                                            />
+                                            <div className="flex min-w-0 flex-col p-3.5">
+                                                <div className="flex min-w-0 items-start justify-between gap-2">
+                                                    <h3 className="truncate text-sm font-extrabold text-slate-900">
+                                                        {card.title}
+                                                    </h3>
+                                                    <BookmarkIcon
+                                                        size={15}
+                                                        fill="currentColor"
+                                                        className="shrink-0 text-brand-700"
                                                     />
-                                                    {card.commentCount}
-                                                </span>
+                                                </div>
+                                                <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">
+                                                    {card.destination ??
+                                                        '여행지 미정'}{' '}
+                                                    · {card.authorNickname}
+                                                </p>
+                                                {card.tags.length > 0 && (
+                                                    <div className="mt-2 flex min-w-0 gap-1 overflow-hidden">
+                                                        {card.tags
+                                                            .slice(0, 2)
+                                                            .map((tag) => (
+                                                                <span
+                                                                    key={tag}
+                                                                    className="max-w-24 truncate rounded-full bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700"
+                                                                >
+                                                                    #{tag}
+                                                                </span>
+                                                            ))}
+                                                    </div>
+                                                )}
+                                                <div className="mt-auto flex items-center gap-3 pt-2 text-[10px] font-bold text-slate-400">
+                                                    <span className="flex items-center gap-1">
+                                                        <BookmarkIcon
+                                                            size={11}
+                                                        />
+                                                        {card.bookmarkCount}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <MessageCircleIcon
+                                                            size={11}
+                                                        />
+                                                        {card.commentCount}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                                {bookmarkPageCount > 1 && (
+                                    <nav
+                                        aria-label="북마크 여행 카드 페이지"
+                                        className="mt-4 flex items-center justify-center gap-3"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setBookmarkPage(
+                                                    visibleBookmarkPage - 1,
+                                                )
+                                            }
+                                            disabled={visibleBookmarkPage === 0}
+                                            aria-label="이전 북마크 카드"
+                                            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-30"
+                                        >
+                                            <ChevronLeftIcon size={15} />
+                                        </button>
+                                        <span className="text-xs font-extrabold text-slate-500">
+                                            {visibleBookmarkPage + 1} /{' '}
+                                            {bookmarkPageCount}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setBookmarkPage(
+                                                    visibleBookmarkPage + 1,
+                                                )
+                                            }
+                                            disabled={
+                                                visibleBookmarkPage + 1 >=
+                                                bookmarkPageCount
+                                            }
+                                            aria-label="다음 북마크 카드"
+                                            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-30"
+                                        >
+                                            <ChevronRightIcon size={15} />
+                                        </button>
+                                    </nav>
+                                )}
+                            </>
                         )}
                     </section>
                 </div>
