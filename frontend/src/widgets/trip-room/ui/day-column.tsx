@@ -33,6 +33,7 @@ import { ScheduleItemCard } from './schedule-item-card'
 import { buildGoogleMapsDirectionsUrl } from '../lib/google-maps-directions'
 import { buildItineraryDropZoneId } from '../lib/itinerary-drop-position'
 import {
+    isSelectedTransportMode,
     resolveSelectableTransportMode,
     type SelectableItineraryTransportMode,
 } from '../lib/itinerary-transport'
@@ -102,7 +103,7 @@ function TransportConnector({
 
     async function applyMode(mode: SelectableItineraryTransportMode) {
         if (!canWrite || updating) return
-        if (item.transportModePreference === mode) {
+        if (isSelectedTransportMode(item, mode)) {
             setOpen(false)
             return
         }
