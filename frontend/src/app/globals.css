@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 
+@font-face {
+    font-family: 'JejuStoneWall';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2210-EF@1.0/EF_jejudoldam.woff2')
+        format('woff2');
+    font-weight: normal;
+    font-display: swap;
+}
+
 @theme {
     --color-brand: #e7657a;
     --color-brand-50: #fff0f2;

@@ -1,4 +1,5 @@
 import { apiClient, type ApiResponse } from '@/shared/api/client'
+import type { ItineraryDay } from '@/entities/trip'
 
 export type CardSort = 'LATEST' | 'POPULAR' | 'COMMENTS'
 export type PublicCard = {
@@ -41,6 +42,17 @@ export type CopyTarget = {
     coverImageUrl: string | null
     hasItinerary: boolean
 }
+export type PublicCardDetail = {
+    cardId: number
+    tripId: number
+    title: string
+    summary: string | null
+    destination: string | null
+    coverImageUrl: string | null
+    startDate: string | null
+    endDate: string | null
+    itinerary: ItineraryDay[]
+}
 export async function fetchPublicCards(page: number, sort: CardSort, query: string) {
     const params = new URLSearchParams({ page: String(page), size: '9', sort })
     if (query.trim()) params.set('query', query.trim())
@@ -48,6 +60,13 @@ export async function fetchPublicCards(page: number, sort: CardSort, query: stri
 }
 export async function fetchBookmarkedCards() {
     return (await apiClient.get<ApiResponse<PublicCard[]>>('/api/cards/bookmarks')).data
+}
+export async function fetchPublicCardDetail(cardId: number) {
+    return (
+        await apiClient.get<ApiResponse<PublicCardDetail>>(
+            `/api/cards/${cardId}/detail`,
+        )
+    ).data
 }
 export async function addBookmark(cardId: number) {
     await apiClient.post(`/api/cards/${cardId}/bookmarks`, {})

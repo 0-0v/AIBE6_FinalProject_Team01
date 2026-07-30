@@ -87,6 +87,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/places/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/photo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/public").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cards/*/detail").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/*/comments").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated())

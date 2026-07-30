@@ -7,7 +7,6 @@ import {
     ChevronDownIcon,
     ChevronRightIcon,
     CreditCardIcon,
-    HistoryIcon,
     LayoutGridIcon,
     ListIcon,
     MapIcon,
@@ -247,16 +246,13 @@ export function Home() {
     })
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
-    const recentActivitySlides = logs.slice(0, 4)
-    const insightSlideCount = recentActivitySlides.length + 1
+    const insightSlideCount = logs.length > 0 ? 2 : 1
     const visibleInsightSlide = insightSlide % insightSlideCount
 
     useEffect(() => {
         if (isInsightHovered || insightSlideCount <= 1) return
         const intervalId = window.setInterval(() => {
-            setInsightSlide(
-                (current) => (current + 1) % insightSlideCount,
-            )
+            setInsightSlide((current) => (current + 1) % insightSlideCount)
         }, 5_000)
         return () => window.clearInterval(intervalId)
     }, [insightSlideCount, isInsightHovered])
@@ -419,7 +415,7 @@ export function Home() {
                 <>
                     <main className="mx-auto mt-6 grid max-w-[1440px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                         <div className="min-w-0 space-y-4">
-                            <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
+                            <div className="grid items-start gap-4 lg:h-[360px] lg:grid-cols-[minmax(0,1fr)_290px] lg:items-stretch">
                                 {editable(
                                     'travel',
                                     '여행 현황',
@@ -427,11 +423,11 @@ export function Home() {
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.32 }}
-                                        className="relative h-full overflow-hidden rounded-[22px] border border-[#29485E] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] p-6 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+                                        className="relative h-auto overflow-hidden rounded-[22px] border border-[#29485E] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] p-6 shadow-[0_12px_30px_rgba(15,23,42,0.12)] lg:h-full"
                                     >
                                         <div className="relative">
                                             <div className="flex flex-wrap items-center justify-between gap-4">
-                                                <p className="text-2xl font-black uppercase tracking-[0.08em] text-[#EEEEEE] sm:text-3xl">
+                                                <p className="font-['JejuStoneWall'] text-2xl font-normal uppercase tracking-[0.08em] text-[#EEEEEE] sm:text-3xl">
                                                     Upcoming trip
                                                 </p>
                                                 <button
@@ -482,7 +478,7 @@ export function Home() {
                                                 </div>
 
                                                 <div className="border-[#EEEEEE]/25 lg:border-l lg:pl-8">
-                                                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#EEEEEE]">
+                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
                                                         Travel date
                                                     </p>
                                                     <div className="mt-2 flex items-center gap-3">
@@ -509,7 +505,7 @@ export function Home() {
 
                                             <div className="mt-8 grid gap-6 border-t border-[#EEEEEE]/25 pt-6 md:grid-cols-[auto_minmax(220px,1fr)] md:items-end">
                                                 <div>
-                                                    <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#EEEEEE]">
+                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
                                                         People
                                                     </p>
                                                     <div className="mt-3 flex items-center">
@@ -561,14 +557,18 @@ export function Home() {
                                             </div>
                                         </div>
                                     </motion.section>,
-                                    'h-full overflow-hidden rounded-[22px]',
+                                    'overflow-hidden rounded-[22px] lg:h-full',
                                 )}
 
                                 {editable(
                                     'tasks',
                                     '투표 대기',
                                     <section
-                                        className="flex h-full min-h-[300px] flex-col overflow-hidden rounded-[22px] border border-rose-200 bg-[#fff7f8] p-6 shadow-[0_12px_30px_rgba(190,79,103,0.08)]"
+                                        className={`flex h-[300px] min-h-0 flex-col overflow-hidden rounded-[22px] border p-5 shadow-[0_12px_30px_rgba(15,23,42,0.07)] transition-colors duration-500 lg:h-full ${
+                                            visibleInsightSlide === 0
+                                                ? 'border-rose-200 bg-[#fff7f8]'
+                                                : 'border-slate-200 bg-white'
+                                        }`}
                                         onMouseEnter={() =>
                                             setIsInsightHovered(true)
                                         }
@@ -583,11 +583,22 @@ export function Home() {
                                                     transform: `translateX(-${visibleInsightSlide * 100}%)`,
                                                 }}
                                             >
-                                                <div className="flex w-full shrink-0 flex-col">
+                                                <div
+                                                    aria-hidden={
+                                                        visibleInsightSlide !==
+                                                        0
+                                                    }
+                                                    className={`flex w-full shrink-0 flex-col overflow-hidden transition-opacity duration-300 ${
+                                                        visibleInsightSlide ===
+                                                        0
+                                                            ? 'opacity-100'
+                                                            : 'pointer-events-none opacity-0'
+                                                    }`}
+                                                >
                                                     <div className="flex items-start gap-3">
-                                                        <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ec6680] text-white">
+                                                        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ec6680] text-white">
                                                             <ThumbsUpIcon
-                                                                size={22}
+                                                                size={18}
                                                             />
                                                             {pendingVoteCount >
                                                                 0 && (
@@ -595,22 +606,22 @@ export function Home() {
                                                             )}
                                                         </span>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-lg font-black text-[#a94359]">
+                                                            <p className="text-base font-black text-[#a94359]">
                                                                 투표 대기{' '}
                                                                 {
                                                                     pendingVoteCount
                                                                 }
                                                                 건
                                                             </p>
-                                                            <p className="mt-1 text-xs font-semibold text-[#cc788a]">
+                                                            <p className="mt-0.5 text-[11px] font-semibold text-[#cc788a]">
                                                                 내 투표를
                                                                 기다리고 있어요
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="mt-6 flex flex-1 items-center justify-center rounded-[22px] bg-white/85 px-5 text-center">
+                                                    <div className="mt-4 flex flex-1 items-center justify-center rounded-[18px] bg-white/85 px-4 text-center">
                                                         <div>
-                                                            <p className="text-sm font-extrabold text-slate-700">
+                                                            <p className="text-xs font-extrabold leading-5 text-slate-700">
                                                                 {pendingVoteCount >
                                                                 0
                                                                     ? '여행방에서 후보 장소를 확인해 주세요.'
@@ -626,7 +637,7 @@ export function Home() {
                                                                 disabled={
                                                                     !activeTrip.id
                                                                 }
-                                                                className="mt-4 inline-flex items-center gap-1 text-xs font-extrabold text-[#d84f68] disabled:opacity-40"
+                                                                className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#d84f68] disabled:opacity-40"
                                                             >
                                                                 투표하러 가기
                                                                 <ChevronRightIcon
@@ -637,78 +648,66 @@ export function Home() {
                                                     </div>
                                                 </div>
 
-                                                {recentActivitySlides.map(
-                                                    (log) => (
-                                                        <div
-                                                            key={log.id}
-                                                            className="flex w-full shrink-0 flex-col"
-                                                        >
-                                                            <div className="flex items-start gap-3">
-                                                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e7657a] text-white">
-                                                                    <HistoryIcon
-                                                                        size={
-                                                                            22
-                                                                        }
-                                                                    />
-                                                                </span>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <p className="text-lg font-black text-[#a94359]">
-                                                                        최근 활동
-                                                                    </p>
-                                                                    <p className="mt-1 text-xs font-semibold text-[#cc788a]">
-                                                                        여행방의
-                                                                        새로운
-                                                                        기록이에요
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="mt-6 flex flex-1 flex-col justify-center rounded-[22px] bg-white/85 px-5">
-                                                                <time className="text-[11px] font-bold text-slate-400">
-                                                                    {new Intl.DateTimeFormat(
-                                                                        'ko-KR',
-                                                                        {
-                                                                            month: 'short',
-                                                                            day: 'numeric',
-                                                                            hour: '2-digit',
-                                                                            minute: '2-digit',
-                                                                        },
-                                                                    ).format(
-                                                                        new Date(
-                                                                            log.createdAt,
-                                                                        ),
-                                                                    )}
-                                                                </time>
-                                                                <p className="mt-2 line-clamp-3 text-sm font-bold leading-6 text-slate-700">
-                                                                    {
-                                                                        log.description
-                                                                    }
-                                                                </p>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        navigate(
-                                                                            `/app/room/${activeTrip.id}?activity=open`,
-                                                                        )
-                                                                    }
-                                                                    className="mt-4 inline-flex items-center gap-1 self-start text-xs font-extrabold text-[#d84f68]"
-                                                                >
-                                                                    활동 기록 보기
-                                                                    <ChevronRightIcon
-                                                                        size={
-                                                                            14
-                                                                        }
-                                                                    />
-                                                                </button>
+                                                {logs.length > 0 && (
+                                                    <div
+                                                        aria-hidden={
+                                                            visibleInsightSlide !==
+                                                            1
+                                                        }
+                                                        className={`flex w-full shrink-0 flex-col overflow-hidden transition-opacity duration-300 ${
+                                                            visibleInsightSlide ===
+                                                            1
+                                                                ? 'opacity-100'
+                                                                : 'pointer-events-none opacity-0'
+                                                        }`}
+                                                    >
+                                                        <h2 className="shrink-0 text-base font-black text-slate-900">
+                                                            최근 활동
+                                                        </h2>
+                                                        <div className="mp-scroll mt-5 min-h-0 flex-1 overflow-y-auto pr-2">
+                                                            <div className="relative ml-2 border-l border-slate-200 pl-5">
+                                                                {logs.map(
+                                                                    (log) => (
+                                                                        <article
+                                                                            key={
+                                                                                log.id
+                                                                            }
+                                                                            className="relative pb-5 last:pb-1"
+                                                                        >
+                                                                            <span className="absolute -left-[25px] top-1 h-2.5 w-2.5 rounded-full bg-[#e7657a] ring-2 ring-white" />
+                                                                            <time className="block text-xs font-semibold text-slate-400">
+                                                                                {new Intl.DateTimeFormat(
+                                                                                    'ko-KR',
+                                                                                    {
+                                                                                        month: 'long',
+                                                                                        day: 'numeric',
+                                                                                        hour: '2-digit',
+                                                                                        minute: '2-digit',
+                                                                                    },
+                                                                                ).format(
+                                                                                    new Date(
+                                                                                        log.createdAt,
+                                                                                    ),
+                                                                                )}
+                                                                            </time>
+                                                                            <p className="mt-1.5 text-[13px] font-medium leading-5 text-slate-600">
+                                                                                {
+                                                                                    log.description
+                                                                                }
+                                                                            </p>
+                                                                        </article>
+                                                                    ),
+                                                                )}
                                                             </div>
                                                         </div>
-                                                    ),
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
 
                                         {insightSlideCount > 1 && (
                                             <div
-                                                className="mt-5 flex justify-center gap-2"
+                                                className="mt-3 flex justify-center gap-2"
                                                 role="tablist"
                                                 aria-label="투표 및 활동 슬라이드"
                                             >
@@ -740,7 +739,7 @@ export function Home() {
                                             </div>
                                         )}
                                     </section>,
-                                    'h-full overflow-hidden rounded-[22px]',
+                                    'h-[300px] min-h-0 overflow-hidden rounded-[22px] lg:h-full',
                                 )}
                             </div>
 

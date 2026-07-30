@@ -12,7 +12,7 @@ import {
 } from 'react-router-dom'
 import { Sidebar } from '@/widgets/sidebar'
 import { Home } from '@/views/home'
-import { Explore, Updates } from '@/views/discovery'
+import { Explore, ExploreDetail, Updates } from '@/views/discovery'
 import { MyPage } from '@/views/my-page'
 import { Login } from '@/views/login'
 import { SignupPage } from '@/views/signup'
@@ -94,6 +94,10 @@ function AppShell() {
                 <Routes>
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
+                    <Route
+                        path="explore/:cardId"
+                        element={<ExploreDetail />}
+                    />
                     <Route path="room/:roomId/schedule" element={<ScheduleKanbanPage />} />
                     <Route path="room/:roomId?" element={<TripRoom />} />
                     <Route
