@@ -8,7 +8,8 @@ public enum ItineraryTransportMode {
     TAXI("택시", "driving", null, 30.0),
     SUBWAY("지하철", "transit", "subway", 20.0),
     BUS("버스", "transit", "bus", 20.0),
-    TRANSIT("대중교통", "transit", null, 20.0);
+    TRANSIT("대중교통", "transit", null, 20.0),
+    RAIL("철도", "transit", "rail", 20.0);
 
     private final String displayName;
     private final String directionsMode;

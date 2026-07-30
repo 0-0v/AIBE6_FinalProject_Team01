@@ -2,9 +2,7 @@ package back.backend.domain.itinerary.service;
 
 import back.backend.domain.itinerary.entity.ItineraryItem;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
-import back.backend.domain.itinerary.exception.ItineraryErrorCode;
 import back.backend.domain.place.entity.TripPlace;
-import back.backend.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -63,8 +61,7 @@ public class ItineraryTravelEstimator {
                     preserveManualMode
                             ? selectedMode
                             : ItineraryTransportMode.infer(distanceMeters),
-                    preserveManualMode,
-                    false
+                    preserveManualMode
             );
         }
     }
@@ -80,7 +77,6 @@ public class ItineraryTravelEstimator {
                 currentPlace,
                 nextPlace,
                 transportMode,
-                true,
                 true
         );
     }
@@ -101,7 +97,6 @@ public class ItineraryTravelEstimator {
                 currentPlace,
                 nextPlace,
                 ItineraryTransportMode.infer(distanceMeters),
-                false,
                 false
         );
     }
@@ -111,8 +106,7 @@ public class ItineraryTravelEstimator {
             TripPlace currentPlace,
             TripPlace nextPlace,
             ItineraryTransportMode transportMode,
-            boolean manual,
-            boolean requireSelectedTransitRoute
+            boolean manual
     ) {
         var routeInfo = routesClient.getRouteInfo(
                 currentPlace.getPlace().getLatitude().doubleValue(),
@@ -123,13 +117,6 @@ public class ItineraryTravelEstimator {
                 transportMode.transitMode(),
                 departureTime(item)
         );
-        if (requireSelectedTransitRoute
-                && isSpecificTransitMode(transportMode)
-                && !matchesSelectedTransitMode(routeInfo, transportMode)) {
-            throw new BusinessException(
-                    ItineraryErrorCode.ITINERARY_TRANSPORT_ROUTE_NOT_FOUND
-            );
-        }
         int fallbackDistance = (int) Math.round(
                 GeoDistanceCalculator.distanceMeters(
                         currentPlace,
@@ -148,7 +135,11 @@ public class ItineraryTravelEstimator {
         item.updateTravelInformation(
                 durationMinutes,
                 distanceMeters,
-                resolvedModeLabel(routeInfo.orElse(null), transportMode),
+                resolvedModeLabel(
+                        routeInfo.orElse(null),
+                        transportMode,
+                        manual
+                ),
                 routeInfo
                         .map(GoogleRoutesClient.RouteInfo::transportDetail)
                         .filter(detail -> !detail.isBlank())
@@ -156,23 +147,6 @@ public class ItineraryTravelEstimator {
                 manual,
                 manual ? transportMode.name() : null
         );
-    }
-
-    private boolean isSpecificTransitMode(
-            ItineraryTransportMode transportMode
-    ) {
-        return transportMode == ItineraryTransportMode.SUBWAY
-                || transportMode == ItineraryTransportMode.BUS;
-    }
-
-    private boolean matchesSelectedTransitMode(
-            java.util.Optional<GoogleRoutesClient.RouteInfo> routeInfo,
-            ItineraryTransportMode transportMode
-    ) {
-        return routeInfo
-                .map(GoogleRoutesClient.RouteInfo::actualTransportMode)
-                .map(transportMode.displayName()::equals)
-                .orElse(false);
     }
 
     private ItineraryTransportMode selectedPreference(
@@ -192,10 +166,16 @@ public class ItineraryTravelEstimator {
 
     private String resolvedModeLabel(
             GoogleRoutesClient.RouteInfo routeInfo,
-            ItineraryTransportMode requestedMode
+            ItineraryTransportMode requestedMode,
+            boolean manual
     ) {
         if (requestedMode == ItineraryTransportMode.TAXI) {
             return requestedMode.displayName();
+        }
+        if (manual
+                && routeInfo == null
+                && "transit".equals(requestedMode.directionsMode())) {
+            return "대중교통";
         }
         return routeInfo != null
                 && routeInfo.actualTransportMode() != null

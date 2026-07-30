@@ -16,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.ArgumentMatchers.eq;
@@ -152,8 +151,8 @@ class ItineraryTravelEstimatorTest {
     }
 
     @Test
-    @DisplayName("t5 실제 경로에 선택한 지하철이 없으면 변경을 거부한다")
-    void t5_rejectsWhenActualTransitModeDiffers() {
+    @DisplayName("t5 선호 수단과 달라도 실제 반환된 대중교통 경로를 적용한다")
+    void t5_usesActualTransitRouteWhenPreferenceIsUnavailable() {
         ItineraryTravelEstimator estimator =
                 new ItineraryTravelEstimator(routesClient);
         ItineraryDay day = ItineraryDay.create(
@@ -181,15 +180,16 @@ class ItineraryTravelEstimatorTest {
                 )
         ));
 
-        assertThatThrownBy(() -> estimator.recalculateSegment(
+        estimator.recalculateSegment(
                 item,
                 from,
                 to,
                 ItineraryTransportMode.SUBWAY
-        )).isInstanceOf(back.backend.global.exception.BusinessException.class);
+        );
 
-        assertThat(item.getTransportMode()).isNull();
-        assertThat(item.getTransportModePreference()).isNull();
+        assertThat(item.getTransportMode()).isEqualTo("버스");
+        assertThat(item.getTransportModePreference()).isEqualTo("SUBWAY");
+        assertThat(item.getTransportMinutes()).isEqualTo(20);
     }
 
     @Test
@@ -222,8 +222,8 @@ class ItineraryTravelEstimatorTest {
     }
 
     @Test
-    @DisplayName("t7 선택한 대중교통 경로가 없으면 기존 이동정보를 변경하지 않는다")
-    void t7_manualTransitWithoutRouteIsRejected() {
+    @DisplayName("t7 대중교통 API 경로가 없으면 추정값으로 선호 설정을 저장한다")
+    void t7_manualTransitWithoutRouteUsesFallbackEstimate() {
         ItineraryTravelEstimator estimator =
                 new ItineraryTravelEstimator(routesClient);
         ItineraryDay day = ItineraryDay.create(
@@ -243,16 +243,16 @@ class ItineraryTravelEstimatorTest {
         TripPlace from = tripPlace(10L, 33.4500, 126.5000);
         TripPlace to = tripPlace(11L, 33.4600, 126.5100);
 
-        assertThatThrownBy(() -> estimator.recalculateSegment(
+        estimator.recalculateSegment(
                 item,
                 from,
                 to,
                 ItineraryTransportMode.SUBWAY
-        )).isInstanceOf(back.backend.global.exception.BusinessException.class);
+        );
 
-        assertThat(item.getTransportMode()).isEqualTo("버스");
-        assertThat(item.getTransportModePreference()).isEqualTo("BUS");
-        assertThat(item.getTransportMinutes()).isEqualTo(15);
+        assertThat(item.getTransportMode()).isEqualTo("대중교통");
+        assertThat(item.getTransportModePreference()).isEqualTo("SUBWAY");
+        assertThat(item.getTransportMinutes()).isPositive();
     }
 
     private TripPlace tripPlace(Long id, double latitude, double longitude) {
