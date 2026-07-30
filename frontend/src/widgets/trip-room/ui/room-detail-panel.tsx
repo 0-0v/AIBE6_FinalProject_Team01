@@ -562,6 +562,13 @@ export function RoomDetailPanel({
                                 <PlaceCard
                                     key={place.id}
                                     place={place}
+                                    addedByNickname={
+                                        members.find(
+                                            (member) =>
+                                                member.memberId ===
+                                                Number(place.addedBy),
+                                        )?.nickname
+                                    }
                                     selected={selectedId === place.id}
                                     canWrite={canPlanWrite}
                                     onSelect={() => onSelectPlace(place.id)}

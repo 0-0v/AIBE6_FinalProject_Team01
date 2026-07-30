@@ -12,6 +12,7 @@ import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
 
 type Props = {
     place: Place
+    addedByNickname?: string
     selected: boolean
     canWrite: boolean
     onSelect: () => void
@@ -26,6 +27,7 @@ type Props = {
 
 export function PlaceCard({
     place,
+    addedByNickname,
     selected,
     canWrite,
     onSelect,
@@ -39,7 +41,8 @@ export function PlaceCard({
 }: Props) {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isMe = place.addedBy === String(currentUser?.id)
-    const adderName = isMe ? (currentUser?.nickname ?? '나') : '멤버'
+    const adderName =
+        addedByNickname ?? (isMe ? (currentUser?.nickname ?? '나') : '멤버')
     const adderColor = isMe ? DEFAULT_AVATAR_COLOR : '#94a3b8'
     const vote = place.voteSummary
     const upVotes = vote?.agreeCount ?? 0
