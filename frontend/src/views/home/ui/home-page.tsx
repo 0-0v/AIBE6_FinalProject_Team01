@@ -11,6 +11,7 @@ import {
     ListIcon,
     MapIcon,
     MapPinIcon,
+    MessageCircleIcon,
     PlaneIcon,
     PlusIcon,
     ThumbsUpIcon,
@@ -473,37 +474,116 @@ export function Home() {
             )}
 
             {view === 'list' ? (
-                <div className="mx-auto mt-6 max-w-[1440px] space-y-8 px-1">
-                    <TravelRooms embedded />
-                    <section>
-                        <SectionTitle title="북마크한 여행 카드" />
+                <div className="mx-auto mt-6 grid max-w-[1440px] items-start gap-5 px-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-5">
+                        <TravelRooms embedded compact />
+                    </section>
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-5">
+                        <SectionTitle
+                            title="북마크한 여행 카드"
+                            action={
+                                bookmarkedCards.length > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/app/explore')}
+                                        className="flex items-center gap-1 text-xs font-extrabold text-brand-700 hover:text-brand-800"
+                                    >
+                                        모두 보기
+                                        <ChevronRightIcon size={14} />
+                                    </button>
+                                ) : undefined
+                            }
+                        />
                         {bookmarkedCards.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed bg-white py-10 text-center text-sm text-slate-400">
-                                둘러보기에서 저장한 여행 카드가 없습니다.
+                            <div className="flex min-h-40 flex-col items-center justify-center rounded-[20px] border border-dashed border-slate-200 bg-white px-5 py-8 text-center">
+                                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                                    <BookmarkIcon size={18} />
+                                </span>
+                                <p className="mt-3 text-sm font-extrabold text-slate-700">
+                                    저장한 여행 카드가 없습니다
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/app/explore')}
+                                    className="mt-2 text-xs font-bold text-brand-700 hover:underline"
+                                >
+                                    둘러보기에서 여행 찾기
+                                </button>
                             </div>
                         ) : (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {bookmarkedCards.map((card) => (
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                                {bookmarkedCards.slice(0, 4).map((card) => (
                                     <article
                                         key={card.id}
-                                        className="rounded-2xl border bg-white p-4 shadow-sm"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() =>
+                                            navigate(`/app/explore/${card.id}`)
+                                        }
+                                        onKeyDown={(event) => {
+                                            if (
+                                                event.key === 'Enter' ||
+                                                event.key === ' '
+                                            ) {
+                                                navigate(
+                                                    `/app/explore/${card.id}`,
+                                                )
+                                            }
+                                        }}
+                                        className="group grid min-w-0 cursor-pointer grid-cols-[92px_minmax(0,1fr)] overflow-hidden rounded-[18px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md"
                                     >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <h3 className="font-extrabold text-slate-900">
+                                        <img
+                                            src={
+                                                resolveMediaUrl(
+                                                    card.coverImageUrl,
+                                                ) ??
+                                                '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg'
+                                            }
+                                            alt={`${card.title} 여행 카드`}
+                                            className="h-full min-h-28 w-full object-cover transition duration-500 group-hover:scale-105"
+                                        />
+                                        <div className="flex min-w-0 flex-col p-3.5">
+                                            <div className="flex min-w-0 items-start justify-between gap-2">
+                                                <h3 className="truncate text-sm font-extrabold text-slate-900">
                                                     {card.title}
                                                 </h3>
-                                                <p className="mt-1 text-xs text-slate-400">
-                                                    {card.authorNickname} ·{' '}
-                                                    {card.destination ??
-                                                        '여행지 미정'}
-                                                </p>
+                                                <BookmarkIcon
+                                                    size={15}
+                                                    fill="currentColor"
+                                                    className="shrink-0 text-brand-700"
+                                                />
                                             </div>
-                                            <BookmarkIcon
-                                                size={18}
-                                                fill="currentColor"
-                                                className="text-brand-700"
-                                            />
+                                            <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">
+                                                {card.destination ??
+                                                    '여행지 미정'}{' '}
+                                                · {card.authorNickname}
+                                            </p>
+                                            {card.tags.length > 0 && (
+                                                <div className="mt-2 flex min-w-0 gap-1 overflow-hidden">
+                                                    {card.tags
+                                                        .slice(0, 2)
+                                                        .map((tag) => (
+                                                            <span
+                                                                key={tag}
+                                                                className="max-w-24 truncate rounded-full bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700"
+                                                            >
+                                                                #{tag}
+                                                            </span>
+                                                        ))}
+                                                </div>
+                                            )}
+                                            <div className="mt-auto flex items-center gap-3 pt-2 text-[10px] font-bold text-slate-400">
+                                                <span className="flex items-center gap-1">
+                                                    <BookmarkIcon size={11} />
+                                                    {card.bookmarkCount}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <MessageCircleIcon
+                                                        size={11}
+                                                    />
+                                                    {card.commentCount}
+                                                </span>
+                                            </div>
                                         </div>
                                     </article>
                                 ))}
