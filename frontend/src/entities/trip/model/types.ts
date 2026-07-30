@@ -113,7 +113,14 @@ export type Expense = {
 export type ItineraryDayStatus = 'DRAFT' | 'CONFIRMED'
 
 export type ItineraryTransportMode =
-    'AUTO' | 'WALKING' | 'DRIVING' | 'TAXI' | 'SUBWAY' | 'BUS'
+    | 'AUTO'
+    | 'WALKING'
+    | 'DRIVING'
+    | 'TAXI'
+    | 'TRANSIT'
+    | 'SUBWAY'
+    | 'BUS'
+    | 'RAIL'
 
 export type ItineraryItem = {
     id: string

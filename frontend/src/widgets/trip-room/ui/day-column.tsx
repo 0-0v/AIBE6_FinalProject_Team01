@@ -12,7 +12,6 @@ import {
     ExternalLinkIcon,
     FootprintsIcon,
     PlusIcon,
-    SparklesIcon,
     TrainFrontIcon,
 } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -27,25 +26,27 @@ import {
 import type {
     ItineraryDay,
     ItineraryItem,
-    ItineraryTransportMode,
     Place,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ScheduleItemCard } from './schedule-item-card'
 import { buildGoogleMapsDirectionsUrl } from '../lib/google-maps-directions'
 import { buildItineraryDropZoneId } from '../lib/itinerary-drop-position'
+import {
+    resolveSelectableTransportMode,
+    type SelectableItineraryTransportMode,
+} from '../lib/itinerary-transport'
 
 const TRANSPORT_MODE_OPTIONS: {
-    value: ItineraryTransportMode
+    value: SelectableItineraryTransportMode
     label: string
     icon: typeof FootprintsIcon
 }[] = [
-    { value: 'AUTO', label: '자동 추천', icon: SparklesIcon },
     { value: 'WALKING', label: '도보', icon: FootprintsIcon },
     { value: 'DRIVING', label: '자동차', icon: CarIcon },
     { value: 'TAXI', label: '택시', icon: CarIcon },
-    { value: 'SUBWAY', label: '지하철', icon: TrainFrontIcon },
-    { value: 'BUS', label: '버스', icon: BusIcon },
+    { value: 'BUS', label: '버스 우선', icon: BusIcon },
+    { value: 'RAIL', label: '철도 우선', icon: TrainFrontIcon },
 ]
 
 type TransportConnectorProps = {
@@ -53,6 +54,7 @@ type TransportConnectorProps = {
     nextItem: ItineraryItem
     tripId: number
     canWrite: boolean
+    days: ItineraryDay[]
     onDaysChange: (days: ItineraryDay[]) => void
 }
 
@@ -61,14 +63,13 @@ function TransportConnector({
     nextItem,
     tripId,
     canWrite,
+    days,
     onDaysChange,
 }: TransportConnectorProps) {
     const [open, setOpen] = useState(false)
     const [updating, setUpdating] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const currentPreference = item.transportModePreference ?? 'AUTO'
-    const [pendingMode, setPendingMode] =
-        useState<ItineraryTransportMode>(currentPreference)
+    const currentPreference = resolveSelectableTransportMode(item)
     const { transportMinutes, transportMeters, transportMode } = item
     const hasTransport = transportMinutes != null
     const timeText = hasTransport
@@ -94,26 +95,34 @@ function TransportConnector({
     function toggleModeMenu() {
         if (!canWrite || updating) return
         if (!open) {
-            setPendingMode(currentPreference)
             setError(null)
         }
         setOpen((current) => !current)
     }
 
-    async function applyMode() {
+    async function applyMode(mode: SelectableItineraryTransportMode) {
         if (!canWrite || updating) return
-        if (pendingMode === currentPreference) {
+        if (item.transportModePreference === mode) {
             setOpen(false)
             return
         }
         setUpdating(true)
         setError(null)
         try {
-            await updateItineraryTransportMode(
+            const updatedItem = await updateItineraryTransportMode(
                 tripId,
                 Number(item.id),
-                pendingMode,
+                mode,
             )
+            onDaysChange(
+                days.map((day) => ({
+                    ...day,
+                    items: day.items.map((dayItem) =>
+                        dayItem.id === updatedItem.id ? updatedItem : dayItem,
+                    ),
+                })),
+            )
+            setOpen(false)
         } catch (err) {
             setError(getApiErrorMessage(err, '이동수단을 변경하지 못했습니다.'))
             setUpdating(false)
@@ -121,9 +130,7 @@ function TransportConnector({
         }
         try {
             onDaysChange(await getItinerary(tripId))
-            setOpen(false)
         } catch {
-            setOpen(false)
             setError(
                 '이동수단은 변경됐지만 최신 일정을 불러오지 못했습니다. 일정을 다시 열어 확인해 주세요.',
             )
@@ -179,13 +186,16 @@ function TransportConnector({
                         </p>
                         {TRANSPORT_MODE_OPTIONS.map((option) => {
                             const Icon = option.icon
-                            const selected = option.value === pendingMode
+                            const selected =
+                                option.value === currentPreference
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     disabled={updating}
-                                    onClick={() => setPendingMode(option.value)}
+                                    onClick={() =>
+                                        void applyMode(option.value)
+                                    }
                                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
                                         selected
                                             ? 'bg-brand/10 font-bold text-brand'
@@ -197,32 +207,9 @@ function TransportConnector({
                                 </button>
                             )
                         })}
-                        {pendingMode === 'TAXI' && (
-                            <p className="mx-1 mt-1 rounded-lg bg-amber-50 px-2 py-1.5 text-[9px] leading-relaxed text-amber-700">
-                                택시는 자동차 경로 기준으로 계산해요.
-                            </p>
-                        )}
-                        <div className="mt-1.5 flex gap-1 border-t border-slate-100 pt-1.5">
-                            <button
-                                type="button"
-                                disabled={updating}
-                                onClick={() => setOpen(false)}
-                                className="flex-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-500 transition hover:bg-slate-50"
-                            >
-                                취소
-                            </button>
-                            <button
-                                type="button"
-                                disabled={
-                                    updating ||
-                                    pendingMode === currentPreference
-                                }
-                                onClick={() => void applyMode()}
-                                className="flex-1 rounded-lg bg-brand px-2 py-1.5 text-[10px] font-bold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                {updating ? '적용 중...' : '적용'}
-                            </button>
-                        </div>
+                        <p className="border-t border-slate-100 px-2 pt-1.5 text-[9px] leading-relaxed text-slate-400">
+                            선택하면 바로 이동 시간과 경로를 다시 계산해요.
+                        </p>
                     </div>
                 </>
             )}
@@ -529,6 +516,7 @@ export function DayColumn({
                                                 nextItem={day.items[index + 1]}
                                                 tripId={tripId}
                                                 canWrite={canWrite}
+                                                days={days}
                                                 onDaysChange={onDaysChange}
                                             />
                                         )}
