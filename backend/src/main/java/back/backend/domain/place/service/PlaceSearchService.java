@@ -7,7 +7,6 @@ import back.backend.global.exception.BusinessException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -23,12 +22,9 @@ public class PlaceSearchService {
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
     private static final String FIELD_MASK =
             "places.id,places.displayName,places.formattedAddress,places.location," +
-            "places.primaryType,places.types,places.photos," +
+            "places.primaryType,places.types," +
             "places.rating,places.userRatingCount," +
-            "places.currentOpeningHours.openNow," +
-            "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions," +
-            "places.nationalPhoneNumber,places.websiteUri," +
-            "places.editorialSummary,places.reviews";
+            "places.currentOpeningHours.openNow";
 
     private final RestClient restClient;
     @Autowired
@@ -69,15 +65,40 @@ public class PlaceSearchService {
         if (!StringUtils.hasText(query)) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
-        return callGooglePlacesApi(query);
+        return callGooglePlacesApi(Map.of(
+                "textQuery", query,
+                "languageCode", "ko"
+        ));
     }
 
-    private List<PlaceSearchResponse> callGooglePlacesApi(String query) {
+    public List<PlaceSearchResponse> searchNearby(
+            String query,
+            double latitude,
+            double longitude,
+            double radiusMeters
+    ) {
+        if (!StringUtils.hasText(query)) {
+            throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
+        }
+        double safeRadius = Math.max(500, Math.min(radiusMeters, 20_000));
+        Map<String, Object> circle = Map.of(
+                "center", Map.of(
+                        "latitude", latitude,
+                        "longitude", longitude
+                ),
+                "radius", safeRadius
+        );
+        return callGooglePlacesApi(Map.of(
+                "textQuery", query,
+                "languageCode", "ko",
+                "locationBias", Map.of("circle", circle)
+        ));
+    }
+
+    private List<PlaceSearchResponse> callGooglePlacesApi(
+            Map<String, Object> requestBody
+    ) {
         try {
-            Map<String, String> requestBody = Map.of(
-                    "textQuery", query,
-                    "languageCode", "ko"
-            );
             GooglePlacesApiResponse response = restClient.post()
                     .uri("/places:searchText")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -116,25 +137,8 @@ public class PlaceSearchService {
                 place.types(),
                 name
         );
-        String photoName = resolvePhotoName(place);
-
-        Boolean openNow = Optional.ofNullable(place.regularOpeningHours())
-                .map(GooglePlacesApiResponse.RegularOpeningHours::openNow)
-                .orElseGet(() -> place.currentOpeningHours() != null
-                        ? place.currentOpeningHours().openNow()
-                        : null);
-
-        List<String> weekdayDescriptions = place.regularOpeningHours() != null
-                ? place.regularOpeningHours().weekdayDescriptions()
-                : null;
-
-        String editorialSummary = place.editorialSummary() != null
-                ? place.editorialSummary().text()
-                : null;
-
-        GooglePlacesApiResponse.Review topReview = (place.reviews() != null && !place.reviews().isEmpty())
-                ? place.reviews().get(0)
-                : null;
+        Boolean openNow = place.currentOpeningHours() == null
+                ? null : place.currentOpeningHours().openNow();
 
         return new PlaceSearchResponse(
                 place.id(),
@@ -145,25 +149,19 @@ public class PlaceSearchService {
                 placeType,
                 place.types() == null ? List.of() : List.copyOf(place.types()),
                 recommendedCategoryType,
-                photoName,
+                null,
                 place.rating(),
                 place.userRatingCount(),
                 openNow,
-                weekdayDescriptions,
-                place.nationalPhoneNumber(),
-                place.websiteUri(),
-                editorialSummary,
-                topReview != null && topReview.text() != null ? topReview.text().text() : null,
-                topReview != null ? topReview.rating() : null,
-                topReview != null && topReview.authorAttribution() != null
-                        ? topReview.authorAttribution().displayName() : null,
-                topReview != null ? topReview.relativePublishTimeDescription() : null
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
-    }
-
-    private String resolvePhotoName(GooglePlacesApiResponse.Place place) {
-        if (place.photos() == null || place.photos().isEmpty()) return null;
-        return place.photos().get(0).name();
     }
 
     private String firstTypeOrNull(List<String> types) {

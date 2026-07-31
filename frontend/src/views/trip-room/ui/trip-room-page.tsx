@@ -21,6 +21,11 @@ import {
     type ItineraryDay,
 } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
+import {
+    AiPlaceRecommendationsPanel,
+    consumePendingAiTripAction,
+    type PendingAiTripAction,
+} from '@/features/ai-trip-assistant'
 import { useCommentStore } from '@/features/comment-place'
 import {
     claimGuestTripAccess,
@@ -125,6 +130,8 @@ export function TripRoom() {
     const [isResizingPanel, setIsResizingPanel] = useState(false)
     const workspacePanelRef = useRef<HTMLElement>(null)
     const [aiOpen, setAiOpen] = useState(false)
+    const [pendingAiAction, setPendingAiAction] =
+        useState<PendingAiTripAction | null>(null)
     const [manageOpen, setManageOpen] = useState(false)
     const [visibilityOpen, setVisibilityOpen] = useState(false)
     const [placesError, setPlacesError] = useState<string | null>(null)
@@ -244,6 +251,17 @@ export function TripRoom() {
     useEffect(() => {
         if (roomId) selectTrip(roomId)
     }, [roomId, selectTrip])
+
+    useEffect(() => {
+        if (!tripId) return
+        const action = consumePendingAiTripAction(tripId)
+        if (!action) return
+        Promise.resolve().then(() => {
+            if (action.kind === 'place-recommendations') {
+                setPendingAiAction(action)
+            }
+        })
+    }, [tripId])
 
     useEffect(() => {
         if (
@@ -728,10 +746,23 @@ export function TripRoom() {
                 {aiOpen && tripId && (
                     <AiAgentPanel
                         tripId={tripId}
-                        onClose={() => setAiOpen(false)}
+                        onClose={() => {
+                            setAiOpen(false)
+                        }}
                         onApplied={handleAiRouteApplied}
                     />
                 )}
+                {tripId &&
+                    room &&
+                    pendingAiAction?.kind === 'place-recommendations' && (
+                        <AiPlaceRecommendationsPanel
+                            tripId={tripId}
+                            roomId={room.id}
+                            recommendations={pendingAiAction.recommendations}
+                            onClose={() => setPendingAiAction(null)}
+                            onRegistered={addPlace}
+                        />
+                    )}
                 {manageOpen && trip && (
                     <ManageTripModal
                         trip={trip}

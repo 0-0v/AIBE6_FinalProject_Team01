@@ -444,12 +444,35 @@ public class ItineraryService {
             Long tripId,
             RoutePlanPreviewResponse plan
     ) {
+        return applyRoutePlanInternal(tripId, plan, false);
+    }
+
+    @Transactional
+    public List<ItineraryDayResponse> applyReplan(
+            Long tripId,
+            RoutePlanPreviewResponse plan
+    ) {
+        return applyRoutePlanInternal(tripId, plan, true);
+    }
+
+    private List<ItineraryDayResponse> applyRoutePlanInternal(
+            Long tripId,
+            RoutePlanPreviewResponse plan,
+            boolean scheduledPlacesOnly
+    ) {
         accessChecker.requireEdit(tripId);
         lockTripForUpdate(tripId);
         synchronizeItineraryDays(tripId);
 
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
-        validateRoutePlan(plan, days, findSavedTripPlaces(tripId));
+        List<TripPlace> expectedPlaces = scheduledPlacesOnly
+                ? tripPlaceRepository.findAllById(days.stream()
+                        .flatMap(day -> day.getItems().stream())
+                        .map(ItineraryItem::getTripPlaceId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet()))
+                : findSavedTripPlaces(tripId);
+        validateRoutePlan(plan, days, expectedPlaces);
         Map<Long, ItineraryDay> dayById = days.stream()
                 .collect(Collectors.toMap(ItineraryDay::getId, day -> day));
         List<ItineraryItem> existingItems = days.stream()

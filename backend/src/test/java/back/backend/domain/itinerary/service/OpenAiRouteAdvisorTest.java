@@ -147,6 +147,7 @@ class OpenAiRouteAdvisorTest {
                 .latitude(BigDecimal.valueOf(33.45 + id / 10_000.0))
                 .longitude(BigDecimal.valueOf(126.5 + id / 10_000.0))
                 .build();
+        ReflectionTestUtils.setField(place, "id", id);
         PlaceCategory category = PlaceCategory.builder()
                 .name("명소")
                 .tripId(1L)

@@ -57,12 +57,9 @@ class PlaceSearchServiceTest {
                 .andExpect(header(
                         "X-Goog-FieldMask",
                         "places.id,places.displayName,places.formattedAddress,places.location," +
-                        "places.primaryType,places.types,places.photos," +
+                        "places.primaryType,places.types," +
                         "places.rating,places.userRatingCount," +
-                        "places.currentOpeningHours.openNow," +
-                        "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions," +
-                        "places.nationalPhoneNumber,places.websiteUri," +
-                        "places.editorialSummary,places.reviews"
+                        "places.currentOpeningHours.openNow"
                 ))
                 .andExpect(header("X-Goog-Api-Key", "test-api-key"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
@@ -81,8 +78,8 @@ class PlaceSearchServiceTest {
     }
 
     @Test
-    @DisplayName("t7 사진이 있는 검색 결과는 API 키가 포함된 URL 대신 사진 리소스 이름을 반환한다")
-    void t7_photoReturnsResourceNameWithoutApiKey() {
+    @DisplayName("t7 장소 검색은 사진 리소스를 요청하거나 응답에 보관하지 않는다")
+    void t7_searchDoesNotRetainPhotoResource() {
         String responseJson = """
                 {"places":[{
                   "id":"ChIJphoto",
@@ -96,7 +93,7 @@ class PlaceSearchServiceTest {
 
         PlaceSearchResponse result = service.search("벳푸").get(0);
 
-        assertThat(result.photoName()).isEqualTo("places/ChIJphoto/photos/AWCphoto");
+        assertThat(result.photoName()).isNull();
         assertThat(result.toString()).doesNotContain("test-api-key");
         server.verify();
     }
