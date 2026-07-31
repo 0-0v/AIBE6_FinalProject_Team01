@@ -8,8 +8,6 @@ import {
     ChevronLeftIcon,
     ChevronRightIcon,
     CreditCardIcon,
-    LayoutGridIcon,
-    ListIcon,
     MapIcon,
     MapPinIcon,
     MessageCircleIcon,
@@ -81,6 +79,8 @@ const initialColors: Record<SurfaceId, string> = {
     notifications: '#ffffff',
 }
 
+const DASHBOARD_SCHEDULE_ITEM_LIMIT = 6
+
 function SectionTitle({
     title,
     action,
@@ -108,7 +108,10 @@ export function Home() {
         useTripStore()
     const { logs, loadActivityLogs, resetActivityLogs } = useActivityLogStore()
     const [tasks, setTasks] = useState(initialTasks)
-    const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
+    const [view] = useState<'dashboard' | 'list'>('dashboard')
+    const [todayDateKey, setTodayDateKey] = useState(() =>
+        toDateKey(new Date()),
+    )
     const [createTripOpen, setCreateTripOpen] = useState(false)
     const [pendingVoteCount, setPendingVoteCount] = useState(0)
     const [openPlaceVotes, setOpenPlaceVotes] = useState<OpenPlaceVote[]>([])
@@ -121,7 +124,6 @@ export function Home() {
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
     const [insightSlide, setInsightSlide] = useState(0)
-    const [isInsightHovered, setIsInsightHovered] = useState(false)
     const [isTripSelectorOpen, setIsTripSelectorOpen] = useState(false)
     const tripSelectorRef = useRef<HTMLDivElement>(null)
     const activeTripData =
@@ -159,6 +161,12 @@ export function Home() {
             status: '준비 전',
             color: '#e7657a',
         }
+    const tripCountdownLabel = getTripCountdownLabel(
+        activeTripData?.startDate,
+        activeTripData?.endDate,
+        activeTripData?.status,
+        todayDateKey,
+    )
 
     useEffect(() => {
         if (!isUserInitialized) return
@@ -252,9 +260,12 @@ export function Home() {
 
     useEffect(() => {
         Promise.resolve().then(() => {
-            setSelectedDate(null)
+            setSelectedDate(activeTripData?.startDate ?? null)
             setFocusedItemId(null)
         })
+    }, [activeTripData?.id, activeTripData?.startDate])
+
+    useEffect(() => {
         if (!currentUser || !activeTrip.apiTripId) {
             Promise.resolve().then(() => setItineraryDays([]))
             return
@@ -300,12 +311,11 @@ export function Home() {
     )
 
     useEffect(() => {
-        if (isInsightHovered || insightSlideCount <= 1) return
         const intervalId = window.setInterval(() => {
-            setInsightSlide((current) => (current + 1) % insightSlideCount)
-        }, 5_000)
+            setTodayDateKey(toDateKey(new Date()))
+        }, 60_000)
         return () => window.clearInterval(intervalId)
-    }, [insightSlideCount, isInsightHovered])
+    }, [])
 
     useEffect(() => {
         if (!isTripSelectorOpen) return
@@ -352,20 +362,17 @@ export function Home() {
     return (
         <div className="min-h-full bg-[#f9fafb] px-4 py-5 sm:px-7 sm:py-7 xl:px-8">
             <header className="mx-auto grid max-w-[1440px] items-center gap-4 px-1 xl:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="grid min-w-0 items-center gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
-                    <div className="min-w-0">
-                        <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
-                            안녕하세요, {currentUser?.nickname ?? '여행자'}님{' '}
-                            <span aria-hidden="true">👋</span>
-                        </h1>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
-                            오늘의 여행 준비 현황을 확인해 보세요
-                        </p>
-                    </div>
-                    {view === 'dashboard' && (
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
+                        안녕하세요, {currentUser?.nickname ?? '여행자'}님
+                    </h1>
+                    <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+                        <span className="text-xs font-semibold text-slate-500">
+                            오늘 여행지는
+                        </span>
                         <div
                             ref={tripSelectorRef}
-                            className="relative block w-full"
+                            className="relative w-fit max-w-full"
                         >
                             <button
                                 type="button"
@@ -376,19 +383,16 @@ export function Home() {
                                 onClick={() =>
                                     setIsTripSelectorOpen((open) => !open)
                                 }
-                                className="flex h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-lg px-2 text-left transition hover:bg-rose-50/70 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff0f3] text-[#e7657a]">
-                                    <PlaneIcon size={19} strokeWidth={2} />
-                                </span>
-                                <span className="min-w-0 flex-1 truncate text-left text-sm font-black text-slate-900">
+                                <span className="min-w-0 break-keep font-['JejuStoneWall'] text-2xl font-normal tracking-[-0.02em] text-[#c94c63] [text-shadow:0_3px_10px_rgba(201,76,99,0.2)] sm:text-[28px]">
                                     {rooms.length > 0
-                                        ? activeTrip.title
-                                        : '여행방이 없습니다'}
+                                        ? activeTrip.location
+                                        : '아직 미정'}
                                 </span>
                                 <ChevronDownIcon
                                     size={17}
-                                    className={`shrink-0 text-slate-400 transition-transform ${
+                                    className={`shrink-0 text-[#cc788a] transition-transform group-hover:text-[#c94c63] ${
                                         isTripSelectorOpen ? 'rotate-180' : ''
                                     }`}
                                 />
@@ -397,7 +401,7 @@ export function Home() {
                                 <div
                                     role="listbox"
                                     aria-label="여행방 목록"
-                                    className="mp-scroll absolute left-0 top-[calc(100%+8px)] z-50 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
+                                    className="mp-scroll absolute left-0 top-[calc(100%+8px)] z-50 max-h-64 min-w-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
                                 >
                                     {rooms.map((room) => {
                                         const isSelected =
@@ -433,25 +437,15 @@ export function Home() {
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 xl:justify-end">
-                    <div className="flex h-11 items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
-                        <button
-                            onClick={() => setView('dashboard')}
-                            aria-pressed={view === 'dashboard'}
-                            className={`flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${view === 'dashboard' ? 'bg-[#fff0f2] text-[#c94c63]' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <LayoutGridIcon size={15} /> 대시보드
-                        </button>
-                        <button
-                            onClick={() => setView('list')}
-                            aria-pressed={view === 'list'}
-                            className={`flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${view === 'list' ? 'bg-[#fff0f2] text-[#c94c63]' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <ListIcon size={15} /> 리스트
-                        </button>
+                        <span className="text-xs font-semibold text-slate-500">
+                            입니다
+                        </span>
                     </div>
+                </div>
+                <div className="flex items-center gap-4 sm:gap-5 xl:justify-end">
+                    <strong className="min-w-32 text-center text-3xl font-black tracking-[-0.06em] text-[#c94c63] [text-shadow:0_4px_14px_rgba(201,76,99,0.24)] sm:text-4xl">
+                        {tripCountdownLabel}
+                    </strong>
                     <button
                         onClick={() => setCreateTripOpen(true)}
                         className="flamingo-gradient flamingo-glow hidden items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 sm:flex"
@@ -774,12 +768,6 @@ export function Home() {
                                                 ? 'border-rose-200 bg-[#fff7f8]'
                                                 : 'border-slate-200 bg-white'
                                         }`}
-                                        onMouseEnter={() =>
-                                            setIsInsightHovered(true)
-                                        }
-                                        onMouseLeave={() =>
-                                            setIsInsightHovered(false)
-                                        }
                                     >
                                         <div className="min-h-0 flex-1 overflow-hidden">
                                             <div
@@ -1058,7 +1046,7 @@ export function Home() {
                                 )}
                             </div>
 
-                            <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)]">
+                            <section className="flex flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)] xl:h-[560px]">
                                 <div className="flex items-center justify-between px-6 py-5">
                                     <div>
                                         <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#d84f68]">
@@ -1076,7 +1064,7 @@ export function Home() {
                                     />
                                 </div>
                                 {selectedItineraryDay ? (
-                                    <div className="[&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-[430px]">
+                                    <div className="min-h-[430px] flex-1 [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
                                         <KanbanMapPanel
                                             days={[selectedItineraryDay]}
                                             places={[]}
@@ -1091,7 +1079,7 @@ export function Home() {
                                         />
                                     </div>
                                 ) : (
-                                    <div className="flex h-[430px] items-center justify-center bg-slate-50">
+                                    <div className="flex min-h-[430px] flex-1 items-center justify-center bg-slate-50">
                                         <p className="text-sm font-semibold text-slate-400">
                                             오른쪽 달력에서 여행 날짜를 선택해
                                             주세요.
@@ -1385,12 +1373,12 @@ export function Home() {
                                         </div>
                                     </div>
                                 </section>,
-                                'overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)]',
+                                'overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)] xl:h-[360px]',
                             )}
                             {editable(
                                 'schedule',
                                 '여행 일정 상태',
-                                <section className="h-full rounded-[30px] bg-white p-6">
+                                <section className="flex h-full flex-col overflow-hidden rounded-[30px] bg-white p-6">
                                     <SectionTitle
                                         title={
                                             selectedItineraryDay
@@ -1422,22 +1410,24 @@ export function Home() {
                                             없습니다.
                                         </p>
                                     ) : (
-                                        <ol className="mt-5">
-                                            {selectedItineraryDay.items.map(
-                                                (item, index) => (
+                                        <ol className="flex min-h-0 flex-1 flex-col justify-center gap-4 pt-3">
+                                            {selectedItineraryDay.items
+                                                .slice(
+                                                    0,
+                                                    DASHBOARD_SCHEDULE_ITEM_LIMIT,
+                                                )
+                                                .map((item, index, items) => (
                                                     <li
                                                         key={item.id}
-                                                        className="relative flex gap-4 pb-5 last:pb-0"
+                                                        className="relative flex gap-4"
                                                     >
                                                         <div className="relative flex w-9 shrink-0 justify-center">
                                                             {index <
-                                                                selectedItineraryDay
-                                                                    .items
-                                                                    .length -
+                                                                items.length -
                                                                     1 && (
                                                                 <span
                                                                     aria-hidden="true"
-                                                                    className="absolute left-1/2 top-8 h-[calc(100%+0.25rem)] -translate-x-1/2 border-l-2 border-dotted border-slate-300"
+                                                                    className="absolute left-1/2 top-8 h-[calc(100%+1rem)] -translate-x-1/2 border-l-2 border-dotted border-slate-300"
                                                                 />
                                                             )}
                                                             <span
@@ -1480,12 +1470,11 @@ export function Home() {
                                                             </span>
                                                         </button>
                                                     </li>
-                                                ),
-                                            )}
+                                                ))}
                                         </ol>
                                     )}
                                 </section>,
-                                'min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)]',
+                                'min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)] xl:h-[560px]',
                             )}
                             <div className="hidden">
                                 {editable(
@@ -1614,6 +1603,24 @@ function isTripDate(
     if (!startDate || !endDate) return false
     const dateKey = toDateKey(date)
     return dateKey >= startDate && dateKey <= endDate
+}
+
+function getTripCountdownLabel(
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+    status: string | null | undefined,
+    todayDateKey: string,
+) {
+    if (!startDate || !endDate) return '날짜 미정'
+    if (status === 'COMPLETED' || todayDateKey > endDate) return '여행 끝'
+    if (todayDateKey >= startDate) return '여행 중'
+
+    const remainingDays = Math.ceil(
+        (parseLocalDate(startDate).getTime() -
+            parseLocalDate(todayDateKey).getTime()) /
+            86_400_000,
+    )
+    return remainingDays === 0 ? 'D-DAY' : `D-${remainingDays}`
 }
 
 function createDashboardTasks({
