@@ -24,7 +24,10 @@ import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -47,12 +50,16 @@ class TripServiceTest {
     @Mock TripPresenceService tripPresenceService;
     @Mock TripAccessChecker tripAccessChecker;
     private TripService tripService;
+    private final Clock clock = Clock.fixed(
+            Instant.parse("2026-07-31T00:00:00Z"),
+            ZoneId.of("Asia/Seoul")
+    );
 
     @BeforeEach
     void setUp() {
         tripService = new TripService(tripRepository, tripMemberRepository, memberRepository,
                 activityLogService, notificationService, planCardRepository,
-                tripPresenceService, tripAccessChecker);
+                tripPresenceService, tripAccessChecker, clock);
     }
 
     @Test
@@ -206,6 +213,36 @@ class TripServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
                                 .isEqualTo(TripErrorCode.LAST_TRIP_MEMBER));
+    }
+
+    @Test
+    @DisplayName("t11 여행방 생성일이 오늘 또는 과거이면 생성을 거부한다")
+    void t11_createTripRejectsTodayOrPastStartDate() {
+        when(memberRepository.existsById(1L)).thenReturn(true);
+
+        for (LocalDate startDate : List.of(
+                LocalDate.of(2026, 7, 30),
+                LocalDate.of(2026, 7, 31))) {
+            TripRequest request = new TripRequest(
+                    "제주 여행",
+                    CompanionType.FRIENDS,
+                    Set.of(TravelStyle.FOOD),
+                    "제주도",
+                    startDate,
+                    startDate.plusDays(2),
+                    TripVisibility.PRIVATE,
+                    null,
+                    null,
+                    null
+            );
+
+            assertThatThrownBy(() -> tripService.create(1L, request))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(TripErrorCode.INVALID_TRIP));
+        }
+
+        verify(tripRepository, never()).save(any());
     }
 
     private TripRequest request(String title) {
