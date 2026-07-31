@@ -1447,9 +1447,14 @@ export function Home() {
                                                             type="button"
                                                             onClick={() =>
                                                                 setFocusedItemId(
-                                                                    String(
-                                                                        item.id,
-                                                                    ),
+                                                                    focusedItemId ===
+                                                                        String(
+                                                                            item.id,
+                                                                        )
+                                                                        ? null
+                                                                        : String(
+                                                                              item.id,
+                                                                          ),
                                                                 )
                                                             }
                                                             className={`min-w-0 flex-1 rounded-2xl px-4 py-3 text-left transition ${
