@@ -29,6 +29,7 @@ Thumbs.db
 
 ### AI tools ###
 .claude/
+docs/superpowers/
 
 ### Logs and runtime files ###
 *.log
