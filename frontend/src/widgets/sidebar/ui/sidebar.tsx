@@ -65,7 +65,7 @@ export function Sidebar() {
                 onClick={() => setIsExpanded((expanded) => !expanded)}
                 aria-label={isExpanded ? '사이드바 접기' : '사이드바 펼치기'}
                 aria-expanded={isExpanded}
-                className="absolute -right-3.5 top-28 z-10 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
+                className="absolute -right-3.5 top-4 z-40 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
             >
                 {isExpanded ? (
                     <ChevronLeftIcon size={17} strokeWidth={2.4} />
