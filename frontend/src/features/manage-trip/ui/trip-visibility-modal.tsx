@@ -36,11 +36,7 @@ export function TripVisibilityModal({
             .map((tag) => tag.trim())
             .filter(Boolean)
 
-        if (
-            visibility === 'PUBLIC' &&
-            trip.visibility === 'PRIVATE' &&
-            normalizedTags.length === 0
-        ) {
+        if (visibility === 'PUBLIC' && normalizedTags.length === 0) {
             setError('공개할 여행 카드의 태그를 한 개 이상 입력해 주세요.')
             return
         }
@@ -50,10 +46,7 @@ export function TripVisibilityModal({
         try {
             if (!trip.completionConfirmed) {
                 await confirmTripCompletion(trip.id, visibility, normalizedTags)
-            } else if (
-                visibility === 'PUBLIC' &&
-                visibility !== trip.visibility
-            ) {
+            } else if (visibility === 'PUBLIC') {
                 await confirmTripCompletion(trip.id, visibility, normalizedTags)
             } else if (visibility !== trip.visibility) {
                 await updateTripVisibility(trip.id, visibility)
@@ -134,7 +127,7 @@ export function TripVisibilityModal({
                     </button>
                 </div>
 
-                {visibility === 'PUBLIC' && trip.visibility === 'PRIVATE' && (
+                {visibility === 'PUBLIC' && (
                     <label className="mt-4 block text-sm font-bold text-slate-700">
                         여행 카드 태그
                         <input

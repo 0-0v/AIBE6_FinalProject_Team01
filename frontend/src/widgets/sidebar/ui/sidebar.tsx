@@ -11,6 +11,7 @@ import {
     SparklesIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
+import { useTripStore } from '@/features/manage-trip'
 import { logout, resolveMediaUrl } from '@/shared/api/client'
 import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
@@ -26,6 +27,7 @@ export function Sidebar() {
     const navigate = useNavigate()
     const [isExpanded, setIsExpanded] = useState(true)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const activeTripId = useTripStore((state) => state.activeTripId)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
     const loadUnreadCount = useNotificationStore(
         (state) => state.loadUnreadCount,
@@ -98,10 +100,14 @@ export function Sidebar() {
             >
                 {nav.map((item) => {
                     const badge = item.to === '/app/updates' ? unreadCount : 0
+                    const destination =
+                        item.to === '/app/room' && activeTripId
+                            ? `/app/room/${activeTripId}`
+                            : item.to
                     return (
                         <NavLink
                             key={item.to}
-                            to={item.to}
+                            to={destination}
                             end={item.end}
                             title={item.label}
                             aria-label={
@@ -145,7 +151,6 @@ export function Sidebar() {
                         </NavLink>
                     )
                 })}
-
             </nav>
 
             <div className="flex flex-col gap-3">
