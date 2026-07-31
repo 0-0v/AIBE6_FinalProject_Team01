@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -96,6 +98,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ResponseEntity<ErrorResponse> handleMessageNotWritable(
+            HttpMessageNotWritableException exception,
+            HttpServletRequest request
+    ) {
+        if (isClientDisconnect(exception)) {
+            log.debug("Client disconnected before response was sent: {} {}",
+                    request.getMethod(), request.getRequestURI());
+            return ResponseEntity.internalServerError().build();
+        }
+        return handleUnexpectedException(exception, request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(
             Exception exception,
@@ -108,5 +123,21 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.internalServerError().body(response);
+    }
+
+    private static boolean isClientDisconnect(Throwable throwable) {
+        Throwable cause = throwable;
+        while (cause != null) {
+            if (cause instanceof ClientAbortException) {
+                return true;
+            }
+            String message = cause.getMessage();
+            if (message != null && (message.contains("Broken pipe")
+                    || message.contains("Connection reset by peer"))) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 }
