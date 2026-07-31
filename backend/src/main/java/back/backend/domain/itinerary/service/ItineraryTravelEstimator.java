@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.time.Instant;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -79,6 +80,44 @@ public class ItineraryTravelEstimator {
                 transportMode,
                 true
         );
+    }
+
+    /**
+     * 지정된 인덱스의 구간만 선택적으로 재계산합니다.
+     * 장소 추가/삭제/이동 시 변경된 구간만 계산해 Routes API 호출을 최소화합니다.
+     */
+    public void recalculateAt(
+            List<ItineraryItem> items,
+            Map<Long, TripPlace> tripPlaceById,
+            Set<Integer> indices
+    ) {
+        if (indices.isEmpty()) return;
+        List<ItineraryItem> ordered = items.stream()
+                .sorted(Comparator.comparingInt(ItineraryItem::getSortOrder))
+                .toList();
+        for (int index : indices) {
+            if (index < 0 || index >= ordered.size()) continue;
+            ItineraryItem current = ordered.get(index);
+            ItineraryItem next = index + 1 < ordered.size() ? ordered.get(index + 1) : null;
+            TripPlace currentPlace = tripPlaceById.get(current.getTripPlaceId());
+            TripPlace nextPlace = next == null ? null : tripPlaceById.get(next.getTripPlaceId());
+            if (currentPlace == null || nextPlace == null) {
+                current.updateTravelInformation(null, null, null);
+                continue;
+            }
+            int distanceMeters = (int) Math.round(
+                    GeoDistanceCalculator.distanceMeters(currentPlace, nextPlace));
+            ItineraryTransportMode selectedMode = current.isTransportModeManual()
+                    ? selectedPreference(current) : null;
+            boolean preserveManualMode = selectedMode != null;
+            calculateSegment(
+                    current,
+                    currentPlace,
+                    nextPlace,
+                    preserveManualMode ? selectedMode : ItineraryTransportMode.infer(distanceMeters),
+                    preserveManualMode
+            );
+        }
     }
 
     public void recalculateSegmentAutomatically(

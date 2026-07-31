@@ -10,7 +10,6 @@ import {
     useMapsLibrary,
 } from '@vis.gl/react-google-maps'
 import {
-    ArrowUpIcon,
     CalendarPlusIcon,
     ClockIcon,
     ExternalLinkIcon,
@@ -111,7 +110,15 @@ function GoogleMapCanvas({
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
-    const center = calculateCenter(places)
+
+    // 첫 번째 일정 장소가 있으면 그 위치에서 줌인 시작, 없으면 전체 평균 중심
+    const firstScheduledPoint = days
+        ?.flatMap((d) => d.items)
+        .find((item) => item.lat != null && item.lng != null)
+    const center = firstScheduledPoint
+        ? { lat: firstScheduledPoint.lat, lng: firstScheduledPoint.lng }
+        : calculateCenter(places)
+    const initialZoom = firstScheduledPoint ? 14 : DEFAULT_ZOOM
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [dayPickerPlaceId, setDayPickerPlaceId] = useState<string | null>(
         null,
@@ -121,6 +128,7 @@ function GoogleMapCanvas({
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
         null,
     )
+    const [focusedSegmentIndex, setFocusedSegmentIndex] = useState<number | null>(null)
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
 
@@ -176,6 +184,7 @@ function GoogleMapCanvas({
                 points: day.items.filter(hasMapCoordinates).map((item) => ({
                     lat: item.lat,
                     lng: item.lng,
+                    tripPlaceId: item.tripPlaceId != null ? String(item.tripPlaceId) : null,
                     placeName: item.placeName ?? '장소',
                     transportMinutes: item.transportMinutes,
                     transportMeters: item.transportMeters,
@@ -185,6 +194,7 @@ function GoogleMapCanvas({
             }))
             .filter((route) => route.points.length > 0)
     }, [days])
+
     const activeRouteDay =
         selectedRouteDay != null &&
         itineraryRoutes.some((route) => route.dayNumber === selectedRouteDay)
@@ -196,15 +206,64 @@ function GoogleMapCanvas({
             : itineraryRoutes.filter(
                   (route) => route.dayNumber === activeRouteDay,
               )
-    const selectedRoutePoints = useMemo(
+
+    // 현재 선택된 Day의 좌표 목록 (구간 네비게이션용)
+    const activeDayPoints = useMemo(
         () =>
             activeRouteDay == null
                 ? []
-                : itineraryRoutes
-                      .filter((route) => route.dayNumber === activeRouteDay)
-                      .flatMap((route) => route.points),
+                : (itineraryRoutes.find((r) => r.dayNumber === activeRouteDay)
+                      ?.points ?? []),
         [activeRouteDay, itineraryRoutes],
     )
+    const totalSegments = Math.max(0, activeDayPoints.length - 1)
+
+    // placeId → activeDayPoints 인덱스 맵
+    const activeDayPlaceIndexMap = useMemo(() => {
+        const map = new Map<string, number>()
+        activeDayPoints.forEach((point, idx) => {
+            if (point.tripPlaceId) map.set(point.tripPlaceId, idx)
+        })
+        return map
+    }, [activeDayPoints])
+
+    // focusedSegmentIndex → focusedSegment ({fromPlaceId, toPlaceId})
+    const focusedSegment = useMemo(() => {
+        if (focusedSegmentIndex == null || activeDayPoints.length < 2) return null
+        const from = activeDayPoints[focusedSegmentIndex]
+        const to = activeDayPoints[focusedSegmentIndex + 1]
+        if (!from?.tripPlaceId || !to?.tripPlaceId) return null
+        return { fromPlaceId: from.tripPlaceId, toPlaceId: to.tripPlaceId }
+    }, [focusedSegmentIndex, activeDayPoints])
+
+    // 집중 구간의 두 장소 ID (마커 dim용)
+    const focusedPlaceIds = useMemo(
+        () =>
+            focusedSegment
+                ? new Set([focusedSegment.fromPlaceId, focusedSegment.toPlaceId])
+                : null,
+        [focusedSegment],
+    )
+
+    // 구간 네비게이션 시 두 마커에 맞춰 fitBounds
+    const focusedSegmentPoints = useMemo(() => {
+        if (focusedSegmentIndex == null) return null
+        const from = activeDayPoints[focusedSegmentIndex]
+        const to = activeDayPoints[focusedSegmentIndex + 1]
+        if (!from || !to) return null
+        return { from, to }
+    }, [focusedSegmentIndex, activeDayPoints])
+
+    const selectedRoutePoints = useMemo(() => {
+        if (activeRouteDay != null) {
+            return itineraryRoutes
+                .filter((route) => route.dayNumber === activeRouteDay)
+                .flatMap((route) => route.points)
+        }
+        // 전체 일정: Day 1 첫 번째 장소만 → panTo + zoom 으로 확대
+        const firstDayPoints = itineraryRoutes[0]?.points ?? []
+        return firstDayPoints.slice(0, 1)
+    }, [activeRouteDay, itineraryRoutes])
     if (!isLoaded) {
         return (
             <div className="flex h-full w-full items-center justify-center bg-slate-100">
@@ -217,7 +276,7 @@ function GoogleMapCanvas({
         <div className="relative h-full w-full">
             <GoogleMap
                 defaultCenter={center}
-                defaultZoom={DEFAULT_ZOOM}
+                defaultZoom={initialZoom}
                 minZoom={ITINERARY_MAP_MIN_ZOOM}
                 restriction={{
                     latLngBounds: ITINERARY_MAP_BOUNDS,
@@ -240,6 +299,7 @@ function GoogleMapCanvas({
                     setHoveredId(null)
                     setDayPickerPlaceId(null)
                     setScheduleError(null)
+                    setFocusedSegmentIndex(null)
                     onDeselect()
                 }}
             >
@@ -248,25 +308,49 @@ function GoogleMapCanvas({
                     initialLocation={initialLocation}
                     selectedId={selectedId}
                 />
-                <RouteFocusController points={selectedRoutePoints} />
+                <RouteFocusController points={focusedSegmentIndex == null ? selectedRoutePoints : []} />
+                <SegmentPanController points={focusedSegmentPoints} />
                 <RouteLayer
                     routes={visibleRoutes}
                     emphasized={activeRouteDay != null}
-                    mapDisplayType={mapDisplayType}
+                    focusedSegment={focusedSegment}
                 />
                 {places.map((place) => {
                     const isSelected = place.id === selectedId
                     const isHovered = place.id === hoveredId
                     const scheduled = scheduledPlaceDetailsMap.get(place.id)
-                    const belongsToVisibleRoute =
-                        selectedRouteDay == null ||
-                        scheduled == null ||
-                        scheduled.dayNumber === selectedRouteDay
+                    // Day 선택 시 해당 Day 외 마커 완전히 숨김
+                    if (
+                        activeRouteDay != null &&
+                        scheduled?.dayNumber !== activeRouteDay
+                    ) {
+                        return null
+                    }
+                    // 구간 집중 모드 dim
+                    const isFocusModeActive = focusedSegment != null
+                    const isFocusedPlace = focusedPlaceIds?.has(place.id) ?? false
+                    const isFromPlace = isFocusModeActive && focusedSegment?.fromPlaceId === place.id
+                    const markerOpacity =
+                        isFocusModeActive && scheduled != null && !isFocusedPlace
+                            ? 'opacity-20'
+                            : 'opacity-100'
                     return (
                         <AdvancedMarker
                             key={place.id}
                             position={{ lat: place.lat, lng: place.lng }}
-                            onClick={() => onSelect(place.id)}
+                            onClick={() => {
+                                onSelect(place.id)
+                                // 현재 Day 소속 마커 클릭 → 해당 구간으로 이동
+                                if (
+                                    activeRouteDay != null &&
+                                    scheduled?.dayNumber === activeRouteDay
+                                ) {
+                                    const idx = activeDayPlaceIndexMap.get(place.id)
+                                    if (idx != null && idx < totalSegments) {
+                                        setFocusedSegmentIndex(idx)
+                                    }
+                                }
+                            }}
                             zIndex={
                                 isSelected
                                     ? 100
@@ -278,11 +362,7 @@ function GoogleMapCanvas({
                             }
                         >
                             <div
-                                className={`relative flex flex-col items-center transition-opacity ${
-                                    belongsToVisibleRoute
-                                        ? 'opacity-100'
-                                        : 'opacity-25'
-                                }`}
+                                className={`relative flex flex-col items-center transition-opacity ${markerOpacity}`}
                                 onMouseEnter={() => setHoveredId(place.id)}
                                 onMouseLeave={() => setHoveredId(null)}
                             >
@@ -329,6 +409,7 @@ function GoogleMapCanvas({
                                     showCategoryBadge={showCategoryBadges}
                                     selected={isSelected}
                                     hovered={isHovered}
+                                    focused={isFromPlace}
                                 />
                                 {isSelected && (
                                     <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
@@ -604,8 +685,36 @@ function GoogleMapCanvas({
                 <MapRouteFilter
                     routes={itineraryRoutes}
                     selectedDay={activeRouteDay}
-                    onSelect={setSelectedRouteDay}
+                    onSelect={(day) => {
+                        setSelectedRouteDay(day)
+                        setFocusedSegmentIndex(day != null ? 0 : null)
+                    }}
                 />
+            )}
+            {focusedSegmentIndex != null && activeRouteDay != null && totalSegments > 0 && (
+                <div className="absolute bottom-10 left-1/2 z-20 -translate-x-1/2">
+                    <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
+                        <button
+                            type="button"
+                            disabled={focusedSegmentIndex === 0}
+                            onClick={() => setFocusedSegmentIndex(focusedSegmentIndex - 1)}
+                            className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
+                        >
+                            ‹ 이전
+                        </button>
+                        <span className="text-xs font-bold text-slate-700">
+                            Day {activeRouteDay} · {focusedSegmentIndex + 1} / {totalSegments}
+                        </span>
+                        <button
+                            type="button"
+                            disabled={focusedSegmentIndex >= totalSegments - 1}
+                            onClick={() => setFocusedSegmentIndex(focusedSegmentIndex + 1)}
+                            className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
+                        >
+                            다음 ›
+                        </button>
+                    </div>
+                </div>
             )}
 
             {itineraryRoutes.length > 0 && (
@@ -621,12 +730,13 @@ function GoogleMapCanvas({
 function RouteLayer({
     routes,
     emphasized,
-    mapDisplayType,
+    focusedSegment,
 }: {
     routes: Array<{
         points: Array<{
             lat: number
             lng: number
+            tripPlaceId: string | null
             placeName: string
             transportMinutes: number | null
             transportMeters: number | null
@@ -639,104 +749,136 @@ function RouteLayer({
         confirmed: boolean
     }>
     emphasized: boolean
-    mapDisplayType: 'roadmap' | 'hybrid'
+    focusedSegment: { fromPlaceId: string; toPlaceId: string } | null
 }) {
     const [hoveredSegment, setHoveredSegment] = useState<string | null>(null)
-    const casingColor = mapDisplayType === 'hybrid' ? '#0f172a' : '#ffffff'
+    const isFocusMode = focusedSegment != null
 
     return (
         <>
-            {routes.map((route) => {
-                const path = route.points.map(({ lat, lng }) => ({ lat, lng }))
-                return (
-                    <React.Fragment key={route.dayId}>
-                        {path.length >= 2 && (
-                            <>
-                                <Polyline
-                                    path={path}
-                                    strokeColor={casingColor}
-                                    strokeOpacity={
-                                        mapDisplayType === 'hybrid' ? 0.72 : 0.9
-                                    }
-                                    strokeWeight={emphasized ? 10 : 8}
-                                    zIndex={1}
-                                    geodesic
-                                />
-                                <Polyline
-                                    path={path}
-                                    strokeColor={route.color}
-                                    strokeOpacity={
-                                        emphasized
-                                            ? 1
-                                            : route.confirmed
-                                              ? 0.92
-                                              : 0.72
-                                    }
-                                    strokeWeight={
-                                        emphasized ? 6 : route.confirmed ? 5 : 4
-                                    }
-                                    zIndex={2}
-                                    geodesic
-                                />
-                            </>
-                        )}
-                        {route.points.slice(0, -1).map((point, index) => {
-                            const next = route.points[index + 1]
-                            const segmentId = `${route.dayId}-${index}`
-                            const midpoint = {
-                                lat: (point.lat + next.lat) / 2,
-                                lng: (point.lng + next.lng) / 2,
-                            }
-                            const angle = getBearing(point, next)
-                            return (
-                                <AdvancedMarker
-                                    key={segmentId}
-                                    position={midpoint}
-                                    zIndex={5}
-                                    onMouseEnter={() =>
-                                        setHoveredSegment(segmentId)
-                                    }
-                                    onMouseLeave={() => setHoveredSegment(null)}
+            {routes.map((route) =>
+                route.points.slice(0, -1).map((point, index) => {
+                    const next = route.points[index + 1]
+                    const segmentId = `${route.dayId}-${index}`
+                    const segPath = [
+                        { lat: point.lat, lng: point.lng },
+                        { lat: next.lat, lng: next.lng },
+                    ]
+                    const midpoint = {
+                        lat: (point.lat + next.lat) / 2,
+                        lng: (point.lng + next.lng) / 2,
+                    }
+                    const isFocusedSeg =
+                        isFocusMode &&
+                        point.tripPlaceId === focusedSegment!.fromPlaceId &&
+                        next.tripPlaceId === focusedSegment!.toPlaceId
+                    const segOpacity = isFocusMode
+                        ? isFocusedSeg
+                            ? 1
+                            : 0.08
+                        : emphasized
+                          ? 0.95
+                          : route.confirmed
+                            ? 0.85
+                            : 0.65
+                    // scale * 2 = 대시 길이(px), repeat - 대시길이 = 갭
+                    // 예) scale:4, repeat:24px → 대시 8px, 갭 16px
+                    const dashScale = isFocusMode
+                        ? isFocusedSeg ? 4 : 2
+                        : 3
+                    const dashRepeat = isFocusMode
+                        ? isFocusedSeg ? '24px' : '30px'
+                        : '20px'
+
+                    return (
+                        <React.Fragment key={segmentId}>
+                            <Polyline
+                                path={segPath}
+                                strokeColor={route.color}
+                                strokeOpacity={0.001}
+                                strokeWeight={2}
+                                zIndex={isFocusedSeg ? 3 : 2}
+                                geodesic
+                                icons={[
+                                    {
+                                        icon: {
+                                            path: 'M 0,-1 0,1',
+                                            strokeOpacity: segOpacity,
+                                            strokeColor: route.color,
+                                            scale: dashScale,
+                                        },
+                                        offset: '0',
+                                        repeat: dashRepeat,
+                                    },
+                                ]}
+                            />
+                            <AdvancedMarker
+                                position={midpoint}
+                                zIndex={isFocusedSeg ? 10 : 5}
+                                onMouseEnter={() =>
+                                    setHoveredSegment(segmentId)
+                                }
+                                onMouseLeave={() => setHoveredSegment(null)}
+                            >
+                                <div
+                                    className={`relative transition-opacity ${
+                                        isFocusMode && !isFocusedSeg
+                                            ? 'opacity-10'
+                                            : 'opacity-100'
+                                    }`}
                                 >
-                                    <div className="relative">
-                                        {hoveredSegment === segmentId && (
-                                            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-center shadow-lg">
-                                                <p className="truncate text-[11px] font-bold text-slate-700">
-                                                    {point.placeName} →{' '}
-                                                    {next.placeName}
-                                                </p>
-                                                <p className="mt-0.5 text-[10px] text-slate-400">
-                                                    {formatTransportSummary(
-                                                        point,
-                                                    )}
-                                                </p>
-                                            </div>
-                                        )}
-                                        <span
-                                            className="flex size-6 items-center justify-center rounded-full border-2 border-white bg-white/95 shadow-md"
-                                            style={{
-                                                color: route.color,
-                                                transform: `rotate(${angle}deg)`,
-                                            }}
-                                        >
-                                            <ArrowUpIcon
-                                                size={15}
-                                                strokeWidth={4}
-                                                className={
-                                                    emphasized
-                                                        ? 'itinerary-route-arrow-flow'
-                                                        : ''
-                                                }
-                                            />
-                                        </span>
-                                    </div>
-                                </AdvancedMarker>
-                            )
-                        })}
-                    </React.Fragment>
-                )
-            })}
+                                    {hoveredSegment === segmentId && (
+                                        <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-center shadow-lg">
+                                            <p className="truncate text-[11px] font-bold text-slate-700">
+                                                {point.placeName} →{' '}
+                                                {next.placeName}
+                                            </p>
+                                            <p className="mt-0.5 text-[10px] text-slate-400">
+                                                {formatTransportSummary(point)}
+                                            </p>
+                                        </div>
+                                    )}
+                                    <div className="size-6 cursor-default" />
+                                </div>
+                            </AdvancedMarker>
+                        </React.Fragment>
+                    )
+                }),
+            )}
         </>
+    )
+}
+
+// 구간 선택 시 출발 장소 중심으로 확대
+function SegmentPanController({
+    points,
+}: {
+    points: { from: { lat: number; lng: number }; to: { lat: number; lng: number } } | null
+}) {
+    const map = useMap()
+    useEffect(() => {
+        if (map == null || points == null) return
+        map.panTo(points.from)
+        map.setZoom(16)
+    }, [map, points])
+    return null
+}
+
+function fitBoundsToPoints(
+    map: NonNullable<ReturnType<typeof useMap>>,
+    points: Array<{ lat: number; lng: number }>,
+    padding?: number,
+) {
+    const lats = points.map((p) => p.lat)
+    const lngs = points.map((p) => p.lng)
+    map.fitBounds(
+        {
+            north: Math.max(...lats),
+            south: Math.min(...lats),
+            east: Math.max(...lngs),
+            west: Math.min(...lngs),
+        },
+        padding,
     )
 }
 
@@ -751,21 +893,11 @@ function RouteFocusController({
         if (map == null || points.length === 0) return
         if (points.length === 1) {
             map.panTo(points[0])
-            map.setZoom(14)
+            map.setZoom(16)
             return
         }
 
-        const latitudes = points.map((point) => point.lat)
-        const longitudes = points.map((point) => point.lng)
-        map.fitBounds(
-            {
-                north: Math.max(...latitudes),
-                south: Math.min(...latitudes),
-                east: Math.max(...longitudes),
-                west: Math.min(...longitudes),
-            },
-            96,
-        )
+        fitBoundsToPoints(map, points, 96)
         const listener = map.addListener('idle', () => {
             if ((map.getZoom() ?? 0) > 15) map.setZoom(15)
             listener.remove()
@@ -774,20 +906,6 @@ function RouteFocusController({
     }, [map, points])
 
     return null
-}
-
-function getBearing(
-    from: { lat: number; lng: number },
-    to: { lat: number; lng: number },
-): number {
-    const latitude1 = (from.lat * Math.PI) / 180
-    const latitude2 = (to.lat * Math.PI) / 180
-    const longitudeDelta = ((to.lng - from.lng) * Math.PI) / 180
-    const y = Math.sin(longitudeDelta) * Math.cos(latitude2)
-    const x =
-        Math.cos(latitude1) * Math.sin(latitude2) -
-        Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(longitudeDelta)
-    return (Math.atan2(y, x) * 180) / Math.PI
 }
 
 // selectedId가 바뀌면 해당 장소로 지도 이동
@@ -841,14 +959,7 @@ function MapController({
             return
         }
 
-        const latitudes = places.map((place) => place.lat)
-        const longitudes = places.map((place) => place.lng)
-        map.fitBounds({
-            north: Math.max(...latitudes),
-            south: Math.min(...latitudes),
-            east: Math.max(...longitudes),
-            west: Math.min(...longitudes),
-        })
+        fitBoundsToPoints(map, places)
     }, [geocodingLibrary, initialLocation, map, places])
 
     useEffect(() => {

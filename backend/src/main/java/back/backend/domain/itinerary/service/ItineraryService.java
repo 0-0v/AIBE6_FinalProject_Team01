@@ -113,7 +113,12 @@ public class ItineraryService {
         updateSortOrders(existingItems);
         itemRepository.saveAllAndFlush(existingItems);
         markDayDraft(item.getItineraryDay());
-        recalculateItems(existingItems);
+        // 변경된 구간만 재계산: 삽입 위치의 이전 구간(P-1→P)과 새 구간(P→P+1)
+        int p = request.sortOrder();
+        Set<Integer> affected = new HashSet<>();
+        if (p > 0) affected.add(p - 1);
+        affected.add(p);
+        recalculateItemsAt(existingItems, affected);
 
         publishChanged(tripId, item.getId());
         return getDayResponseById(tripId, dayId);
@@ -124,6 +129,7 @@ public class ItineraryService {
         accessChecker.requireEdit(tripId);
         lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
+        int removedSortOrder = item.getSortOrder(); // 삭제 전 인덱스 기록
         ItineraryDay day = item.getItineraryDay();
         itemRepository.delete(item);
         itemRepository.flush();
@@ -134,7 +140,10 @@ public class ItineraryService {
             itemRepository.saveAllAndFlush(remainingItems);
         }
         markDayDraft(day);
-        recalculateItems(remainingItems);
+        // 변경된 구간만 재계산: 삭제된 위치의 이전 아이템(P-1→new P)만 영향받음
+        if (removedSortOrder > 0 && !remainingItems.isEmpty()) {
+            recalculateItemsAt(remainingItems, Set.of(removedSortOrder - 1));
+        }
         publishChanged(tripId, itemId);
     }
 
@@ -309,6 +318,17 @@ public class ItineraryService {
                 : new ArrayList<>(
                         itemRepository.findAllByItineraryDayOrderBySortOrderAsc(targetDay)
                 );
+
+        // 이동 전 원본 인덱스와 순서 기록 (변경 구간 계산용)
+        int originalSourceIndex = 0;
+        for (int i = 0; i < sourceItems.size(); i++) {
+            if (sourceItems.get(i).getId().equals(item.getId())) {
+                originalSourceIndex = i;
+                break;
+            }
+        }
+        List<ItineraryItem> originalSourceOrder = new ArrayList<>(sourceItems);
+
         sourceItems.removeIf(candidate -> candidate.getId().equals(item.getId()));
         if (sourceDay.getId().equals(targetDay.getId())) {
             targetItems = sourceItems;
@@ -328,9 +348,20 @@ public class ItineraryService {
 
         markDayDraft(sourceDay);
         markDayDraft(targetDay);
-        recalculateItems(sourceItems);
-        if (!sourceDay.getId().equals(targetDay.getId())) {
-            recalculateItems(targetItems);
+
+        if (sourceDay.getId().equals(targetDay.getId())) {
+            // 같은 Day 이동: 순서가 바뀐 구간만 재계산
+            recalculateItemsAt(targetItems, changedSegmentIndices(originalSourceOrder, targetItems));
+        } else {
+            // 다른 Day 이동: 출발 Day는 삭제 위치 이전 구간, 도착 Day는 삽입 위치 주변 구간
+            if (originalSourceIndex > 0 && !sourceItems.isEmpty()) {
+                recalculateItemsAt(sourceItems, Set.of(originalSourceIndex - 1));
+            }
+            int tp = request.sortOrder();
+            Set<Integer> targetAffected = new HashSet<>();
+            if (tp > 0) targetAffected.add(tp - 1);
+            targetAffected.add(tp);
+            recalculateItemsAt(targetItems, targetAffected);
         }
 
         TripPlace tp = item.getTripPlaceId() != null
@@ -366,7 +397,8 @@ public class ItineraryService {
         }
         itemRepository.saveAllAndFlush(reorderedItems);
         markDayDraft(day);
-        recalculateItems(reorderedItems);
+        // 순서 변경 시 다음 장소가 달라진 구간만 재계산
+        recalculateItemsAt(reorderedItems, changedSegmentIndices(dayItems, reorderedItems));
 
         publishChanged(tripId, dayId);
         return getDayResponseById(tripId, dayId);
@@ -700,6 +732,46 @@ public class ItineraryService {
                 : tripPlaceRepository.findAllById(tripPlaceIds).stream()
                         .collect(Collectors.toMap(TripPlace::getId, place -> place));
         travelEstimator.recalculate(items, tripPlaceById);
+    }
+
+    /** 변경된 인덱스의 구간만 재계산 — Routes API 호출 최소화용 */
+    private void recalculateItemsAt(List<ItineraryItem> items, Set<Integer> indices) {
+        if (items.isEmpty() || indices.isEmpty()) return;
+        Set<Long> tripPlaceIds = items.stream()
+                .map(ItineraryItem::getTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, TripPlace> tripPlaceById = tripPlaceIds.isEmpty()
+                ? Map.of()
+                : tripPlaceRepository.findAllById(tripPlaceIds).stream()
+                        .collect(Collectors.toMap(TripPlace::getId, place -> place));
+        travelEstimator.recalculateAt(items, tripPlaceById, indices);
+    }
+
+    /**
+     * newOrder 내에서 구간(i → i+1)의 다음 장소가 oldOrder와 달라진 인덱스를 반환합니다.
+     * 드래그·이동 시 실제로 변경된 구간만 API를 호출하기 위해 사용합니다.
+     */
+    private Set<Integer> changedSegmentIndices(
+            List<ItineraryItem> oldOrder,
+            List<ItineraryItem> newOrder
+    ) {
+        Map<Long, Long> oldNextMap = new HashMap<>();
+        for (int i = 0; i < oldOrder.size(); i++) {
+            Long nextTpId = i + 1 < oldOrder.size()
+                    ? oldOrder.get(i + 1).getTripPlaceId() : null;
+            oldNextMap.put(oldOrder.get(i).getId(), nextTpId);
+        }
+        Set<Integer> changed = new HashSet<>();
+        for (int i = 0; i < newOrder.size(); i++) {
+            Long itemId = newOrder.get(i).getId();
+            Long newNext = i + 1 < newOrder.size()
+                    ? newOrder.get(i + 1).getTripPlaceId() : null;
+            if (!Objects.equals(newNext, oldNextMap.getOrDefault(itemId, null))) {
+                changed.add(i);
+            }
+        }
+        return changed;
     }
 
     private List<ItineraryDayResponse> buildDayResponses(Long tripId) {

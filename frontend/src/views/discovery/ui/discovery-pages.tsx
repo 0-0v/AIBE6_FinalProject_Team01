@@ -637,7 +637,7 @@ function PublicItineraryDays({
 }: {
     days: PublicCardDetail['itinerary']
     focusedItemId: string | null
-    onFocusItem: (itemId: string) => void
+    onFocusItem: (itemId: string | null) => void
 }) {
     return (
         <div className="space-y-8">
@@ -686,7 +686,12 @@ function PublicItineraryDays({
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            onFocusItem(String(item.id))
+                                            onFocusItem(
+                                                focusedItemId ===
+                                                    String(item.id)
+                                                    ? null
+                                                    : String(item.id),
+                                            )
                                         }
                                         className={`min-w-0 flex-1 rounded-[18px] border p-4 text-left transition ${
                                             focusedItemId === String(item.id)
