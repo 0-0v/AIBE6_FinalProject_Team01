@@ -23,6 +23,7 @@ import { Landing } from '@/views/landing'
 import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
+import { getJwtExpirationTime } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 import { BrandLogo } from '@/shared/ui'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -147,6 +148,50 @@ export function App() {
             })
         })
     }, [clearCurrentUser, currentUser, setCurrentUser])
+
+    useEffect(() => {
+        if (!currentUser) return
+
+        const refreshLeewayMs = 60_000
+        const retryDelayMs = 30_000
+        let cancelled = false
+        let timerId: number | null = null
+
+        const scheduleRefresh = (delayOverride?: number) => {
+            const token = getAccessToken()
+            const expiresAt = token ? getJwtExpirationTime(token) : null
+            if (!token || !expiresAt) {
+                clearCurrentUser()
+                return
+            }
+
+            const delay =
+                delayOverride ??
+                Math.max(expiresAt - Date.now() - refreshLeewayMs, 1_000)
+            timerId = window.setTimeout(async () => {
+                const refreshedToken = await restoreSession()
+                if (cancelled) return
+
+                if (refreshedToken) {
+                    scheduleRefresh()
+                    return
+                }
+                if (Date.now() < expiresAt) {
+                    scheduleRefresh(retryDelayMs)
+                    return
+                }
+
+                clearCurrentUser()
+                window.location.assign('/login')
+            }, delay)
+        }
+
+        scheduleRefresh()
+        return () => {
+            cancelled = true
+            if (timerId !== null) window.clearTimeout(timerId)
+        }
+    }, [clearCurrentUser, currentUser])
 
     return (
         <BrowserRouter>
