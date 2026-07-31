@@ -13,6 +13,8 @@ export type TravelStyle =
     | 'SHOPPING'
     | 'FOOD'
 
+export type TravelPace = 'FAST' | 'NORMAL' | 'RELAXED'
+
 export type TripResponse = {
     id: number
     ownerId: number
@@ -29,6 +31,9 @@ export type TripResponse = {
     completionConfirmed: boolean
     createdAt: string
     updatedAt: string
+    dayStartTime: string
+    dayEndTime: string
+    travelPace: TravelPace
 }
 
 export type TripRequest = {
@@ -38,6 +43,9 @@ export type TripRequest = {
     destination?: string | null
     startDate?: string | null
     endDate?: string | null
+    dayStartTime?: string | null
+    dayEndTime?: string | null
+    travelPace?: TravelPace | null
 }
 export type TripMember = {
     memberId: number

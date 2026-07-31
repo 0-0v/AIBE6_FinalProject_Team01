@@ -1,0 +1,4 @@
+ALTER TABLE trips
+    ADD COLUMN day_start_time TIME NOT NULL DEFAULT '09:00:00' COMMENT '하루 일정 시작 시간',
+    ADD COLUMN day_end_time   TIME NOT NULL DEFAULT '21:00:00' COMMENT '하루 일정 종료 시간',
+    ADD COLUMN travel_pace    VARCHAR(20) NOT NULL DEFAULT 'NORMAL' COMMENT '여행 페이스 (FAST/NORMAL/RELAXED)';

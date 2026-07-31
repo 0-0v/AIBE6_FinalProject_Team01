@@ -38,7 +38,7 @@ class TripEventIntegrationTest {
                 "trip-owner@example.com", "여행방장", null, AuthProvider.KAKAO, "trip-owner-provider"));
 
         var trip = tripService.create(member.getId(), new TripRequest(
-                "제주 여행", null, Set.of(), null, null, null, TripVisibility.PRIVATE));
+                "제주 여행", null, Set.of(), null, null, null, TripVisibility.PRIVATE, null, null, null));
 
         var activityLogs = activityLogRepository.findAllByTripIdOrderByCreatedAtDescIdDesc(
                 trip.id(), PageRequest.of(0, 10));

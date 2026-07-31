@@ -117,7 +117,7 @@ class TripServiceTest {
 
         TripRequest request = new TripRequest(
                 "제주 여행", CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
-                null, null, TripVisibility.PUBLIC);
+                null, null, TripVisibility.PUBLIC, null, null, null);
 
         var response = tripService.create(1L, request);
 
@@ -210,7 +210,7 @@ class TripServiceTest {
 
     private TripRequest request(String title) {
         return new TripRequest(title, CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
-                LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15), TripVisibility.PRIVATE);
+                LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15), TripVisibility.PRIVATE, null, null, null);
     }
 
     private Trip trip(String title) {

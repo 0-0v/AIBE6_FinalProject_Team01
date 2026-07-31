@@ -46,7 +46,8 @@ class TripCoverImageControllerTest {
                 .willReturn(new TripResponse(
                         10L, 1L, "후쿠오카", null, Set.of(), "후쿠오카",
                         null, null, "/uploads/trip-cover-images/10/cover.png",
-                        2L, TripStatus.PLANNING, TripVisibility.PRIVATE, false, null, null
+                        2L, TripStatus.PLANNING, TripVisibility.PRIVATE, false, null, null,
+                        "09:00", "21:00", "NORMAL"
                 ));
 
         mockMvc.perform(multipart("/api/trips/10/cover-image").file(file))

@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -87,6 +88,16 @@ public class Trip {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private TripVisibility visibility;
+
+    @Column(name = "day_start_time", nullable = false)
+    private LocalTime dayStartTime = LocalTime.of(9, 0);
+
+    @Column(name = "day_end_time", nullable = false)
+    private LocalTime dayEndTime = LocalTime.of(21, 0);
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "travel_pace", nullable = false, length = 20)
+    private TravelPace travelPace = TravelPace.NORMAL;
 
     @Column(name = "completion_confirmed_at")
     private LocalDateTime completionConfirmedAt;
@@ -161,7 +172,10 @@ public class Trip {
             Set<TravelStyle> travelStyles,
             String destination,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            LocalTime dayStartTime,
+            LocalTime dayEndTime,
+            TravelPace travelPace
     ) {
         ensureMutable();
         this.title = validateTitle(title);
@@ -172,6 +186,9 @@ public class Trip {
         this.destination = normalizeNullable(destination);
         this.startDate = startDate;
         this.endDate = endDate;
+        if (dayStartTime != null) this.dayStartTime = dayStartTime;
+        if (dayEndTime   != null) this.dayEndTime   = dayEndTime;
+        if (travelPace   != null) this.travelPace   = travelPace;
     }
 
     public void completeAutomatically(LocalDate today) {
@@ -329,6 +346,18 @@ public class Trip {
 
     public boolean isCompletionConfirmed() {
         return completionConfirmedAt != null;
+    }
+
+    public LocalTime getDayStartTime() {
+        return dayStartTime;
+    }
+
+    public LocalTime getDayEndTime() {
+        return dayEndTime;
+    }
+
+    public TravelPace getTravelPace() {
+        return travelPace;
     }
 
     public long getViewCount() {
