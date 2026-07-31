@@ -42,6 +42,10 @@ springdoc:
     path: /swagger-ui.html
 
 app:
+  ai:
+    replan:
+      # 운영 기본값은 여행 기간 중에만 허용하며, 로컬 검증이 필요할 때만 환경 변수로 해제한다.
+      allow-outside-trip: ${AI_REPLAN_ALLOW_OUTSIDE_TRIP:false}
   member:
     withdrawal:
       retention-days: ${MEMBER_WITHDRAWAL_RETENTION_DAYS:90}

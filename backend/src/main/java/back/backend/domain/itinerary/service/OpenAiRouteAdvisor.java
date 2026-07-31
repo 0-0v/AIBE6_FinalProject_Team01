@@ -34,6 +34,15 @@ public class OpenAiRouteAdvisor {
             List<TripPlace> tripPlaces,
             Set<TravelStyle> travelStyles
     ) {
+        return recommend(itineraryDays, tripPlaces, travelStyles, null);
+    }
+
+    public Optional<Recommendation> recommend(
+            List<ItineraryDay> itineraryDays,
+            List<TripPlace> tripPlaces,
+            Set<TravelStyle> travelStyles,
+            String userRequest
+    ) {
         if (!openAiClient.isConfigured()
                 || itineraryDays.isEmpty()
                 || tripPlaces.isEmpty()
@@ -43,7 +52,12 @@ public class OpenAiRouteAdvisor {
 
         try {
             String responseJson = openAiClient.generateStructured(
-                    buildPrompt(itineraryDays, tripPlaces, travelStyles),
+                    buildPrompt(
+                            itineraryDays,
+                            tripPlaces,
+                            travelStyles,
+                            userRequest
+                    ),
                     "itinerary_route_plan",
                     RESPONSE_SCHEMA
             );
@@ -68,7 +82,8 @@ public class OpenAiRouteAdvisor {
     private String buildPrompt(
             List<ItineraryDay> itineraryDays,
             List<TripPlace> tripPlaces,
-            Set<TravelStyle> travelStyles
+            Set<TravelStyle> travelStyles,
+            String userRequest
     ) throws Exception {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put(
@@ -86,10 +101,9 @@ public class OpenAiRouteAdvisor {
                 tripPlaces.stream()
                         .map(place -> Map.of(
                                 "tripPlaceId", place.getId(),
-                                "name", place.getPlace().getName(),
-                                "category", place.getCategory().getName(),
-                                "latitude", place.getPlace().getLatitude(),
-                                "longitude", place.getPlace().getLongitude()
+                                "category", place.getCategory() == null
+                                        ? "" : place.getCategory().getName(),
+                                "status", place.getStatus().name()
                         ))
                         .toList()
         );
@@ -100,13 +114,16 @@ public class OpenAiRouteAdvisor {
                         .sorted()
                         .toList()
         );
+        input.put("userRequest", userRequest == null ? "" : userRequest);
 
         return """
-                당신은 여행 일정의 장소 배치 순서를 제안하는 도우미입니다.
+                당신은 MySQL에서 검색된 여행 일정 컨텍스트를 근거로
+                장소 배치 순서를 제안하는 도우미입니다.
                 아래 JSON에 있는 Day와 장소만 사용하세요.
                 모든 tripPlaceId를 정확히 한 번씩 배치하고 새로운 ID를 만들지 마세요.
                 가까운 장소를 같은 Day에 묶되 카테고리와 여행 스타일의 균형도 고려하세요.
-                영업시간처럼 입력에 없는 사실은 추측하지 마세요.
+                userRequest가 있으면 현재 시점 이후 일정을 재배치하는 핵심 조건으로 반영하세요.
+                장소명·주소·좌표·영업시간은 제공되지 않으므로 관련 사실을 추측하지 마세요.
                 summary는 한국어 한두 문장으로 작성하세요.
 
                 입력:

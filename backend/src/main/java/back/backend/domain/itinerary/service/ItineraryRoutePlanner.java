@@ -92,6 +92,22 @@ public class ItineraryRoutePlanner {
             Set<TravelStyle> travelStyles,
             TripScheduleSettings settings
     ) {
+        return planMulti(
+                itineraryDays,
+                tripPlaces,
+                travelStyles,
+                settings,
+                null
+        );
+    }
+
+    public List<RoutePlanOption> planMulti(
+            List<ItineraryDay> itineraryDays,
+            List<TripPlace> tripPlaces,
+            Set<TravelStyle> travelStyles,
+            TripScheduleSettings settings,
+            String userRequest
+    ) {
         TripScheduleSettings effectiveSettings = settings != null
                 ? settings : TripScheduleSettings.defaultSettings();
         List<ItineraryDay> days = sortedDays(itineraryDays);
@@ -115,7 +131,20 @@ public class ItineraryRoutePlanner {
         RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
                 days, geoClusters, tripPlaces.size(), defaultGeoSummary, null, effectiveSettings);
 
-        openAiRouteAdvisor.recommend(days, tripPlaces, travelStyles)
+        Optional<OpenAiRouteAdvisor.Recommendation> aiRecommendation =
+                userRequest == null || userRequest.isBlank()
+                        ? openAiRouteAdvisor.recommend(
+                                days,
+                                tripPlaces,
+                                travelStyles
+                        )
+                        : openAiRouteAdvisor.recommend(
+                                days,
+                                tripPlaces,
+                                travelStyles,
+                                userRequest
+                        );
+        aiRecommendation
                 .map(recommendation -> buildAiPlan(
                         days,
                         tripPlaces,

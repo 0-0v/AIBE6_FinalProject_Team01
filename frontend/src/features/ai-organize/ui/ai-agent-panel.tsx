@@ -7,7 +7,6 @@ import {
     LoaderCircleIcon,
     MapPinnedIcon,
     RotateCcwIcon,
-    SparklesIcon,
     XIcon,
 } from 'lucide-react'
 import {
@@ -20,6 +19,7 @@ import {
     TransportModeIcon,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { AiBrandMark } from '@/features/ai-trip-assistant'
 
 type Props = {
     tripId: number
@@ -172,17 +172,15 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
 
     return (
         <aside className="flex h-full w-[360px] shrink-0 flex-col border-l border-slate-200 bg-white">
-            <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
-                        <SparklesIcon size={16} />
-                    </span>
+            <header className="flex items-center justify-between border-b border-rose-100 bg-gradient-to-r from-[#fff8fa] to-white px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                    <AiBrandMark size="sm" />
                     <div>
                         <p className="text-sm font-extrabold">
                             스마트 동선 추천
                         </p>
                         <p className="text-[10px] text-slate-400">
-                            승인 전에는 일정을 변경하지 않아요
+                            지난 일정은 유지하고 승인 전에는 변경하지 않아요
                         </p>
                     </div>
                 </div>
@@ -204,8 +202,8 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                             저장 장소로 일정을 만들어 볼까요?
                         </h3>
                         <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                            저장한 장소를 여행 스타일에 맞게 정렬하고
-                            이동 거리를 최소화한 동선을 추천해 드려요.
+                            저장한 장소를 여행 스타일에 맞게 정렬하고 이동
+                            거리를 최소화한 동선을 추천해 드려요.
                         </p>
                         <button
                             type="button"
@@ -279,7 +277,8 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
                             type="button"
                             onClick={() => void applyPlan()}
                             disabled={
-                                applying || (preview?.totalPlaceCount ?? 0) === 0
+                                applying ||
+                                (preview?.totalPlaceCount ?? 0) === 0
                             }
                             className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
