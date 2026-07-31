@@ -218,7 +218,7 @@ class ItineraryTravelEstimatorTest {
 
         assertThat(item.isTransportModeManual()).isFalse();
         assertThat(item.getTransportModePreference()).isNull();
-        assertThat(item.getTransportMode()).isEqualTo("버스");
+        assertThat(item.getTransportMode()).isEqualTo("자동차");
     }
 
     @Test

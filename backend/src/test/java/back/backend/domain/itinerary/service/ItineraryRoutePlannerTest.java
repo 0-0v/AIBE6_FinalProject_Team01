@@ -9,6 +9,7 @@ import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.trip.entity.TravelStyle;
+import back.backend.domain.trip.entity.TravelPace;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,12 +29,19 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryRoutePlannerTest {
 
     @Mock
     private GoogleRoutesClient routesClient;
+
+    @Mock
+    private OpenAiRouteAdvisor openAiRouteAdvisor;
+
+    @Mock
+    private ConstraintSorter constraintSorter;
 
     private ItineraryRoutePlanner planner;
 
@@ -50,7 +58,15 @@ class ItineraryRoutePlannerTest {
                 nullable(java.time.Instant.class)
         ))
                 .thenReturn(Optional.empty());
-        planner = new ItineraryRoutePlanner(routesClient);
+        // ConstraintSorter: 입력 리스트를 그대로 반환 (정렬 없이 통과)
+        lenient().when(constraintSorter.sort(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        planner = new ItineraryRoutePlanner(
+                routesClient,
+                openAiRouteAdvisor,
+                constraintSorter
+        );
     }
 
     @Test
@@ -110,7 +126,8 @@ class ItineraryRoutePlannerTest {
         var options = planner.planMulti(
                 List.of(day(1L, 1), day(2L, 2)),
                 places,
-                Set.of(TravelStyle.FOOD)
+                Set.of(TravelStyle.FOOD),
+                TripScheduleSettings.defaultSettings()
         );
 
         var foodOption = options.stream()
@@ -140,7 +157,7 @@ class ItineraryRoutePlannerTest {
         );
         Set<TravelStyle> styles = Set.of(TravelStyle.FOOD, TravelStyle.NATURE);
 
-        var options = planner.planMulti(days, places, styles);
+        var options = planner.planMulti(days, places, styles, TripScheduleSettings.defaultSettings());
 
         // 이 픽스처에서는 경로가 중복되지 않으므로 지리 우선 1개 + 스타일 2개 = 3개
         assertThat(options).hasSize(3);
@@ -160,7 +177,7 @@ class ItineraryRoutePlannerTest {
                 tripPlace(11L, "B", PlaceCategoryType.ATTRACTION, 33.46, 126.51)
         );
 
-        var options = planner.planMulti(days, places, Set.of());
+        var options = planner.planMulti(days, places, Set.of(), TripScheduleSettings.defaultSettings());
 
         assertThat(options).hasSize(1);
         assertThat(options.get(0).routeLabel()).isEqualTo("지리 최적 코스");
@@ -181,7 +198,7 @@ class ItineraryRoutePlannerTest {
         );
         Set<TravelStyle> styles = Set.of(TravelStyle.FOOD);
 
-        var options = planner.planMulti(days, places, styles);
+        var options = planner.planMulti(days, places, styles, TripScheduleSettings.defaultSettings());
         assertThat(options).hasSize(2);
 
         var geoDay1 = options.get(0).plan().days().get(0).items().stream()
@@ -403,11 +420,40 @@ class ItineraryRoutePlannerTest {
         var options = planner.planMulti(
                 List.of(day(1L, 1)),
                 places,
-                Set.of(TravelStyle.FOOD)
+                Set.of(TravelStyle.FOOD),
+                TripScheduleSettings.defaultSettings()
         );
 
         assertThat(options).hasSize(1);
         assertThat(options.getFirst().routeLabel())
                 .isEqualTo("지리 최적 코스");
+    }
+
+    @Test
+    @DisplayName("t14 AI 동선 추천이 성공하면 제안한 Day 배치와 순서를 첫 번째 코스에 반영한다")
+    void t14_planMultiAppliesAiRecommendedOrderFirst() {
+        List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
+                tripPlace(11L, "장소 B", PlaceCategoryType.ATTRACTION, 33.55, 126.60),
+                tripPlace(12L, "장소 C", PlaceCategoryType.ATTRACTION, 33.65, 126.70)
+        );
+        when(openAiRouteAdvisor.recommend(days, places, Set.of()))
+                .thenReturn(Optional.of(new OpenAiRouteAdvisor.Recommendation(
+                        "AI가 이동 거리와 장소 구성을 고려해 정리했어요.",
+                        List.of(List.of(12L, 10L), List.of(11L))
+                )));
+
+        var options = planner.planMulti(days, places, Set.of(), TripScheduleSettings.defaultSettings());
+
+        assertThat(options.getFirst().routeLabel()).isEqualTo("AI 추천 코스");
+        assertThat(options.getFirst().plan().summary())
+                .isEqualTo("AI가 이동 거리와 장소 구성을 고려해 정리했어요.");
+        assertThat(options.getFirst().plan().days().getFirst().items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactly(12L, 10L);
+        assertThat(options.getFirst().plan().days().get(1).items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactly(11L);
     }
 }

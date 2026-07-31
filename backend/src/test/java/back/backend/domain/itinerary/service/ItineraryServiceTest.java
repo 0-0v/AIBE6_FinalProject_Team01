@@ -409,7 +409,7 @@ class ItineraryServiceTest {
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.planMulti(List.of(day), List.of(savedTripPlace), Set.of()))
+        given(routePlanner.planMulti(any(), any(), any(), any()))
                 .willReturn(List.of(option));
 
         List<RoutePlanOption> result = itineraryService.previewRoutePlan(TRIP_ID);
@@ -595,7 +595,7 @@ class ItineraryServiceTest {
                 TRIP_ID,
                 TripPlaceStatus.SAVED
         )).willReturn(List.of(savedTripPlace));
-        given(routePlanner.planMulti(List.of(day), List.of(savedTripPlace), Set.of()))
+        given(routePlanner.planMulti(any(), any(), any(), any()))
                 .willReturn(List.of(new RoutePlanOption(
                         "거리 최적화 코스",
                         new RoutePlanPreviewResponse("추천 동선", 1, 0, List.of())

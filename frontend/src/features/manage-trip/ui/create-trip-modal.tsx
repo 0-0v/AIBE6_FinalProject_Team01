@@ -5,8 +5,15 @@ import {
     uploadTripCoverImage,
     type CompanionType,
     type TravelStyle,
+    type TravelPace,
 } from '../api/trip-api'
 import { TripCoverImageField } from './trip-cover-image-field'
+
+const PACES: { value: TravelPace; label: string; desc: string }[] = [
+    { value: 'FAST', label: '빠르게', desc: '일정을 빽빽하게 채워요' },
+    { value: 'NORMAL', label: '보통', desc: '무난한 속도로 즐겨요' },
+    { value: 'RELAXED', label: '여유롭게', desc: '여유롭게 충분히 머물러요' },
+]
 
 const COMPANIONS: { value: CompanionType; label: string }[] = [
     { value: 'ALONE', label: '혼자' },
@@ -49,6 +56,9 @@ export function CreateTripModal({
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
     const [createdTripId, setCreatedTripId] = useState<number | null>(null)
+    const [dayStartTime, setDayStartTime] = useState('09:00')
+    const [dayEndTime, setDayEndTime] = useState('21:00')
+    const [travelPace, setTravelPace] = useState<TravelPace>('NORMAL')
 
     function toggleStyle(style: TravelStyle) {
         setTravelStyles((current) =>
@@ -91,6 +101,9 @@ export function CreateTripModal({
                         destination: destination.trim() || null,
                         startDate: startDate || null,
                         endDate: endDate || null,
+                        dayStartTime,
+                        dayEndTime,
+                        travelPace,
                     })
                 ).id
             setCreatedTripId(tripId)
@@ -157,6 +170,24 @@ export function CreateTripModal({
                     <label className="text-sm font-bold">시작일<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
                     <label className="text-sm font-bold">종료일<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
                 </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                    <label className="text-sm font-bold">하루 시작 시간<input type="time" value={dayStartTime} onChange={(e) => setDayStartTime(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+                    <label className="text-sm font-bold">하루 종료 시간<input type="time" value={dayEndTime} onChange={(e) => setDayEndTime(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal" /></label>
+                </div>
+
+                <fieldset className="mt-4">
+                    <legend className="text-sm font-bold">여행 페이스</legend>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                        {PACES.map((p) => (
+                            <button key={p.value} type="button" onClick={() => setTravelPace(p.value)}
+                                className={`rounded-xl border px-2 py-2 text-center text-xs font-bold transition-colors ${travelPace === p.value ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500'}`}>
+                                <div>{p.label}</div>
+                                <div className={`mt-0.5 text-[10px] font-normal ${travelPace === p.value ? 'text-white/80' : 'text-slate-400'}`}>{p.desc}</div>
+                            </button>
+                        ))}
+                    </div>
+                </fieldset>
 
                 {error && <p className="mt-4 text-sm font-semibold text-red-500">{error}</p>}
                 <button disabled={isSubmitting} className="mt-6 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-60">

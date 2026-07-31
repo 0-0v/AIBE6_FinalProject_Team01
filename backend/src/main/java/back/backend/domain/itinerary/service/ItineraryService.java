@@ -15,6 +15,7 @@ import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.trip.entity.TravelPace;
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -376,13 +377,23 @@ public class ItineraryService {
     @Transactional(readOnly = true)
     public List<RoutePlanOption> previewRoutePlan(Long tripId) {
         accessChecker.requireView(tripId);
-        var travelStyles = tripRepository.findById(tripId)
-                .map(trip -> trip.getTravelStyles())
-                .orElse(Set.of());
+        var trip = tripRepository.findById(tripId);
+        var travelStyles = trip.map(t -> t.getTravelStyles()).orElse(Set.of());
+        var settings = trip.map(t -> {
+            LocalTime start = t.getDayStartTime();
+            LocalTime end = t.getDayEndTime();
+            TravelPace pace = t.getTravelPace();
+            return new TripScheduleSettings(
+                    start != null ? start : LocalTime.of(9, 0),
+                    end != null ? end : LocalTime.of(21, 0),
+                    pace != null ? pace : TravelPace.NORMAL
+            );
+        }).orElse(TripScheduleSettings.defaultSettings());
         return routePlanner.planMulti(
                 dayRepository.findAllWithItemsByTripId(tripId),
                 findSavedTripPlaces(tripId),
-                travelStyles
+                travelStyles,
+                settings
         );
     }
 

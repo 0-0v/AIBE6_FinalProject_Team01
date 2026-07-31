@@ -60,6 +60,18 @@ BREVO_FROM_EMAIL=
 
 `BREVO_FROM_EMAIL`에는 Brevo에서 발신자로 인증한 주소를 사용합니다.
 
+AI 동선 추천에 OpenAI를 사용하려면 다음 값을 `backend/.env`에
+추가합니다. API 키가 없거나 호출에 실패하면 기존 규칙 기반 동선
+추천으로 자동 대체됩니다.
+
+```env
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5-nano
+OPENAI_API_BASE_URL=https://api.openai.com
+OPENAI_CONNECT_TIMEOUT=3s
+OPENAI_READ_TIMEOUT=30s
+```
+
 ### 여행 장소 관리 로컬 데이터
 
 프론트엔드는 실제 Trip API가 구현되기 전까지 임시로 `tripId=1`을 사용합니다. 여행 장소 추가·조회·수정·삭제를 확인하려면 먼저 소셜 로그인으로 `members` 레코드를 생성한 뒤, 로컬 MySQL에서 해당 회원이 접근 가능한 여행 1번을 준비해야 합니다.

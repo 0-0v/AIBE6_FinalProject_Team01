@@ -1,12 +1,14 @@
 package back.backend.domain.trip.dto;
 
 import back.backend.domain.trip.entity.CompanionType;
+import back.backend.domain.trip.entity.TravelPace;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TripVisibility;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Set;
 
 public record TripRequest(
@@ -20,7 +22,10 @@ public record TripRequest(
         LocalDate startDate,
         LocalDate endDate,
         @Schema(hidden = true)
-        TripVisibility visibility
+        TripVisibility visibility,
+        LocalTime dayStartTime,
+        LocalTime dayEndTime,
+        TravelPace travelPace
 ) {
     public Set<TravelStyle> normalizedTravelStyles() {
         return travelStyles == null ? Set.of() : Set.copyOf(travelStyles);

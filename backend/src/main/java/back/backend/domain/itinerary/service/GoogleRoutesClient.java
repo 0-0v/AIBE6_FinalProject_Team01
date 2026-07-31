@@ -134,16 +134,21 @@ public class GoogleRoutesClient {
         }
 
         try {
+            String travelMode = toRoutesTravelMode(mode);
+            // TRAFFIC_AWARE는 DRIVE 모드에서만 지원 (WALK, TRANSIT은 미지원)
+            String routingPreference = (departureTime != null && "DRIVE".equals(travelMode))
+                    ? "TRAFFIC_AWARE" : null;
             ComputeRoutesRequest request = new ComputeRoutesRequest(
                     waypoint(originLat, originLng),
                     waypoint(destLat, destLng),
-                    toRoutesTravelMode(mode),
+                    travelMode,
                     transitMode == null
                             ? null
                             : new TransitPreferences(
                                     List.of(transitMode.toUpperCase())
                             ),
-                    departureTime
+                    departureTime,
+                    routingPreference
             );
             ComputeRoutesResponse response = restClient.post()
                     .uri("/directions/v2:computeRoutes")
@@ -338,7 +343,8 @@ public class GoogleRoutesClient {
             Waypoint destination,
             String travelMode,
             TransitPreferences transitPreferences,
-            Instant departureTime
+            Instant departureTime,
+            String routingPreference
     ) {}
 
     private record Waypoint(Location location) {}

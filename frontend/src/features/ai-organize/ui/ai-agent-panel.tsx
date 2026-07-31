@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import {
     applyItineraryRoutePlan,
+    initializeItinerary,
     previewItineraryRoutePlan,
     type ItineraryDay,
     type RouteOption,
@@ -136,6 +137,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
         setApplied(false)
         setError(null)
         try {
+            await initializeItinerary(tripId)
             const result = await previewItineraryRoutePlan(tripId)
             setOptions(result)
             setSelectedIndex(0)

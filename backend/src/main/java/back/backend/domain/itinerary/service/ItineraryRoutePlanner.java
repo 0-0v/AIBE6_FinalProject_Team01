@@ -9,6 +9,7 @@ import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.trip.entity.TravelStyle;
+import back.backend.domain.trip.entity.TravelPace;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,8 +27,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ItineraryRoutePlanner {
 
-    private static final int DAY_START_MINUTES = 9 * 60;
-    private static final int DAY_END_CUTOFF_MINUTES = 21 * 60; // 21:00
     private static final int DEFAULT_STAY_MINUTES = 60;
 
     private static final Map<PlaceCategoryType, Integer> CATEGORY_STAY_MINUTES =
@@ -81,6 +80,8 @@ public class ItineraryRoutePlanner {
     );
 
     private final GoogleRoutesClient routesClient;
+    private final OpenAiRouteAdvisor openAiRouteAdvisor;
+    private final ConstraintSorter constraintSorter;
 
     /**
      * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
@@ -88,8 +89,11 @@ public class ItineraryRoutePlanner {
     public List<RoutePlanOption> planMulti(
             List<ItineraryDay> itineraryDays,
             List<TripPlace> tripPlaces,
-            Set<TravelStyle> travelStyles
+            Set<TravelStyle> travelStyles,
+            TripScheduleSettings settings
     ) {
+        TripScheduleSettings effectiveSettings = settings != null
+                ? settings : TripScheduleSettings.defaultSettings();
         List<ItineraryDay> days = sortedDays(itineraryDays);
 
         if (days.isEmpty() || tripPlaces.isEmpty()) {
@@ -99,22 +103,39 @@ public class ItineraryRoutePlanner {
         }
 
         List<RoutePlanOption> options = new ArrayList<>();
+        Set<String> routeSignatures = new HashSet<>();
 
-        // 항상 지리 우선 코스 포함
+        // 지리 기반 클러스터링 + 제약 정렬 (ConstraintSorter는 buildResponseFromClusters 내부에서 적용)
         List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
-        options.add(new RoutePlanOption("지리 최적 코스",
-                buildResponseFromClusters(days, geoClusters, tripPlaces.size(),
-                        String.format("저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
-                                tripPlaces.size(), days.size()),
-                        null)));
+        String defaultGeoSummary = String.format(
+                "저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
+                tripPlaces.size(),
+                days.size()
+        );
+        RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
+                days, geoClusters, tripPlaces.size(), defaultGeoSummary, null, effectiveSettings);
+
+        openAiRouteAdvisor.recommend(days, tripPlaces, travelStyles)
+                .map(recommendation -> buildAiPlan(
+                        days,
+                        tripPlaces,
+                        recommendation,
+                        effectiveSettings
+                ))
+                .ifPresent(aiPlan -> {
+                    options.add(new RoutePlanOption("AI 추천 코스", aiPlan));
+                    routeSignatures.add(routeSignature(aiPlan));
+                });
+
+        if (routeSignatures.add(routeSignature(geoPlan))) {
+            options.add(new RoutePlanOption("지리 최적 코스", geoPlan));
+        }
 
         // 스타일별 코스 추가
         if (!travelStyles.isEmpty()) {
             log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
                     tripPlaces.size(), days.size(), travelStyles);
         }
-        Set<String> routeSignatures = new HashSet<>();
-        routeSignatures.add(routeSignature(options.getFirst().plan()));
         List<TravelStyle> orderedStyles = travelStyles.stream()
                 .sorted(Comparator.comparingInt(Enum::ordinal))
                 .toList();
@@ -135,7 +156,8 @@ public class ItineraryRoutePlanner {
                             days.size(),
                             priority
                     ),
-                    buildStyleReason(styleLabel)
+                    buildStyleReason(styleLabel),
+                    effectiveSettings
             );
             if (routeSignatures.add(routeSignature(stylePlan))) {
                 options.add(new RoutePlanOption(label, stylePlan));
@@ -145,6 +167,31 @@ public class ItineraryRoutePlanner {
         return options;
     }
 
+    private RoutePlanPreviewResponse buildAiPlan(
+            List<ItineraryDay> days,
+            List<TripPlace> tripPlaces,
+            OpenAiRouteAdvisor.Recommendation recommendation,
+            TripScheduleSettings settings
+    ) {
+        Map<Long, TripPlace> placesById = tripPlaces.stream()
+                .collect(Collectors.toMap(TripPlace::getId, place -> place));
+        List<List<TripPlace>> clusters = recommendation.tripPlaceIdsByDay()
+                .stream()
+                .map(placeIds -> placeIds.stream()
+                        .map(placesById::get)
+                        .filter(Objects::nonNull)
+                        .toList())
+                .toList();
+        return buildResponseFromClusters(
+                days,
+                clusters,
+                tripPlaces.size(),
+                recommendation.summary(),
+                "AI가 여행 스타일과 장소 간 이동을 함께 고려한 순서예요.",
+                settings
+        );
+    }
+
     /**
      * 기존 단일 경로 API와의 하위 호환을 위해 유지합니다.
      */
@@ -152,7 +199,8 @@ public class ItineraryRoutePlanner {
             List<ItineraryDay> itineraryDays,
             List<TripPlace> tripPlaces
     ) {
-        List<RoutePlanOption> options = planMulti(itineraryDays, tripPlaces, Set.of());
+        List<RoutePlanOption> options = planMulti(
+                itineraryDays, tripPlaces, Set.of(), TripScheduleSettings.defaultSettings());
         return options.isEmpty() ? emptyResponse(itineraryDays, tripPlaces) : options.get(0).plan();
     }
 
@@ -409,14 +457,17 @@ public class ItineraryRoutePlanner {
             List<List<TripPlace>> clusters,
             int totalPlaceCount,
             String summary,
-            String defaultReason
+            String defaultReason,
+            TripScheduleSettings settings
     ) {
         List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
         int totalDistanceMeters = 0;
 
         for (int i = 0; i < days.size(); i++) {
+            ItineraryDay day = days.get(i);
             List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
-            RoutePlanDayResponse plannedDay = planDay(days.get(i), dayPlaces, defaultReason);
+            List<TripPlace> sortedPlaces = constraintSorter.sort(dayPlaces, day.getItineraryDate());
+            RoutePlanDayResponse plannedDay = planDay(day, sortedPlaces, defaultReason, settings);
             plannedDays.add(plannedDay);
             totalDistanceMeters += plannedDay.totalDistanceMeters();
         }
@@ -427,10 +478,13 @@ public class ItineraryRoutePlanner {
     private RoutePlanDayResponse planDay(
             ItineraryDay day,
             List<TripPlace> places,
-            String defaultReason
+            String defaultReason,
+            TripScheduleSettings settings
     ) {
         List<RoutePlanItemResponse> items = new ArrayList<>();
-        int cursorMinutes = DAY_START_MINUTES;
+        int cursorMinutes = settings.dayStartMinutes();
+        int dayEndCutoff = settings.dayEndMinutes();
+        double paceMultiplier = settings.travelPace().stayMultiplier();
         int totalDistanceMeters = 0;
         boolean timeSchedulingClosed = false;
 
@@ -438,11 +492,12 @@ public class ItineraryRoutePlanner {
             TripPlace current = places.get(index);
             TripPlace next = index + 1 < places.size() ? places.get(index + 1) : null;
 
-            int stayMinutes = CATEGORY_STAY_MINUTES.getOrDefault(
+            int baseStay = CATEGORY_STAY_MINUTES.getOrDefault(
                     current.getCategory().getCategoryType(), DEFAULT_STAY_MINUTES);
+            int stayMinutes = (int) Math.round(baseStay * paceMultiplier);
             int endMinutes = cursorMinutes + stayMinutes;
             boolean fitsInDay = !timeSchedulingClosed
-                    && endMinutes <= DAY_END_CUTOFF_MINUTES;
+                    && endMinutes <= dayEndCutoff;
             if (!fitsInDay) {
                 timeSchedulingClosed = true;
             }
@@ -458,7 +513,7 @@ public class ItineraryRoutePlanner {
                 );
             }
 
-            String reason = buildItemReason(index, fitsInDay, defaultReason);
+            String reason = buildItemReason(index, fitsInDay, defaultReason, settings);
 
             items.add(new RoutePlanItemResponse(
                     current.getId(),
@@ -491,10 +546,14 @@ public class ItineraryRoutePlanner {
         );
     }
 
-    private String buildItemReason(int index, boolean fitsInDay, String defaultReason) {
+    private String buildItemReason(
+            int index, boolean fitsInDay, String defaultReason, TripScheduleSettings settings) {
         if (!fitsInDay) return "하루 일정이 길어 방문 시간은 직접 조정해 주세요.";
         if (defaultReason != null) return defaultReason;
-        return index == 0 ? "오전 9시부터 시작하는 첫 장소예요." : "이전 장소와 가까워 이동 부담이 적어요.";
+        if (index == 0) {
+            return settings.dayStartTime().format(TIME_FORMATTER) + "부터 시작하는 첫 장소예요.";
+        }
+        return "이전 장소와 가까워 이동 부담이 적어요.";
     }
 
     private String buildStyleSummary(
