@@ -56,7 +56,7 @@ class PlaceControllerTest {
                         null, null, null, null, null, null, null, null, null, null, null
                 )
         );
-        given(placeSearchService.search("카멜리아힐")).willReturn(responses);
+        given(placeSearchService.search("카멜리아힐", null, null)).willReturn(responses);
 
         mockMvc.perform(get("/api/places/search").param("query", "카멜리아힐"))
                 .andExpect(status().isOk())
@@ -71,7 +71,7 @@ class PlaceControllerTest {
     @Test
     @DisplayName("t2 query 파라미터가 빈 문자열이면 400과 PLACE_SEARCH_QUERY_REQUIRED 코드를 반환한다")
     void t2_query파라미터없으면400반환() throws Exception {
-        given(placeSearchService.search(""))
+        given(placeSearchService.search("", null, null))
                 .willThrow(new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED));
 
         mockMvc.perform(get("/api/places/search").param("query", ""))
@@ -83,7 +83,7 @@ class PlaceControllerTest {
     @Test
     @DisplayName("t3 query 파라미터가 누락되면 400을 반환한다")
     void t3_query파라미터누락시400반환() throws Exception {
-        given(placeSearchService.search(null))
+        given(placeSearchService.search(null, null, null))
                 .willThrow(new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED));
 
         mockMvc.perform(get("/api/places/search"))

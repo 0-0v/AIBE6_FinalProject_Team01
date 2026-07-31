@@ -27,8 +27,10 @@ public class PlaceController {
 
     @GetMapping("/search")
     public ApiResponse<List<PlaceSearchResponse>> search(
-            @RequestParam(required = false) String query) {
-        return ApiResponse.success(placeSearchService.search(query));
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String includedType) {
+        return ApiResponse.success(placeSearchService.search(query, location, includedType));
     }
 
     @GetMapping("/photo")

@@ -597,7 +597,19 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
-                        {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {canPlanWrite && (
+                            <PlaceSearch
+                                onAdd={handleAdd}
+                                location={room.location || undefined}
+                                existingGooglePlaceIds={
+                                    new Set(
+                                        places
+                                            .map((p) => p.googlePlaceId)
+                                            .filter((id): id is string => !!id),
+                                    )
+                                }
+                            />
+                        )}
                         {(loadError || categoryError || placeError) && (
                             <p
                                 role="alert"
