@@ -5,4 +5,5 @@ import java.util.List;
 public interface PlanCardTagRepository extends JpaRepository<PlanCardTag, Long> {
     boolean existsByPlanCardIdAndTagId(Long planCardId, Long tagId);
     List<PlanCardTag> findAllByPlanCardId(Long planCardId);
+    void deleteAllByPlanCardId(Long planCardId);
 }

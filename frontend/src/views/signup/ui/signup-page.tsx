@@ -2,7 +2,6 @@
 
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { SparklesIcon } from 'lucide-react'
 import {
     checkNicknameAvailability,
     confirmVerificationCode,
@@ -13,6 +12,7 @@ import {
     signup,
 } from '@/features/local-auth'
 import { getApiErrorCode, getApiErrorMessage } from '@/shared/api/client'
+import { BrandLogo } from '@/shared/ui'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const nicknamePattern = /^[가-힣a-zA-Z0-9_]+$/
@@ -74,10 +74,7 @@ export function SignupPage() {
 
     async function handleCheckNickname() {
         const normalizedNickname = nickname.trim()
-        if (
-            normalizedNickname.length < 2 ||
-            normalizedNickname.length > 12
-        ) {
+        if (normalizedNickname.length < 2 || normalizedNickname.length > 12) {
             setNicknameError('닉네임은 2~12자로 입력해 주세요.')
             return
         }
@@ -170,7 +167,7 @@ export function SignupPage() {
                                     ? 'border-red-400'
                                     : verified
                                       ? 'border-emerald-500'
-                                    : 'border-slate-300'
+                                      : 'border-slate-300'
                             }`}
                             type="email"
                             value={email}
@@ -199,9 +196,7 @@ export function SignupPage() {
                         <p
                             id="signup-email-status"
                             className={`mt-1.5 text-xs font-normal ${
-                                emailError
-                                    ? 'text-red-600'
-                                    : 'text-emerald-600'
+                                emailError ? 'text-red-600' : 'text-emerald-600'
                             }`}
                         >
                             {emailError || '인증되었습니다.'}
@@ -337,8 +332,8 @@ function AuthLayout({
         <div className="flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
             <div className="w-full max-w-md rounded-2xl bg-white p-7 shadow-sm">
                 <div className="mb-7 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-white">
-                        <SparklesIcon size={23} />
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center">
+                        <BrandLogo />
                     </div>
                     <h1 className="mt-4 text-2xl font-extrabold">{title}</h1>
                 </div>

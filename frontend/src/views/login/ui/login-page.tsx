@@ -1,9 +1,9 @@
 import React, { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { SparklesIcon } from 'lucide-react'
 import { login } from '@/features/local-auth'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { getLastLoginProvider } from '@/shared/lib'
+import { BrandLogo } from '@/shared/ui'
 
 const socials = [
     {
@@ -92,9 +92,9 @@ export function Login() {
                     <Link
                         to="/"
                         aria-label="Plamingo 랜딩 페이지로 이동"
-                        className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white transition hover:-translate-y-0.5 hover:shadow-lg"
+                        className="mx-auto flex h-16 w-16 items-center justify-center transition hover:-translate-y-0.5"
                     >
-                        <SparklesIcon size={26} />
+                        <BrandLogo />
                     </Link>
                     <h1 className="mt-5 text-2xl font-extrabold tracking-tight">
                         Plamingo 시작하기
@@ -179,11 +179,17 @@ export function Login() {
 
                 <p className="mt-8 text-center text-xs leading-relaxed text-slate-400">
                     가입 시{' '}
-                    <Link to="/terms" className="underline underline-offset-2 hover:text-slate-600">
+                    <Link
+                        to="/terms"
+                        className="underline underline-offset-2 hover:text-slate-600"
+                    >
                         이용약관
                     </Link>{' '}
                     및{' '}
-                    <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-600">
+                    <Link
+                        to="/privacy"
+                        className="underline underline-offset-2 hover:text-slate-600"
+                    >
                         개인정보처리방침
                     </Link>
                     에 동의하게 됩니다.

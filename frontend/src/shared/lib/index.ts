@@ -1,4 +1,5 @@
 export { cn } from './utils'
+export { getJwtExpirationTime } from './jwt-expiration'
 export {
     getLastLoginProvider,
     setLastLoginProvider,

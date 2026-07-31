@@ -15,6 +15,7 @@ import back.backend.domain.collaboration.activitylog.port.TripMemberAccessChecke
 import back.backend.domain.collaboration.activitylog.repository.ActivityLogRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.response.PageResponse;
+import back.backend.global.realtime.RealtimeEvent;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -37,11 +39,15 @@ class ActivityLogServiceTest {
     @Mock
     private TripMemberAccessChecker tripMemberAccessChecker;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private ActivityLogService activityLogService;
 
     @BeforeEach
     void setUp() {
-        activityLogService = new ActivityLogService(activityLogRepository, tripMemberAccessChecker);
+        activityLogService = new ActivityLogService(
+                activityLogRepository, tripMemberAccessChecker, eventPublisher);
     }
 
     @Test
@@ -57,6 +63,7 @@ class ActivityLogServiceTest {
         Long activityLogId = activityLogService.create(command);
 
         assertThat(activityLogId).isEqualTo(10L);
+        verify(eventPublisher).publishEvent(any(RealtimeEvent.class));
     }
 
     @Test

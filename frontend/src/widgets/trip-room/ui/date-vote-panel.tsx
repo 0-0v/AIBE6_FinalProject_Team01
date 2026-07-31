@@ -48,6 +48,7 @@ type Props = {
     onDirtyChange?: (dirty: boolean) => void
     onCollaborationChanged?: () => void
     onTripDatesChanged?: () => void
+    realtimeVersion?: number
 }
 type SelectionGesture = {
     anchor: string
@@ -69,6 +70,7 @@ export function DateVotePanel({
     onDirtyChange,
     onCollaborationChanged,
     onTripDatesChanged,
+    realtimeVersion = 0,
 }: Props) {
     const navigate = useNavigate()
     const allowNavigationRef = useRef(false)
@@ -81,6 +83,7 @@ export function DateVotePanel({
     )
     const [hoveredDate, setHoveredDate] = useState<string | null>(null)
     const [dirty, setDirty] = useState(false)
+    const dirtyRef = useRef(false)
     const [gesture, setGesture] = useState<SelectionGesture | null>(null)
     const [touchAnchor, setTouchAnchor] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
@@ -225,6 +228,11 @@ export function DateVotePanel({
     )
 
     useEffect(() => {
+        dirtyRef.current = dirty
+    }, [dirty])
+
+    useEffect(() => {
+        if (dirtyRef.current && realtimeVersion > 0) return
         let active = true
         Promise.allSettled([
             getDateAvailability(tripId),
@@ -266,7 +274,7 @@ export function DateVotePanel({
         return () => {
             active = false
         }
-    }, [memberId, tripId])
+    }, [memberId, realtimeVersion, tripId])
 
     const members = useMemo(() => {
         if (

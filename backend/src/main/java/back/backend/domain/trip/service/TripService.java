@@ -21,6 +21,8 @@ import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.domain.place.service.TripAccessChecker;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,7 @@ public class TripService {
     private final PlanCardRepository planCardRepository;
     private final TripPresenceService tripPresenceService;
     private final TripAccessChecker tripAccessChecker;
+    private final Clock clock;
 
     public TripService(TripRepository tripRepository, TripMemberRepository tripMemberRepository,
                        MemberRepository memberRepository,
@@ -45,7 +48,8 @@ public class TripService {
                        NotificationService notificationService,
                        PlanCardRepository planCardRepository,
                        TripPresenceService tripPresenceService,
-                       TripAccessChecker tripAccessChecker) {
+                       TripAccessChecker tripAccessChecker,
+                       Clock clock) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.memberRepository = memberRepository;
@@ -54,6 +58,7 @@ public class TripService {
         this.planCardRepository = planCardRepository;
         this.tripPresenceService = tripPresenceService;
         this.tripAccessChecker = tripAccessChecker;
+        this.clock = clock;
     }
 
     @Transactional
@@ -148,10 +153,18 @@ public class TripService {
 
     private Trip saveValidTrip(Long memberId, TripRequest request) {
         try {
+            validateCreationDates(request);
             return tripRepository.save(Trip.create(memberId, request.title(), request.companionType(),
                     request.normalizedTravelStyles(), request.destination(), request.startDate(), request.endDate()));
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
+        }
+    }
+
+    private void validateCreationDates(TripRequest request) {
+        if (request.startDate() != null
+                && !request.startDate().isAfter(LocalDate.now(clock))) {
+            throw new IllegalArgumentException("여행 시작일은 내일부터 선택할 수 있습니다.");
         }
     }
 

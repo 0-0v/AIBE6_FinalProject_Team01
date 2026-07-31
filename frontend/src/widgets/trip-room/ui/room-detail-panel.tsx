@@ -65,6 +65,7 @@ type Props = {
     onSelectPlace: (id: string) => void
     onBack: () => void
     onManage: () => void
+    onVisibilityManage: () => void
     onUpdatePlace: (id: string, update: (place: Place) => Place) => void
     onAddPlace: (place: Place) => void
     onDeletePlace: (id: string) => void
@@ -75,6 +76,7 @@ type Props = {
     onTripDatesChanged?: () => void | Promise<void>
     onItineraryDaysLoaded?: (days: ItineraryDay[]) => void
     itineraryVersion?: number
+    realtimeVersion?: number
     showBackButton?: boolean
     guestView?: boolean
     onJoin?: () => void
@@ -89,6 +91,7 @@ export function RoomDetailPanel({
     onSelectPlace,
     onBack,
     onManage,
+    onVisibilityManage,
     onUpdatePlace,
     onAddPlace,
     onDeletePlace,
@@ -99,6 +102,7 @@ export function RoomDetailPanel({
     onTripDatesChanged,
     onItineraryDaysLoaded,
     itineraryVersion = 0,
+    realtimeVersion = 0,
     showBackButton = true,
     guestView = false,
     onJoin,
@@ -410,12 +414,14 @@ export function RoomDetailPanel({
                         location={room.location}
                         date={room.date}
                         isPublic={isPublic}
+                        isCompleted={room.lifecycleStatus === 'COMPLETED'}
                         canWrite={canWrite}
                         members={members}
                         onInvite={() => setInviteOpen(true)}
                         onJoin={guestView ? onJoin : undefined}
                         onBack={handleBack}
                         onManage={onManage}
+                        onVisibilityManage={onVisibilityManage}
                         showBackButton={showBackButton}
                     />
                 )
@@ -674,13 +680,14 @@ export function RoomDetailPanel({
                                 () => setPlanTab('schedule'),
                             )
                         }}
+                        realtimeVersion={realtimeVersion}
                     />
                 </div>
             )}
             {mode === 'plan' && planTab === 'schedule' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     <SchedulePanel
-                        key={`schedule-${itineraryVersion}`}
+                        key={`schedule-${itineraryVersion}-${realtimeVersion}`}
                         tripId={tripId}
                         roomId={room.id}
                         places={places}

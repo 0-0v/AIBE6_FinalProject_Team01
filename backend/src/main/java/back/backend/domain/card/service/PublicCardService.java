@@ -5,11 +5,14 @@ import back.backend.domain.card.entity.*;
 import back.backend.domain.card.repository.*;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.entity.TripVisibility;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.realtime.RealtimeEvent;
 import java.util.*;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -21,14 +24,20 @@ public class PublicCardService {
     private final PlanCardTagRepository cardTagRepository;
     private final TripTagRepository tagRepository;
     private final TripRepository tripRepository;
+    private final TripMemberRepository tripMemberRepository;
     private final MemberRepository memberRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PublicCardService(PlanCardRepository cardRepository, SavedTripRepository savedRepository,
             CardCommentRepository commentRepository, PlanCardTagRepository cardTagRepository,
-            TripTagRepository tagRepository, TripRepository tripRepository, MemberRepository memberRepository) {
+            TripTagRepository tagRepository, TripRepository tripRepository,
+            TripMemberRepository tripMemberRepository, MemberRepository memberRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.cardRepository = cardRepository; this.savedRepository = savedRepository;
         this.commentRepository = commentRepository; this.cardTagRepository = cardTagRepository;
-        this.tagRepository = tagRepository; this.tripRepository = tripRepository; this.memberRepository = memberRepository;
+        this.tagRepository = tagRepository; this.tripRepository = tripRepository;
+        this.tripMemberRepository = tripMemberRepository; this.memberRepository = memberRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public PublicCardPageResponse getPublicCards(Long memberId, int page, int size, CardSort sort, String query) {
@@ -57,9 +66,10 @@ public class PublicCardService {
     @Transactional
     public void bookmark(Long memberId, Long cardId) {
         PlanCard card = requirePublic(cardId);
-        if (card.getCreatedBy().equals(memberId)) throw new BusinessException(CommonErrorCode.FORBIDDEN);
+        if (isOwnCard(card, memberId)) throw new BusinessException(CommonErrorCode.FORBIDDEN);
         if (savedRepository.findByMemberIdAndTripId(memberId, card.getTripId()).isEmpty()) {
             savedRepository.save(SavedTrip.create(memberId, card.getTripId()));
+            eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
         }
     }
 
@@ -67,6 +77,7 @@ public class PublicCardService {
     public void removeBookmark(Long memberId, Long cardId) {
         PlanCard card = requirePublic(cardId);
         savedRepository.findByMemberIdAndTripId(memberId, card.getTripId()).ifPresent(savedRepository::delete);
+        eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
     }
 
     public List<CardCommentResponse> getComments(Long cardId, Long memberId) {
@@ -78,7 +89,10 @@ public class PublicCardService {
     @Transactional
     public CardCommentResponse addComment(Long memberId, Long cardId, CardCommentRequest request) {
         requirePublic(cardId);
-        return toComment(commentRepository.save(CardComment.create(cardId, memberId, request.content())), memberId);
+        CardCommentResponse response = toComment(
+                commentRepository.save(CardComment.create(cardId, memberId, request.content())), memberId);
+        eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
+        return response;
     }
 
     @Transactional
@@ -88,6 +102,7 @@ public class PublicCardService {
                 .filter(item -> item.getPlanCardId().equals(cardId))
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
         commentRepository.delete(comment);
+        eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
     }
 
     private PlanCard requirePublic(Long cardId) {
@@ -116,13 +131,20 @@ public class PublicCardService {
         List<String> tags = cardTagRepository.findAllByPlanCardId(card.getId()).stream()
                 .map(PlanCardTag::getTagId).map(tagRepository::findById).flatMap(Optional::stream)
                 .map(TripTag::getName).toList();
+        boolean ownCard = isOwnCard(card, memberId);
         boolean bookmarked = memberId != null
+                && !ownCard
                 && savedRepository.findByMemberIdAndTripId(memberId, card.getTripId()).isPresent();
         return new PublicCardResponse(card.getId(), card.getTripId(), card.getCreatedBy(), author, card.getTitle(),
                 card.getSummary(), trip.getDestination(), card.getCoverImageUrl() != null
                 ? card.getCoverImageUrl() : trip.getCoverImageUrl(), tags,
                 savedRepository.countByTripId(card.getTripId()), commentRepository.countByPlanCardId(card.getId()),
-                bookmarked, memberId != null && card.getCreatedBy().equals(memberId), card.getCreatedAt());
+                bookmarked, ownCard, card.getCreatedAt());
+    }
+    private boolean isOwnCard(PlanCard card, Long memberId) {
+        return memberId != null
+                && (card.getCreatedBy().equals(memberId)
+                || tripMemberRepository.existsByTripIdAndMemberId(card.getTripId(), memberId));
     }
     private CardCommentResponse toComment(CardComment comment, Long memberId) {
         String nickname = memberRepository.findById(comment.getMemberId()).map(member -> member.getNickname()).orElse("알 수 없음");

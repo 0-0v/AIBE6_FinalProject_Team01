@@ -18,6 +18,7 @@ import back.backend.domain.collaboration.notification.repository.NotificationRep
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.response.PageResponse;
+import back.backend.global.realtime.RealtimeEvent;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -40,11 +42,15 @@ class NotificationServiceTest {
     @Mock
     private MemberRepository memberRepository;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private NotificationService notificationService;
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationService(notificationRepository, memberRepository);
+        notificationService = new NotificationService(
+                notificationRepository, memberRepository, eventPublisher);
     }
 
     @Test
@@ -62,6 +68,7 @@ class NotificationServiceTest {
 
         assertThat(notificationId).isEqualTo(10L);
         verify(notificationRepository).save(any(Notification.class));
+        verify(eventPublisher).publishEvent(any(RealtimeEvent.class));
     }
 
     @Test

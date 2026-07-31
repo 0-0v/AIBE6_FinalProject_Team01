@@ -10,9 +10,11 @@ import back.backend.domain.collaboration.notification.repository.NotificationRep
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.response.PageResponse;
+import back.backend.global.realtime.RealtimeEvent;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -21,13 +23,16 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final MemberRepository memberRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public NotificationService(
             NotificationRepository notificationRepository,
-            MemberRepository memberRepository
+            MemberRepository memberRepository,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.notificationRepository = notificationRepository;
         this.memberRepository = memberRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -45,7 +50,10 @@ public class NotificationService {
                 command.targetType(),
                 command.targetId()
         );
-        return notificationRepository.save(notification).getId();
+        Long notificationId = notificationRepository.save(notification).getId();
+        eventPublisher.publishEvent(RealtimeEvent.notification(
+                command.memberId(), command.tripId(), notificationId));
+        return notificationId;
     }
 
     public PageResponse<NotificationResponse> getNotifications(Long memberId, Pageable pageable) {
@@ -62,11 +70,14 @@ public class NotificationService {
         Notification notification = notificationRepository.findByIdAndMemberId(notificationId, memberId)
                 .orElseThrow(() -> new BusinessException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
         notification.markAsRead(LocalDateTime.now());
+        eventPublisher.publishEvent(RealtimeEvent.notification(
+                memberId, notification.getTripId(), notificationId));
     }
 
     @Transactional
     public ReadNotificationCountResponse markAllAsRead(Long memberId) {
         int count = notificationRepository.markAllAsReadByMemberId(memberId, LocalDateTime.now());
+        eventPublisher.publishEvent(RealtimeEvent.notification(memberId, null, null));
         return new ReadNotificationCountResponse(count);
     }
 }

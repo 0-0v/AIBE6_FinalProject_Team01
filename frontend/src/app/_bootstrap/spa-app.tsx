@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { SparklesIcon } from 'lucide-react'
 import {
     BrowserRouter,
     Navigate,
@@ -11,6 +10,7 @@ import {
     useLocation,
 } from 'react-router-dom'
 import { Sidebar } from '@/widgets/sidebar'
+import { RealtimeSync } from '@/widgets/realtime-sync'
 import { Home } from '@/views/home'
 import { Explore, ExploreDetail, Updates } from '@/views/discovery'
 import { MyPage } from '@/views/my-page'
@@ -21,9 +21,11 @@ import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom, ScheduleKanbanPage } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
 import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
-import { restoreSession } from '@/shared/api/client'
+import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
+import { getJwtExpirationTime } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
+import { BrandLogo } from '@/shared/ui'
 import { useNotificationStore } from '@/features/manage-notification'
 
 function AppShell() {
@@ -76,14 +78,15 @@ function AppShell() {
 
     return (
         <div className="relative flex h-full w-full overflow-hidden bg-white">
+            <RealtimeSync />
             {isGuestInvite ? (
                 <NavLink
                     to="/"
-                    className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]"
+                    className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center"
                     aria-label="랜딩 페이지로 이동"
                     title="여지도 홈"
                 >
-                    <SparklesIcon size={21} />
+                    <BrandLogo />
                 </NavLink>
             ) : (
                 <Sidebar />
@@ -94,11 +97,11 @@ function AppShell() {
                 <Routes>
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
+                    <Route path="explore/:cardId" element={<ExploreDetail />} />
                     <Route
-                        path="explore/:cardId"
-                        element={<ExploreDetail />}
+                        path="room/:roomId/schedule"
+                        element={<ScheduleKanbanPage />}
                     />
-                    <Route path="room/:roomId/schedule" element={<ScheduleKanbanPage />} />
                     <Route path="room/:roomId?" element={<TripRoom />} />
                     <Route
                         path="room/invite/:inviteCode"
@@ -119,22 +122,21 @@ export function App() {
     const clearCurrentUser = useCurrentUserStore(
         (state) => state.clearCurrentUser,
     )
-    const finishInitialization = useCurrentUserStore(
-        (state) => state.finishInitialization,
-    )
 
     useEffect(() => {
         if (
             sessionRestoreStarted.current ||
-            currentUser ||
             window.location.pathname === '/oauth/callback'
         ) {
+            return
+        }
+        if (currentUser && getAccessToken()) {
             return
         }
         sessionRestoreStarted.current = true
         restoreSession().then((accessToken) => {
             if (!accessToken) {
-                finishInitialization()
+                clearCurrentUser()
                 return
             }
             fetchCurrentUser(accessToken).then((user) => {
@@ -145,7 +147,51 @@ export function App() {
                 clearCurrentUser()
             })
         })
-    }, [clearCurrentUser, currentUser, finishInitialization, setCurrentUser])
+    }, [clearCurrentUser, currentUser, setCurrentUser])
+
+    useEffect(() => {
+        if (!currentUser) return
+
+        const refreshLeewayMs = 60_000
+        const retryDelayMs = 30_000
+        let cancelled = false
+        let timerId: number | null = null
+
+        const scheduleRefresh = (delayOverride?: number) => {
+            const token = getAccessToken()
+            const expiresAt = token ? getJwtExpirationTime(token) : null
+            if (!token || !expiresAt) {
+                clearCurrentUser()
+                return
+            }
+
+            const delay =
+                delayOverride ??
+                Math.max(expiresAt - Date.now() - refreshLeewayMs, 1_000)
+            timerId = window.setTimeout(async () => {
+                const refreshedToken = await restoreSession()
+                if (cancelled) return
+
+                if (refreshedToken) {
+                    scheduleRefresh()
+                    return
+                }
+                if (Date.now() < expiresAt) {
+                    scheduleRefresh(retryDelayMs)
+                    return
+                }
+
+                clearCurrentUser()
+                window.location.assign('/login')
+            }, delay)
+        }
+
+        scheduleRefresh()
+        return () => {
+            cancelled = true
+            if (timerId !== null) window.clearTimeout(timerId)
+        }
+    }, [clearCurrentUser, currentUser])
 
     return (
         <BrowserRouter>

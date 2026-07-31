@@ -10,6 +10,7 @@ import back.backend.domain.collaboration.activitylog.dto.ActivityLogCreateComman
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.trip.dto.TripCompletionConfirmationRequest;
 import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripVisibilitySettingsResponse;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.entity.TripVisibility;
@@ -68,13 +69,29 @@ public class TripCompletionConfirmationService {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         }
         card.changeVisibility(request.visibility());
-        saveTags(trip, card, tags);
+        replaceTags(trip, card, tags);
         activityLogService.create(new ActivityLogCreateCommand(
                 tripId, memberId, null, "TRIP_COMPLETION_CONFIRMED", "TRIP", tripId,
                 "여행방 완료와 공개 설정을 확인했습니다.",
                 Map.of("visibility", request.visibility().name(), "tags", tags)
         ));
         return TripResponse.from(trip, tripMemberRepository.countByTripId(tripId));
+    }
+
+    @Transactional(readOnly = true)
+    public TripVisibilitySettingsResponse getSettings(Long memberId, Long tripId) {
+        Trip trip = tripRepository.findByIdAndMemberIdAndStatusNot(
+                        tripId, memberId, TripStatus.CANCELLED)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+        if (trip.getStatus() != TripStatus.COMPLETED) {
+            throw new BusinessException(TripErrorCode.TRIP_VISIBILITY_NOT_AVAILABLE);
+        }
+        List<String> tags = tripTagRepository
+                .findAllByTripIdOrderBySortOrderAsc(tripId)
+                .stream()
+                .map(TripTag::getName)
+                .toList();
+        return new TripVisibilitySettingsResponse(trip.getVisibility(), tags);
     }
 
     private List<String> normalizeTags(TripCompletionConfirmationRequest request) {
@@ -96,20 +113,19 @@ public class TripCompletionConfirmationService {
         return List.copyOf(tags);
     }
 
-    private void saveTags(Trip trip, PlanCard card, List<String> tags) {
+    private void replaceTags(Trip trip, PlanCard card, List<String> tags) {
+        planCardTagRepository.deleteAllByPlanCardId(card.getId());
+        planCardTagRepository.flush();
+        tripTagRepository.deleteAllByTripId(trip.getId());
+        tripTagRepository.flush();
         for (int index = 0; index < tags.size(); index++) {
-            int sortOrder = index;
-            TripTag tag = tripTagRepository.findByTripIdAndName(trip.getId(), tags.get(index))
-                    .orElseGet(() -> tripTagRepository.save(
-                            TripTag.create(
-                                    trip.getId(),
-                                    tags.get(sortOrder),
-                                    trip.getOwnerId(),
-                                    sortOrder
-                            )));
-            if (!planCardTagRepository.existsByPlanCardIdAndTagId(card.getId(), tag.getId())) {
-                planCardTagRepository.save(PlanCardTag.create(card.getId(), tag.getId()));
-            }
+            TripTag tag = tripTagRepository.save(TripTag.create(
+                    trip.getId(),
+                    tags.get(index),
+                    trip.getOwnerId(),
+                    index
+            ));
+            planCardTagRepository.save(PlanCardTag.create(card.getId(), tag.getId()));
         }
     }
 }

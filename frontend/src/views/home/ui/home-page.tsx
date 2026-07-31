@@ -5,12 +5,12 @@ import {
     BookmarkIcon,
     CheckCircle2Icon,
     ChevronDownIcon,
+    ChevronLeftIcon,
     ChevronRightIcon,
     CreditCardIcon,
-    LayoutGridIcon,
-    ListIcon,
     MapIcon,
     MapPinIcon,
+    MessageCircleIcon,
     PlaneIcon,
     PlusIcon,
     ThumbsUpIcon,
@@ -79,6 +79,8 @@ const initialColors: Record<SurfaceId, string> = {
     notifications: '#ffffff',
 }
 
+const DASHBOARD_SCHEDULE_ITEM_LIMIT = 6
+
 function SectionTitle({
     title,
     action,
@@ -106,20 +108,22 @@ export function Home() {
         useTripStore()
     const { logs, loadActivityLogs, resetActivityLogs } = useActivityLogStore()
     const [tasks, setTasks] = useState(initialTasks)
-    const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
+    const [view] = useState<'dashboard' | 'list'>('dashboard')
+    const [todayDateKey, setTodayDateKey] = useState(() =>
+        toDateKey(new Date()),
+    )
     const [createTripOpen, setCreateTripOpen] = useState(false)
-    const [placeCount, setPlaceCount] = useState(0)
     const [pendingVoteCount, setPendingVoteCount] = useState(0)
     const [openPlaceVotes, setOpenPlaceVotes] = useState<OpenPlaceVote[]>([])
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
     const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
     const [dashboardError, setDashboardError] = useState<string | null>(null)
     const [bookmarkedCards, setBookmarkedCards] = useState<PublicCard[]>([])
+    const [bookmarkPage, setBookmarkPage] = useState(0)
     const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
     const [insightSlide, setInsightSlide] = useState(0)
-    const [isInsightHovered, setIsInsightHovered] = useState(false)
     const [isTripSelectorOpen, setIsTripSelectorOpen] = useState(false)
     const tripSelectorRef = useRef<HTMLDivElement>(null)
     const activeTripData =
@@ -153,11 +157,16 @@ export function Home() {
             location: '장소 미정',
             dday: '일정 미정',
             members: 0,
-            progress: 0,
             cover: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
             status: '준비 전',
             color: '#e7657a',
         }
+    const tripCountdownLabel = getTripCountdownLabel(
+        activeTripData?.startDate,
+        activeTripData?.endDate,
+        activeTripData?.status,
+        todayDateKey,
+    )
 
     useEffect(() => {
         if (!isUserInitialized) return
@@ -185,7 +194,6 @@ export function Home() {
     useEffect(() => {
         if (!currentUser || !activeTrip.apiTripId) {
             Promise.resolve().then(() => {
-                setPlaceCount(0)
                 setPendingVoteCount(0)
                 setOpenPlaceVotes([])
                 setExpenses([])
@@ -202,9 +210,7 @@ export function Home() {
         ])
             .then(([places, votes, expenseData]) => {
                 if (controller.signal.aborted) return
-                const openVotes = votes.filter(
-                    (vote) => vote.status === 'OPEN',
-                )
+                const openVotes = votes.filter((vote) => vote.status === 'OPEN')
                 const pendingVotes = openVotes.filter(
                     (vote) => vote.myChoice === null,
                 )
@@ -222,7 +228,6 @@ export function Home() {
                         myChoice: vote.myChoice,
                     }
                 })
-                setPlaceCount(places.length)
                 setPendingVoteCount(pendingVotes.length)
                 setOpenPlaceVotes(openPlaceVoteItems)
                 setExpenses(expenseData.expenses)
@@ -255,9 +260,12 @@ export function Home() {
 
     useEffect(() => {
         Promise.resolve().then(() => {
-            setSelectedDate(null)
+            setSelectedDate(activeTripData?.startDate ?? null)
             setFocusedItemId(null)
         })
+    }, [activeTripData?.id, activeTripData?.startDate])
+
+    useEffect(() => {
         if (!currentUser || !activeTrip.apiTripId) {
             Promise.resolve().then(() => setItineraryDays([]))
             return
@@ -287,24 +295,27 @@ export function Home() {
             .catch(() => setBookmarkedCards([]))
     }, [currentUser])
 
-    const progress = calculatePreparationProgress({
-        trip: activeTripData,
-        placeCount,
-        pendingVoteCount,
-        expenseCount: expenses.length,
-    })
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
     const insightSlideCount = logs.length > 0 ? 2 : 1
     const visibleInsightSlide = insightSlide % insightSlideCount
+    const bookmarkPageSize = 4
+    const bookmarkPageCount = Math.max(
+        1,
+        Math.ceil(bookmarkedCards.length / bookmarkPageSize),
+    )
+    const visibleBookmarkPage = Math.min(bookmarkPage, bookmarkPageCount - 1)
+    const visibleBookmarkedCards = bookmarkedCards.slice(
+        visibleBookmarkPage * bookmarkPageSize,
+        (visibleBookmarkPage + 1) * bookmarkPageSize,
+    )
 
     useEffect(() => {
-        if (isInsightHovered || insightSlideCount <= 1) return
         const intervalId = window.setInterval(() => {
-            setInsightSlide((current) => (current + 1) % insightSlideCount)
-        }, 5_000)
+            setTodayDateKey(toDateKey(new Date()))
+        }, 60_000)
         return () => window.clearInterval(intervalId)
-    }, [insightSlideCount, isInsightHovered])
+    }, [])
 
     useEffect(() => {
         if (!isTripSelectorOpen) return
@@ -326,10 +337,7 @@ export function Home() {
         document.addEventListener('keydown', closeTripSelectorOnEscape)
         return () => {
             document.removeEventListener('mousedown', closeTripSelector)
-            document.removeEventListener(
-                'keydown',
-                closeTripSelectorOnEscape,
-            )
+            document.removeEventListener('keydown', closeTripSelectorOnEscape)
         }
     }, [isTripSelectorOpen])
 
@@ -354,20 +362,17 @@ export function Home() {
     return (
         <div className="min-h-full bg-[#f9fafb] px-4 py-5 sm:px-7 sm:py-7 xl:px-8">
             <header className="mx-auto grid max-w-[1440px] items-center gap-4 px-1 xl:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="grid min-w-0 items-center gap-4 lg:grid-cols-[minmax(0,1fr)_290px]">
-                    <div className="min-w-0">
-                        <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
-                            안녕하세요, {currentUser?.nickname ?? '여행자'}님{' '}
-                            <span aria-hidden="true">👋</span>
-                        </h1>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">
-                            오늘의 여행 준비 현황을 확인해 보세요
-                        </p>
-                    </div>
-                    {view === 'dashboard' && (
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
+                        안녕하세요, {currentUser?.nickname ?? '여행자'}님
+                    </h1>
+                    <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+                        <span className="text-xs font-semibold text-slate-500">
+                            오늘 여행지는
+                        </span>
                         <div
                             ref={tripSelectorRef}
-                            className="relative block w-full"
+                            className="relative w-fit max-w-full"
                         >
                             <button
                                 type="button"
@@ -378,19 +383,16 @@ export function Home() {
                                 onClick={() =>
                                     setIsTripSelectorOpen((open) => !open)
                                 }
-                                className="flex h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-lg px-2 text-left transition hover:bg-rose-50/70 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff0f3] text-[#e7657a]">
-                                    <PlaneIcon size={19} strokeWidth={2} />
-                                </span>
-                                <span className="min-w-0 flex-1 truncate text-left text-sm font-black text-slate-900">
+                                <span className="min-w-0 break-keep font-['JejuStoneWall'] text-2xl font-normal tracking-[-0.02em] text-[#c94c63] [text-shadow:0_3px_10px_rgba(201,76,99,0.2)] sm:text-[28px]">
                                     {rooms.length > 0
-                                        ? activeTrip.title
-                                        : '여행방이 없습니다'}
+                                        ? activeTrip.location
+                                        : '아직 미정'}
                                 </span>
                                 <ChevronDownIcon
                                     size={17}
-                                    className={`shrink-0 text-slate-400 transition-transform ${
+                                    className={`shrink-0 text-[#cc788a] transition-transform group-hover:text-[#c94c63] ${
                                         isTripSelectorOpen ? 'rotate-180' : ''
                                     }`}
                                 />
@@ -399,7 +401,7 @@ export function Home() {
                                 <div
                                     role="listbox"
                                     aria-label="여행방 목록"
-                                    className="mp-scroll absolute left-0 top-[calc(100%+8px)] z-50 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
+                                    className="mp-scroll absolute left-0 top-[calc(100%+8px)] z-50 max-h-64 min-w-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
                                 >
                                     {rooms.map((room) => {
                                         const isSelected =
@@ -435,25 +437,15 @@ export function Home() {
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 xl:justify-end">
-                    <div className="flex h-11 items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
-                        <button
-                            onClick={() => setView('dashboard')}
-                            aria-pressed={view === 'dashboard'}
-                            className={`flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${view === 'dashboard' ? 'bg-[#fff0f2] text-[#c94c63]' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <LayoutGridIcon size={15} /> 대시보드
-                        </button>
-                        <button
-                            onClick={() => setView('list')}
-                            aria-pressed={view === 'list'}
-                            className={`flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${view === 'list' ? 'bg-[#fff0f2] text-[#c94c63]' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            <ListIcon size={15} /> 리스트
-                        </button>
+                        <span className="text-xs font-semibold text-slate-500">
+                            입니다
+                        </span>
                     </div>
+                </div>
+                <div className="flex items-center gap-4 sm:gap-5 xl:justify-end">
+                    <strong className="min-w-32 text-center text-3xl font-black tracking-[-0.06em] text-[#c94c63] [text-shadow:0_4px_14px_rgba(201,76,99,0.24)] sm:text-4xl">
+                        {tripCountdownLabel}
+                    </strong>
                     <button
                         onClick={() => setCreateTripOpen(true)}
                         className="flamingo-gradient flamingo-glow hidden items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 sm:flex"
@@ -473,41 +465,166 @@ export function Home() {
             )}
 
             {view === 'list' ? (
-                <div className="mx-auto mt-6 max-w-[1440px] space-y-8 px-1">
-                    <TravelRooms embedded />
-                    <section>
-                        <SectionTitle title="북마크한 여행 카드" />
+                <div className="mx-auto mt-6 max-w-[1440px] space-y-5 px-1">
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-5">
+                        <TravelRooms embedded compact />
+                    </section>
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-5">
+                        <SectionTitle
+                            title="북마크한 여행 카드"
+                            action={
+                                bookmarkedCards.length > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/app/explore')}
+                                        className="flex items-center gap-1 text-xs font-extrabold text-brand-700 hover:text-brand-800"
+                                    >
+                                        모두 보기
+                                        <ChevronRightIcon size={14} />
+                                    </button>
+                                ) : undefined
+                            }
+                        />
                         {bookmarkedCards.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed bg-white py-10 text-center text-sm text-slate-400">
-                                둘러보기에서 저장한 여행 카드가 없습니다.
+                            <div className="flex min-h-40 flex-col items-center justify-center rounded-[20px] border border-dashed border-slate-200 bg-white px-5 py-8 text-center">
+                                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                                    <BookmarkIcon size={18} />
+                                </span>
+                                <p className="mt-3 text-sm font-extrabold text-slate-700">
+                                    저장한 여행 카드가 없습니다
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/app/explore')}
+                                    className="mt-2 text-xs font-bold text-brand-700 hover:underline"
+                                >
+                                    둘러보기에서 여행 찾기
+                                </button>
                             </div>
                         ) : (
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {bookmarkedCards.map((card) => (
-                                    <article
-                                        key={card.id}
-                                        className="rounded-2xl border bg-white p-4 shadow-sm"
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div>
-                                                <h3 className="font-extrabold text-slate-900">
-                                                    {card.title}
-                                                </h3>
-                                                <p className="mt-1 text-xs text-slate-400">
-                                                    {card.authorNickname} ·{' '}
-                                                    {card.destination ??
-                                                        '여행지 미정'}
-                                                </p>
-                                            </div>
-                                            <BookmarkIcon
-                                                size={18}
-                                                fill="currentColor"
-                                                className="text-brand-700"
+                            <>
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                    {visibleBookmarkedCards.map((card) => (
+                                        <article
+                                            key={card.id}
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() =>
+                                                navigate(
+                                                    `/app/explore/${card.id}`,
+                                                )
+                                            }
+                                            onKeyDown={(event) => {
+                                                if (
+                                                    event.key === 'Enter' ||
+                                                    event.key === ' '
+                                                ) {
+                                                    navigate(
+                                                        `/app/explore/${card.id}`,
+                                                    )
+                                                }
+                                            }}
+                                            className="group min-w-0 cursor-pointer overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-md"
+                                        >
+                                            <img
+                                                src={
+                                                    resolveMediaUrl(
+                                                        card.coverImageUrl,
+                                                    ) ??
+                                                    '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg'
+                                                }
+                                                alt={`${card.title} 여행 카드`}
+                                                className="aspect-[16/8] w-full object-cover transition duration-500 group-hover:scale-105"
                                             />
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
+                                            <div className="flex min-w-0 flex-col p-3.5">
+                                                <div className="flex min-w-0 items-start justify-between gap-2">
+                                                    <h3 className="truncate text-sm font-extrabold text-slate-900">
+                                                        {card.title}
+                                                    </h3>
+                                                    <BookmarkIcon
+                                                        size={15}
+                                                        fill="currentColor"
+                                                        className="shrink-0 text-brand-700"
+                                                    />
+                                                </div>
+                                                <p className="mt-1 truncate text-[11px] font-semibold text-slate-400">
+                                                    {card.destination ??
+                                                        '여행지 미정'}{' '}
+                                                    · {card.authorNickname}
+                                                </p>
+                                                {card.tags.length > 0 && (
+                                                    <div className="mt-2 flex min-w-0 gap-1 overflow-hidden">
+                                                        {card.tags
+                                                            .slice(0, 2)
+                                                            .map((tag) => (
+                                                                <span
+                                                                    key={tag}
+                                                                    className="max-w-24 truncate rounded-full bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700"
+                                                                >
+                                                                    #{tag}
+                                                                </span>
+                                                            ))}
+                                                    </div>
+                                                )}
+                                                <div className="mt-auto flex items-center gap-3 pt-2 text-[10px] font-bold text-slate-400">
+                                                    <span className="flex items-center gap-1">
+                                                        <BookmarkIcon
+                                                            size={11}
+                                                        />
+                                                        {card.bookmarkCount}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <MessageCircleIcon
+                                                            size={11}
+                                                        />
+                                                        {card.commentCount}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                                {bookmarkPageCount > 1 && (
+                                    <nav
+                                        aria-label="북마크 여행 카드 페이지"
+                                        className="mt-4 flex items-center justify-center gap-3"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setBookmarkPage(
+                                                    visibleBookmarkPage - 1,
+                                                )
+                                            }
+                                            disabled={visibleBookmarkPage === 0}
+                                            aria-label="이전 북마크 카드"
+                                            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-30"
+                                        >
+                                            <ChevronLeftIcon size={15} />
+                                        </button>
+                                        <span className="text-xs font-extrabold text-slate-500">
+                                            {visibleBookmarkPage + 1} /{' '}
+                                            {bookmarkPageCount}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setBookmarkPage(
+                                                    visibleBookmarkPage + 1,
+                                                )
+                                            }
+                                            disabled={
+                                                visibleBookmarkPage + 1 >=
+                                                bookmarkPageCount
+                                            }
+                                            aria-label="다음 북마크 카드"
+                                            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-30"
+                                        >
+                                            <ChevronRightIcon size={15} />
+                                        </button>
+                                    </nav>
+                                )}
+                            </>
                         )}
                     </section>
                 </div>
@@ -547,65 +664,46 @@ export function Home() {
                                                 </button>
                                             </div>
 
-                                            <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)] lg:items-center">
-                                                <div>
-                                                    <h2 className="text-3xl font-black tracking-[-0.05em] text-[#EEEEEE] sm:text-[38px]">
-                                                        ICN
-                                                        <span
-                                                            className="mx-3 inline-flex translate-y-[-0.08em] items-center gap-1.5 align-middle"
-                                                            aria-hidden="true"
-                                                        >
-                                                            <span className="w-5 border-t-2 border-dotted border-[#EEEEEE]/75 sm:w-7" />
-                                                            <PlaneIcon
-                                                                size={24}
-                                                                className="rotate-45 text-[#E7657A]"
-                                                                strokeWidth={
-                                                                    2.4
-                                                                }
-                                                            />
-                                                            <span className="w-5 border-t-2 border-dotted border-[#EEEEEE]/75 sm:w-7" />
-                                                        </span>{' '}
+                                            <div className="mt-7">
+                                                <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.2em] text-[#EEEEEE]/70">
+                                                    Your destination
+                                                </p>
+                                                <h2 className="mt-2 flex flex-wrap items-center text-4xl font-black tracking-[-0.06em] text-[#EEEEEE] sm:text-5xl xl:text-[58px]">
+                                                    <span>ICN</span>
+                                                    <span
+                                                        className="mx-4 inline-flex items-center gap-2"
+                                                        aria-hidden="true"
+                                                    >
+                                                        <span className="w-7 border-t-2 border-dotted border-[#EEEEEE]/65 sm:w-10" />
+                                                        <PlaneIcon
+                                                            size={30}
+                                                            className="rotate-45 text-[#E7657A]"
+                                                            strokeWidth={2.4}
+                                                        />
+                                                        <span className="w-7 border-t-2 border-dotted border-[#EEEEEE]/65 sm:w-10" />
+                                                    </span>
+                                                    <span>
                                                         {getDestinationCode(
                                                             activeTrip.location,
                                                         )}
-                                                    </h2>
-                                                    <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-[#EEEEEE]">
-                                                        <MapPinIcon
-                                                            size={16}
-                                                            className="text-[#EEEEEE]"
-                                                        />
-                                                        {activeTrip.title} ·{' '}
-                                                        {activeTrip.location}
-                                                    </p>
-                                                </div>
-
-                                                <div className="border-[#EEEEEE]/25 lg:border-l lg:pl-8">
-                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
-                                                        Travel date
-                                                    </p>
-                                                    <div className="mt-2 flex items-center gap-3">
-                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEEEEE]/10 text-[#EEEEEE]">
-                                                            <CalendarDaysIcon
-                                                                size={20}
-                                                            />
-                                                        </span>
-                                                        <strong className="text-2xl font-black text-[#EEEEEE]">
-                                                            {getTripScheduleLabel(
-                                                                activeTripData?.startDate,
-                                                                activeTripData?.endDate,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-                                                    <p className="mt-2 text-sm font-bold text-[#EEEEEE]">
-                                                        {formatTripDateRange(
-                                                            activeTripData?.startDate,
-                                                            activeTripData?.endDate,
-                                                        )}
-                                                    </p>
-                                                </div>
+                                                    </span>
+                                                </h2>
+                                                <p className="mt-3 flex items-center gap-2 text-base font-extrabold text-[#EEEEEE]">
+                                                    <MapPinIcon
+                                                        size={18}
+                                                        className="text-[#E7657A]"
+                                                    />
+                                                    {activeTrip.location}
+                                                    <span className="text-[#EEEEEE]/45">
+                                                        ·
+                                                    </span>
+                                                    <span className="truncate text-[#EEEEEE]/80">
+                                                        {activeTrip.title}
+                                                    </span>
+                                                </p>
                                             </div>
 
-                                            <div className="mt-8 grid gap-6 border-t border-[#EEEEEE]/25 pt-6 md:grid-cols-[auto_minmax(220px,1fr)] md:items-end">
+                                            <div className="mt-8 grid gap-6 border-t border-[#EEEEEE]/25 pt-5 sm:grid-cols-[minmax(150px,0.65fr)_minmax(260px,1.35fr)] sm:items-end">
                                                 <div>
                                                     <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
                                                         People
@@ -631,29 +729,28 @@ export function Home() {
                                                     </div>
                                                 </div>
 
-                                                <div>
-                                                    <div className="mb-2 flex items-center justify-between text-sm font-extrabold">
-                                                        <span className="text-[#EEEEEE]">
-                                                            여행 준비도
+                                                <div className="sm:border-l sm:border-[#EEEEEE]/25 sm:pl-8">
+                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
+                                                        Travel date
+                                                    </p>
+                                                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEEEEE]/10 text-[#EEEEEE]">
+                                                            <CalendarDaysIcon
+                                                                size={20}
+                                                            />
                                                         </span>
-                                                        <span className="text-[#EEEEEE]">
-                                                            {progress}%
+                                                        <strong className="text-2xl font-black text-[#EEEEEE]">
+                                                            {getTripScheduleLabel(
+                                                                activeTripData?.startDate,
+                                                                activeTripData?.endDate,
+                                                            )}
+                                                        </strong>
+                                                        <span className="text-sm font-bold text-[#EEEEEE]/80">
+                                                            {formatTripDateRange(
+                                                                activeTripData?.startDate,
+                                                                activeTripData?.endDate,
+                                                            )}
                                                         </span>
-                                                    </div>
-                                                    <div className="h-3 overflow-hidden rounded-full bg-[#EEEEEE]/90">
-                                                        <motion.div
-                                                            initial={{
-                                                                width: 0,
-                                                            }}
-                                                            animate={{
-                                                                width: `${progress}%`,
-                                                            }}
-                                                            transition={{
-                                                                duration: 0.6,
-                                                                ease: 'easeOut',
-                                                            }}
-                                                            className="h-full rounded-full bg-gradient-to-r from-[#ef7890] to-[#e7657a]"
-                                                        />
                                                     </div>
                                                 </div>
                                             </div>
@@ -671,12 +768,6 @@ export function Home() {
                                                 ? 'border-rose-200 bg-[#fff7f8]'
                                                 : 'border-slate-200 bg-white'
                                         }`}
-                                        onMouseEnter={() =>
-                                            setIsInsightHovered(true)
-                                        }
-                                        onMouseLeave={() =>
-                                            setIsInsightHovered(false)
-                                        }
                                     >
                                         <div className="min-h-0 flex-1 overflow-hidden">
                                             <div
@@ -806,6 +897,7 @@ export function Home() {
                                                                                         {
                                                                                             vote.responseCount
                                                                                         }
+
                                                                                         /
                                                                                         {
                                                                                             vote.requiredResponseCount
@@ -829,27 +921,31 @@ export function Home() {
                                                     ) : (
                                                         <div className="mt-4 flex flex-1 items-center justify-center rounded-[18px] bg-white/85 px-4 text-center">
                                                             <div>
-                                                            <p className="text-xs font-extrabold leading-5 text-slate-700">
-                                                                현재 참여할
-                                                                투표가 없습니다.
-                                                            </p>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    navigate(
-                                                                        `/app/room/${activeTrip.id}`,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    !activeTrip.id
-                                                                }
-                                                                className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#d84f68] disabled:opacity-40"
-                                                            >
-                                                                투표하러 가기
-                                                                <ChevronRightIcon
-                                                                    size={14}
-                                                                />
-                                                            </button>
+                                                                <p className="text-xs font-extrabold leading-5 text-slate-700">
+                                                                    현재 참여할
+                                                                    투표가
+                                                                    없습니다.
+                                                                </p>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        navigate(
+                                                                            `/app/room/${activeTrip.id}`,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        !activeTrip.id
+                                                                    }
+                                                                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#d84f68] disabled:opacity-40"
+                                                                >
+                                                                    투표하러
+                                                                    가기
+                                                                    <ChevronRightIcon
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                    />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     )}
@@ -950,7 +1046,7 @@ export function Home() {
                                 )}
                             </div>
 
-                            <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)]">
+                            <section className="flex flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)] xl:h-[560px]">
                                 <div className="flex items-center justify-between px-6 py-5">
                                     <div>
                                         <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#d84f68]">
@@ -968,7 +1064,7 @@ export function Home() {
                                     />
                                 </div>
                                 {selectedItineraryDay ? (
-                                    <div className="[&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-[430px]">
+                                    <div className="min-h-[430px] flex-1 [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
                                         <KanbanMapPanel
                                             days={[selectedItineraryDay]}
                                             places={[]}
@@ -983,7 +1079,7 @@ export function Home() {
                                         />
                                     </div>
                                 ) : (
-                                    <div className="flex h-[430px] items-center justify-center bg-slate-50">
+                                    <div className="flex min-h-[430px] flex-1 items-center justify-center bg-slate-50">
                                         <p className="text-sm font-semibold text-slate-400">
                                             오른쪽 달력에서 여행 날짜를 선택해
                                             주세요.
@@ -1277,12 +1373,12 @@ export function Home() {
                                         </div>
                                     </div>
                                 </section>,
-                                'overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)]',
+                                'overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)] xl:h-[360px]',
                             )}
                             {editable(
                                 'schedule',
                                 '여행 일정 상태',
-                                <section className="h-full rounded-[30px] bg-white p-6">
+                                <section className="flex h-full flex-col overflow-hidden rounded-[30px] bg-white p-6">
                                     <SectionTitle
                                         title={
                                             selectedItineraryDay
@@ -1314,22 +1410,24 @@ export function Home() {
                                             없습니다.
                                         </p>
                                     ) : (
-                                        <ol className="mt-5">
-                                            {selectedItineraryDay.items.map(
-                                                (item, index) => (
+                                        <ol className="flex min-h-0 flex-1 flex-col justify-center gap-4 pt-3">
+                                            {selectedItineraryDay.items
+                                                .slice(
+                                                    0,
+                                                    DASHBOARD_SCHEDULE_ITEM_LIMIT,
+                                                )
+                                                .map((item, index, items) => (
                                                     <li
                                                         key={item.id}
-                                                        className="relative flex gap-4 pb-5 last:pb-0"
+                                                        className="relative flex gap-4"
                                                     >
                                                         <div className="relative flex w-9 shrink-0 justify-center">
                                                             {index <
-                                                                selectedItineraryDay
-                                                                    .items
-                                                                    .length -
+                                                                items.length -
                                                                     1 && (
                                                                 <span
                                                                     aria-hidden="true"
-                                                                    className="absolute left-1/2 top-8 h-[calc(100%+0.25rem)] -translate-x-1/2 border-l-2 border-dotted border-slate-300"
+                                                                    className="absolute left-1/2 top-8 h-[calc(100%+1rem)] -translate-x-1/2 border-l-2 border-dotted border-slate-300"
                                                                 />
                                                             )}
                                                             <span
@@ -1372,12 +1470,11 @@ export function Home() {
                                                             </span>
                                                         </button>
                                                     </li>
-                                                ),
-                                            )}
+                                                ))}
                                         </ol>
                                     )}
                                 </section>,
-                                'min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)]',
+                                'min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)] xl:h-[560px]',
                             )}
                             <div className="hidden">
                                 {editable(
@@ -1508,6 +1605,24 @@ function isTripDate(
     return dateKey >= startDate && dateKey <= endDate
 }
 
+function getTripCountdownLabel(
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+    status: string | null | undefined,
+    todayDateKey: string,
+) {
+    if (!startDate || !endDate) return '날짜 미정'
+    if (status === 'COMPLETED' || todayDateKey > endDate) return '여행 끝'
+    if (todayDateKey >= startDate) return '여행 중'
+
+    const remainingDays = Math.ceil(
+        (parseLocalDate(startDate).getTime() -
+            parseLocalDate(todayDateKey).getTime()) /
+            86_400_000,
+    )
+    return remainingDays === 0 ? 'D-DAY' : `D-${remainingDays}`
+}
+
 function createDashboardTasks({
     trip,
     placeCount,
@@ -1554,29 +1669,6 @@ function createDashboardTasks({
         })
     }
     return tasks
-}
-
-function calculatePreparationProgress({
-    trip,
-    placeCount,
-    pendingVoteCount,
-    expenseCount,
-}: {
-    trip: TripResponse | undefined
-    placeCount: number
-    pendingVoteCount: number
-    expenseCount: number
-}) {
-    if (!trip) return 0
-    if (trip.status === 'COMPLETED') return 100
-    const completed = [
-        Boolean(trip.destination),
-        Boolean(trip.startDate && trip.endDate),
-        placeCount > 0,
-        placeCount > 0 && pendingVoteCount === 0,
-        expenseCount > 0,
-    ].filter(Boolean).length
-    return completed * 20
 }
 
 function getTripScheduleLabel(
