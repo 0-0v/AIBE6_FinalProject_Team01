@@ -20,7 +20,7 @@ export function RoomListPanel({
 }: Props) {
     const [createOpen, setCreateOpen] = useState(false)
     return (
-        <div className="mp-scroll flex-1 overflow-y-auto px-4 py-5">
+        <div className="mp-scroll flex-1 overflow-y-auto px-5 py-6 xl:px-7">
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-xs font-bold text-brand-700">MY TRIPS</p>
@@ -38,14 +38,14 @@ export function RoomListPanel({
                 </div>
             </header>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 grid grid-cols-1 gap-3 @min-[620px]:grid-cols-2">
                 {isLoading && (
-                    <p className="py-12 text-center text-sm text-slate-400">
+                    <p className="col-span-full py-12 text-center text-sm text-slate-400">
                         여행방을 불러오는 중입니다.
                     </p>
                 )}
                 {error && (
-                    <div className="py-12 text-center text-sm text-red-500">
+                    <div className="col-span-full py-12 text-center text-sm text-red-500">
                         <p>{error}</p>
                         <button
                             onClick={onRetry}
@@ -56,7 +56,7 @@ export function RoomListPanel({
                     </div>
                 )}
                 {!isLoading && !error && rooms.length === 0 && (
-                    <p className="py-12 text-center text-sm text-slate-400">
+                    <p className="col-span-full py-12 text-center text-sm text-slate-400">
                         아직 생성된 여행방이 없습니다.
                     </p>
                 )}
@@ -64,6 +64,7 @@ export function RoomListPanel({
                     <RoomCard
                         key={room.id}
                         room={room}
+                        compact
                         onOpen={() => onSelectRoom(room.id)}
                     />
                 ))}

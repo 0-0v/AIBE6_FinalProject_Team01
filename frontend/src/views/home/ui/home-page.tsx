@@ -533,7 +533,9 @@ export function Home() {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        navigate('/app/room')
+                                                        navigate(
+                                                            `/app/room/${activeTrip.id}`,
+                                                        )
                                                     }
                                                     disabled={!activeTrip.id}
                                                     className="flex items-center gap-1 rounded-full border border-[#EEEEEE]/35 bg-[#EEEEEE]/10 px-3 py-2 text-xs font-extrabold text-[#EEEEEE] transition hover:bg-[#EEEEEE]/20 disabled:cursor-not-allowed disabled:opacity-40"

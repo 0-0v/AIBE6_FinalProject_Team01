@@ -76,7 +76,7 @@ export function PlaceSearch({ onAdd }: Props) {
 
     return (
         <Tooltip.Provider delayDuration={400}>
-            <div className="border-b border-slate-200 p-3">
+            <div className="border-b border-slate-200 px-4 py-3">
                 <div className="relative">
                     <SearchIcon
                         size={16}

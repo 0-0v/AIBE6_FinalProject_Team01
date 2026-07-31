@@ -202,7 +202,7 @@ export function SchedulePanel({
             <div className="relative flex min-h-0 flex-1 flex-col">
                 <ItineraryBoardGuide />
                 {/* Day 컬럼 목록 - 상단에서 스크롤 */}
-                <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2 overflow-y-auto px-3 py-3 @min-[760px]:grid-cols-2">
+                <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2 overflow-y-auto px-4 py-3 @min-[760px]:grid-cols-2">
                     {dndError && (
                         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
                             {dndError}
@@ -236,7 +236,7 @@ export function SchedulePanel({
 
                 {/* 칸반 플래너 진입 버튼 */}
                 {roomId && (
-                    <div className="shrink-0 border-t border-slate-100 bg-white px-3 py-2">
+                    <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-2">
                         <button
                             type="button"
                             onClick={() =>
