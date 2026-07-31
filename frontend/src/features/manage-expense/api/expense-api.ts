@@ -1,6 +1,10 @@
 import { apiClient, type ApiResponse } from '@/shared/api/client'
 
-export type ExpenseMember = { memberId: number; nickname: string }
+export type ExpenseMember = {
+    memberId: number
+    nickname: string
+    profileImageUrl: string | null
+}
 export type ExpenseContext = {
     startDate: string | null
     endDate: string | null
@@ -37,6 +41,10 @@ export type SettlementSummary = {
         receiverId: number
         receiverNickname: string
         amount: number
+        settlementId: number | null
+        status: 'PENDING' | 'COMPLETED'
+        completedAt: string | null
+        canComplete: boolean
     }>
 }
 export type ExpenseCreateBody = {
@@ -74,6 +82,18 @@ export async function createExpense(tripId: number, body: ExpenseCreateBody) {
     const response = await apiClient.post<ApiResponse<ExpenseResponse>>(
         `/api/trips/${tripId}/expenses`,
         body,
+    )
+    return response.data
+}
+
+export async function completeSettlementTransfer(
+    tripId: number,
+    receiverId: number,
+) {
+    const response = await apiClient.patch<
+        ApiResponse<SettlementSummary['transfers'][number]>
+    >(
+        `/api/trips/${tripId}/expenses/settlement/transfers/${receiverId}/complete`,
     )
     return response.data
 }

@@ -1,6 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
-import { PlusIcon, ReceiptTextIcon, XIcon } from 'lucide-react'
-import { createExpense, fetchExpenseData } from '../api/expense-api'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+    ArrowRightIcon,
+    CalendarDaysIcon,
+    CheckCircle2Icon,
+    CircleDollarSignIcon,
+    FileTextIcon,
+    PlusIcon,
+    ReceiptTextIcon,
+    SendIcon,
+    XIcon,
+} from 'lucide-react'
+import { resolveMediaUrl } from '@/shared/api/client'
+import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
+import {
+    completeSettlementTransfer,
+    createExpense,
+    fetchExpenseData,
+} from '../api/expense-api'
 import type {
     ExpenseContext,
     ExpenseResponse,
@@ -30,10 +46,12 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
     const [amount, setAmount] = useState('')
     const [expenseDate, setExpenseDate] = useState('')
     const [payerId, setPayerId] = useState<number | null>(null)
-    const [allMembers, setAllMembers] = useState(true)
     const [participantIds, setParticipantIds] = useState<number[]>([])
     const [error, setError] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
+    const [completingReceiverId, setCompletingReceiverId] = useState<
+        number | null
+    >(null)
     const members = context.members
     const scheduleConfirmed = Boolean(context.startDate && context.endDate)
     const dayOptions = useMemo(
@@ -53,6 +71,12 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
                 ),
             ).sort(([left], [right]) => Number(left) - Number(right)),
         [expenses],
+    )
+    const pendingTransfers = settlement.transfers.filter(
+        (transfer) => transfer.status === 'PENDING',
+    )
+    const completedTransfers = settlement.transfers.filter(
+        (transfer) => transfer.status === 'COMPLETED',
     )
 
     async function load() {
@@ -108,9 +132,7 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
 
     async function submit() {
         const totalAmount = Number(amount)
-        const selected = allMembers
-            ? members.map((member) => member.memberId)
-            : participantIds
+        const selected = participantIds
         if (
             !title.trim() ||
             totalAmount <= 0 ||
@@ -148,38 +170,79 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
         }
     }
 
+    async function completeTransfer(receiverId: number) {
+        setCompletingReceiverId(receiverId)
+        setError(null)
+        try {
+            await completeSettlementTransfer(tripId, receiverId)
+            await load()
+        } catch (requestError) {
+            setError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : '정산 완료 처리에 실패했습니다.',
+            )
+        } finally {
+            setCompletingReceiverId(null)
+        }
+    }
+
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
             <div className="mp-scroll flex-1 overflow-y-auto p-4 pb-24">
-                <section className="rounded-[22px] bg-emerald-50 p-4">
-                    <h3 className="text-sm font-extrabold">여행 지출 · 정산</h3>
+                <section className="rounded-[22px] bg-[#213C51]/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-extrabold text-[#213C51]">
+                                더치페이 현황
+                            </h3>
+                            <p className="mt-1 text-[10px] text-slate-400">
+                                송금 관계와 완료 여부를 확인해 보세요.
+                            </p>
+                        </div>
+                        <div className="flex gap-1.5 text-[10px] font-extrabold">
+                            <span className="rounded-full bg-brand-50 px-2.5 py-1 text-brand-700">
+                                진행 중 {pendingTransfers.length}
+                            </span>
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[#213C51]">
+                                완료 {completedTransfers.length}
+                            </span>
+                        </div>
+                    </div>
                     <div className="mt-4 grid grid-cols-2 gap-3 text-center">
                         <Summary
                             label="총 지출"
                             value={settlement.totalExpense}
                         />
                         <Summary
-                            label="정산 건수"
+                            label="더치페이"
                             value={settlement.transfers.length}
                             count
                         />
                     </div>
-                    {settlement.transfers.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                            {settlement.transfers.map((transfer) => (
-                                <p
-                                    key={`${transfer.senderId}-${transfer.receiverId}`}
-                                    className="rounded-xl bg-white p-3 text-xs font-bold"
-                                >
-                                    {transfer.senderNickname} →{' '}
-                                    {transfer.receiverNickname}
-                                    <b className="float-right text-emerald-600">
-                                        {currency(transfer.amount)}
-                                    </b>
-                                </p>
-                            ))}
-                        </div>
-                    )}
+                    <TransferSection
+                        title="진행 중"
+                        transfers={pendingTransfers}
+                        completingReceiverId={completingReceiverId}
+                        onComplete={(receiverId) =>
+                            void completeTransfer(receiverId)
+                        }
+                    />
+                    <TransferSection
+                        title="완료"
+                        transfers={completedTransfers}
+                        completingReceiverId={completingReceiverId}
+                        onComplete={(receiverId) =>
+                            void completeTransfer(receiverId)
+                        }
+                    />
+                    {settlement.transfers.length === 0 &&
+                        settlement.totalExpense > 0 && (
+                            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-white py-5 text-xs font-extrabold text-[#213C51]">
+                                <CheckCircle2Icon size={17} />
+                                모든 정산이 완료됐어요
+                            </div>
+                        )}
                 </section>
                 {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
                 <section className="mt-6">
@@ -247,111 +310,214 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
             )}
             {composerOpen && (
                 <div
-                    className="absolute inset-0 z-50 flex items-end bg-slate-950/30 p-3"
+                    className="absolute inset-0 z-[100] flex items-end bg-slate-950/35 p-3 sm:items-center sm:justify-center"
                     onClick={() => setComposerOpen(false)}
                 >
                     <div
-                        className="w-full rounded-[24px] bg-white p-5"
+                        className="relative z-[101] max-h-[calc(100%-1.5rem)] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <div className="flex justify-between">
-                            <h3 className="font-extrabold">지출 추가</h3>
-                            <button onClick={() => setComposerOpen(false)}>
+                        <div className="sticky top-0 z-20 grid grid-cols-[2rem_1fr_2rem] items-center bg-white pb-2">
+                            <span aria-hidden="true" />
+                            <h3 className="text-center text-sm font-extrabold">
+                                1/N 더치페이
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setComposerOpen(false)}
+                                aria-label="지출 추가 닫기"
+                                className="relative z-30 flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-[#213C51]"
+                            >
                                 <XIcon size={18} />
                             </button>
                         </div>
-                        <input
-                            value={title}
-                            onChange={(event) => setTitle(event.target.value)}
-                            placeholder="항목명"
-                            className="mt-4 w-full rounded-xl border p-3 text-sm"
-                        />
-                        <input
-                            value={amount}
-                            onChange={(event) =>
-                                setAmount(
-                                    event.target.value.replace(/[^0-9]/g, ''),
+                        <div className="py-7 text-center">
+                            <p className="text-2xl font-black text-slate-900">
+                                {amount
+                                    ? `${Number(amount).toLocaleString('ko-KR')}원을`
+                                    : '금액을 입력하고'}
+                            </p>
+                            <p className="mt-1 text-2xl font-black text-slate-900">
+                                <span className="text-brand">
+                                    {participantIds.length}명
+                                </span>
+                                과 나눌게요
+                            </p>
+                            <p className="mt-3 text-xs text-slate-400">
+                                1인당{' '}
+                                <b className="text-[#213C51]">
+                                    {currency(
+                                        participantIds.length > 0
+                                            ? Math.floor(
+                                                  Number(amount || 0) /
+                                                      participantIds.length,
+                                              )
+                                            : 0,
+                                    )}
+                                </b>
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-x-4 gap-y-3 pb-2">
+                            {members.map((member) => {
+                                const selected = participantIds.includes(
+                                    member.memberId,
                                 )
-                            }
-                            placeholder="금액"
-                            inputMode="numeric"
-                            className="mt-2 w-full rounded-xl border p-3 text-sm"
-                        />
-                        <select
-                            value={expenseDate}
-                            onChange={(event) =>
-                                setExpenseDate(event.target.value)
-                            }
-                            className="mt-2 w-full rounded-xl border p-3 text-sm"
-                        >
-                            <option value="">지출 DAY 선택</option>
-                            {dayOptions.map((option) => (
-                                <option key={option.date} value={option.date}>
-                                    DAY {option.dayNumber} · {option.label}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            value={payerId ?? ''}
-                            onChange={(event) =>
-                                setPayerId(Number(event.target.value))
-                            }
-                            className="mt-2 w-full rounded-xl border p-3 text-sm"
-                        >
-                            <option value="">결제자 선택</option>
-                            {members.map((member) => (
-                                <option
-                                    key={member.memberId}
-                                    value={member.memberId}
-                                >
-                                    {member.nickname}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            onClick={() => setAllMembers((value) => !value)}
-                            className={`mt-3 w-full rounded-xl border p-3 text-left text-xs font-bold ${allMembers ? 'border-brand bg-brand-50 text-brand-700' : ''}`}
-                        >
-                            여행방 전체 멤버와 더치페이
-                        </button>
-                        {!allMembers && (
-                            <div className="mt-2 grid grid-cols-2 gap-2">
-                                {members.map((member) => (
-                                    <label
+                                return (
+                                    <button
                                         key={member.memberId}
-                                        className="flex gap-2 rounded-lg border p-2 text-xs"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={participantIds.includes(
-                                                member.memberId,
-                                            )}
-                                            onChange={() =>
-                                                setParticipantIds((current) =>
-                                                    current.includes(
-                                                        member.memberId,
-                                                    )
-                                                        ? current.filter(
-                                                              (id) =>
-                                                                  id !==
-                                                                  member.memberId,
-                                                          )
-                                                        : [
-                                                              ...current,
-                                                              member.memberId,
-                                                          ],
+                                        type="button"
+                                        onClick={() =>
+                                            setParticipantIds((current) =>
+                                                current.includes(
+                                                    member.memberId,
                                                 )
-                                            }
-                                        />
-                                        {member.nickname}
-                                    </label>
-                                ))}
-                            </div>
-                        )}
+                                                    ? current.filter(
+                                                          (id) =>
+                                                              id !==
+                                                              member.memberId,
+                                                      )
+                                                    : [
+                                                          ...current,
+                                                          member.memberId,
+                                                      ],
+                                            )
+                                        }
+                                        className="group flex w-16 shrink-0 flex-col items-center gap-1.5"
+                                    >
+                                        <span
+                                            className={`relative isolate overflow-visible rounded-full transition ${
+                                                selected
+                                                    ? 'ring-2 ring-brand/40 ring-offset-2'
+                                                    : 'opacity-45 grayscale'
+                                            }`}
+                                        >
+                                            <Avatar
+                                                name={member.nickname}
+                                                color={DEFAULT_AVATAR_COLOR}
+                                                size={48}
+                                                imageUrl={resolveMediaUrl(
+                                                    member.profileImageUrl,
+                                                )}
+                                            />
+                                            {selected && (
+                                                <span className="absolute -right-2 -top-2 z-30 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#213C51] text-white shadow-md transition group-hover:scale-110">
+                                                    <XIcon size={11} />
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span className="w-full truncate text-[10px] font-bold text-slate-600">
+                                            {member.nickname}
+                                        </span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        <div className="mt-5 space-y-3">
+                            <ExpenseField
+                                label="지출 항목"
+                                icon={<FileTextIcon size={16} />}
+                            >
+                                <input
+                                    value={title}
+                                    onChange={(event) =>
+                                        setTitle(event.target.value)
+                                    }
+                                    placeholder="예: 흑돼지 저녁 식사"
+                                    maxLength={100}
+                                    className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-400"
+                                />
+                            </ExpenseField>
+                            <ExpenseField
+                                label="결제 금액"
+                                icon={<CircleDollarSignIcon size={16} />}
+                            >
+                                <div className="flex items-center">
+                                    <input
+                                        value={
+                                            amount
+                                                ? Number(amount).toLocaleString(
+                                                      'ko-KR',
+                                                  )
+                                                : ''
+                                        }
+                                        onChange={(event) =>
+                                            setAmount(
+                                                event.target.value.replace(
+                                                    /[^0-9]/g,
+                                                    '',
+                                                ),
+                                            )
+                                        }
+                                        placeholder="0"
+                                        inputMode="numeric"
+                                        className="min-w-0 flex-1 bg-transparent text-right text-sm font-extrabold text-slate-800 outline-none placeholder:text-slate-300"
+                                    />
+                                    <span className="ml-1 text-sm font-bold text-slate-500">
+                                        원
+                                    </span>
+                                </div>
+                            </ExpenseField>
+                            <ExpenseField
+                                label="지출 날짜"
+                                icon={<CalendarDaysIcon size={16} />}
+                            >
+                                <Select
+                                    value={expenseDate}
+                                    onChange={setExpenseDate}
+                                    aria-label="지출 날짜 선택"
+                                    options={[
+                                        {
+                                            value: '',
+                                            label: 'DAY를 선택해 주세요',
+                                        },
+                                        ...dayOptions.map((option) => ({
+                                            value: option.date,
+                                            label: `DAY ${option.dayNumber} · ${option.label}`,
+                                        })),
+                                    ]}
+                                    menuClassName="!z-[120]"
+                                    className="[&>button]:rounded-xl [&>button]:px-0 [&>button]:py-1 [&>button]:text-sm [&>button]:text-slate-700 [&>button:hover]:bg-transparent"
+                                />
+                            </ExpenseField>
+                            <ExpenseField
+                                label="결제한 사람"
+                                icon={<ReceiptTextIcon size={16} />}
+                            >
+                                <Select
+                                    value={payerId?.toString() ?? ''}
+                                    onChange={(value) =>
+                                        setPayerId(value ? Number(value) : null)
+                                    }
+                                    aria-label="결제자 선택"
+                                    options={[
+                                        {
+                                            value: '',
+                                            label: '결제자를 선택해 주세요',
+                                        },
+                                        ...members.map((member) => ({
+                                            value: member.memberId.toString(),
+                                            label: member.nickname,
+                                            leading: (
+                                                <Avatar
+                                                    name={member.nickname}
+                                                    color={DEFAULT_AVATAR_COLOR}
+                                                    size={20}
+                                                    imageUrl={resolveMediaUrl(
+                                                        member.profileImageUrl,
+                                                    )}
+                                                />
+                                            ),
+                                        })),
+                                    ]}
+                                    menuClassName="!z-[120]"
+                                    className="[&>button]:rounded-xl [&>button]:px-0 [&>button]:py-1 [&>button]:text-sm [&>button]:text-slate-700 [&>button:hover]:bg-transparent"
+                                />
+                            </ExpenseField>
+                        </div>
                         <button
-                            disabled={saving}
+                            disabled={saving || participantIds.length === 0}
                             onClick={() => void submit()}
-                            className="mt-4 flex w-full justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50"
+                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3.5 text-sm font-extrabold text-white shadow-lg shadow-brand/20 transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:shadow-none"
                         >
                             <ReceiptTextIcon size={16} />
                             {saving ? '저장 중...' : '지출 저장'}
@@ -361,6 +527,121 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
             )}
         </div>
     )
+}
+
+function ExpenseField({
+    label,
+    icon,
+    children,
+}: {
+    label: string
+    icon: ReactNode
+    children: ReactNode
+}) {
+    return (
+        <div className="rounded-2xl bg-slate-50 px-4 py-3 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-[#213C51]/15">
+            <span className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold text-[#213C51]">
+                {icon}
+                {label}
+            </span>
+            {children}
+        </div>
+    )
+}
+
+function TransferSection({
+    title,
+    transfers,
+    completingReceiverId,
+    onComplete,
+}: {
+    title: string
+    transfers: SettlementSummary['transfers']
+    completingReceiverId: number | null
+    onComplete: (receiverId: number) => void
+}) {
+    if (transfers.length === 0) return null
+    const completed = title === '완료'
+    return (
+        <div className="mt-4">
+            <p className="mb-2 text-[10px] font-extrabold text-slate-400">
+                {title}
+            </p>
+            <div className="space-y-2">
+                {transfers.map((transfer) => (
+                    <div
+                        key={`${transfer.senderId}-${transfer.receiverId}`}
+                        className={`rounded-2xl border bg-white p-3 ${
+                            completed
+                                ? 'border-slate-100 opacity-65'
+                                : 'border-brand-100'
+                        }`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <MemberAvatar name={transfer.senderNickname} />
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700">
+                                    <span className="truncate">
+                                        {transfer.senderNickname}
+                                    </span>
+                                    <ArrowRightIcon
+                                        size={12}
+                                        className="shrink-0 text-slate-300"
+                                    />
+                                    <span className="truncate">
+                                        {transfer.receiverNickname}
+                                    </span>
+                                </div>
+                                <b className="mt-1 block text-sm text-[#213C51]">
+                                    {currency(transfer.amount)}
+                                </b>
+                            </div>
+                            {completed ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500">
+                                    <CheckCircle2Icon size={12} />
+                                    완료
+                                </span>
+                            ) : transfer.canComplete ? (
+                                <button
+                                    type="button"
+                                    disabled={
+                                        completingReceiverId ===
+                                        transfer.receiverId
+                                    }
+                                    onClick={() =>
+                                        onComplete(transfer.receiverId)
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-2 text-[10px] font-extrabold text-white disabled:opacity-50"
+                                >
+                                    <SendIcon size={12} />
+                                    {completingReceiverId ===
+                                    transfer.receiverId
+                                        ? '처리 중'
+                                        : '보냈어요'}
+                                </button>
+                            ) : (
+                                <span className="rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
+                                    진행 중
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+function MemberAvatar({ name }: { name: string }) {
+    return (
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#213C51]/10 text-xs font-black text-[#213C51]">
+            {initial(name)}
+        </span>
+    )
+}
+
+function initial(name: string) {
+    return name.trim().slice(0, 1) || '?'
 }
 
 function Summary({
