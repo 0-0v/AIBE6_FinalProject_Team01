@@ -10,6 +10,7 @@ import { NumberTicker } from '@/shared/ui/number-ticker'
 import { ScrollProgressBar } from '@/shared/ui/scroll-progress-bar'
 import { WordRotate } from '@/shared/ui/word-rotate'
 import { useCurrentUserStore } from '@/shared/model'
+import { BrandLogo } from '@/shared/ui'
 
 const LANDING_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
@@ -331,11 +332,7 @@ export function Landing() {
                         textDecoration: 'none',
                     }}
                 >
-                    <svg width="30" height="30" viewBox="0 0 30 30">
-                        <circle cx="15" cy="15" r="15" fill="#FF7A59" />
-                        <path d="M10 20c0-5 3-9 7-9" stroke="#FDF3E7" strokeWidth="3" strokeLinecap="round" fill="none" />
-                        <circle cx="19" cy="9" r="3.4" fill="#FDF3E7" />
-                    </svg>
+                    <BrandLogo className="h-[34px] w-[34px]" />
                     Plamingo
                 </a>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(16px,3vw,36px)', zIndex: 1, flexWrap: 'wrap' }}>
@@ -802,7 +799,7 @@ export function Landing() {
                 style={{ padding: '36px clamp(20px,6vw,80px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', borderTop: '1.5px solid #F0E4D8' }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, fontSize: 15, color: '#3A2A28' }}>
-                    <svg width="20" height="20" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#FF7A59" /><path d="M10 20c0-5 3-9 7-9" stroke="#FDF3E7" strokeWidth="3" strokeLinecap="round" fill="none" /><circle cx="19" cy="9" r="3.4" fill="#FDF3E7" /></svg>
+                <BrandLogo className="h-6 w-6" />
                     Plamingo
                 </div>
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13, fontWeight: 600, color: '#8A8FA8' }}>

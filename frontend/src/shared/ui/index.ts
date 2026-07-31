@@ -1,5 +1,6 @@
 export { Avatar, DEFAULT_AVATAR_COLOR } from './avatar'
 export { Badge } from './badge'
+export { BrandLogo } from './brand-logo'
 export { Button, buttonVariants } from './button'
 export { ConfettiButton } from './confetti-button'
 export { GlobalModal } from './global-modal'

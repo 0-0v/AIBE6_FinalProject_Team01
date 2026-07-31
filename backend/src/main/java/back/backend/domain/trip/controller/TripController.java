@@ -5,6 +5,7 @@ import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.TripMemberResponse;
 import back.backend.domain.trip.dto.TripVisibilityRequest;
 import back.backend.domain.trip.dto.TripCompletionConfirmationRequest;
+import back.backend.domain.trip.dto.TripVisibilitySettingsResponse;
 import back.backend.domain.trip.service.TripCompletionConfirmationService;
 import back.backend.domain.trip.service.TripService;
 import back.backend.domain.trip.service.TripPlanningService;
@@ -99,6 +100,15 @@ public class TripController {
     ) {
         return ApiResponse.success(tripCompletionConfirmationService.confirm(
                 securityContextAccessor.getCurrentMemberId(), tripId, request));
+    }
+
+    @GetMapping("/{tripId}/visibility-settings")
+    @Operation(summary = "완료 여행방 공개 설정 조회")
+    public ApiResponse<TripVisibilitySettingsResponse> getVisibilitySettings(
+            @PathVariable Long tripId
+    ) {
+        return ApiResponse.success(tripCompletionConfirmationService.getSettings(
+                securityContextAccessor.getCurrentMemberId(), tripId));
     }
 
     @DeleteMapping("/{tripId}")

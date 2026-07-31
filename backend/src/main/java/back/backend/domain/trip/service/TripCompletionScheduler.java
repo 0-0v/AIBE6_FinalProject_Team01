@@ -29,7 +29,10 @@ public class TripCompletionScheduler {
         completeExpiredTrips();
     }
 
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
+    @Scheduled(
+            fixedDelayString = "${app.trip-completion.interval-ms:10000}",
+            initialDelayString = "${app.trip-completion.initial-delay-ms:1000}"
+    )
     public void completeExpiredTrips() {
         LocalDate today = LocalDate.now(clock);
         try {

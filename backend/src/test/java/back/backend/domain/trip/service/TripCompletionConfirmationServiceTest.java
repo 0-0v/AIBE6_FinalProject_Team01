@@ -12,6 +12,7 @@ import back.backend.domain.card.repository.PlanCardTagRepository;
 import back.backend.domain.card.repository.TripTagRepository;
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.trip.dto.TripCompletionConfirmationRequest;
+import back.backend.domain.trip.dto.TripVisibilitySettingsResponse;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.repository.TripMemberRepository;
@@ -76,5 +77,70 @@ class TripCompletionConfirmationServiceTest {
         verify(tripTagRepository).save(any());
         verify(planCardTagRepository).save(any());
         verify(activityLogService).create(any());
+    }
+
+    @Test
+    @DisplayName("t2 완료 여행방 공개 설정을 조회하면 저장된 태그를 순서대로 반환한다")
+    void t2_getSettingsReturnsSavedTags() {
+        Trip trip = completedTrip();
+        TripTag first = TripTag.create(10L, "친구와", 1L, 0);
+        TripTag second = TripTag.create(10L, "액티비티", 1L, 1);
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(any(), any(), any()))
+                .thenReturn(Optional.of(trip));
+        when(tripTagRepository.findAllByTripIdOrderBySortOrderAsc(10L))
+                .thenReturn(List.of(first, second));
+        TripCompletionConfirmationService service = service();
+
+        TripVisibilitySettingsResponse response = service.getSettings(1L, 10L);
+
+        assertThat(response.visibility()).isEqualTo(TripVisibility.PRIVATE);
+        assertThat(response.tags()).containsExactly("친구와", "액티비티");
+    }
+
+    @Test
+    @DisplayName("t3 공개 태그를 다시 저장하면 기존 태그를 제거하고 새 태그로 교체한다")
+    void t3_confirmPublicCompletionReplacesExistingTags() {
+        Trip trip = completedTrip();
+        PlanCard card = PlanCard.create(
+                10L, "제주 여행", TripVisibility.PUBLIC, 1L);
+        ReflectionTestUtils.setField(card, "id", 20L);
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(any(), any(), any()))
+                .thenReturn(Optional.of(trip));
+        when(planCardRepository.findByTripId(10L)).thenReturn(Optional.of(card));
+        when(tripTagRepository.save(any())).thenAnswer(invocation -> {
+            TripTag tag = invocation.getArgument(0);
+            ReflectionTestUtils.setField(tag, "id", 30L);
+            return tag;
+        });
+        TripCompletionConfirmationService service = service();
+
+        service.confirm(
+                1L,
+                10L,
+                new TripCompletionConfirmationRequest(
+                        TripVisibility.PUBLIC, List.of("새로운태그")));
+
+        verify(planCardTagRepository).deleteAllByPlanCardId(20L);
+        verify(tripTagRepository).deleteAllByTripId(10L);
+        verify(tripTagRepository).save(any());
+    }
+
+    private Trip completedTrip() {
+        Trip trip = Trip.create(
+                1L, "제주 여행", null, Set.of(), null,
+                LocalDate.of(2026, 7, 28), LocalDate.of(2026, 7, 31));
+        ReflectionTestUtils.setField(trip, "id", 10L);
+        trip.completeAutomatically(LocalDate.of(2026, 8, 1));
+        return trip;
+    }
+
+    private TripCompletionConfirmationService service() {
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-08-01T01:00:00Z"),
+                ZoneId.of("Asia/Seoul"));
+        return new TripCompletionConfirmationService(
+                tripRepository, tripMemberRepository, planCardRepository,
+                tripTagRepository, planCardTagRepository,
+                activityLogService, clock);
     }
 }

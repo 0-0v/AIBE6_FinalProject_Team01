@@ -19,9 +19,11 @@ import back.backend.domain.trip.entity.TravelPace;
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.realtime.RealtimeEvent;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -46,6 +48,7 @@ public class ItineraryService {
     private final ItineraryRoutePlanner routePlanner;
     private final ItineraryTravelEstimator travelEstimator;
     private final EntityManager entityManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<ItineraryDayResponse> getItinerary(Long tripId) {
@@ -112,6 +115,7 @@ public class ItineraryService {
         markDayDraft(item.getItineraryDay());
         recalculateItems(existingItems);
 
+        publishChanged(tripId, item.getId());
         return getDayResponseById(tripId, dayId);
     }
 
@@ -131,6 +135,7 @@ public class ItineraryService {
         }
         markDayDraft(day);
         recalculateItems(remainingItems);
+        publishChanged(tripId, itemId);
     }
 
     @Transactional
@@ -161,6 +166,7 @@ public class ItineraryService {
         TripPlace tp = item.getTripPlaceId() != null
                 ? tripPlaceRepository.findByIdAndTripId(item.getTripPlaceId(), tripId).orElse(null)
                 : null;
+        publishChanged(tripId, itemId);
         return ItineraryItemResponse.from(item, tp);
     }
 
@@ -227,6 +233,7 @@ public class ItineraryService {
         );
         markDayDraft(item.getItineraryDay());
 
+        publishChanged(tripId, itemId);
         return ItineraryItemResponse.from(item, currentPlace);
     }
 
@@ -329,6 +336,7 @@ public class ItineraryService {
         TripPlace tp = item.getTripPlaceId() != null
                 ? tripPlaceRepository.findByIdAndTripId(item.getTripPlaceId(), tripId).orElse(null)
                 : null;
+        publishChanged(tripId, itemId);
         return ItineraryItemResponse.from(item, tp);
     }
 
@@ -360,6 +368,7 @@ public class ItineraryService {
         markDayDraft(day);
         recalculateItems(reorderedItems);
 
+        publishChanged(tripId, dayId);
         return getDayResponseById(tripId, dayId);
     }
 
@@ -371,6 +380,7 @@ public class ItineraryService {
 
         day.updateStatus(request.status());
 
+        publishChanged(tripId, dayId);
         return getDayResponseById(tripId, dayId);
     }
 
@@ -479,10 +489,16 @@ public class ItineraryService {
         days.forEach(this::markDayDraft);
         dayRepository.saveAllAndFlush(days);
         entityManager.clear();
+        publishChanged(tripId, null);
         return buildDayResponses(tripId);
     }
 
     // ── private helpers ──────────────────────────────────────
+
+    private void publishChanged(Long tripId, Long targetId) {
+        eventPublisher.publishEvent(
+                RealtimeEvent.activity(tripId, "ITINERARY", targetId));
+    }
 
     private ItineraryDay findDayOrThrow(Long dayId, Long tripId) {
         return dayRepository.findByIdAndTripId(dayId, tripId)

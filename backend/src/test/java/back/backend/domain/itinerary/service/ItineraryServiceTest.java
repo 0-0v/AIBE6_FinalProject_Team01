@@ -27,6 +27,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -52,6 +53,7 @@ class ItineraryServiceTest {
     @Mock ItineraryRoutePlanner routePlanner;
     @Mock ItineraryTravelEstimator travelEstimator;
     @Mock EntityManager entityManager;
+    @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks ItineraryService itineraryService;
 
     private static final Long TRIP_ID = 1L;
@@ -521,6 +523,7 @@ class ItineraryServiceTest {
                         && ((List<ItineraryDay>) days).get(0).getDayNumber() == 1
                         && ((List<ItineraryDay>) days).get(1).getDayNumber() == 2
         ));
+        then(eventPublisher).shouldHaveNoInteractions();
     }
 
     @Test

@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import back.backend.domain.trip.dto.DateAvailabilityResponse;
 import back.backend.domain.trip.dto.DateProposalResponse;
 import back.backend.domain.trip.dto.TripResponse;
+import back.backend.domain.trip.dto.TripVisibilitySettingsResponse;
 import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.entity.TripVisibility;
@@ -155,6 +156,22 @@ class TripControllerTest {
                 .andExpect(status().isOk());
 
         verify(tripService).leave(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("t9 완료 여행방 공개 설정을 조회하면 공개 범위와 태그를 반환한다")
+    void t9_getVisibilitySettingsReturnsVisibilityAndTags() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripCompletionConfirmationService.getSettings(1L, 10L))
+                .thenReturn(new TripVisibilitySettingsResponse(
+                        TripVisibility.PUBLIC,
+                        List.of("친구와", "액티비티")));
+
+        mockMvc.perform(get("/api/trips/{tripId}/visibility-settings", 10L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.visibility").value("PUBLIC"))
+                .andExpect(jsonPath("$.data.tags[0]").value("친구와"))
+                .andExpect(jsonPath("$.data.tags[1]").value("액티비티"));
     }
 
     private TripResponse response() {

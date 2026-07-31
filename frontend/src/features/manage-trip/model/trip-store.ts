@@ -45,7 +45,6 @@ export function toRoom(trip: TripResponse): Room {
         location: trip.destination ?? '장소 미정',
         dday,
         members: trip.memberCount,
-        progress: trip.status === 'COMPLETED' ? 100 : 0,
         cover:
             resolveMediaUrl(trip.coverImageUrl) ??
             '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { LockIcon, PlusIcon } from 'lucide-react'
+import { PlusIcon } from 'lucide-react'
 import { Room, RoomCard } from '@/entities/trip'
 import { CreateTripModal } from '@/features/manage-trip'
 
@@ -33,8 +33,15 @@ export function RoomListPanel({
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-extrabold text-brand-700">총 {rooms.length}개</span>
-                    <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-bold text-white"><PlusIcon size={13} /> 만들기</button>
+                    <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-extrabold text-brand-700">
+                        총 {rooms.length}개
+                    </span>
+                    <button
+                        onClick={() => setCreateOpen(true)}
+                        className="flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-bold text-white"
+                    >
+                        <PlusIcon size={13} /> 만들기
+                    </button>
                 </div>
             </header>
 
@@ -70,15 +77,6 @@ export function RoomListPanel({
                 ))}
             </div>
 
-            <section className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center">
-                <LockIcon className="mx-auto text-slate-400" size={18} />
-                <p className="mt-2 text-xs font-bold text-slate-700">
-                    초대 코드를 받으셨나요?
-                </p>
-                <button className="mt-1.5 text-xs font-bold text-brand-700 hover:underline">
-                    초대 코드로 여행방 참여하기
-                </button>
-            </section>
             {createOpen && (
                 <CreateTripModal
                     onClose={() => setCreateOpen(false)}

@@ -27,6 +27,10 @@ import {
     type PublicCardDetail,
     useExploreCardStore,
 } from '@/features/explore-card'
+import {
+    REALTIME_EVENT_NAME,
+    type RealtimeEvent,
+} from '@/widgets/realtime-sync'
 import { CreateTripModal } from '@/features/manage-trip'
 import { NotificationList } from '@/features/manage-notification'
 import { resolveMediaUrl } from '@/shared/api/client'
@@ -75,6 +79,7 @@ export function Explore() {
     const isLoading = useExploreCardStore((state) => state.isLoading)
     const error = useExploreCardStore((state) => state.error)
     const loadCards = useExploreCardStore((state) => state.loadCards)
+    const loadComments = useExploreCardStore((state) => state.loadComments)
     const toggleBookmark = useExploreCardStore((state) => state.toggleBookmark)
     const selectedCard =
         data?.content.find((card) => card.id === selectedCardId) ?? null
@@ -82,6 +87,33 @@ export function Explore() {
     useEffect(() => {
         void loadCards(page, sort, submittedQuery)
     }, [loadCards, page, sort, submittedQuery])
+
+    useEffect(() => {
+        const handleRealtimeChange = (event: Event) => {
+            const detail = (event as CustomEvent<RealtimeEvent>).detail
+            if (detail.type !== 'PUBLIC_CARD_CHANGED') return
+            void loadCards(page, sort, submittedQuery)
+            if (
+                selectedCardId !== null &&
+                selectedCardId === detail.targetId
+            ) {
+                void loadComments(selectedCardId)
+            }
+        }
+        window.addEventListener(REALTIME_EVENT_NAME, handleRealtimeChange)
+        return () =>
+            window.removeEventListener(
+                REALTIME_EVENT_NAME,
+                handleRealtimeChange,
+            )
+    }, [
+        loadCards,
+        loadComments,
+        page,
+        selectedCardId,
+        sort,
+        submittedQuery,
+    ])
 
     function search(event: FormEvent) {
         event.preventDefault()

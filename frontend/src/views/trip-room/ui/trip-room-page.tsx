@@ -8,13 +8,7 @@ import React, {
     useState,
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-    Globe2Icon,
-    GripVerticalIcon,
-    LockIcon,
-    Settings2Icon,
-    SparklesIcon,
-} from 'lucide-react'
+import { GripVerticalIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
     Place,
@@ -31,7 +25,7 @@ import { useCommentStore } from '@/features/comment-place'
 import {
     claimGuestTripAccess,
     ManageTripModal,
-    TripCompletionConfirmationModal,
+    TripVisibilityModal,
     useTripStore,
 } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
@@ -42,6 +36,10 @@ import {
     RoomListPanel,
     getNextSortOrder,
 } from '@/widgets/trip-room'
+import {
+    REALTIME_EVENT_NAME,
+    type RealtimeEvent,
+} from '@/widgets/realtime-sync'
 
 export function TripRoom() {
     const navigate = useNavigate()
@@ -83,6 +81,7 @@ export function TripRoom() {
         days: ItineraryDay[]
     }>({ tripId: undefined, days: [] })
     const [itineraryVersion, setItineraryVersion] = useState(0)
+    const [realtimeVersion, setRealtimeVersion] = useState(0)
     const itineraryDays =
         itineraryState.tripId === tripId ? itineraryState.days : []
     const handleItineraryDaysLoaded = useCallback(
@@ -127,6 +126,7 @@ export function TripRoom() {
     const workspacePanelRef = useRef<HTMLElement>(null)
     const [aiOpen, setAiOpen] = useState(false)
     const [manageOpen, setManageOpen] = useState(false)
+    const [visibilityOpen, setVisibilityOpen] = useState(false)
     const [placesError, setPlacesError] = useState<string | null>(null)
     const [canManagePlaces, setCanManagePlaces] = useState(false)
     const [inviteCodeInput, setInviteCodeInput] = useState('')
@@ -145,9 +145,7 @@ export function TripRoom() {
         Boolean(currentUser)
     const workspacePanelWidth = 'min(520px, 46vw)'
     const resolvedWorkspacePanelWidth =
-        customPanelWidth == null
-            ? workspacePanelWidth
-            : `${customPanelWidth}px`
+        customPanelWidth == null ? workspacePanelWidth : `${customPanelWidth}px`
     const resolvedPanelWidth = showRoomList
         ? 'min(760px, 52vw)'
         : resolvedWorkspacePanelWidth
@@ -213,6 +211,21 @@ export function TripRoom() {
     function resetActivePanelWidth() {
         setCustomPanelWidth(null)
     }
+
+    useEffect(() => {
+        const handleRealtimeChange = (event: Event) => {
+            const detail = (event as CustomEvent<RealtimeEvent>).detail
+            if (detail.tripId === tripId) {
+                setRealtimeVersion((current) => current + 1)
+            }
+        }
+        window.addEventListener(REALTIME_EVENT_NAME, handleRealtimeChange)
+        return () =>
+            window.removeEventListener(
+                REALTIME_EVENT_NAME,
+                handleRealtimeChange,
+            )
+    }, [tripId])
 
     useEffect(() => {
         if (inviteCode) return
@@ -296,7 +309,7 @@ export function TripRoom() {
                 )
             })
         return () => controller.abort()
-    }, [activeRoomId, inviteCode, tripId])
+    }, [activeRoomId, inviteCode, realtimeVersion, tripId])
 
     useEffect(() => {
         if (!tripId) return
@@ -312,7 +325,7 @@ export function TripRoom() {
         return () => {
             active = false
         }
-    }, [tripId])
+    }, [realtimeVersion, tripId])
 
     const displayedPlaces = useMemo(
         () =>
@@ -561,40 +574,6 @@ export function TripRoom() {
                                 : undefined
                         }
                     />
-                    {!inviteCode && trip && trip.status === 'COMPLETED' && (
-                        <button
-                            type="button"
-                            onClick={() => setManageOpen(true)}
-                            className="absolute left-5 top-5 z-20 flex items-center gap-3 rounded-2xl border border-white/80 bg-white/95 px-4 py-3 text-left shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:shadow-xl"
-                            aria-label="완료된 여행방 공개 설정 열기"
-                        >
-                            <span
-                                className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-                                    trip.visibility === 'PUBLIC'
-                                        ? 'bg-brand-50 text-brand-700'
-                                        : 'bg-slate-100 text-slate-600'
-                                }`}
-                            >
-                                {trip.visibility === 'PUBLIC' ? (
-                                    <Globe2Icon size={18} />
-                                ) : (
-                                    <LockIcon size={18} />
-                                )}
-                            </span>
-                            <span>
-                                <span className="block text-xs font-bold text-slate-400">
-                                    완료 여행방 ·{' '}
-                                    {trip.visibility === 'PUBLIC'
-                                        ? '공개'
-                                        : '비공개'}
-                                </span>
-                                <span className="mt-0.5 flex items-center gap-1 text-sm font-extrabold text-slate-800">
-                                    공개 설정 열기
-                                    <Settings2Icon size={14} />
-                                </span>
-                            </span>
-                        </button>
-                    )}
                     {!inviteCode && canManagePlaces && !aiOpen && (
                         <button
                             onClick={() => setAiOpen(true)}
@@ -615,9 +594,9 @@ export function TripRoom() {
                         delay: room ? 0.13 : 0,
                     }}
                     className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col overflow-hidden border border-slate-200 bg-white lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none ${
-                            room
-                                ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
-                                : ''
+                        room
+                            ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
+                            : ''
                     } ${
                         isResizingPanel
                             ? ''
@@ -697,6 +676,9 @@ export function TripRoom() {
                                     onSelectPlace={setSelectedId}
                                     onBack={() => navigate('/app/room')}
                                     onManage={() => setManageOpen(true)}
+                                    onVisibilityManage={() =>
+                                        setVisibilityOpen(true)
+                                    }
                                     onUpdatePlace={updatePlace}
                                     onAddPlace={addPlace}
                                     onDeletePlace={deletePlace}
@@ -717,9 +699,10 @@ export function TripRoom() {
                                         handleItineraryDaysLoaded
                                     }
                                     itineraryVersion={itineraryVersion}
+                                    realtimeVersion={realtimeVersion}
                                     showBackButton={false}
                                     guestView={Boolean(inviteCode)}
-                                        headerContainer={headerContainer}
+                                    headerContainer={headerContainer}
                                     onJoin={
                                         inviteCode
                                             ? handleLoginChoice
@@ -762,11 +745,15 @@ export function TripRoom() {
                 )}
                 {trip &&
                     trip.status === 'COMPLETED' &&
-                    !trip.completionConfirmed && (
-                        <TripCompletionConfirmationModal
-                            tripId={trip.id}
-                            tripTitle={trip.title}
-                            onConfirmed={() => void loadTrips()}
+                    (visibilityOpen || !trip.completionConfirmed) && (
+                        <TripVisibilityModal
+                            trip={trip}
+                            required={!trip.completionConfirmed}
+                            onClose={() => setVisibilityOpen(false)}
+                            onChanged={() => {
+                                setVisibilityOpen(false)
+                                void loadTrips()
+                            }}
                         />
                     )}
                 {inviteCode && inviteMode === 'join-confirm' && (

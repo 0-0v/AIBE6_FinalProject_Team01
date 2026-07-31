@@ -88,15 +88,10 @@ export type Room = {
     location: string
     dday: string
     members: number
-    progress: number
     cover: string
     status: string
     lifecycleStatus:
-        | 'PLANNING'
-        | 'CONFIRMED'
-        | 'IN_PROGRESS'
-        | 'COMPLETED'
-        | 'CANCELLED'
+        'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
     visibility: 'PRIVATE' | 'PUBLIC'
     color: string
 }

@@ -6,6 +6,11 @@ import './globals.css'
 export const metadata: Metadata = {
     title: 'Plamingo',
     description: '함께 만드는 AI 공동 여행지도',
+    icons: {
+        icon: '/favicon.png',
+        shortcut: '/favicon.png',
+        apple: '/favicon.png',
+    },
 }
 
 export default function RootLayout({

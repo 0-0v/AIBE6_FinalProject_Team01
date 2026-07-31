@@ -8,8 +8,10 @@ import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.realtime.RealtimeEvent;
 import java.util.*;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -22,13 +24,16 @@ public class PublicCardService {
     private final TripTagRepository tagRepository;
     private final TripRepository tripRepository;
     private final MemberRepository memberRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PublicCardService(PlanCardRepository cardRepository, SavedTripRepository savedRepository,
             CardCommentRepository commentRepository, PlanCardTagRepository cardTagRepository,
-            TripTagRepository tagRepository, TripRepository tripRepository, MemberRepository memberRepository) {
+            TripTagRepository tagRepository, TripRepository tripRepository, MemberRepository memberRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.cardRepository = cardRepository; this.savedRepository = savedRepository;
         this.commentRepository = commentRepository; this.cardTagRepository = cardTagRepository;
         this.tagRepository = tagRepository; this.tripRepository = tripRepository; this.memberRepository = memberRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public PublicCardPageResponse getPublicCards(Long memberId, int page, int size, CardSort sort, String query) {
@@ -60,6 +65,7 @@ public class PublicCardService {
         if (card.getCreatedBy().equals(memberId)) throw new BusinessException(CommonErrorCode.FORBIDDEN);
         if (savedRepository.findByMemberIdAndTripId(memberId, card.getTripId()).isEmpty()) {
             savedRepository.save(SavedTrip.create(memberId, card.getTripId()));
+            eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
         }
     }
 
@@ -67,6 +73,7 @@ public class PublicCardService {
     public void removeBookmark(Long memberId, Long cardId) {
         PlanCard card = requirePublic(cardId);
         savedRepository.findByMemberIdAndTripId(memberId, card.getTripId()).ifPresent(savedRepository::delete);
+        eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
     }
 
     public List<CardCommentResponse> getComments(Long cardId, Long memberId) {
@@ -78,7 +85,10 @@ public class PublicCardService {
     @Transactional
     public CardCommentResponse addComment(Long memberId, Long cardId, CardCommentRequest request) {
         requirePublic(cardId);
-        return toComment(commentRepository.save(CardComment.create(cardId, memberId, request.content())), memberId);
+        CardCommentResponse response = toComment(
+                commentRepository.save(CardComment.create(cardId, memberId, request.content())), memberId);
+        eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
+        return response;
     }
 
     @Transactional
@@ -88,6 +98,7 @@ public class PublicCardService {
                 .filter(item -> item.getPlanCardId().equals(cardId))
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
         commentRepository.delete(comment);
+        eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
     }
 
     private PlanCard requirePublic(Long cardId) {

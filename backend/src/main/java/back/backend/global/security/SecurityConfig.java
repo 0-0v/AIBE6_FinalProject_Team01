@@ -44,6 +44,7 @@ public class SecurityConfig {
             "/api/auth/nickname-availability",
             "/api/auth/email-verifications/**",
             "/api/auth/password-reset",
+            "/ws/**",
             "/uploads/**"
     };
 
