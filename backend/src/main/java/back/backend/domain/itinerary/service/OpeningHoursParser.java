@@ -1,7 +1,8 @@
 package back.backend.domain.itinerary.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +20,7 @@ import java.util.Optional;
 @Component
 public class OpeningHoursParser {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
     // Google: 0=SUNDAY, 1=MON, ..., 6=SAT
     // Java DayOfWeek: MONDAY=1, ..., SUNDAY=7
