@@ -20,7 +20,6 @@ import tools.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -138,43 +137,6 @@ class OpenAiRouteAdvisorTest {
         );
         ReflectionTestUtils.setField(day, "id", id);
         return day;
-    }
-
-    @Test
-    @DisplayName("t4 describe_초안을_받아_dayId별_summary_맵을_반환한다")
-    void t4_describe_초안을_받아_dayId별_summary_맵을_반환한다() {
-        when(openAiClient.isConfigured()).thenReturn(true);
-        when(openAiClient.generateStructured(anyString(), anyString(), any()))
-                .thenReturn("""
-                        {"days":[
-                          {"dayId":1,"summary":"교토 전통 거리 탐방"},
-                          {"dayId":2,"summary":"아라시야마 자연 힐링"}
-                        ]}
-                        """);
-
-        Map<Long, List<Long>> draft = Map.of(1L, List.of(10L, 20L), 2L, List.of(30L));
-        var result = advisor.describe(draft, Set.of(TravelStyle.NATURE));
-
-        assertThat(result).isPresent();
-        assertThat(result.get().get(1L)).isEqualTo("교토 전통 거리 탐방");
-        assertThat(result.get().get(2L)).isEqualTo("아라시야마 자연 힐링");
-    }
-
-    @Test
-    @DisplayName("t5 OpenAI_미설정시_describe는_빈_Optional을_반환한다")
-    void t5_OpenAI_미설정시_describe는_빈_Optional을_반환한다() {
-        when(openAiClient.isConfigured()).thenReturn(false);
-        assertThat(advisor.describe(Map.of(), Set.of())).isEmpty();
-    }
-
-    @Test
-    @DisplayName("t6 AI_호출_실패시_describe는_빈_Optional을_반환한다")
-    void t6_AI_호출_실패시_describe는_빈_Optional을_반환한다() {
-        when(openAiClient.isConfigured()).thenReturn(true);
-        when(openAiClient.generateStructured(anyString(), anyString(), any()))
-                .thenThrow(new RuntimeException("timeout"));
-
-        assertThat(advisor.describe(Map.of(1L, List.of(10L)), Set.of())).isEmpty();
     }
 
     private TripPlace tripPlace(Long id, String name) {

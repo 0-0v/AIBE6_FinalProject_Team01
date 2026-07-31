@@ -27,10 +27,10 @@ app:
   integrations:
     google-maps:
       api-key: test
-    ai:
-      api-key: test
+    openai:
+      api-key: ""
       base-url: http://localhost
-      model: test
+      model: gpt-5-nano
     aws:
       access-key-id: test
       secret-access-key: test
