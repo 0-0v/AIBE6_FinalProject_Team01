@@ -21,7 +21,9 @@ import org.springframework.web.client.RestClient;
 @Component
 public class GoogleRoutesClient {
 
-    private static final String FIELD_MASK =
+    private static final String FIELD_MASK_DRIVE_WALK =
+            "routes.distanceMeters,routes.duration";
+    private static final String FIELD_MASK_TRANSIT =
             "routes.distanceMeters,routes.duration,"
                     + "routes.legs.steps.transitDetails";
     private static final int CACHE_MAX_ENTRIES = 500;
@@ -150,10 +152,12 @@ public class GoogleRoutesClient {
                     departureTime,
                     routingPreference
             );
+            String fieldMask = "TRANSIT".equals(travelMode)
+                    ? FIELD_MASK_TRANSIT : FIELD_MASK_DRIVE_WALK;
             ComputeRoutesResponse response = restClient.post()
                     .uri("/directions/v2:computeRoutes")
                     .header("X-Goog-Api-Key", apiKey)
-                    .header("X-Goog-FieldMask", FIELD_MASK)
+                    .header("X-Goog-FieldMask", fieldMask)
                     .body(request)
                     .retrieve()
                     .body(ComputeRoutesResponse.class);
@@ -176,7 +180,8 @@ public class GoogleRoutesClient {
             return Optional.of(routeInfo);
 
         } catch (Exception e) {
-            log.warn("Routes API 호출 실패 — Haversine 폴백: {}", e.getMessage());
+            log.warn("Routes API 호출 실패 — mode={}, Haversine 폴백: {}",
+                    mode, e.getMessage());
             return Optional.empty();
         }
     }
