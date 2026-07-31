@@ -205,9 +205,7 @@ export function Home() {
         ])
             .then(([places, votes, expenseData]) => {
                 if (controller.signal.aborted) return
-                const openVotes = votes.filter(
-                    (vote) => vote.status === 'OPEN',
-                )
+                const openVotes = votes.filter((vote) => vote.status === 'OPEN')
                 const pendingVotes = openVotes.filter(
                     (vote) => vote.myChoice === null,
                 )
@@ -339,10 +337,7 @@ export function Home() {
         document.addEventListener('keydown', closeTripSelectorOnEscape)
         return () => {
             document.removeEventListener('mousedown', closeTripSelector)
-            document.removeEventListener(
-                'keydown',
-                closeTripSelectorOnEscape,
-            )
+            document.removeEventListener('keydown', closeTripSelectorOnEscape)
         }
     }, [isTripSelectorOpen])
 
@@ -944,6 +939,7 @@ export function Home() {
                                                                                         {
                                                                                             vote.responseCount
                                                                                         }
+
                                                                                         /
                                                                                         {
                                                                                             vote.requiredResponseCount
@@ -967,27 +963,31 @@ export function Home() {
                                                     ) : (
                                                         <div className="mt-4 flex flex-1 items-center justify-center rounded-[18px] bg-white/85 px-4 text-center">
                                                             <div>
-                                                            <p className="text-xs font-extrabold leading-5 text-slate-700">
-                                                                현재 참여할
-                                                                투표가 없습니다.
-                                                            </p>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    navigate(
-                                                                        `/app/room/${activeTrip.id}`,
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    !activeTrip.id
-                                                                }
-                                                                className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#d84f68] disabled:opacity-40"
-                                                            >
-                                                                투표하러 가기
-                                                                <ChevronRightIcon
-                                                                    size={14}
-                                                                />
-                                                            </button>
+                                                                <p className="text-xs font-extrabold leading-5 text-slate-700">
+                                                                    현재 참여할
+                                                                    투표가
+                                                                    없습니다.
+                                                                </p>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        navigate(
+                                                                            `/app/room/${activeTrip.id}`,
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        !activeTrip.id
+                                                                    }
+                                                                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#d84f68] disabled:opacity-40"
+                                                                >
+                                                                    투표하러
+                                                                    가기
+                                                                    <ChevronRightIcon
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                    />
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     )}

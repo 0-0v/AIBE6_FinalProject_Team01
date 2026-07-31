@@ -150,9 +150,7 @@ export function TripRoom() {
         Boolean(currentUser)
     const workspacePanelWidth = 'min(520px, 46vw)'
     const resolvedWorkspacePanelWidth =
-        customPanelWidth == null
-            ? workspacePanelWidth
-            : `${customPanelWidth}px`
+        customPanelWidth == null ? workspacePanelWidth : `${customPanelWidth}px`
     const resolvedPanelWidth = showRoomList
         ? 'min(760px, 52vw)'
         : resolvedWorkspacePanelWidth
@@ -635,9 +633,9 @@ export function TripRoom() {
                         delay: room ? 0.13 : 0,
                     }}
                     className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col overflow-hidden border border-slate-200 bg-white lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none ${
-                            room
-                                ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
-                                : ''
+                        room
+                            ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
+                            : ''
                     } ${
                         isResizingPanel
                             ? ''
@@ -740,7 +738,7 @@ export function TripRoom() {
                                     realtimeVersion={realtimeVersion}
                                     showBackButton={false}
                                     guestView={Boolean(inviteCode)}
-                                        headerContainer={headerContainer}
+                                    headerContainer={headerContainer}
                                     onJoin={
                                         inviteCode
                                             ? handleLoginChoice
