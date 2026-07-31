@@ -48,9 +48,8 @@ public enum ItineraryTransportMode {
         if (distanceMeters < 500) {
             return WALKING;
         }
-        if (distanceMeters < 5_000) {
-            return BUS;
-        }
+        // 500m~5km 구간: BUS(TRANSIT)은 departureTime 필수라 자동 추론 시 실패율이 높음
+        // DRIVING으로 추론하고, 실제 이동 수단은 사용자가 직접 선택하도록 한다
         return DRIVING;
     }
 
