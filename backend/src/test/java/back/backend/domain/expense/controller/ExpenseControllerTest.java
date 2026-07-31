@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -94,13 +95,30 @@ class ExpenseControllerTest {
         given(expenseService.getContext(1L)).willReturn(new ExpenseContextResponse(
                 LocalDate.of(2026, 7, 23),
                 LocalDate.of(2026, 7, 28),
-                List.of(new ExpenseMemberResponse(1L, "지현")),
+                List.of(new ExpenseMemberResponse(1L, "지현", "/uploads/profiles/1.webp")),
                 true));
 
         mockMvc.perform(get("/api/trips/1/expenses/context"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.startDate").value("2026-07-23"))
                 .andExpect(jsonPath("$.data.endDate").value("2026-07-28"))
+                .andExpect(jsonPath("$.data.members[0].profileImageUrl")
+                        .value("/uploads/profiles/1.webp"))
                 .andExpect(jsonPath("$.data.scheduleConfirmed").value(true));
+    }
+
+    @Test
+    @DisplayName("t5 송금자가 정산 완료를 요청하면 완료된 송금 정보를 반환한다")
+    void t5_completeSettlementReturnsCompletedTransfer() throws Exception {
+        given(expenseService.completeTransfer(1L, 3L)).willReturn(
+                SettlementSummaryResponse.Transfer.completed(
+                        9L, 2L, "민수", 3L, "지현",
+                        new BigDecimal("15000.00"), null, true));
+
+        mockMvc.perform(patch("/api/trips/1/expenses/settlement/transfers/3/complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.senderNickname").value("민수"))
+                .andExpect(jsonPath("$.data.receiverNickname").value("지현"))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
     }
 }

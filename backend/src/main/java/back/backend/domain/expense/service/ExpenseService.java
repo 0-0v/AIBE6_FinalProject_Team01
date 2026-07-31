@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final ExpenseParticipantRepository participantRepository;
+    private final SettlementRepository settlementRepository;
     private final TripMemberRepository tripMemberRepository;
     private final TripRepository tripRepository;
     private final MemberRepository memberRepository;
@@ -35,12 +36,13 @@ public class ExpenseService {
 
     public ExpenseService(
             ExpenseRepository expenseRepository, ExpenseParticipantRepository participantRepository,
-            TripMemberRepository tripMemberRepository, TripRepository tripRepository,
+            SettlementRepository settlementRepository, TripMemberRepository tripMemberRepository, TripRepository tripRepository,
             MemberRepository memberRepository, TripAccessChecker accessChecker,
             SettlementCalculator settlementCalculator, CollaborationEventService collaborationEventService
     ) {
         this.expenseRepository = expenseRepository;
         this.participantRepository = participantRepository;
+        this.settlementRepository = settlementRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.tripRepository = tripRepository;
         this.memberRepository = memberRepository;
@@ -97,10 +99,11 @@ public class ExpenseService {
     public ExpenseContextResponse getContext(Long tripId) {
         accessChecker.requireView(tripId);
         Trip trip = tripRepository.findById(tripId).orElseThrow();
-        Map<Long, String> names = memberNames(tripMemberRepository.findMemberIdsByTripId(tripId));
-        List<ExpenseMemberResponse> members = names.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> new ExpenseMemberResponse(entry.getKey(), entry.getValue()))
+        List<Long> memberIds = tripMemberRepository.findMemberIdsByTripId(tripId);
+        List<ExpenseMemberResponse> members = memberRepository.findAllById(memberIds).stream()
+                .sorted(Comparator.comparing(Member::getId))
+                .map(member -> new ExpenseMemberResponse(
+                        member.getId(), member.getNickname(), member.getProfileImageUrl()))
                 .toList();
         return new ExpenseContextResponse(
                 trip.getStartDate(),
@@ -110,26 +113,104 @@ public class ExpenseService {
     }
 
     public SettlementSummaryResponse getSettlement(Long tripId) {
-        accessChecker.requireView(tripId);
+        Long viewerId = accessChecker.requireView(tripId);
         List<Long> memberIds = tripMemberRepository.findMemberIdsByTripId(tripId);
         Map<Long, String> names = memberNames(memberIds);
-        Map<Long, BigDecimal> paid = memberIds.stream().collect(Collectors.toMap(Function.identity(), id -> BigDecimal.ZERO));
-        Map<Long, BigDecimal> shares = memberIds.stream().collect(Collectors.toMap(Function.identity(), id -> BigDecimal.ZERO));
+        List<SettlementSummaryResponse.Transfer> calculatedTransfers = calculateTransfers(tripId);
+        Map<String, Settlement> savedSettlements = settlementRepository.findAllByTripId(tripId).stream()
+                .collect(Collectors.toMap(
+                        settlement -> transferKey(settlement.getSenderId(), settlement.getReceiverId()),
+                        Function.identity(),
+                        (left, right) -> left.getUpdatedAt().isAfter(right.getUpdatedAt()) ? left : right));
+        List<SettlementSummaryResponse.Transfer> transfers = calculatedTransfers.stream()
+                .map(transfer -> withStatus(transfer, savedSettlements.get(
+                        transferKey(transfer.senderId(), transfer.receiverId())), viewerId))
+                .toList();
         List<Expense> expenses = expenseRepository.findAllByTripIdOrderByExpenseDateAscCreatedAtAscIdAsc(tripId);
+        Map<Long, BigDecimal> paid = totalPaid(memberIds, expenses);
+        Map<Long, BigDecimal> shares = totalShares(memberIds, expenses);
+        List<SettlementSummaryResponse.MemberBalance> members = memberIds.stream()
+                .map(id -> new SettlementSummaryResponse.MemberBalance(
+                        id, names.get(id), paid.get(id), shares.get(id), paid.get(id).subtract(shares.get(id))))
+                .toList();
+        BigDecimal total = expenses.stream().map(Expense::getTotalAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new SettlementSummaryResponse(total, members, transfers);
+    }
+
+    @Transactional
+    public SettlementSummaryResponse.Transfer completeTransfer(Long tripId, Long receiverId) {
+        Long senderId = accessChecker.requireEdit(tripId);
+        SettlementSummaryResponse.Transfer transfer = calculateTransfers(tripId).stream()
+                .filter(item -> item.senderId().equals(senderId) && item.receiverId().equals(receiverId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ExpenseErrorCode.SETTLEMENT_TRANSFER_NOT_FOUND));
+        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Settlement settlement = settlementRepository
+                .findTopByTripIdAndSenderIdAndReceiverIdOrderByUpdatedAtDesc(
+                        tripId, senderId, receiverId)
+                .orElseGet(() -> Settlement.builder()
+                        .tripId(tripId)
+                        .senderId(senderId)
+                        .receiverId(receiverId)
+                        .amount(transfer.amount())
+                        .currency(trip.getCurrency())
+                        .status("PENDING")
+                        .build());
+        settlement.complete(transfer.amount());
+        Settlement saved = settlementRepository.save(settlement);
+        return SettlementSummaryResponse.Transfer.completed(
+                saved.getId(), transfer.senderId(), transfer.senderNickname(),
+                transfer.receiverId(), transfer.receiverNickname(), transfer.amount(),
+                saved.getConfirmedAt(), false);
+    }
+
+    List<SettlementSummaryResponse.Transfer> calculateTransfers(Long tripId) {
+        List<Long> memberIds = tripMemberRepository.findMemberIdsByTripId(tripId);
+        Map<Long, String> names = memberNames(memberIds);
+        List<Expense> expenses = expenseRepository.findAllByTripIdOrderByExpenseDateAscCreatedAtAscIdAsc(tripId);
+        Map<Long, BigDecimal> paid = totalPaid(memberIds, expenses);
+        Map<Long, BigDecimal> shares = totalShares(memberIds, expenses);
+        Map<Long, BigDecimal> balances = memberIds.stream().collect(Collectors.toMap(
+                Function.identity(), id -> paid.get(id).subtract(shares.get(id))));
+        return settlementCalculator.calculate(balances, names);
+    }
+
+    private Map<Long, BigDecimal> totalPaid(List<Long> memberIds, List<Expense> expenses) {
+        Map<Long, BigDecimal> paid = memberIds.stream().collect(Collectors.toMap(Function.identity(), id -> BigDecimal.ZERO));
+        expenses.forEach(expense -> paid.merge(expense.getPayerId(), expense.getTotalAmount(), BigDecimal::add));
+        return paid;
+    }
+
+    private Map<Long, BigDecimal> totalShares(List<Long> memberIds, List<Expense> expenses) {
+        Map<Long, BigDecimal> shares = memberIds.stream().collect(Collectors.toMap(Function.identity(), id -> BigDecimal.ZERO));
         Map<Long, Expense> byId = expenses.stream().collect(Collectors.toMap(Expense::getId, Function.identity()));
         if (!byId.isEmpty()) {
             for (ExpenseParticipant participant : participantRepository.findAllByExpenseIdIn(new ArrayList<>(byId.keySet()))) {
                 shares.merge(participant.getMemberId(), participant.getShareAmount(), BigDecimal::add);
             }
         }
-        expenses.forEach(expense -> paid.merge(expense.getPayerId(), expense.getTotalAmount(), BigDecimal::add));
-        Map<Long, BigDecimal> balances = memberIds.stream().collect(Collectors.toMap(
-                Function.identity(), id -> paid.get(id).subtract(shares.get(id))));
-        List<SettlementSummaryResponse.MemberBalance> members = memberIds.stream()
-                .map(id -> new SettlementSummaryResponse.MemberBalance(
-                        id, names.get(id), paid.get(id), shares.get(id), balances.get(id))).toList();
-        BigDecimal total = expenses.stream().map(Expense::getTotalAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new SettlementSummaryResponse(total, members, settlementCalculator.calculate(balances, names));
+        return shares;
+    }
+
+    private SettlementSummaryResponse.Transfer withStatus(
+            SettlementSummaryResponse.Transfer transfer, Settlement settlement, Long viewerId) {
+        boolean completed = settlement != null
+                && "COMPLETED".equals(settlement.getStatus())
+                && settlement.getAmount().compareTo(transfer.amount()) == 0;
+        if (completed) {
+            return SettlementSummaryResponse.Transfer.completed(
+                    settlement.getId(), transfer.senderId(), transfer.senderNickname(),
+                    transfer.receiverId(), transfer.receiverNickname(), transfer.amount(),
+                    settlement.getConfirmedAt(), false);
+        }
+        return new SettlementSummaryResponse.Transfer(
+                transfer.senderId(), transfer.senderNickname(), transfer.receiverId(),
+                transfer.receiverNickname(), transfer.amount(), settlement == null ? null : settlement.getId(),
+                "PENDING", null, viewerId != null && viewerId.equals(transfer.senderId()));
+    }
+
+    private String transferKey(Long senderId, Long receiverId) {
+        return senderId + ":" + receiverId;
     }
 
     private Map<Long, BigDecimal> calculateShares(ExpenseCreateRequest request, Set<Long> participantIds) {

@@ -35,4 +35,10 @@ public class ExpenseController {
     public ApiResponse<SettlementSummaryResponse> getSettlement(@PathVariable Long tripId) {
         return ApiResponse.success(expenseService.getSettlement(tripId));
     }
+
+    @PatchMapping("/settlement/transfers/{receiverId}/complete")
+    public ApiResponse<SettlementSummaryResponse.Transfer> completeTransfer(
+            @PathVariable Long tripId, @PathVariable Long receiverId) {
+        return ApiResponse.success(expenseService.completeTransfer(tripId, receiverId));
+    }
 }
