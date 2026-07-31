@@ -4,6 +4,7 @@ export {
     updateTrip,
     updateTripVisibility,
     confirmTripCompletion,
+    fetchTripVisibilitySettings,
     uploadTripCoverImage,
     deleteTrip,
     leaveTrip,

@@ -36,6 +36,11 @@ export type TripResponse = {
     travelPace: TravelPace
 }
 
+export type TripVisibilitySettings = {
+    visibility: 'PRIVATE' | 'PUBLIC'
+    tags: string[]
+}
+
 export type TripRequest = {
     title: string
     companionType?: CompanionType | null
@@ -118,6 +123,16 @@ export async function confirmTripCompletion(
     return response.data
 }
 
+export async function fetchTripVisibilitySettings(id: number) {
+    const response = await apiClient.get<ApiResponse<TripVisibilitySettings>>(
+        `/api/trips/${id}/visibility-settings`,
+        {
+            headers: authHeaders(),
+        },
+    )
+    return response.data
+}
+
 export async function uploadTripCoverImage(id: number, file: File) {
     const formData = new FormData()
     formData.append('file', file)
@@ -169,9 +184,7 @@ export function fetchInvitedTrip(inviteCode: string): Promise<TripResponse> {
     return request
 }
 
-export async function claimGuestTripAccess(
-    inviteCode: string,
-): Promise<void> {
+export async function claimGuestTripAccess(inviteCode: string): Promise<void> {
     await apiClient.post<ApiResponse<null>>('/api/trip-invitations/claim', {
         inviteCode,
     })

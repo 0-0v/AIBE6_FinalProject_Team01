@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Globe2Icon, LockIcon, XIcon } from 'lucide-react'
 import {
     confirmTripCompletion,
+    fetchTripVisibilitySettings,
     updateTripVisibility,
     type TripResponse,
 } from '../api/trip-api'
@@ -26,7 +27,33 @@ export function TripVisibilityModal({
     )
     const [tags, setTags] = useState('')
     const [busy, setBusy] = useState(false)
+    const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        let active = true
+        void fetchTripVisibilitySettings(trip.id)
+            .then((settings) => {
+                if (!active) return
+                setTags(settings.tags.map((tag) => `#${tag}`).join(' '))
+                if (!required) setVisibility(settings.visibility)
+                setError(null)
+            })
+            .catch((caught: unknown) => {
+                if (!active) return
+                setError(
+                    caught instanceof Error
+                        ? caught.message
+                        : '기존 공개 설정을 불러오지 못했습니다.',
+                )
+            })
+            .finally(() => {
+                if (active) setLoading(false)
+            })
+        return () => {
+            active = false
+        }
+    }, [required, trip.id])
 
     async function save() {
         if (!visibility) return
@@ -135,6 +162,7 @@ export function TripVisibilityModal({
                             onChange={(event) => setTags(event.target.value)}
                             placeholder="#친구와 #액티비티"
                             maxLength={300}
+                            disabled={loading}
                             className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-brand"
                         />
                     </label>
@@ -151,11 +179,15 @@ export function TripVisibilityModal({
 
                 <button
                     type="button"
-                    disabled={!visibility || busy}
+                    disabled={!visibility || busy || loading}
                     onClick={() => void save()}
                     className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50"
                 >
-                    {busy ? '저장 중...' : '공개 설정 저장'}
+                    {loading
+                        ? '설정 불러오는 중...'
+                        : busy
+                          ? '저장 중...'
+                          : '공개 설정 저장'}
                 </button>
             </section>
         </div>
