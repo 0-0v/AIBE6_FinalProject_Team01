@@ -110,7 +110,6 @@ export function Home() {
     const [tasks, setTasks] = useState(initialTasks)
     const [view, setView] = useState<'dashboard' | 'list'>('dashboard')
     const [createTripOpen, setCreateTripOpen] = useState(false)
-    const [placeCount, setPlaceCount] = useState(0)
     const [pendingVoteCount, setPendingVoteCount] = useState(0)
     const [openPlaceVotes, setOpenPlaceVotes] = useState<OpenPlaceVote[]>([])
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
@@ -156,7 +155,6 @@ export function Home() {
             location: '장소 미정',
             dday: '일정 미정',
             members: 0,
-            progress: 0,
             cover: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
             status: '준비 전',
             color: '#e7657a',
@@ -188,7 +186,6 @@ export function Home() {
     useEffect(() => {
         if (!currentUser || !activeTrip.apiTripId) {
             Promise.resolve().then(() => {
-                setPlaceCount(0)
                 setPendingVoteCount(0)
                 setOpenPlaceVotes([])
                 setExpenses([])
@@ -223,7 +220,6 @@ export function Home() {
                         myChoice: vote.myChoice,
                     }
                 })
-                setPlaceCount(places.length)
                 setPendingVoteCount(pendingVotes.length)
                 setOpenPlaceVotes(openPlaceVoteItems)
                 setExpenses(expenseData.expenses)
@@ -288,12 +284,6 @@ export function Home() {
             .catch(() => setBookmarkedCards([]))
     }, [currentUser])
 
-    const progress = calculatePreparationProgress({
-        trip: activeTripData,
-        placeCount,
-        pendingVoteCount,
-        expenseCount: expenses.length,
-    })
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
     const insightSlideCount = logs.length > 0 ? 2 : 1
@@ -680,65 +670,46 @@ export function Home() {
                                                 </button>
                                             </div>
 
-                                            <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)] lg:items-center">
-                                                <div>
-                                                    <h2 className="text-3xl font-black tracking-[-0.05em] text-[#EEEEEE] sm:text-[38px]">
-                                                        ICN
-                                                        <span
-                                                            className="mx-3 inline-flex translate-y-[-0.08em] items-center gap-1.5 align-middle"
-                                                            aria-hidden="true"
-                                                        >
-                                                            <span className="w-5 border-t-2 border-dotted border-[#EEEEEE]/75 sm:w-7" />
-                                                            <PlaneIcon
-                                                                size={24}
-                                                                className="rotate-45 text-[#E7657A]"
-                                                                strokeWidth={
-                                                                    2.4
-                                                                }
-                                                            />
-                                                            <span className="w-5 border-t-2 border-dotted border-[#EEEEEE]/75 sm:w-7" />
-                                                        </span>{' '}
+                                            <div className="mt-7">
+                                                <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.2em] text-[#EEEEEE]/70">
+                                                    Your destination
+                                                </p>
+                                                <h2 className="mt-2 flex flex-wrap items-center text-4xl font-black tracking-[-0.06em] text-[#EEEEEE] sm:text-5xl xl:text-[58px]">
+                                                    <span>ICN</span>
+                                                    <span
+                                                        className="mx-4 inline-flex items-center gap-2"
+                                                        aria-hidden="true"
+                                                    >
+                                                        <span className="w-7 border-t-2 border-dotted border-[#EEEEEE]/65 sm:w-10" />
+                                                        <PlaneIcon
+                                                            size={30}
+                                                            className="rotate-45 text-[#E7657A]"
+                                                            strokeWidth={2.4}
+                                                        />
+                                                        <span className="w-7 border-t-2 border-dotted border-[#EEEEEE]/65 sm:w-10" />
+                                                    </span>
+                                                    <span>
                                                         {getDestinationCode(
                                                             activeTrip.location,
                                                         )}
-                                                    </h2>
-                                                    <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-[#EEEEEE]">
-                                                        <MapPinIcon
-                                                            size={16}
-                                                            className="text-[#EEEEEE]"
-                                                        />
-                                                        {activeTrip.title} ·{' '}
-                                                        {activeTrip.location}
-                                                    </p>
-                                                </div>
-
-                                                <div className="border-[#EEEEEE]/25 lg:border-l lg:pl-8">
-                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
-                                                        Travel date
-                                                    </p>
-                                                    <div className="mt-2 flex items-center gap-3">
-                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEEEEE]/10 text-[#EEEEEE]">
-                                                            <CalendarDaysIcon
-                                                                size={20}
-                                                            />
-                                                        </span>
-                                                        <strong className="text-2xl font-black text-[#EEEEEE]">
-                                                            {getTripScheduleLabel(
-                                                                activeTripData?.startDate,
-                                                                activeTripData?.endDate,
-                                                            )}
-                                                        </strong>
-                                                    </div>
-                                                    <p className="mt-2 text-sm font-bold text-[#EEEEEE]">
-                                                        {formatTripDateRange(
-                                                            activeTripData?.startDate,
-                                                            activeTripData?.endDate,
-                                                        )}
-                                                    </p>
-                                                </div>
+                                                    </span>
+                                                </h2>
+                                                <p className="mt-3 flex items-center gap-2 text-base font-extrabold text-[#EEEEEE]">
+                                                    <MapPinIcon
+                                                        size={18}
+                                                        className="text-[#E7657A]"
+                                                    />
+                                                    {activeTrip.location}
+                                                    <span className="text-[#EEEEEE]/45">
+                                                        ·
+                                                    </span>
+                                                    <span className="truncate text-[#EEEEEE]/80">
+                                                        {activeTrip.title}
+                                                    </span>
+                                                </p>
                                             </div>
 
-                                            <div className="mt-8 grid gap-6 border-t border-[#EEEEEE]/25 pt-6 md:grid-cols-[auto_minmax(220px,1fr)] md:items-end">
+                                            <div className="mt-8 grid gap-6 border-t border-[#EEEEEE]/25 pt-5 sm:grid-cols-[minmax(150px,0.65fr)_minmax(260px,1.35fr)] sm:items-end">
                                                 <div>
                                                     <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
                                                         People
@@ -764,29 +735,28 @@ export function Home() {
                                                     </div>
                                                 </div>
 
-                                                <div>
-                                                    <div className="mb-2 flex items-center justify-between text-sm font-extrabold">
-                                                        <span className="text-[#EEEEEE]">
-                                                            여행 준비도
+                                                <div className="sm:border-l sm:border-[#EEEEEE]/25 sm:pl-8">
+                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
+                                                        Travel date
+                                                    </p>
+                                                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEEEEE]/10 text-[#EEEEEE]">
+                                                            <CalendarDaysIcon
+                                                                size={20}
+                                                            />
                                                         </span>
-                                                        <span className="text-[#EEEEEE]">
-                                                            {progress}%
+                                                        <strong className="text-2xl font-black text-[#EEEEEE]">
+                                                            {getTripScheduleLabel(
+                                                                activeTripData?.startDate,
+                                                                activeTripData?.endDate,
+                                                            )}
+                                                        </strong>
+                                                        <span className="text-sm font-bold text-[#EEEEEE]/80">
+                                                            {formatTripDateRange(
+                                                                activeTripData?.startDate,
+                                                                activeTripData?.endDate,
+                                                            )}
                                                         </span>
-                                                    </div>
-                                                    <div className="h-3 overflow-hidden rounded-full bg-[#EEEEEE]/90">
-                                                        <motion.div
-                                                            initial={{
-                                                                width: 0,
-                                                            }}
-                                                            animate={{
-                                                                width: `${progress}%`,
-                                                            }}
-                                                            transition={{
-                                                                duration: 0.6,
-                                                                ease: 'easeOut',
-                                                            }}
-                                                            className="h-full rounded-full bg-gradient-to-r from-[#ef7890] to-[#e7657a]"
-                                                        />
                                                     </div>
                                                 </div>
                                             </div>
@@ -1692,29 +1662,6 @@ function createDashboardTasks({
         })
     }
     return tasks
-}
-
-function calculatePreparationProgress({
-    trip,
-    placeCount,
-    pendingVoteCount,
-    expenseCount,
-}: {
-    trip: TripResponse | undefined
-    placeCount: number
-    pendingVoteCount: number
-    expenseCount: number
-}) {
-    if (!trip) return 0
-    if (trip.status === 'COMPLETED') return 100
-    const completed = [
-        Boolean(trip.destination),
-        Boolean(trip.startDate && trip.endDate),
-        placeCount > 0,
-        placeCount > 0 && pendingVoteCount === 0,
-        expenseCount > 0,
-    ].filter(Boolean).length
-    return completed * 20
 }
 
 function getTripScheduleLabel(

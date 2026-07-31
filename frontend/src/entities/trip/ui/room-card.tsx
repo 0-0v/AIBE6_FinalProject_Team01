@@ -56,21 +56,6 @@ export function RoomCard({ room, onOpen, compact = false }: Props) {
                             {room.members}명
                         </p>
                     </div>
-                    <div className="pt-3">
-                        <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold text-slate-400">
-                            <span>여행 준비도</span>
-                            <span>{room.progress}%</span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <div
-                                className="h-full rounded-full transition-[width]"
-                                style={{
-                                    width: `${room.progress}%`,
-                                    backgroundColor: room.color,
-                                }}
-                            />
-                        </div>
-                    </div>
                 </div>
             </article>
         )
@@ -108,26 +93,6 @@ export function RoomCard({ room, onOpen, compact = false }: Props) {
                     <span className="flex items-center gap-1">
                         <UsersIcon size={14} /> {room.members}명
                     </span>
-                </div>
-                <div className="mt-4">
-                    <div className="flex items-center justify-between">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-                            <UsersIcon size={14} />
-                        </span>
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                            <span>여행 준비도</span>
-                            <span>{room.progress}%</span>
-                        </div>
-                    </div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                        <div
-                            className="h-full rounded-full"
-                            style={{
-                                width: `${room.progress}%`,
-                                backgroundColor: room.color,
-                            }}
-                        />
-                    </div>
                 </div>
                 <button
                     onClick={onOpen}
