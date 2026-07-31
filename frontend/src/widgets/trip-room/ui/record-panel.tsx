@@ -1,22 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ArrowDownUpIcon,
-    BookHeartIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     ImagePlusIcon,
-    MapPinIcon,
     PlusIcon,
     XIcon,
 } from 'lucide-react'
 import type { Place } from '@/entities/trip'
 import {
     createTravelRecord,
-    getMyRetrospective,
     getTravelRecords,
-    saveMyRetrospective,
     uploadTravelPhoto,
-    type Retrospective,
     type TravelRecord,
 } from '@/entities/travel-record'
 import { getApiErrorMessage, resolveMediaUrl } from '@/shared/api/client'
@@ -33,7 +28,6 @@ type Props = {
     endDate: string | null
     onPlaceClick: (placeId: string) => void
     onChanged?: () => void
-    guestView?: boolean
 }
 
 const SAMPLE_IMAGES = ['/trip-record-2.png', '/trip-record-1.png']
@@ -51,15 +45,10 @@ export function RecordPanel({
     endDate,
     onPlaceClick,
     onChanged,
-    guestView = false,
 }: Props) {
     const [records, setRecords] = useState<TravelRecord[]>([])
-    const [retrospective, setRetrospective] = useState<Retrospective | null>(
-        null,
-    )
     const [selectedDay, setSelectedDay] = useState(1)
     const [isNewestFirst, setIsNewestFirst] = useState(true)
-    const [view, setView] = useState<'records' | 'retrospective'>('records')
     const [composerOpen, setComposerOpen] = useState(false)
     const [previewImage, setPreviewImage] = useState<string | null>(null)
     const [memo, setMemo] = useState('')
@@ -68,20 +57,16 @@ export function RecordPanel({
     const [selectedLocalPhotos, setSelectedLocalPhotos] = useState<
         LocalPhoto[]
     >([])
-    const [goodPoints, setGoodPoints] = useState('')
-    const [improvements, setImprovements] = useState('')
-    const [summary, setSummary] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const days = useMemo(() => createDays(startDate, endDate), [
-        startDate,
-        endDate,
-    ])
-    const effectiveSelectedDay =
-        selectedDay <= days.length ? selectedDay : 1
+    const days = useMemo(
+        () => createDays(startDate, endDate),
+        [startDate, endDate],
+    )
+    const effectiveSelectedDay = selectedDay <= days.length ? selectedDay : 1
     const dayRecords = useMemo(() => {
         const filtered = records.filter(
             (record) => record.dayNumber === effectiveSelectedDay,
@@ -92,22 +77,17 @@ export function RecordPanel({
                 : a.visitedAt.localeCompare(b.visitedAt),
         )
     }, [effectiveSelectedDay, isNewestFirst, records])
+    const placeRecordGroups = useMemo(
+        () => groupRecordsByPlace(dayRecords, places),
+        [dayRecords, places],
+    )
 
     useEffect(() => {
         let active = true
-        Promise.all([
-            getTravelRecords(tripId),
-            guestView ? Promise.resolve(null) : getMyRetrospective(tripId),
-        ])
-            .then(([nextRecords, nextRetrospective]) => {
+        getTravelRecords(tripId)
+            .then((nextRecords) => {
                 if (!active) return
                 setRecords(nextRecords)
-                setRetrospective(nextRetrospective)
-                if (nextRetrospective) {
-                    setGoodPoints(nextRetrospective.goodPoints ?? '')
-                    setImprovements(nextRetrospective.improvements ?? '')
-                    setSummary(nextRetrospective.summary ?? '')
-                }
             })
             .catch((loadError: unknown) => {
                 if (!active) return
@@ -124,7 +104,7 @@ export function RecordPanel({
         return () => {
             active = false
         }
-    }, [guestView, tripId])
+    }, [tripId])
 
     async function addRecord() {
         if (
@@ -191,26 +171,6 @@ export function RecordPanel({
         }
     }
 
-    async function saveRetrospective() {
-        setIsSaving(true)
-        setError(null)
-        try {
-            const saved = await saveMyRetrospective(tripId, {
-                goodPoints: goodPoints.trim() || null,
-                improvements: improvements.trim() || null,
-                summary: summary.trim() || null,
-            })
-            setRetrospective(saved)
-            onChanged?.()
-        } catch (saveError) {
-            setError(
-                getApiErrorMessage(saveError, '회고를 저장하지 못했습니다.'),
-            )
-        } finally {
-            setIsSaving(false)
-        }
-    }
-
     function addLocalPhoto(file: File) {
         if (selectedImages.length + selectedLocalPhotos.length >= 10) {
             setError('사진은 기록 하나에 최대 10장까지 등록할 수 있습니다.')
@@ -246,29 +206,6 @@ export function RecordPanel({
 
     return (
         <div className="relative flex min-h-0 flex-1 flex-col bg-[#fcfcfd]">
-            <div className="flex border-b border-slate-100 bg-white p-2">
-                <button
-                    onClick={() => setView('records')}
-                    className={`flex-1 rounded-lg px-3 py-2 text-xs font-extrabold ${
-                        view === 'records'
-                            ? 'bg-brand text-white'
-                            : 'text-slate-500 hover:bg-slate-50'
-                    }`}
-                >
-                    DAY별 여행 기록
-                </button>
-                <button
-                    onClick={() => setView('retrospective')}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-extrabold ${
-                        view === 'retrospective'
-                            ? 'bg-brand text-white'
-                            : 'text-slate-500 hover:bg-slate-50'
-                    }`}
-                >
-                    <BookHeartIcon size={14} /> 여행 회고
-                </button>
-            </div>
-
             {error && (
                 <p
                     role="alert"
@@ -278,54 +215,90 @@ export function RecordPanel({
                 </p>
             )}
 
-            {view === 'records' ? (
-                <>
-                    <DayNavigation
-                        days={days}
-                        selectedDay={effectiveSelectedDay}
-                        onSelect={setSelectedDay}
-                        isNewestFirst={isNewestFirst}
-                        onToggleOrder={() =>
-                            setIsNewestFirst((current) => !current)
-                        }
+            <DayNavigation
+                days={days}
+                selectedDay={effectiveSelectedDay}
+                onSelect={setSelectedDay}
+                isNewestFirst={isNewestFirst}
+                onToggleOrder={() => setIsNewestFirst((current) => !current)}
+            />
+            <div className="mp-scroll flex-1 overflow-y-auto px-4 py-5">
+                {isLoading ? (
+                    <p className="py-16 text-center text-sm text-slate-400">
+                        여행 기록을 불러오는 중입니다.
+                    </p>
+                ) : placeRecordGroups.length === 0 ? (
+                    <EmptyState
+                        title={`DAY ${effectiveSelectedDay} 기록이 아직 없어요`}
+                        description="여행 중 사진과 메모를 일정별로 남겨보세요."
                     />
-                    <div className="mp-scroll flex-1 overflow-y-auto px-4 py-5">
-                        {isLoading ? (
-                            <p className="py-16 text-center text-sm text-slate-400">
-                                여행 기록을 불러오는 중입니다.
-                            </p>
-                        ) : dayRecords.length === 0 ? (
-                            <EmptyState
-                                title={`DAY ${effectiveSelectedDay} 기록이 아직 없어요`}
-                                description="여행 중 사진과 메모를 일정별로 남겨보세요."
-                            />
-                        ) : (
-                            <div className="space-y-4 pb-3">
-                                {dayRecords.map((record) => {
-                                    const place = places.find(
-                                        (item) =>
-                                            Number(item.id) ===
-                                            record.tripPlaceId,
-                                    )
-                                    return (
+                ) : (
+                    <div className="pb-3">
+                        {placeRecordGroups.map((group, groupIndex) => (
+                            <section
+                                key={group.tripPlaceId}
+                                className="relative pb-7 pl-10 last:pb-0"
+                            >
+                                {groupIndex < placeRecordGroups.length - 1 && (
+                                    <span
+                                        aria-hidden="true"
+                                        className="absolute bottom-0 left-[15px] top-7 border-l-2 border-dashed border-[#213C51]/35"
+                                    />
+                                )}
+                                <span
+                                    aria-hidden="true"
+                                    className="absolute left-1 top-0 flex h-6 w-6 items-center justify-center rounded-full bg-[#213C51]/20 ring-4 ring-[#213C51]/8"
+                                >
+                                    <span className="h-2.5 w-2.5 rounded-full bg-[#213C51]" />
+                                </span>
+
+                                <div className="mb-3 flex items-start justify-between gap-3">
+                                    {group.place ? (
+                                        <button
+                                            onClick={() =>
+                                                onPlaceClick(group.place!.id)
+                                            }
+                                            className="min-w-0 text-left hover:text-brand-700"
+                                        >
+                                            <strong className="block truncate text-sm font-extrabold text-slate-900">
+                                                {group.place.name}
+                                            </strong>
+                                            <span className="mt-0.5 block truncate text-[10px] text-slate-400">
+                                                {group.place.address}
+                                            </span>
+                                        </button>
+                                    ) : (
+                                        <strong className="text-sm font-extrabold text-slate-900">
+                                            기타 기록
+                                        </strong>
+                                    )}
+                                    <span className="shrink-0 text-[11px] font-bold text-slate-400">
+                                        기록 {group.records.length}개
+                                    </span>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {group.records.map((record) => (
                                         <article
                                             key={record.id}
-                                            className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                                            className="rounded-[18px] border border-slate-100 bg-white p-4 shadow-sm transition hover:border-brand-100 hover:bg-slate-50"
                                         >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <p className="text-xs font-extrabold text-slate-800">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex min-w-0 items-center gap-2.5">
+                                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-extrabold text-slate-500">
+                                                        {record.memberNickname
+                                                            .trim()
+                                                            .slice(0, 1)}
+                                                    </span>
+                                                    <p className="truncate text-xs font-extrabold text-slate-800">
                                                         {record.memberNickname}
                                                     </p>
-                                                    <p className="mt-0.5 text-[10px] text-slate-400">
-                                                        {formatDateTime(
-                                                            record.visitedAt,
-                                                        )}
-                                                    </p>
                                                 </div>
-                                                <span className="rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
-                                                    DAY {record.dayNumber}
-                                                </span>
+                                                <time className="shrink-0 text-[10px] font-medium text-slate-400">
+                                                    {formatDateTime(
+                                                        record.visitedAt,
+                                                    )}
+                                                </time>
                                             </div>
                                             {record.imageUrls.length > 0 && (
                                                 <PhotoGrid
@@ -338,49 +311,24 @@ export function RecordPanel({
                                                     {record.memo}
                                                 </p>
                                             )}
-                                            {place && (
-                                                <button
-                                                    onClick={() =>
-                                                        onPlaceClick(place.id)
-                                                    }
-                                                    className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1.5 text-[11px] font-bold text-brand-700 hover:bg-brand-100"
-                                                >
-                                                    <MapPinIcon size={12} />
-                                                    {place.name}
-                                                </button>
-                                            )}
                                         </article>
-                                    )
-                                })}
-                            </div>
-                        )}
+                                    ))}
+                                </div>
+                            </section>
+                        ))}
                     </div>
-                    {canWrite && (
-                        <div className="border-t border-slate-100 bg-white p-4">
-                            <button
-                                onClick={() => setComposerOpen(true)}
-                                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white hover:bg-brand-700"
-                            >
-                                <PlusIcon size={17} /> DAY{' '}
-                                {effectiveSelectedDay} 기록
-                                추가
-                            </button>
-                        </div>
-                    )}
-                </>
-            ) : (
-                <RetrospectiveForm
-                    goodPoints={goodPoints}
-                    onGoodPointsChange={setGoodPoints}
-                    improvements={improvements}
-                    onImprovementsChange={setImprovements}
-                    summary={summary}
-                    onSummaryChange={setSummary}
-                    canWrite={canWrite}
-                    isSaving={isSaving}
-                    saved={retrospective !== null}
-                    onSave={() => void saveRetrospective()}
-                />
+                )}
+            </div>
+            {canWrite && (
+                <div className="border-t border-slate-100 bg-white p-4">
+                    <button
+                        onClick={() => setComposerOpen(true)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white hover:bg-brand-700"
+                    >
+                        <PlusIcon size={17} /> DAY {effectiveSelectedDay} 기록
+                        추가
+                    </button>
+                </div>
             )}
 
             {composerOpen && (
@@ -619,9 +567,7 @@ function RecordComposer({
                 </label>
                 <select
                     value={tripPlaceId}
-                    onChange={(event) =>
-                        onTripPlaceChange(event.target.value)
-                    }
+                    onChange={(event) => onTripPlaceChange(event.target.value)}
                     className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
                 >
                     <option value="">기록할 장소를 선택해 주세요</option>
@@ -684,24 +630,22 @@ function RecordComposer({
                 {selectedLocalPhotos.length > 0 && (
                     <div className="mt-3 grid grid-cols-3 gap-2">
                         {selectedLocalPhotos.map((photo) => (
-                                <button
-                                    key={photo.id}
-                                    onClick={() =>
-                                        onLocalPhotoRemove(photo.id)
-                                    }
-                                    className="relative h-20 overflow-hidden rounded-xl"
-                                    aria-label="업로드한 사진 선택 해제"
-                                >
-                                    <img
-                                        src={photo.previewUrl}
-                                        alt="업로드한 여행 기록 사진"
-                                        className="h-full w-full object-cover"
-                                    />
-                                    <span className="absolute right-1 top-1 rounded-full bg-slate-950/60 p-1 text-white">
-                                        <XIcon size={11} />
-                                    </span>
-                                </button>
-                            ))}
+                            <button
+                                key={photo.id}
+                                onClick={() => onLocalPhotoRemove(photo.id)}
+                                className="relative h-20 overflow-hidden rounded-xl"
+                                aria-label="업로드한 사진 선택 해제"
+                            >
+                                <img
+                                    src={photo.previewUrl}
+                                    alt="업로드한 여행 기록 사진"
+                                    className="h-full w-full object-cover"
+                                />
+                                <span className="absolute right-1 top-1 rounded-full bg-slate-950/60 p-1 text-white">
+                                    <XIcon size={11} />
+                                </span>
+                            </button>
+                        ))}
                     </div>
                 )}
                 {selectedImages.some(
@@ -709,9 +653,7 @@ function RecordComposer({
                 ) && (
                     <div className="mt-3 grid grid-cols-3 gap-2">
                         {selectedImages
-                            .filter(
-                                (image) => !SAMPLE_IMAGES.includes(image),
-                            )
+                            .filter((image) => !SAMPLE_IMAGES.includes(image))
                             .map((image) => (
                                 <button
                                     key={image}
@@ -748,102 +690,6 @@ function RecordComposer({
                 </button>
             </div>
         </div>
-    )
-}
-
-function RetrospectiveForm({
-    goodPoints,
-    onGoodPointsChange,
-    improvements,
-    onImprovementsChange,
-    summary,
-    onSummaryChange,
-    canWrite,
-    isSaving,
-    saved,
-    onSave,
-}: {
-    goodPoints: string
-    onGoodPointsChange: (value: string) => void
-    improvements: string
-    onImprovementsChange: (value: string) => void
-    summary: string
-    onSummaryChange: (value: string) => void
-    canWrite: boolean
-    isSaving: boolean
-    saved: boolean
-    onSave: () => void
-}) {
-    return (
-        <div className="mp-scroll flex-1 overflow-y-auto p-4">
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-                <p className="text-sm font-extrabold text-slate-800">
-                    이번 여행은 어땠나요?
-                </p>
-                <RetrospectiveField
-                    label="좋았던 점"
-                    value={goodPoints}
-                    onChange={onGoodPointsChange}
-                    placeholder="가장 기억에 남는 순간을 적어보세요."
-                    disabled={!canWrite}
-                />
-                <RetrospectiveField
-                    label="아쉬웠던 점"
-                    value={improvements}
-                    onChange={onImprovementsChange}
-                    placeholder="다음 여행에서 바꾸고 싶은 점을 적어보세요."
-                    disabled={!canWrite}
-                />
-                <RetrospectiveField
-                    label="한 줄 회고"
-                    value={summary}
-                    onChange={onSummaryChange}
-                    placeholder="이번 여행을 한 문장으로 남겨보세요."
-                    disabled={!canWrite}
-                />
-                {canWrite && (
-                    <button
-                        onClick={onSave}
-                        disabled={isSaving}
-                        className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:bg-slate-300"
-                    >
-                        {isSaving
-                            ? '저장 중...'
-                            : saved
-                              ? '회고 수정'
-                              : '회고 저장'}
-                    </button>
-                )}
-            </div>
-        </div>
-    )
-}
-
-function RetrospectiveField({
-    label,
-    value,
-    onChange,
-    placeholder,
-    disabled,
-}: {
-    label: string
-    value: string
-    onChange: (value: string) => void
-    placeholder: string
-    disabled: boolean
-}) {
-    return (
-        <label className="mt-5 block text-xs font-bold text-slate-600">
-            {label}
-            <textarea
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                placeholder={placeholder}
-                disabled={disabled}
-                maxLength={5000}
-                className="mt-2 min-h-20 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-normal outline-none focus:border-brand disabled:text-slate-500"
-            />
-        </label>
     )
 }
 
@@ -937,4 +783,33 @@ function displayImageUrl(imageUrl: string) {
     return imageUrl.startsWith('/uploads/')
         ? (resolveMediaUrl(imageUrl) ?? imageUrl)
         : imageUrl
+}
+
+function groupRecordsByPlace(records: TravelRecord[], places: Place[]) {
+    const placeById = new Map(
+        places.map((place) => [Number(place.id), place] as const),
+    )
+    const groups = new Map<
+        number,
+        {
+            tripPlaceId: number
+            place: Place | null
+            records: TravelRecord[]
+        }
+    >()
+
+    records.forEach((record) => {
+        const current = groups.get(record.tripPlaceId)
+        if (current) {
+            current.records.push(record)
+            return
+        }
+        groups.set(record.tripPlaceId, {
+            tripPlaceId: record.tripPlaceId,
+            place: placeById.get(record.tripPlaceId) ?? null,
+            records: [record],
+        })
+    })
+
+    return Array.from(groups.values())
 }
