@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import {
+    BadgeCheckIcon,
     BookmarkIcon,
     CalendarPlusIcon,
     CalendarDaysIcon,
@@ -312,7 +313,15 @@ function TravelCard({
                             {card.authorNickname}
                         </p>
                     </div>
-                    {!card.ownCard && (
+                    {card.ownCard ? (
+                        <span
+                            title="내가 참여한 여행 카드"
+                            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand px-2.5 py-1.5 text-[11px] font-black tracking-[0.08em] text-white shadow-[0_6px_14px_rgba(231,101,122,0.24)]"
+                        >
+                            <BadgeCheckIcon size={14} />
+                            MY
+                        </span>
+                    ) : (
                         <button
                             type="button"
                             onClick={(event) => {
