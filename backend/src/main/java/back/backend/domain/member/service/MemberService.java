@@ -3,8 +3,10 @@ package back.backend.domain.member.service;
 import back.backend.domain.member.config.MemberWithdrawalProperties;
 import back.backend.domain.member.dto.MemberResponse;
 import back.backend.domain.member.entity.Member;
+import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.exception.MemberErrorCode;
 import back.backend.domain.member.port.ProfileImageStorage;
+import back.backend.domain.member.port.SocialAccountConnector;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.security.jwt.RefreshTokenRepository;
@@ -21,6 +23,7 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final ProfileImageStorage profileImageStorage;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final SocialAccountConnector socialAccountConnector;
     private final MemberWithdrawalProperties withdrawalProperties;
     private final Clock clock;
 
@@ -28,12 +31,14 @@ public class MemberService {
             MemberRepository memberRepository,
             ProfileImageStorage profileImageStorage,
             RefreshTokenRepository refreshTokenRepository,
+            SocialAccountConnector socialAccountConnector,
             MemberWithdrawalProperties withdrawalProperties,
             Clock clock
     ) {
         this.memberRepository = memberRepository;
         this.profileImageStorage = profileImageStorage;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.socialAccountConnector = socialAccountConnector;
         this.withdrawalProperties = withdrawalProperties;
         this.clock = clock;
     }
@@ -60,6 +65,9 @@ public class MemberService {
     @Transactional
     public void withdraw(Long memberId) {
         Member member = getMemberOrThrow(memberId);
+        if (member.getProvider() != AuthProvider.LOCAL) {
+            socialAccountConnector.unlink(member);
+        }
         LocalDateTime withdrawnAt = LocalDateTime.now(clock);
         member.withdraw(withdrawnAt, withdrawnAt.plusDays(withdrawalProperties.getRetentionDays()));
         refreshTokenRepository.deleteByMemberId(memberId);

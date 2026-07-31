@@ -36,6 +36,9 @@ class OAuth2LoginSuccessHandlerTest {
     @Mock
     private RefreshTokenCookieProvider refreshTokenCookieProvider;
 
+    @Mock
+    private OAuth2TokenCaptureService oAuth2TokenCaptureService;
+
     private OAuth2LoginSuccessHandler handler;
 
     @BeforeEach
@@ -43,7 +46,11 @@ class OAuth2LoginSuccessHandlerTest {
         FrontendProperties frontendProperties = new FrontendProperties();
         frontendProperties.setFrontendBaseUrl("https://plamingo.example");
         handler = new OAuth2LoginSuccessHandler(
-                jwtProvider, refreshTokenRepository, refreshTokenCookieProvider, frontendProperties);
+                jwtProvider,
+                refreshTokenRepository,
+                refreshTokenCookieProvider,
+                frontendProperties,
+                oAuth2TokenCaptureService);
     }
 
     @Test
@@ -62,6 +69,7 @@ class OAuth2LoginSuccessHandlerTest {
         handler.onAuthenticationSuccess(request, response, authentication);
 
         verify(refreshTokenRepository).save(1L, "refresh-token");
+        verify(oAuth2TokenCaptureService).capture(authentication, 1L);
         assertThat(response.getHeader("Set-Cookie")).isEqualTo(cookie.toString());
         assertThat(response.getStatus()).isEqualTo(302);
         String redirectedUrl = response.getRedirectedUrl();

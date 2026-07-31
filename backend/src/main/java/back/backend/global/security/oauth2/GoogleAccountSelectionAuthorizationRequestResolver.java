@@ -12,7 +12,9 @@ public class GoogleAccountSelectionAuthorizationRequestResolver
 
     private static final String GOOGLE = "google";
     private static final String PROMPT = "prompt";
-    private static final String SELECT_ACCOUNT = "select_account";
+    private static final String CONSENT_AND_SELECT_ACCOUNT = "consent select_account";
+    private static final String ACCESS_TYPE = "access_type";
+    private static final String OFFLINE = "offline";
 
     private final OAuth2AuthorizationRequestResolver delegate;
 
@@ -49,7 +51,10 @@ public class GoogleAccountSelectionAuthorizationRequestResolver
             return authorizationRequest;
         }
         return OAuth2AuthorizationRequest.from(authorizationRequest)
-                .additionalParameters(parameters -> parameters.put(PROMPT, SELECT_ACCOUNT))
+                .additionalParameters(parameters -> {
+                    parameters.put(PROMPT, CONSENT_AND_SELECT_ACCOUNT);
+                    parameters.put(ACCESS_TYPE, OFFLINE);
+                })
                 .build();
     }
 }
