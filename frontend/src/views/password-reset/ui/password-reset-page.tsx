@@ -2,7 +2,6 @@
 
 import { type FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { SparklesIcon } from 'lucide-react'
 import {
     confirmVerificationCode,
     hasRepeatedPasswordCharacters,
@@ -12,6 +11,7 @@ import {
     sendVerificationCode,
 } from '@/features/local-auth'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { BrandLogo } from '@/shared/ui'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export function PasswordResetPage() {
@@ -45,9 +45,7 @@ export function PasswordResetPage() {
             setVerified(false)
             setCodeMessage('')
             setCodeError(false)
-            setEmailMessage(
-                '입력하신 이메일로 인증번호를 전송했습니다.',
-            )
+            setEmailMessage('입력하신 이메일로 인증번호를 전송했습니다.')
         } catch (error) {
             setEmailError(true)
             setEmailMessage(
@@ -125,8 +123,8 @@ export function PasswordResetPage() {
         <div className="flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
             <div className="w-full max-w-md rounded-2xl bg-white p-7 shadow-sm">
                 <div className="mb-7 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-white">
-                        <SparklesIcon size={23} />
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center">
+                        <BrandLogo />
                     </div>
                     <h1 className="mt-4 text-2xl font-extrabold">
                         비밀번호 재설정
@@ -159,7 +157,7 @@ export function PasswordResetPage() {
                                         ? 'text-emerald-600'
                                         : emailError
                                           ? 'text-red-600'
-                                        : 'text-slate-600'
+                                          : 'text-slate-600'
                                 }`}
                             >
                                 {emailMessage}

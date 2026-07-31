@@ -8,12 +8,10 @@ import {
     HomeIcon,
     LogOutIcon,
     MapIcon,
-    SparklesIcon,
 } from 'lucide-react'
 import { useNotificationStore } from '@/features/manage-notification'
-import { useTripStore } from '@/features/manage-trip'
 import { logout, resolveMediaUrl } from '@/shared/api/client'
-import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
+import { Avatar, BrandLogo, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 
 const nav = [
@@ -27,7 +25,6 @@ export function Sidebar() {
     const navigate = useNavigate()
     const [isExpanded, setIsExpanded] = useState(true)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const activeTripId = useTripStore((state) => state.activeTripId)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
     const loadUnreadCount = useNotificationStore(
         (state) => state.loadUnreadCount,
@@ -56,7 +53,7 @@ export function Sidebar() {
 
     return (
         <aside
-            className={`relative z-30 flex shrink-0 flex-col border-r border-slate-100 bg-white py-7 transition-[width] duration-300 ease-out ${
+            className={`relative z-40 flex shrink-0 flex-col overflow-visible border-r border-slate-100 bg-white py-7 transition-[width] duration-300 ease-out ${
                 isExpanded ? 'w-[248px] px-5' : 'w-[86px] px-3'
             }`}
         >
@@ -65,7 +62,7 @@ export function Sidebar() {
                 onClick={() => setIsExpanded((expanded) => !expanded)}
                 aria-label={isExpanded ? '사이드바 접기' : '사이드바 펼치기'}
                 aria-expanded={isExpanded}
-                className="absolute -right-3.5 top-4 z-40 flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
+                className="absolute -right-3.5 top-[108px] z-50 flex h-8 w-8 items-center justify-center overflow-visible rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-200 hover:text-brand-700"
             >
                 {isExpanded ? (
                     <ChevronLeftIcon size={17} strokeWidth={2.4} />
@@ -84,8 +81,8 @@ export function Sidebar() {
                 aria-label="Plamingo 홈"
                 title="Plamingo"
             >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]">
-                    <SparklesIcon size={21} />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center">
+                    <BrandLogo />
                 </span>
                 {isExpanded && (
                     <span className="whitespace-nowrap text-lg font-extrabold tracking-tight text-slate-900">
@@ -100,14 +97,10 @@ export function Sidebar() {
             >
                 {nav.map((item) => {
                     const badge = item.to === '/app/updates' ? unreadCount : 0
-                    const destination =
-                        item.to === '/app/room' && activeTripId
-                            ? `/app/room/${activeTripId}`
-                            : item.to
                     return (
                         <NavLink
                             key={item.to}
-                            to={destination}
+                            to={item.to}
                             end={item.end}
                             title={item.label}
                             aria-label={

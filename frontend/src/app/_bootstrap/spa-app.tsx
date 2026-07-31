@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { SparklesIcon } from 'lucide-react'
 import {
     BrowserRouter,
     Navigate,
@@ -25,6 +24,7 @@ import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { useCurrentUserStore } from '@/shared/model'
+import { BrandLogo } from '@/shared/ui'
 import { useNotificationStore } from '@/features/manage-notification'
 
 function AppShell() {
@@ -81,11 +81,11 @@ function AppShell() {
             {isGuestInvite ? (
                 <NavLink
                     to="/"
-                    className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_10px_22px_rgba(231,101,122,0.26)]"
+                    className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center"
                     aria-label="랜딩 페이지로 이동"
                     title="여지도 홈"
                 >
-                    <SparklesIcon size={21} />
+                    <BrandLogo />
                 </NavLink>
             ) : (
                 <Sidebar />
@@ -96,11 +96,11 @@ function AppShell() {
                 <Routes>
                     <Route index element={<Home />} />
                     <Route path="explore" element={<Explore />} />
+                    <Route path="explore/:cardId" element={<ExploreDetail />} />
                     <Route
-                        path="explore/:cardId"
-                        element={<ExploreDetail />}
+                        path="room/:roomId/schedule"
+                        element={<ScheduleKanbanPage />}
                     />
-                    <Route path="room/:roomId/schedule" element={<ScheduleKanbanPage />} />
                     <Route path="room/:roomId?" element={<TripRoom />} />
                     <Route
                         path="room/invite/:inviteCode"
