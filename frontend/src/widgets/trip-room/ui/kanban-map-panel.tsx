@@ -185,18 +185,25 @@ function MapContent({
         }
     }, [allItems])
 
-    const routes = useMemo(
+    const segments = useMemo(
         () =>
-            days
-                .map((day) => ({
-                    color: getItineraryDayColor(day.dayNumber),
-                    path: day.items
-                        .filter(hasMapCoordinates)
-                        .map((i) => ({ lat: i.lat, lng: i.lng })),
+            days.flatMap((day) => {
+                const color = getItineraryDayColor(day.dayNumber)
+                const itemsWithCoords = day.items.filter(hasMapCoordinates)
+                return itemsWithCoords.slice(0, -1).map((item, index) => ({
+                    key: `${day.id}-${item.id}`,
+                    color,
+                    fromItemId: String(item.id),
+                    from: { lat: item.lat, lng: item.lng },
+                    to: {
+                        lat: itemsWithCoords[index + 1].lat,
+                        lng: itemsWithCoords[index + 1].lng,
+                    },
                 }))
-                .filter((r) => r.path.length >= 2),
+            }),
         [days],
     )
+
     const previewDay = days.find((day) => String(day.id) === previewDayId)
     const previewDayNumber = previewDay?.dayNumber ?? null
     const draggedItem =
@@ -230,6 +237,19 @@ function MapContent({
     const effectiveFocusedItem = focusedItem ?? scheduledItemForFocusedPlace
     const effectiveFocusedItemId =
         effectiveFocusedItem == null ? null : String(effectiveFocusedItem.id)
+
+    const focusedNextItemId = useMemo(() => {
+        if (effectiveFocusedItemId == null) return null
+        for (const day of days) {
+            const idx = day.items.findIndex(
+                (item) => String(item.id) === effectiveFocusedItemId,
+            )
+            if (idx >= 0 && idx + 1 < day.items.length) {
+                return String(day.items[idx + 1].id)
+            }
+        }
+        return null
+    }, [days, effectiveFocusedItemId])
     const focusedPosition =
         effectiveFocusedItem != null && hasMapCoordinates(effectiveFocusedItem)
             ? {
@@ -301,34 +321,68 @@ function MapContent({
                     lat={activeFocusPosition?.lat ?? null}
                     lng={activeFocusPosition?.lng ?? null}
                 />
-                {routes.map((route, i) => (
-                    <React.Fragment key={i}>
-                        <Polyline
-                            path={route.path}
-                            strokeColor={
-                                mapDisplayType === 'hybrid'
-                                    ? '#0f172a'
-                                    : '#ffffff'
-                            }
-                            strokeWeight={8}
-                            strokeOpacity={
-                                mapDisplayType === 'hybrid' ? 0.72 : 0.9
-                            }
-                            zIndex={1}
-                        />
-                        <Polyline
-                            path={route.path}
-                            strokeColor={route.color}
-                            strokeWeight={4}
-                            strokeOpacity={0.9}
-                            zIndex={2}
-                        />
-                    </React.Fragment>
-                ))}
+                {segments.map((segment) => {
+                    const isFocusMode = effectiveFocusedItemId != null
+                    const isFocused =
+                        isFocusMode &&
+                        segment.fromItemId === effectiveFocusedItemId
+                    const segOpacity = isFocusMode
+                        ? isFocused
+                            ? 1.0
+                            : 0.15
+                        : 0.9
+                    const segWeight = isFocusMode
+                        ? isFocused
+                            ? 6
+                            : 3
+                        : 4
+                    const casingOpacity = isFocusMode
+                        ? isFocused
+                            ? mapDisplayType === 'hybrid'
+                                ? 0.72
+                                : 0.9
+                            : 0.0
+                        : mapDisplayType === 'hybrid'
+                          ? 0.72
+                          : 0.9
+                    const path = [segment.from, segment.to]
+                    return (
+                        <React.Fragment key={segment.key}>
+                            <Polyline
+                                path={path}
+                                strokeColor={
+                                    mapDisplayType === 'hybrid'
+                                        ? '#0f172a'
+                                        : '#ffffff'
+                                }
+                                strokeWeight={segWeight + 4}
+                                strokeOpacity={casingOpacity}
+                                zIndex={1}
+                            />
+                            <Polyline
+                                path={path}
+                                strokeColor={segment.color}
+                                strokeWeight={segWeight}
+                                strokeOpacity={segOpacity}
+                                zIndex={2}
+                            />
+                        </React.Fragment>
+                    )
+                })}
                 {days.map((day) => {
                     return day.items
                         .filter(hasMapCoordinates)
-                        .map((item, index) => (
+                        .map((item, index) => {
+                            const isFocusMode = effectiveFocusedItemId != null
+                            const isItemFocused =
+                                effectiveFocusedItemId === String(item.id)
+                            const isNextFocused =
+                                focusedNextItemId === String(item.id)
+                            const markerOpacity =
+                                isFocusMode && !isItemFocused && !isNextFocused
+                                    ? 'opacity-25'
+                                    : 'opacity-100'
+                            return (
                             <AdvancedMarker
                                 key={item.id}
                                 position={{ lat: item.lat, lng: item.lng }}
@@ -336,16 +390,22 @@ function MapContent({
                                     onItemHoverChange(String(item.id))
                                 }
                                 onMouseLeave={() => onItemHoverChange(null)}
-                                onClick={() => onItemFocus(String(item.id))}
+                                onClick={() =>
+                                    onItemFocus(
+                                        isItemFocused
+                                            ? null
+                                            : String(item.id),
+                                    )
+                                }
                                 zIndex={
-                                    effectiveFocusedItemId === String(item.id)
+                                    isItemFocused
                                         ? 100
                                         : hoveredItemId === String(item.id)
                                           ? 90
                                           : 5
                                 }
                             >
-                                <div className="relative flex flex-col items-center">
+                                <div className={`relative flex flex-col items-center transition-opacity ${markerOpacity}`}>
                                     {effectiveFocusedItemId ===
                                         String(item.id) && (
                                         <FocusedItineraryItemCard
@@ -382,17 +442,15 @@ function MapContent({
                                         categoryColor={item.categoryColor}
                                         categoryLabel={item.categoryName}
                                         showCategoryBadge={showCategoryBadges}
-                                        selected={
-                                            effectiveFocusedItemId ===
-                                            String(item.id)
-                                        }
+                                        selected={isItemFocused}
                                         hovered={
                                             hoveredItemId === String(item.id)
                                         }
                                     />
                                 </div>
                             </AdvancedMarker>
-                        ))
+                            )
+                        })
                 })}
                 {unscheduledMapPlaces.map((place) => (
                     <AdvancedMarker
