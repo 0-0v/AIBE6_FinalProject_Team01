@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
     ArrowRightIcon,
     Clock3Icon,
@@ -72,6 +72,8 @@ export function AiDashboardActions({
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [emptyResult, setEmptyResult] = useState(false)
+    const recommendationRequestId = useRef(0)
+    const recommendationSubmitting = useRef(false)
     const routeSegments = days.flatMap((day) => {
         const orderedItems = [...day.items]
             .filter(
@@ -109,10 +111,13 @@ export function AiDashboardActions({
         defaultSegment
 
     async function submitPlaceRecommendation() {
+        if (recommendationSubmitting.current) return
         if (!selectedSegment) {
             setError('장소가 2개 이상 배치된 Day에서 동선을 선택해 주세요.')
             return
         }
+        const currentRequestId = ++recommendationRequestId.current
+        recommendationSubmitting.current = true
         setLoading(true)
         setError(null)
         setEmptyResult(false)
@@ -121,10 +126,13 @@ export function AiDashboardActions({
                 dayId: selectedSegment.dayId,
                 fromTripPlaceId: Number(selectedSegment.from.tripPlaceId),
                 toTripPlaceId: Number(selectedSegment.to.tripPlaceId),
-                category,
+                category:
+                    categories.find((item) => item.key === category)?.label ??
+                    category,
                 prompt,
                 limit: 5,
             })
+            if (recommendationRequestId.current !== currentRequestId) return
             if (recommendations.length === 0) {
                 setEmptyResult(true)
                 return
@@ -135,6 +143,7 @@ export function AiDashboardActions({
             })
             onOpenTrip()
         } catch (requestError) {
+            if (recommendationRequestId.current !== currentRequestId) return
             setError(
                 getApiErrorMessage(
                     requestError,
@@ -142,8 +151,30 @@ export function AiDashboardActions({
                 ),
             )
         } finally {
-            setLoading(false)
+            if (recommendationRequestId.current === currentRequestId) {
+                recommendationSubmitting.current = false
+                setLoading(false)
+            }
         }
+    }
+
+    function openPlaceRecommendation() {
+        recommendationRequestId.current += 1
+        recommendationSubmitting.current = false
+        setMode('place')
+        setPrompt('')
+        setSelectedSegmentKey(null)
+        setRecommendationReferenceTime(new Date())
+        setLoading(false)
+        setError(null)
+        setEmptyResult(false)
+    }
+
+    function closePlaceRecommendation() {
+        recommendationRequestId.current += 1
+        recommendationSubmitting.current = false
+        setLoading(false)
+        setMode(null)
     }
 
     return (
@@ -151,14 +182,7 @@ export function AiDashboardActions({
             <div className="flex flex-wrap items-center justify-end gap-2">
                 <button
                     type="button"
-                    onClick={() => {
-                        setMode('place')
-                        setPrompt('')
-                        setSelectedSegmentKey(null)
-                        setRecommendationReferenceTime(new Date())
-                        setError(null)
-                        setEmptyResult(false)
-                    }}
+                    onClick={openPlaceRecommendation}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-[#fff0f3] px-3 py-2 text-xs font-extrabold text-[#c94c63] transition hover:bg-rose-100"
                 >
                     <MapPinnedIcon size={15} />
@@ -199,7 +223,7 @@ export function AiDashboardActions({
                             </div>
                             <button
                                 type="button"
-                                onClick={() => setMode(null)}
+                                onClick={closePlaceRecommendation}
                                 className="rounded-xl border border-white bg-white/80 p-2 text-slate-400 shadow-sm transition hover:bg-white hover:text-slate-700"
                                 aria-label="AI 기능 창 닫기"
                             >
