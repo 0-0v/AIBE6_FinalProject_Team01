@@ -1083,6 +1083,7 @@ export function Home() {
                                                     `/app/room/${activeTrip.id}`,
                                                 )
                                             }
+                                            onReplanApplied={setItineraryDays}
                                         />
                                     ) : (
                                         <MapIcon
