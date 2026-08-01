@@ -2,7 +2,9 @@ import React from 'react'
 import {
     CalendarDaysIcon,
     ChevronRightIcon,
+    LockIcon,
     MapPinIcon,
+    UnlockIcon,
     UsersIcon,
 } from 'lucide-react'
 import type { Room } from '../model/types'
@@ -18,43 +20,102 @@ export function RoomCard({ room, onOpen, compact = false }: Props) {
         return (
             <article
                 onClick={onOpen}
-                className="group min-w-0 cursor-pointer overflow-hidden rounded-[20px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-100 hover:shadow-[0_14px_30px_rgba(31,41,55,0.09)]"
+                className="group relative h-[220px] min-w-0 cursor-pointer overflow-hidden rounded-[22px] border border-white/60 bg-[#20262e] shadow-[0_8px_24px_rgba(33,60,81,0.13),0_2px_6px_rgba(33,60,81,0.08)] transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(33,60,81,0.20),0_4px_10px_rgba(33,60,81,0.08)] @min-[440px]:h-[232px] @min-[440px]:rounded-[24px]"
             >
-                <div className="relative aspect-[16/8] overflow-hidden">
+                <div className="relative h-full overflow-hidden">
                     <img
                         src={room.cover}
                         alt={`${room.title} 여행방`}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                        className="absolute inset-0 h-full w-full object-cover transition duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.02]"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 to-transparent" />
-                    <span className="absolute left-3 top-3 rounded-full bg-slate-950/75 px-2 py-1 text-[10px] font-extrabold text-white backdrop-blur-sm">
-                        {room.status}
-                    </span>
-                    <span className="absolute right-3 top-3 rounded-full bg-white/95 px-2 py-1 text-[10px] font-extrabold text-slate-800">
+                    <div className="absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-[rgba(15,29,40,0.34)] via-[rgba(15,29,40,0.12)] via-55% to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 h-[64%] bg-gradient-to-t from-[rgba(15,29,40,0.88)] via-[rgba(15,29,40,0.72)] via-26% to-transparent" />
+
+                    <span
+                        className={`absolute left-3 top-3 inline-flex items-center gap-[5px] whitespace-nowrap rounded-full px-2.5 py-[5px] text-[11.5px] font-bold backdrop-blur-[10px] ${getDdayBadgeClass(room.dday)}`}
+                    >
                         {room.dday}
                     </span>
-                </div>
-                <div className="flex min-w-0 flex-col p-4">
-                    <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                            <h2 className="truncate font-extrabold tracking-tight text-slate-900">
-                                {room.title}
-                            </h2>
-                            <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-slate-400">
-                                <MapPinIcon size={12} className="shrink-0" />
-                                {room.location}
+                    <span
+                        className={`absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-[9px] border backdrop-blur-[10px] ${
+                            room.visibility === 'PUBLIC'
+                                ? 'border-transparent bg-[#f2647c] text-white'
+                                : 'border-white/30 bg-[rgba(33,60,81,0.62)] text-white/90'
+                        }`}
+                        aria-label={
+                            room.visibility === 'PUBLIC'
+                                ? '공개 여행방'
+                                : '비공개 여행방'
+                        }
+                        title={
+                            room.visibility === 'PUBLIC'
+                                ? '둘러보기에 공개된 여행방'
+                                : '비공개 여행방'
+                        }
+                    >
+                        {room.visibility === 'PUBLIC' ? (
+                            <UnlockIcon size={14} />
+                        ) : (
+                            <LockIcon size={14} />
+                        )}
+                    </span>
+
+                    <div className="absolute inset-x-0 bottom-0 px-4 pb-[15px] pt-[46px] text-white">
+                        <h2 className="truncate text-[20px] font-bold leading-[1.25] tracking-[-0.03em] [text-shadow:0_1px_8px_rgba(15,29,40,0.4)] @min-[440px]:text-[22px]">
+                            {room.title}
+                        </h2>
+                        <div className="mt-[7px] flex min-w-0 items-center gap-[7px] overflow-hidden whitespace-nowrap text-[11px] font-medium text-white/90 [text-shadow:0_1px_6px_rgba(15,29,40,0.45)] @min-[440px]:text-[12px]">
+                            <p className="flex min-w-0 items-center gap-1.5 truncate">
+                                <MapPinIcon size={14} className="shrink-0" />
+                                <span className="truncate">
+                                    {room.location}
+                                </span>
+                            </p>
+                            <span className="shrink-0 opacity-45">·</span>
+                            <p className="flex shrink-0 items-center gap-1.5">
+                                <CalendarDaysIcon size={14} />
+                                {formatCompactDate(
+                                    room.startDate,
+                                    room.endDate,
+                                )}
                             </p>
                         </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] font-semibold text-slate-500">
-                        <p className="flex items-center gap-1.5">
-                            <CalendarDaysIcon size={12} />
-                            <span className="truncate">{room.date}</span>
-                        </p>
-                        <p className="flex items-center gap-1.5">
-                            <UsersIcon size={12} />
-                            {room.members}명
-                        </p>
+
+                        {room.travelStyleLabels &&
+                            room.travelStyleLabels.length > 0 && (
+                                <div className="mt-2.5 flex max-h-[26px] gap-1.5 overflow-hidden">
+                                    {room.travelStyleLabels
+                                        .slice(0, 2)
+                                        .map((label) => (
+                                            <span
+                                                key={label}
+                                                className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[9px] border border-white/30 bg-white/20 px-2.5 py-[5px] text-[12px] font-semibold text-white backdrop-blur-[6px]"
+                                            >
+                                                {label}
+                                            </span>
+                                        ))}
+                                    {room.travelStyleLabels.length > 2 && (
+                                        <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[9px] border border-white/30 bg-white/20 px-2.5 py-[5px] text-[12px] font-semibold text-white backdrop-blur-[6px]">
+                                            +{room.travelStyleLabels.length - 2}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                        <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/20 pt-[11px] text-[12px] font-semibold text-white/95 @min-[440px]:text-[13px]">
+                            <span className="flex items-center gap-1.5">
+                                <UsersIcon size={15} />
+                                {room.members > 1
+                                    ? `${room.members}명`
+                                    : (room.companionLabel ?? '나 혼자')}
+                            </span>
+                            <span className="flex items-center gap-1 whitespace-nowrap font-bold transition-transform group-hover:translate-x-0.5">
+                                {room.dday === '여행 종료'
+                                    ? '기록 보기'
+                                    : '여행방 열기'}
+                                <ChevronRightIcon size={16} />
+                            </span>
+                        </div>
                     </div>
                 </div>
             </article>
@@ -103,4 +164,26 @@ export function RoomCard({ room, onOpen, compact = false }: Props) {
             </div>
         </article>
     )
+}
+
+function formatCompactDate(startDate: string | null, endDate: string | null) {
+    if (!startDate || !endDate) return '날짜 미정'
+    const compact = (date: string) => {
+        const [, month, day] = date.split('-')
+        return `${Number(month)}.${Number(day)}`
+    }
+    return `${compact(startDate)} – ${compact(endDate)}`
+}
+
+function getDdayBadgeClass(dday: string) {
+    if (dday === '여행 종료') {
+        return 'border border-white/35 bg-white/10 text-white/95 [text-shadow:0_1px_6px_rgba(15,29,40,0.45)]'
+    }
+    if (dday === '일정 미정') {
+        return 'border border-white/40 bg-white/20 text-white [text-shadow:0_1px_6px_rgba(15,29,40,0.45)]'
+    }
+    if (dday === '여행 중' || dday === 'D-DAY' || dday.startsWith('D-')) {
+        return 'border border-transparent bg-[#f2647c] text-white shadow-[0_2px_10px_rgba(33,60,81,0.28)]'
+    }
+    return 'border border-white/40 bg-white/20 text-white [text-shadow:0_1px_6px_rgba(15,29,40,0.45)]'
 }
