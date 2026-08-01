@@ -83,7 +83,16 @@ public class AiItineraryReplanService {
                 .findAllOrderedByTripId(tripId)
                 .stream()
                 .collect(Collectors.toMap(TripPlace::getId, place -> place));
-        Set<Long> selectedItemIds = Set.copyOf(request.itineraryItemIds());
+        Set<Long> selectedItemIds = cutoffPolicy.movableItemIdsFrom(
+                days,
+                referenceTime,
+                request.itineraryItemId()
+        );
+        if (selectedItemIds.isEmpty()) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
         Set<Long> fixedPlaceIds = fixedPlaceIds(
                 days,
                 referenceTime,
@@ -190,6 +199,7 @@ public class AiItineraryReplanService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
     }
+
 
     private RoutePlanPreviewResponse mergeFixedSchedule(
             RoutePlanPreviewResponse futurePlan,

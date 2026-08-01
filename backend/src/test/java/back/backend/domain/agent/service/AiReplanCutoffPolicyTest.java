@@ -2,16 +2,15 @@ package back.backend.domain.agent.service;
 
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryItem;
-import back.backend.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
@@ -70,28 +69,44 @@ class AiReplanCutoffPolicyTest {
     }
 
     @Test
-    @DisplayName("t4 테스트 모드에서는 요청한 기준 시각을 재배치 기준으로 사용한다")
-    void t4_testModeUsesRequestedCutoff() {
-        LocalDateTime requested = LocalDateTime.of(2026, 8, 3, 14, 0);
+    @DisplayName("t4 선택한 일정부터 이후의 남은 일정만 재배치 대상으로 반환한다")
+    void t4_selectedItemAndFollowingItemsAreMovable() {
+        ItineraryDay day = mock(ItineraryDay.class);
+        ItineraryItem first = mock(ItineraryItem.class);
+        ItineraryItem selected = mock(ItineraryItem.class);
+        ItineraryItem following = mock(ItineraryItem.class);
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day.getItems()).willReturn(List.of(first, selected, following));
+        given(first.getId()).willReturn(1L);
+        given(selected.getId()).willReturn(2L);
+        given(following.getId()).willReturn(3L);
+        given(first.getSortOrder()).willReturn(1);
+        given(selected.getSortOrder()).willReturn(2);
+        given(following.getSortOrder()).willReturn(3);
 
-        LocalDateTime resolved = policy.resolveReferenceTime(
-                requested,
-                true,
-                LocalDateTime.of(2026, 8, 1, 10, 0)
+        var movableIds = policy.movableItemIdsFrom(
+                List.of(day),
+                LocalDateTime.of(2026, 8, 2, 12, 0),
+                2L
         );
 
-        assertThat(resolved).isEqualTo(requested);
+        assertThat(movableIds).containsExactlyInAnyOrder(2L, 3L);
     }
 
     @Test
-    @DisplayName("t5 운영 모드에서는 임의 기준 시각 요청을 거절한다")
-    void t5_productionModeRejectsRequestedCutoff() {
-        LocalDateTime requested = LocalDateTime.of(2026, 8, 3, 14, 0);
+    @DisplayName("t5 이미 지난 일정을 시작점으로 선택하면 재배치 대상을 반환하지 않는다")
+    void t5_pastStartingItemCannotBeReplanned() {
+        ItineraryDay day = mock(ItineraryDay.class);
+        ItineraryItem item = mock(ItineraryItem.class);
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(day.getItems()).willReturn(List.of(item));
 
-        assertThatThrownBy(() -> policy.resolveReferenceTime(
-                requested,
-                false,
-                LocalDateTime.of(2026, 8, 1, 10, 0)
-        )).isInstanceOf(BusinessException.class);
+        var movableIds = policy.movableItemIdsFrom(
+                List.of(day),
+                LocalDateTime.of(2026, 8, 2, 12, 0),
+                1L
+        );
+
+        assertThat(movableIds).isEmpty();
     }
 }

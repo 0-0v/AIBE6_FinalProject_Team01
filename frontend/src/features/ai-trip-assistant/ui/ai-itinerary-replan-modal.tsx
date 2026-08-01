@@ -66,7 +66,25 @@ function formatDistance(meters: number) {
     return meters < 1000 ? `${meters}m` : `${(meters / 1000).toFixed(1)}km`
 }
 
-function ReplanPreview({ plan }: { plan: RoutePlanPreview }) {
+function ReplanPreview({
+    plan,
+    affectedTripPlaceIds,
+}: {
+    plan: RoutePlanPreview
+    affectedTripPlaceIds: Set<number>
+}) {
+    const affectedDays = plan.days
+        .map((day) => ({
+            ...day,
+            items: day.items.filter((item) =>
+                affectedTripPlaceIds.has(item.tripPlaceId),
+            ),
+        }))
+        .filter((day) => day.items.length > 0)
+    const affectedPlaceCount = affectedDays.reduce(
+        (count, day) => count + day.items.length,
+        0,
+    )
     return (
         <div className="space-y-3">
             <div className="rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 p-4">
@@ -75,14 +93,14 @@ function ReplanPreview({ plan }: { plan: RoutePlanPreview }) {
                 </p>
                 <div className="mt-2 flex gap-2 text-[10px] font-extrabold text-slate-500">
                     <span className="rounded-full bg-white px-2.5 py-1">
-                        재배치 장소 {plan.totalPlaceCount}곳
+                        재배치 장소 {affectedPlaceCount}곳
                     </span>
                     <span className="rounded-full bg-white px-2.5 py-1">
                         예상 이동 {formatDistance(plan.totalDistanceMeters)}
                     </span>
                 </div>
             </div>
-            {plan.days.map((day) => (
+            {affectedDays.map((day) => (
                 <section
                     key={day.dayId}
                     className="rounded-2xl border border-slate-200 bg-white p-3.5"
@@ -139,9 +157,7 @@ export function AiItineraryReplanModal({
     onApplied,
 }: Props) {
     const [openedAt] = useState(() => new Date())
-    const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(
-        new Set(),
-    )
+    const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
     const [selectedReasons, setSelectedReasons] = useState<Set<string>>(
         new Set(),
     )
@@ -165,15 +181,29 @@ export function AiItineraryReplanModal({
                 .filter((day) => day.items.length > 0),
         [days, openedAt],
     )
+    const remainingItems = useMemo(
+        () => remainingDays.flatMap((day) => day.items),
+        [remainingDays],
+    )
+    const selectedItemIndex = remainingItems.findIndex(
+        (item) => Number(item.id) === selectedItemId,
+    )
+    const affectedTripPlaceIds = useMemo(
+        () =>
+            new Set(
+                (selectedItemIndex < 0
+                    ? []
+                    : remainingItems.slice(selectedItemIndex)
+                )
+                    .map((item) => Number(item.tripPlaceId))
+                    .filter(Number.isFinite),
+            ),
+        [remainingItems, selectedItemIndex],
+    )
     const selectedPlan = options[selectedIndex]?.plan ?? null
 
-    function toggleItem(itemId: number) {
-        setSelectedItemIds((current) => {
-            const next = new Set(current)
-            if (next.has(itemId)) next.delete(itemId)
-            else next.add(itemId)
-            return next
-        })
+    function selectStartingItem(itemId: number) {
+        setSelectedItemId(itemId)
         setError(null)
     }
 
@@ -188,8 +218,8 @@ export function AiItineraryReplanModal({
     }
 
     async function preview() {
-        if (selectedItemIds.size === 0 || selectedReasons.size === 0) {
-            setError('재배치할 일정과 변경 사유를 하나 이상 선택해 주세요.')
+        if (selectedItemId === null || selectedReasons.size === 0) {
+            setError('재배치를 시작할 일정과 변경 사유를 선택해 주세요.')
             return
         }
         setLoading(true)
@@ -197,7 +227,7 @@ export function AiItineraryReplanModal({
         setError(null)
         try {
             const result = await previewAiItineraryReplan(tripId, {
-                itineraryItemIds: [...selectedItemIds],
+                itineraryItemId: selectedItemId,
                 reasons: [...selectedReasons],
             })
             setOptions(result)
@@ -278,14 +308,17 @@ export function AiItineraryReplanModal({
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h3 className="text-sm font-black text-slate-800">
-                                            재배치할 일정 선택
+                                            재배치 시작 일정 선택
                                         </h3>
                                         <p className="mt-1 text-[11px] text-slate-400">
-                                            현재 시각 이후의 일정만 표시됩니다.
+                                            선택한 일정부터 이후 일정 전체를
+                                            다시 배치합니다.
                                         </p>
                                     </div>
                                     <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-black text-brand">
-                                        {selectedItemIds.size}개 선택
+                                        {selectedItemId === null
+                                            ? '선택 필요'
+                                            : '시작점 선택됨'}
                                     </span>
                                 </div>
 
@@ -313,15 +346,14 @@ export function AiItineraryReplanModal({
                                                             item.id,
                                                         )
                                                         const selected =
-                                                            selectedItemIds.has(
-                                                                itemId,
-                                                            )
+                                                            selectedItemId ===
+                                                            itemId
                                                         return (
                                                             <button
                                                                 key={item.id}
                                                                 type="button"
                                                                 onClick={() =>
-                                                                    toggleItem(
+                                                                    selectStartingItem(
                                                                         itemId,
                                                                     )
                                                                 }
@@ -395,11 +427,12 @@ export function AiItineraryReplanModal({
                                         className="text-amber-500"
                                     />
                                     <p className="mt-2 text-xs font-extrabold text-slate-700">
-                                        선택하지 않은 일정은 유지됩니다.
+                                        선택한 일정 이전은 그대로 유지됩니다.
                                     </p>
                                     <p className="mt-1 text-[10px] leading-4 text-slate-500">
-                                        AI는 선택한 일정과 사유만 반영해 남은
-                                        동선을 다시 계산합니다.
+                                        선택한 장소를 이후 시간대에 다시 넣을 수
+                                        있으며, 해당 일정부터 모든 후속 동선을
+                                        다시 계산합니다.
                                     </p>
                                 </div>
                             </div>
@@ -436,7 +469,10 @@ export function AiItineraryReplanModal({
                                 ))}
                             </div>
                             {selectedPlan && (
-                                <ReplanPreview plan={selectedPlan} />
+                                <ReplanPreview
+                                    plan={selectedPlan}
+                                    affectedTripPlaceIds={affectedTripPlaceIds}
+                                />
                             )}
                         </div>
                     )}

@@ -42,8 +42,8 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t1 선택한 일정과 재배치 사유를 입력하면 미리보기를 반환한다")
-    void t1_previewReturnsOptionsForSelectedItemsAndReasons() throws Exception {
+    @DisplayName("t1 재배치 시작 일정과 사유를 입력하면 미리보기를 반환한다")
+    void t1_previewReturnsOptionsFromSelectedItem() throws Exception {
         given(replanService.preview(eq(1L), any())).willReturn(List.of(
                 new RoutePlanOption(
                         "AI 추천 코스",
@@ -59,7 +59,7 @@ class AiItineraryReplanControllerTest {
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"itineraryItemIds":[11,12],"reasons":["WEATHER","BUSINESS_HOURS"]}
+                                {"itineraryItemId":11,"reasons":["WEATHER","BUSINESS_HOURS"]}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].routeLabel")
@@ -69,11 +69,11 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t2 재배치할 일정을 선택하지 않으면 잘못된 요청을 반환한다")
-    void t2_previewRejectsEmptyItemSelection() throws Exception {
+    @DisplayName("t2 재배치 시작 일정을 선택하지 않으면 잘못된 요청을 반환한다")
+    void t2_previewRejectsMissingStartItem() throws Exception {
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"itineraryItemIds\":[],\"reasons\":[\"WEATHER\"]}"))
+                        .content("{\"reasons\":[\"WEATHER\"]}"))
                 .andExpect(status().isBadRequest());
     }
 

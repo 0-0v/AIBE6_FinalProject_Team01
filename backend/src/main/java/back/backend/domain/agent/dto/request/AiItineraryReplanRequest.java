@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public record AiItineraryReplanRequest(
-        @NotEmpty List<@NotNull Long> itineraryItemIds,
+        @NotNull Long itineraryItemId,
         @NotEmpty List<@NotBlank String> reasons
 ) {
 }

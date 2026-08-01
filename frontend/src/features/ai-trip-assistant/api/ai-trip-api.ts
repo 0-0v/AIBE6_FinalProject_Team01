@@ -27,7 +27,7 @@ export async function recommendPlacesAlongRoute(
 export async function previewAiItineraryReplan(
     tripId: number,
     input: {
-        itineraryItemIds: number[]
+        itineraryItemId: number
         reasons: string[]
     },
 ): Promise<RouteOption[]> {
