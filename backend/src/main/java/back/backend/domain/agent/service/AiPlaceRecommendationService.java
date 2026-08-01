@@ -53,11 +53,26 @@ public class AiPlaceRecommendationService {
                         ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND
                 ));
 
+        List<Long> orderedTripPlaceIds = day.getItems().stream()
+                .map(item -> item.getTripPlaceId())
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        int fromIndex = orderedTripPlaceIds.indexOf(request.fromTripPlaceId());
+        if (fromIndex < 0
+                || fromIndex + 1 >= orderedTripPlaceIds.size()
+                || !orderedTripPlaceIds.get(fromIndex + 1)
+                .equals(request.toTripPlaceId())) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
+        List<Long> segmentTripPlaceIds = List.of(
+                request.fromTripPlaceId(),
+                request.toTripPlaceId()
+        );
+
         Map<Long, double[]> routePointByTripPlaceId = tripPlaceRepository
-                .findAllById(day.getItems().stream()
-                        .map(item -> item.getTripPlaceId())
-                        .filter(java.util.Objects::nonNull)
-                        .toList())
+                .findAllById(segmentTripPlaceIds)
                 .stream()
                 .collect(Collectors.toMap(
                         place -> place.getId(),
@@ -66,8 +81,8 @@ public class AiPlaceRecommendationService {
                                 place.getPlace().getLongitude().doubleValue()
                         }
                 ));
-        List<double[]> routePoints = day.getItems().stream()
-                .map(item -> routePointByTripPlaceId.get(item.getTripPlaceId()))
+        List<double[]> routePoints = segmentTripPlaceIds.stream()
+                .map(routePointByTripPlaceId::get)
                 .filter(java.util.Objects::nonNull)
                 .toList();
 
@@ -172,6 +187,17 @@ public class AiPlaceRecommendationService {
             List<double[]> routePoints
     ) {
         if (routePoints.isEmpty()) return 0;
+        if (routePoints.size() == 2) {
+            double[] from = routePoints.get(0);
+            double[] to = routePoints.get(1);
+            double throughCandidate = distanceMeters(
+                    from[0], from[1], place.latitude(), place.longitude()
+            ) + distanceMeters(
+                    place.latitude(), place.longitude(), to[0], to[1]
+            );
+            double direct = distanceMeters(from[0], from[1], to[0], to[1]);
+            return (int) Math.round(Math.max(0, throughCandidate - direct));
+        }
         return (int) Math.round(routePoints.stream()
                 .mapToDouble(point -> distanceMeters(
                         place.latitude(),

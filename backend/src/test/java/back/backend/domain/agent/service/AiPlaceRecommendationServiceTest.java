@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -61,8 +62,10 @@ class AiPlaceRecommendationServiceTest {
     void t1_recommendSearchesNearDayRouteAndReturnsAiRanking() {
         Trip trip = org.mockito.Mockito.mock(Trip.class);
         ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
-        ItineraryItem item = org.mockito.Mockito.mock(ItineraryItem.class);
-        TripPlace routePlace = tripPlace(100L, "route-place", 34.67, 135.5);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem secondItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        TripPlace firstRoutePlace = tripPlace(100L, "route-place-1", 34.67, 135.5);
+        TripPlace secondRoutePlace = tripPlace(101L, "route-place-2", 34.672, 135.502);
         PlaceSearchResponse candidate = searchPlace(
                 "candidate-1",
                 "멘야 라멘",
@@ -75,10 +78,11 @@ class AiPlaceRecommendationServiceTest {
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(Optional.of(day));
-        given(day.getItems()).willReturn(List.of(item));
-        given(item.getTripPlaceId()).willReturn(100L);
+        given(day.getItems()).willReturn(List.of(firstItem, secondItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(secondItem.getTripPlaceId()).willReturn(101L);
         given(tripPlaceRepository.findAllById(any()))
-                .willReturn(List.of(routePlace));
+                .willReturn(List.of(firstRoutePlace, secondRoutePlace));
         given(tripPlaceRepository.findAllOrderedByTripId(1L))
                 .willReturn(List.of());
         given(placeSearchService.searchNearby(
@@ -95,6 +99,8 @@ class AiPlaceRecommendationServiceTest {
                 1L,
                 new AiPlaceRecommendationRequest(
                         10L,
+                        100L,
+                        101L,
                         "식사",
                         "라멘을 좋아해",
                         5
@@ -105,7 +111,7 @@ class AiPlaceRecommendationServiceTest {
         assertThat(result.get(0).place().googlePlaceId())
                 .isEqualTo("candidate-1");
         assertThat(result.get(0).reason()).contains("기존 동선");
-        assertThat(result.get(0).routeDeviationMeters()).isPositive();
+        assertThat(result.get(0).routeDeviationMeters()).isNotNegative();
         assertThat(result.get(0).styleCompatibility()).isEqualTo(0.95);
         then(accessChecker).should().requireEdit(1L);
     }
@@ -115,8 +121,10 @@ class AiPlaceRecommendationServiceTest {
     void t2_styleCompatibilityBreaksSimilarRouteCandidates() {
         Trip trip = org.mockito.Mockito.mock(Trip.class);
         ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
-        ItineraryItem item = org.mockito.Mockito.mock(ItineraryItem.class);
-        TripPlace routePlace = tripPlace(100L, "route-place", 34.67, 135.5);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem secondItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        TripPlace firstRoutePlace = tripPlace(100L, "route-place-1", 34.67, 135.5);
+        TripPlace secondRoutePlace = tripPlace(101L, "route-place-2", 34.672, 135.502);
         PlaceSearchResponse food = searchPlace(
                 "food", "라멘집", 34.671, 135.501, PlaceCategoryType.FOOD
         );
@@ -129,9 +137,11 @@ class AiPlaceRecommendationServiceTest {
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(Optional.of(day));
-        given(day.getItems()).willReturn(List.of(item));
-        given(item.getTripPlaceId()).willReturn(100L);
-        given(tripPlaceRepository.findAllById(any())).willReturn(List.of(routePlace));
+        given(day.getItems()).willReturn(List.of(firstItem, secondItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(secondItem.getTripPlaceId()).willReturn(101L);
+        given(tripPlaceRepository.findAllById(any()))
+                .willReturn(List.of(firstRoutePlace, secondRoutePlace));
         given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
         given(placeSearchService.searchNearby(anyString(), anyDouble(), anyDouble(), anyDouble()))
                 .willReturn(List.of(shop, food));
@@ -144,11 +154,36 @@ class AiPlaceRecommendationServiceTest {
 
         var result = service.recommend(
                 1L,
-                new AiPlaceRecommendationRequest(10L, "음식점", "라멘", 5)
+                new AiPlaceRecommendationRequest(10L, 100L, 101L, "음식점", "라멘", 5)
         );
 
         assertThat(result).extracting(itemResult -> itemResult.place().googlePlaceId())
                 .containsExactly("food", "shop");
+    }
+
+    @Test
+    @DisplayName("t3 선택한 두 장소가 같은 Day의 연속 구간이 아니면 추천을 거부한다")
+    void t3_recommendRejectsNonConsecutiveRouteSegment() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem middleItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem lastItem = org.mockito.Mockito.mock(ItineraryItem.class);
+
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(Optional.of(day));
+        given(day.getItems()).willReturn(List.of(firstItem, middleItem, lastItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(middleItem.getTripPlaceId()).willReturn(101L);
+        given(lastItem.getTripPlaceId()).willReturn(102L);
+
+        assertThatThrownBy(() -> service.recommend(
+                1L,
+                new AiPlaceRecommendationRequest(
+                        10L, 100L, 102L, "카페", null, 5
+                )
+        )).isInstanceOf(back.backend.global.exception.BusinessException.class);
     }
 
     private TripPlace tripPlace(
