@@ -1,4 +1,6 @@
 export { cn } from './utils'
+export { errorMessage } from './error-message'
+// useDebounce는 클라이언트 훅이므로 직접 경로로 import: '@/shared/lib/use-debounce'
 export { getJwtExpirationTime } from './jwt-expiration'
 export {
     getLastLoginProvider,
