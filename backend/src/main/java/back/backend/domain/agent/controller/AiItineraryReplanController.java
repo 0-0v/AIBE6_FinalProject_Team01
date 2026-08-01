@@ -13,11 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.format.annotation.DateTimeFormat;
-
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -46,15 +42,8 @@ public class AiItineraryReplanController {
     )
     public ApiResponse<List<ItineraryDayResponse>> apply(
             @PathVariable Long tripId,
-            @RequestBody @Valid RoutePlanPreviewResponse plan,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime testCutoffAt
+            @RequestBody @Valid RoutePlanPreviewResponse plan
     ) {
-        return ApiResponse.success(replanService.apply(
-                tripId,
-                plan,
-                testCutoffAt
-        ));
+        return ApiResponse.success(replanService.apply(tripId, plan));
     }
 }

@@ -26,11 +26,14 @@ export async function recommendPlacesAlongRoute(
 
 export async function previewAiItineraryReplan(
     tripId: number,
-    testCutoffAt?: string,
+    input: {
+        itineraryItemIds: number[]
+        reasons: string[]
+    },
 ): Promise<RouteOption[]> {
     const response = await apiClient.post<ApiResponse<RouteOption[]>>(
         `/api/trips/${tripId}/itinerary/replan/preview`,
-        { testCutoffAt: testCutoffAt || null },
+        input,
     )
     return response.data
 }
@@ -38,13 +41,9 @@ export async function previewAiItineraryReplan(
 export async function applyAiItineraryReplan(
     tripId: number,
     plan: RoutePlanPreview,
-    testCutoffAt?: string,
 ): Promise<ItineraryDay[]> {
-    const query = testCutoffAt
-        ? `?testCutoffAt=${encodeURIComponent(testCutoffAt)}`
-        : ''
     const response = await apiClient.post<ApiResponse<ItineraryDay[]>>(
-        `/api/trips/${tripId}/itinerary/replan/apply${query}`,
+        `/api/trips/${tripId}/itinerary/replan/apply`,
         plan,
     )
     return response.data

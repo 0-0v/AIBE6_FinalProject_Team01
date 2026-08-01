@@ -448,6 +448,7 @@ export function AiDashboardActions({
             {mode === 'replan' && (
                 <AiItineraryReplanModal
                     tripId={tripId}
+                    days={days}
                     onClose={() => setMode(null)}
                     onApplied={onReplanApplied}
                 />

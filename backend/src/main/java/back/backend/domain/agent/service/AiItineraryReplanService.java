@@ -62,11 +62,7 @@ public class AiItineraryReplanService {
         accessChecker.requireEdit(tripId);
         var trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
-        LocalDateTime referenceTime = cutoffPolicy.resolveReferenceTime(
-                request.testCutoffAt(),
-                allowOutsideTrip,
-                LocalDateTime.now()
-        );
+        LocalDateTime referenceTime = LocalDateTime.now();
         validateTripPeriod(
                 trip.getStartDate(),
                 trip.getEndDate(),
@@ -87,9 +83,15 @@ public class AiItineraryReplanService {
                 .findAllOrderedByTripId(tripId)
                 .stream()
                 .collect(Collectors.toMap(TripPlace::getId, place -> place));
-        Set<Long> fixedPlaceIds = fixedPlaceIds(days, referenceTime);
+        Set<Long> selectedItemIds = Set.copyOf(request.itineraryItemIds());
+        Set<Long> fixedPlaceIds = fixedPlaceIds(
+                days,
+                referenceTime,
+                selectedItemIds
+        );
         List<TripPlace> movablePlaces = days.stream()
                 .flatMap(day -> day.getItems().stream())
+                .filter(item -> selectedItemIds.contains(item.getId()))
                 .filter(item -> item.getTripPlaceId() != null)
                 .filter(item -> !fixedPlaceIds.contains(item.getTripPlaceId()))
                 .map(item -> tripPlaceById.get(item.getTripPlaceId()))
@@ -120,7 +122,8 @@ public class AiItineraryReplanService {
                         movablePlaces,
                         trip.getTravelStyles(),
                         settings,
-                        "REPLAN_REMAINING_ITINERARY"
+                        "REPLAN_REMAINING_ITINERARY\n재배치 사유: "
+                                + String.join(", ", request.reasons())
                 )
                 .stream()
                 .map(option -> new RoutePlanOption(
@@ -139,16 +142,11 @@ public class AiItineraryReplanService {
     public List<back.backend.domain.itinerary.dto.response.ItineraryDayResponse>
     apply(
             Long tripId,
-            RoutePlanPreviewResponse plan,
-            LocalDateTime testCutoffAt
+            RoutePlanPreviewResponse plan
     ) {
         Long memberId = accessChecker.requireEdit(tripId);
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
-        LocalDateTime referenceTime = cutoffPolicy.resolveReferenceTime(
-                testCutoffAt,
-                allowOutsideTrip,
-                LocalDateTime.now()
-        );
+        LocalDateTime referenceTime = LocalDateTime.now();
         assertFixedItemsUnchanged(plan, days, referenceTime);
         var applied = itineraryService.applyReplan(tripId, plan);
         collaborationEventService.record(
@@ -181,11 +179,13 @@ public class AiItineraryReplanService {
 
     private Set<Long> fixedPlaceIds(
             List<ItineraryDay> days,
-            LocalDateTime now
+            LocalDateTime now,
+            Set<Long> selectedItemIds
     ) {
         return days.stream()
                 .flatMap(day -> day.getItems().stream()
-                        .filter(item -> cutoffPolicy.isFixed(day, item, now)))
+                        .filter(item -> cutoffPolicy.isFixed(day, item, now)
+                                || !selectedItemIds.contains(item.getId())))
                 .map(ItineraryItem::getTripPlaceId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());

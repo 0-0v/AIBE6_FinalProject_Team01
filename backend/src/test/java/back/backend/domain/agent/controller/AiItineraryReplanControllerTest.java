@@ -15,7 +15,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
-import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,8 +42,8 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t1 테스트 기준 시각을 입력하면 해당 시점 이후 일정 미리보기를 반환한다")
-    void t1_previewReturnsFutureReplanOptions() throws Exception {
+    @DisplayName("t1 선택한 일정과 재배치 사유를 입력하면 미리보기를 반환한다")
+    void t1_previewReturnsOptionsForSelectedItemsAndReasons() throws Exception {
         given(replanService.preview(eq(1L), any())).willReturn(List.of(
                 new RoutePlanOption(
                         "AI 추천 코스",
@@ -60,7 +59,7 @@ class AiItineraryReplanControllerTest {
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"testCutoffAt":"2026-08-03T14:00:00"}
+                                {"itineraryItemIds":[11,12],"reasons":["WEATHER","BUSINESS_HOURS"]}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].routeLabel")
@@ -70,25 +69,20 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t2 기준 시각을 생략해도 서버 현재 시각으로 미리보기를 요청한다")
-    void t2_previewAcceptsRequestWithoutTestCutoff() throws Exception {
-        given(replanService.preview(eq(1L), any())).willReturn(List.of());
-
+    @DisplayName("t2 재배치할 일정을 선택하지 않으면 잘못된 요청을 반환한다")
+    void t2_previewRejectsEmptyItemSelection() throws Exception {
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isOk());
-
-        then(replanService).should().preview(eq(1L), any());
+                        .content("{\"itineraryItemIds\":[],\"reasons\":[\"WEATHER\"]}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("t3 재배치 적용 시 미리보기와 같은 테스트 기준 시각을 전달한다")
-    void t3_applyForwardsTestCutoff() throws Exception {
-        given(replanService.apply(eq(1L), any(), any())).willReturn(List.of());
+    @DisplayName("t3 재배치 적용 시 선택한 미리보기 결과를 전달한다")
+    void t3_applyForwardsSelectedPreview() throws Exception {
+        given(replanService.apply(eq(1L), any())).willReturn(List.of());
 
         mockMvc.perform(post("/api/trips/1/itinerary/replan/apply")
-                        .queryParam("testCutoffAt", "2026-08-03T14:00:00")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -102,8 +96,7 @@ class AiItineraryReplanControllerTest {
 
         then(replanService).should().apply(
                 eq(1L),
-                any(),
-                eq(LocalDateTime.of(2026, 8, 3, 14, 0))
+                any()
         );
     }
 }

@@ -88,7 +88,8 @@ public class OpenAiRouteAdvisor {
             String planningMode
     ) throws Exception {
         Map<String, Object> input = new LinkedHashMap<>();
-        boolean replan = "REPLAN_REMAINING_ITINERARY".equals(planningMode);
+        boolean replan = planningMode != null
+                && planningMode.startsWith("REPLAN_REMAINING_ITINERARY");
         Map<Long, Double> styleScores = replan
                 ? placeStyleRelationService.resolveCompatibilities(
                         tripPlaces,
@@ -119,6 +120,11 @@ public class OpenAiRouteAdvisor {
                         .toList()
         );
         input.put("planningMode", replan ? "REPLAN" : "INITIAL_PLAN");
+        if (replan) {
+            input.put("replanReason", planningMode.substring(
+                    "REPLAN_REMAINING_ITINERARY".length()
+            ).trim());
+        }
 
         return """
                 당신은 MySQL에서 검색된 여행 일정 컨텍스트를 근거로
