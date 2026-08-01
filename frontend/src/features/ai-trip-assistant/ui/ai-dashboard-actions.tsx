@@ -29,6 +29,14 @@ const categories = PLACE_SEARCH_CATEGORIES.filter(
     (category) => category.key !== 'all' && category.key !== 'transit_station',
 )
 
+const categorySearchQueries: Record<string, string> = {
+    lodging: 'hotel',
+    tourist_attraction: 'tourist attractions',
+    restaurant: 'restaurant',
+    cafe: 'cafe',
+    shopping_mall: 'shopping',
+}
+
 function localDateValue(date: Date) {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -126,9 +134,7 @@ export function AiDashboardActions({
                 dayId: selectedSegment.dayId,
                 fromTripPlaceId: Number(selectedSegment.from.tripPlaceId),
                 toTripPlaceId: Number(selectedSegment.to.tripPlaceId),
-                category:
-                    categories.find((item) => item.key === category)?.label ??
-                    category,
+                category: categorySearchQueries[category] ?? category,
                 prompt,
                 limit: 5,
             })
@@ -140,6 +146,13 @@ export function AiDashboardActions({
             savePendingAiTripAction(tripId, {
                 kind: 'place-recommendations',
                 recommendations,
+                routeContext: {
+                    dayId: selectedSegment.dayId,
+                    dayNumber: selectedSegment.dayNumber,
+                    segmentIndex: selectedSegment.segmentNumber - 1,
+                    fromTripPlaceId: selectedSegment.from.tripPlaceId,
+                    toTripPlaceId: selectedSegment.to.tripPlaceId,
+                },
             })
             onOpenTrip()
         } catch (requestError) {

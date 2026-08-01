@@ -251,7 +251,7 @@ class AiPlaceRecommendationServiceTest {
                 contains("조용하고 특별한 분위기"), anyDouble(), anyDouble(), anyDouble()
         )).willReturn(List.of());
         given(placeSearchService.searchNearby(
-                eq("오사카 카페"), anyDouble(), anyDouble(), anyDouble()
+                eq("오사카 cafe"), anyDouble(), anyDouble(), anyDouble()
         )).willReturn(List.of(fallbackCandidate));
         given(placeStyleRelationService.calculateCompatibility(
                 PlaceCategoryType.CAFE, Set.of(TravelStyle.RELAXATION)
@@ -260,7 +260,7 @@ class AiPlaceRecommendationServiceTest {
         var result = service.recommend(
                 1L,
                 new AiPlaceRecommendationRequest(
-                        10L, 100L, 101L, "카페",
+                        10L, 100L, 101L, "cafe",
                         "조용하고 특별한 분위기", 5
                 )
         );

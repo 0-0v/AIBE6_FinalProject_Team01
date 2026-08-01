@@ -579,6 +579,7 @@ export function TripRoom() {
                     }`}
                 >
                     <MapCanvas
+                        key={`map-${tripId ?? 'none'}-${pendingAiAction?.routeContext?.dayId ?? 'all'}-${pendingAiAction?.routeContext?.segmentIndex ?? 'all'}`}
                         places={mapPlaces}
                         initialLat={room?.destinationLat}
                         initialLng={room?.destinationLng}
@@ -586,6 +587,12 @@ export function TripRoom() {
                         onSelect={setSelectedId}
                         onDeselect={() => setSelectedId(null)}
                         days={itineraryDays}
+                        initialRouteDay={
+                            pendingAiAction?.routeContext?.dayNumber ?? null
+                        }
+                        initialFocusedSegmentIndex={
+                            pendingAiAction?.routeContext?.segmentIndex ?? null
+                        }
                         onAddToSchedule={
                             !inviteCode && canManagePlaces
                                 ? handleAddToSchedule

@@ -5,4 +5,11 @@ export type AiPlaceRecommendation = AiPlaceSearchRecommendation
 export type PendingAiTripAction = {
     kind: 'place-recommendations'
     recommendations: AiPlaceRecommendation[]
+    routeContext?: {
+        dayId: number
+        dayNumber: number
+        segmentIndex: number
+        fromTripPlaceId: string
+        toTripPlaceId: string
+    }
 }
