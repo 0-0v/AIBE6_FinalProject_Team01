@@ -19,7 +19,8 @@ type Props = {
 }
 
 const categories = PLACE_SEARCH_CATEGORIES.filter(
-    (category) => category.key !== 'all',
+    (category) =>
+        category.key !== 'all' && category.key !== 'transit_station',
 )
 
 export function AiDashboardActions({
