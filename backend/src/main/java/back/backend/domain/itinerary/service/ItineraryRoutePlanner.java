@@ -495,13 +495,49 @@ public class ItineraryRoutePlanner {
         for (int i = 0; i < days.size(); i++) {
             ItineraryDay day = days.get(i);
             List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
-            List<TripPlace> sortedPlaces = constraintSorter.sort(dayPlaces, day.getItineraryDate());
+            List<TripPlace> constrainedPlaces = constraintSorter.sort(
+                    dayPlaces,
+                    day.getItineraryDate()
+            );
+            List<TripPlace> sortedPlaces = prioritizeDeparture(
+                    day,
+                    constrainedPlaces
+            );
             RoutePlanDayResponse plannedDay = planDay(day, sortedPlaces, defaultReason, settings);
             plannedDays.add(plannedDay);
             totalDistanceMeters += plannedDay.totalDistanceMeters();
         }
 
         return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
+    }
+
+    private List<TripPlace> prioritizeDeparture(
+            ItineraryDay day,
+            List<TripPlace> places
+    ) {
+        if (!day.hasDeparture() || places.size() <= 1) {
+            return places;
+        }
+
+        GeoPoint departure = new GeoPoint(
+                day.getDepartureLat().doubleValue(),
+                day.getDepartureLng().doubleValue()
+        );
+        TripPlace nearestPlace = places.stream()
+                .min(Comparator.comparingDouble(place ->
+                        distanceMeters(place, departure)))
+                .orElseThrow();
+
+        if (places.getFirst().getId().equals(nearestPlace.getId())) {
+            return places;
+        }
+
+        List<TripPlace> reordered = new ArrayList<>(places.size());
+        reordered.add(nearestPlace);
+        places.stream()
+                .filter(place -> !place.getId().equals(nearestPlace.getId()))
+                .forEach(reordered::add);
+        return reordered;
     }
 
     private RoutePlanDayResponse planDay(
