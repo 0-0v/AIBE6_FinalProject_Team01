@@ -4,12 +4,14 @@ import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryItem;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
@@ -55,5 +57,29 @@ public class AiReplanCutoffPolicy {
                 .stream()
                 .map(ItineraryItem::getId)
                 .collect(Collectors.toSet());
+    }
+
+    public Optional<LocalDate> startingDayDate(
+            List<ItineraryDay> days,
+            Long startingItemId
+    ) {
+        return days.stream()
+                .filter(day -> day.getItems().stream()
+                        .anyMatch(item -> Objects.equals(
+                                item.getId(),
+                                startingItemId
+                        )))
+                .map(ItineraryDay::getItineraryDate)
+                .findFirst();
+    }
+
+    public List<ItineraryDay> replannableDaysFrom(
+            List<ItineraryDay> days,
+            LocalDate startingDayDate
+    ) {
+        return days.stream()
+                .filter(day -> !day.getItineraryDate().isBefore(startingDayDate))
+                .sorted(Comparator.comparing(ItineraryDay::getItineraryDate))
+                .toList();
     }
 }

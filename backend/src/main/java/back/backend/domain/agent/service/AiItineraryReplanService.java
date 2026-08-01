@@ -93,6 +93,13 @@ public class AiItineraryReplanService {
                     ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
             );
         }
+        LocalDate startingDayDate = cutoffPolicy.startingDayDate(
+                        days,
+                        request.itineraryItemId()
+                )
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+                ));
         Set<Long> fixedPlaceIds = fixedPlaceIds(
                 days,
                 referenceTime,
@@ -107,11 +114,10 @@ public class AiItineraryReplanService {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        List<ItineraryDay> replannableDays = days.stream()
-                .filter(day -> !day.getItineraryDate().isBefore(
-                        referenceTime.toLocalDate()
-                ))
-                .toList();
+        List<ItineraryDay> replannableDays = cutoffPolicy.replannableDaysFrom(
+                days,
+                startingDayDate
+        );
         if (replannableDays.isEmpty() || movablePlaces.isEmpty()) {
             throw new BusinessException(
                     ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN

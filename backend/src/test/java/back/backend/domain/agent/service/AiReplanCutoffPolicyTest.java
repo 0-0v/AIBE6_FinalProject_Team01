@@ -109,4 +109,41 @@ class AiReplanCutoffPolicyTest {
 
         assertThat(movableIds).isEmpty();
     }
+
+    @Test
+    @DisplayName("t6 Day 2의 일정을 선택하면 재배치 시작 날짜로 Day 2를 반환한다")
+    void t6_selectedItemResolvesItsOwnDayAsReplanStart() {
+        ItineraryDay day1 = mock(ItineraryDay.class);
+        ItineraryDay day2 = mock(ItineraryDay.class);
+        ItineraryItem day1Item = mock(ItineraryItem.class);
+        ItineraryItem day2Item = mock(ItineraryItem.class);
+        given(day1.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day2.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 4));
+        given(day1.getItems()).willReturn(List.of(day1Item));
+        given(day2.getItems()).willReturn(List.of(day2Item));
+        given(day1Item.getId()).willReturn(1L);
+        given(day2Item.getId()).willReturn(2L);
+
+        var startingDate = policy.startingDayDate(List.of(day1, day2), 2L);
+
+        assertThat(startingDate).contains(LocalDate.of(2026, 8, 4));
+    }
+
+    @Test
+    @DisplayName("t7 Day 2부터 재배치하면 Day 1은 AI 재배치 대상에서 제외한다")
+    void t7_replanFromDay2ExcludesDay1() {
+        ItineraryDay day1 = mock(ItineraryDay.class);
+        ItineraryDay day2 = mock(ItineraryDay.class);
+        ItineraryDay day3 = mock(ItineraryDay.class);
+        given(day1.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day2.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 4));
+        given(day3.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 5));
+
+        var replannableDays = policy.replannableDaysFrom(
+                List.of(day1, day2, day3),
+                LocalDate.of(2026, 8, 4)
+        );
+
+        assertThat(replannableDays).containsExactly(day2, day3);
+    }
 }
