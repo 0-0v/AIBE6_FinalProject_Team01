@@ -10,6 +10,8 @@ export async function recommendPlacesAlongRoute(
     tripId: number,
     input: {
         dayId: number
+        fromTripPlaceId: number
+        toTripPlaceId: number
         category: string
         prompt: string
         limit?: number
