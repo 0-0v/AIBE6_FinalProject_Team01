@@ -1,6 +1,5 @@
 export { AiDashboardActions } from './ui/ai-dashboard-actions'
 export { AiBrandMark } from './ui/ai-brand-mark'
-export { AiPlaceRecommendationsPanel } from './ui/ai-place-recommendations-panel'
 export {
     previewAiItineraryReplan,
     applyAiItineraryReplan,

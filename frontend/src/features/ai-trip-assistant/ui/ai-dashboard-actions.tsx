@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { LoaderCircleIcon, MapPinnedIcon, RouteIcon, XIcon } from 'lucide-react'
 import type { ItineraryDay } from '@/entities/trip'
+import { PLACE_SEARCH_CATEGORIES } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { recommendPlacesAlongRoute } from '../api/ai-trip-api'
 import { savePendingAiTripAction } from '../lib/pending-ai-trip-action'
@@ -15,7 +16,9 @@ type Props = {
     onOpenTrip: () => void
 }
 
-const categories = ['식사', '카페', '쇼핑', '숙소', '관광']
+const categories = PLACE_SEARCH_CATEGORIES.filter(
+    (category) => category.key !== 'all',
+)
 
 export function AiDashboardActions({
     tripId,
@@ -24,7 +27,7 @@ export function AiDashboardActions({
     onOpenTrip,
 }: Props) {
     const [mode, setMode] = useState<'place' | 'replan' | null>(null)
-    const [category, setCategory] = useState(categories[0])
+    const [category, setCategory] = useState(categories[0].key)
     const [prompt, setPrompt] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -141,18 +144,18 @@ export function AiDashboardActions({
                                     <div className="flex flex-wrap gap-2">
                                         {categories.map((item) => (
                                             <button
-                                                key={item}
+                                                key={item.key}
                                                 type="button"
                                                 onClick={() =>
-                                                    setCategory(item)
+                                                    setCategory(item.key)
                                                 }
                                                 className={`rounded-full px-3 py-2 text-xs font-bold transition ${
-                                                    category === item
+                                                    category === item.key
                                                         ? 'bg-brand text-white shadow-[0_6px_16px_rgba(225,91,116,0.25)]'
                                                         : 'border border-slate-200 bg-white text-slate-500 hover:border-rose-200 hover:bg-rose-50'
                                                 }`}
                                             >
-                                                {item}
+                                                {item.label}
                                             </button>
                                         ))}
                                     </div>

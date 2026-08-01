@@ -1,17 +1,8 @@
-import type { PlaceSearchResult } from '@/features/search-place'
+import type { AiPlaceSearchRecommendation } from '@/features/search-place'
 
-export type AiPlaceRecommendation = {
-    place: PlaceSearchResult
-    reason: string
-    routeDeviationMeters: number
+export type AiPlaceRecommendation = AiPlaceSearchRecommendation
+
+export type PendingAiTripAction = {
+    kind: 'place-recommendations'
+    recommendations: AiPlaceRecommendation[]
 }
-
-export type PendingAiTripAction =
-    | {
-          kind: 'place-recommendations'
-          recommendations: AiPlaceRecommendation[]
-      }
-    | {
-          kind: 'itinerary-replan'
-          reason: string
-      }

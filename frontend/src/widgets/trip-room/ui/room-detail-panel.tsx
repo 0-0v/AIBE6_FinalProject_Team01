@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import {
-    ChevronRightIcon,
-    HistoryIcon,
-    ListIcon,
-    MapIcon,
-} from 'lucide-react'
+import { ChevronRightIcon, HistoryIcon, ListIcon, MapIcon } from 'lucide-react'
 import {
     Place,
     Room,
@@ -27,7 +22,10 @@ import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { InviteModal } from '@/features/invite-member'
 import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
-import type { PlaceSearchResult } from '@/features/search-place'
+import type {
+    AiPlaceSearchRecommendation,
+    PlaceSearchResult,
+} from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { globalModal } from '@/shared/model'
 import { UNSAVED_DATE_MODAL_COPY } from '../lib/unsaved-date-modal-copy'
@@ -76,6 +74,7 @@ type Props = {
     onJoin?: () => void
     onWorkspaceChange?: (workspace: TripRoomWorkspace) => void
     headerContainer?: HTMLElement | null
+    aiPlaceRecommendations?: AiPlaceSearchRecommendation[] | null
 }
 
 export function RoomDetailPanel({
@@ -102,6 +101,7 @@ export function RoomDetailPanel({
     onJoin,
     onWorkspaceChange,
     headerContainer,
+    aiPlaceRecommendations,
 }: Props) {
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -109,6 +109,7 @@ export function RoomDetailPanel({
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [members, setMembers] = useState<TripMember[]>([])
+
     const isPublic = room.visibility === 'PUBLIC'
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
@@ -409,13 +410,22 @@ export function RoomDetailPanel({
                         role="tablist"
                         aria-label="계획 화면"
                     >
-                        {([
-                            { key: 'places' as const, label: '장소', icon: ListIcon },
-                            { key: 'schedule' as const, label: '일정', icon: MapIcon },
-                        ]).map((item) => {
+                        {[
+                            {
+                                key: 'places' as const,
+                                label: '장소',
+                                icon: ListIcon,
+                            },
+                            {
+                                key: 'schedule' as const,
+                                label: '일정',
+                                icon: MapIcon,
+                            },
+                        ].map((item) => {
                             const active =
                                 item.key === 'schedule'
-                                    ? planTab === 'itinerary' || planTab === 'schedule'
+                                    ? planTab === 'itinerary' ||
+                                      planTab === 'schedule'
                                     : planTab === item.key
                             return (
                                 <button
@@ -424,7 +434,8 @@ export function RoomDetailPanel({
                                         if (active) return
                                         requestDiscardDateChanges(() => {
                                             setPlanTab(
-                                                item.key === 'schedule' && !hasConfirmedDates
+                                                item.key === 'schedule' &&
+                                                    !hasConfirmedDates
                                                     ? 'itinerary'
                                                     : item.key,
                                             )
@@ -509,6 +520,7 @@ export function RoomDetailPanel({
                                             .filter((id): id is string => !!id),
                                     )
                                 }
+                                aiRecommendations={aiPlaceRecommendations}
                             />
                         )}
                         {(loadError || categoryError || placeError) && (
