@@ -39,6 +39,7 @@ import { searchPlaces } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ScheduleItemCard } from './schedule-item-card'
+import { getItineraryDayColor } from '../lib/itinerary-map'
 import { buildGoogleMapsDirectionsUrl } from '../lib/google-maps-directions'
 import { buildItineraryDropZoneId } from '../lib/itinerary-drop-position'
 import {
@@ -453,7 +454,7 @@ function TransportConnector({
     }
 
     return (
-        <div className="relative flex flex-col items-center justify-center py-1.5">
+        <div className="relative flex flex-col items-center justify-center py-1">
             {/* 세로 점선 */}
             <div className="absolute inset-y-0 left-1/2 -translate-x-px border-l-2 border-dashed border-slate-200" />
             <div className="relative z-10 flex items-center rounded-full border border-brand/25 bg-white text-brand shadow-sm">
@@ -793,7 +794,7 @@ export function DayColumn({
 
             {/* 아이템 목록 (접으면 숨김) */}
             {!collapsed && (
-                <div className="flex flex-col gap-1 px-3 pb-3">
+                <div className="flex flex-col gap-0.5 px-2.5 pb-2.5">
                     <SortableContext
                         id={String(day.id)}
                         items={day.items.map((i) => i.id)}
@@ -801,7 +802,7 @@ export function DayColumn({
                     >
                         {day.items.length === 0 ? (
                             <div
-                                className={`flex min-h-[52px] items-center justify-center rounded-lg border-2 border-dashed text-xs transition-all ${
+                                className={`flex min-h-12 items-center justify-center rounded-lg border-2 border-dashed text-xs transition-all ${
                                     isOver
                                         ? 'scale-[1.02] border-brand bg-brand/10 text-brand'
                                         : isDragging
@@ -832,6 +833,8 @@ export function DayColumn({
                                             canWrite={canWrite}
                                             days={days}
                                             currentDayId={String(day.id)}
+                                            visitOrder={index + 1}
+                                            dayColor={getItineraryDayColor(day.dayNumber)}
                                             onDaysChange={onDaysChange}
                                             highlighted={
                                                 hoveredItemId ===

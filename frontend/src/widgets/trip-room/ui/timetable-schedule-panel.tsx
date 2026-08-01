@@ -6,13 +6,16 @@ import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
 import { Badge, Button } from '@/shared/ui'
 import { formatLocalDate } from '../lib/date-availability'
+import { getItineraryDayColor } from '../lib/itinerary-map'
 import { getTimetableHourRange } from '../lib/timetable-layout'
 import { useItineraryDays } from '../model/use-itinerary-days'
 import { useItineraryItemEditor } from '../model/use-itinerary-item-editor'
 import { TimeRangeFields } from './time-range-fields'
 
-const HOUR_HEIGHT = 64 // px per hour
-const OVERVIEW_DAY_WIDTH = 156
+const HOUR_HEIGHT = 56 // 일정 간격은 유지하면서 한 화면에 더 많은 시간을 표시한다.
+const OVERVIEW_DAY_MIN_WIDTH = 280
+const TIMETABLE_TIME_AXIS_WIDTH = 56
+const OVERVIEW_DAY_MAX_WIDTH = 320
 
 type TimetableView = 'day' | 'overview'
 const TIMETABLE_VIEW_STORAGE_KEY = 'trip-room-timetable-view'
@@ -168,11 +171,64 @@ function getCurrentTimeTop(startHour: number, endHour: number): number | null {
     return (h - startHour) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
 }
 
+function TimeAxisLabels({
+    startHour,
+    endHour,
+}: {
+    startHour: number
+    endHour: number
+}) {
+    return Array.from({ length: endHour - startHour }, (_, index) => (
+        <div
+            key={index}
+            className="absolute right-2 text-[10px] font-medium text-slate-400"
+            style={{
+                top: index === 0 ? 2 : index * HOUR_HEIGHT - 6,
+            }}
+        >
+            {String(startHour + index).padStart(2, '0')}:00
+        </div>
+    ))
+}
+
+function HourGridLines({
+    startHour,
+    endHour,
+}: {
+    startHour: number
+    endHour: number
+}) {
+    const hourCount = endHour - startHour
+
+    return (
+        <>
+            {Array.from({ length: hourCount + 1 }, (_, index) => (
+                <div
+                    key={`hour-${index}`}
+                    className="absolute left-0 right-0 border-t border-slate-100"
+                    style={{ top: index * HOUR_HEIGHT }}
+                />
+            ))}
+            {Array.from({ length: hourCount }, (_, index) => (
+                <div
+                    key={`half-hour-${index}`}
+                    className="absolute left-0 right-0 border-t border-dashed border-slate-100/80"
+                    style={{
+                        top: index * HOUR_HEIGHT + HOUR_HEIGHT / 2,
+                    }}
+                />
+            ))}
+        </>
+    )
+}
+
 // ──────────────────────────────────────────
 // TimetableItemBlock
 // ──────────────────────────────────────────
 type BlockProps = {
     item: ItineraryItem
+    visitOrder: number
+    dayColor: string
     tripId: number
     top: number
     height: number
@@ -185,6 +241,8 @@ type BlockProps = {
 
 function TimetableItemBlock({
     item,
+    visitOrder,
+    dayColor,
     tripId,
     top,
     height,
@@ -203,7 +261,7 @@ function TimetableItemBlock({
 
     return (
         <div
-            className="absolute cursor-pointer overflow-hidden rounded-lg transition-shadow hover:shadow-md"
+            className="absolute cursor-pointer overflow-hidden rounded-lg border border-white/80 shadow-sm transition-shadow hover:shadow-md"
             style={{
                 top,
                 minHeight: height,
@@ -215,15 +273,24 @@ function TimetableItemBlock({
             }}
             onClick={() => canWrite && !editor.editing && editor.beginEditing()}
         >
-            <div className="px-2 py-1.5">
-                <p
-                    className="truncate text-xs font-semibold"
-                    style={{ color: item.categoryColor ?? '#475569' }}
-                    title={item.placeName ?? ''}
-                >
-                    {item.placeName ?? '(제목 없음)'}
-                </p>
-                <p className="text-[10px] text-slate-400">
+            <div className="px-2 py-1">
+                <div className="flex min-w-0 items-center gap-1">
+                    <span
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
+                        style={{ backgroundColor: dayColor }}
+                        aria-label={`${visitOrder}번째 방문 장소`}
+                    >
+                        {visitOrder}
+                    </span>
+                    <p
+                        className="min-w-0 flex-1 truncate text-xs font-semibold"
+                        style={{ color: item.categoryColor ?? '#475569' }}
+                        title={item.placeName ?? ''}
+                    >
+                        {item.placeName ?? '(제목 없음)'}
+                    </p>
+                </div>
+                <p className="mt-0.5 text-[10px] font-medium leading-none text-slate-500">
                     {item.startTime}
                     {item.endTime ? ` ~ ${item.endTime}` : ''}
                 </p>
@@ -494,15 +561,15 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
             </div>
 
             {view === 'day' && hasUnscheduled && (
-                <div className="shrink-0 border-b border-slate-100 bg-slate-50 px-4 py-2">
-                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                <div className="shrink-0 border-b border-slate-100 bg-slate-50 px-3 py-1.5">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                         미정 · {untimedItems.length + unscheduledPlaces.length}
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1">
                         {untimedItems.map((item) => (
                             <div
                                 key={item.id}
-                                className="flex items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-sm"
+                                className="flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-[11px] font-medium shadow-sm"
                                 style={{
                                     borderColor:
                                         (item.categoryColor ?? '#94a3b8') +
@@ -526,7 +593,7 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                         {unscheduledPlaces.map((place) => (
                             <div
                                 key={place.id}
-                                className="flex items-center gap-1.5 rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-sm"
+                                className="flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-[11px] font-medium shadow-sm"
                                 style={{
                                     borderColor:
                                         (place.categoryColor ?? '#94a3b8') +
@@ -558,51 +625,20 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                             className="relative w-14 shrink-0 border-r border-slate-100"
                             style={{ height: gridHeight }}
                         >
-                            {Array.from(
-                                { length: endHour - startHour },
-                                (_, i) => (
-                                    <div
-                                        key={i}
-                                        className="absolute right-2 text-[10px] text-slate-300"
-                                        style={{
-                                            top: i * HOUR_HEIGHT - 6,
-                                        }}
-                                    >
-                                        {String(startHour + i).padStart(2, '0')}
-                                        :00
-                                    </div>
-                                ),
-                            )}
+                            <TimeAxisLabels
+                                startHour={startHour}
+                                endHour={endHour}
+                            />
                         </div>
 
                         <div
                             className="relative flex-1"
                             style={{ height: gridHeight }}
                         >
-                            {Array.from(
-                                { length: endHour - startHour + 1 },
-                                (_, i) => (
-                                    <div
-                                        key={i}
-                                        className="absolute left-0 right-0 border-t border-slate-100"
-                                        style={{ top: i * HOUR_HEIGHT }}
-                                    />
-                                ),
-                            )}
-                            {Array.from(
-                                { length: endHour - startHour },
-                                (_, i) => (
-                                    <div
-                                        key={i}
-                                        className="absolute left-0 right-0 border-t border-dashed border-slate-50"
-                                        style={{
-                                            top:
-                                                i * HOUR_HEIGHT +
-                                                HOUR_HEIGHT / 2,
-                                        }}
-                                    />
-                                ),
-                            )}
+                            <HourGridLines
+                                startHour={startHour}
+                                endHour={endHour}
+                            />
 
                             {currentTimeTop !== null &&
                                 selectedDay?.itineraryDate === todayStr && (
@@ -633,6 +669,15 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                         <TimetableItemBlock
                                             key={item.id}
                                             item={item}
+                                            visitOrder={
+                                                (selectedDay?.items.findIndex(
+                                                    (dayItem) =>
+                                                        dayItem.id === item.id,
+                                                ) ?? -1) + 1
+                                            }
+                                            dayColor={getItineraryDayColor(
+                                                selectedDay?.dayNumber ?? 1,
+                                            )}
                                             tripId={tripId}
                                             top={top}
                                             height={height}
@@ -662,7 +707,16 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                 <div className="mp-scroll flex-1 overflow-auto bg-white">
                     <div
                         style={{
-                            minWidth: 56 + days.length * OVERVIEW_DAY_WIDTH,
+                            width: '100%',
+                            minWidth:
+                                TIMETABLE_TIME_AXIS_WIDTH +
+                                days.length * OVERVIEW_DAY_MIN_WIDTH,
+                            maxWidth:
+                                days.length >= 4
+                                    ? TIMETABLE_TIME_AXIS_WIDTH +
+                                      days.length * OVERVIEW_DAY_MAX_WIDTH
+                                    : undefined,
+                            marginInline: 'auto',
                         }}
                     >
                         <div className="sticky top-0 z-30 flex h-14 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -678,10 +732,7 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                         key={day.id}
                                         type="button"
                                         onClick={() => openDay(String(day.id))}
-                                        className="flex shrink-0 flex-col items-center justify-center border-r border-slate-100 px-2 transition hover:bg-brand/5"
-                                        style={{
-                                            width: OVERVIEW_DAY_WIDTH,
-                                        }}
+                                        className="flex min-w-[280px] flex-1 flex-col items-center justify-center border-r border-slate-100 px-3 transition hover:bg-brand/5"
                                     >
                                         <span className="flex items-center gap-1 text-xs font-bold text-slate-700">
                                             Day {day.dayNumber}
@@ -711,24 +762,10 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                 className="sticky left-0 z-20 w-14 shrink-0 border-r border-slate-200 bg-white"
                                 style={{ height: gridHeight }}
                             >
-                                {Array.from(
-                                    { length: endHour - startHour },
-                                    (_, i) => (
-                                        <div
-                                            key={i}
-                                            className="absolute right-2 text-[10px] text-slate-300"
-                                            style={{
-                                                top: i * HOUR_HEIGHT - 6,
-                                            }}
-                                        >
-                                            {String(startHour + i).padStart(
-                                                2,
-                                                '0',
-                                            )}
-                                            :00
-                                        </div>
-                                    ),
-                                )}
+                                <TimeAxisLabels
+                                    startHour={startHour}
+                                    endHour={endHour}
+                                />
                             </div>
                             {days.map((day) => {
                                 const dayTimedItems = day.items.filter(
@@ -737,42 +774,15 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                 return (
                                     <div
                                         key={day.id}
-                                        className="relative shrink-0 border-r border-slate-100"
+                                        className="relative min-w-[280px] flex-1 border-r border-slate-100"
                                         style={{
-                                            width: OVERVIEW_DAY_WIDTH,
                                             height: gridHeight,
                                         }}
                                     >
-                                        {Array.from(
-                                            {
-                                                length: endHour - startHour + 1,
-                                            },
-                                            (_, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="absolute left-0 right-0 border-t border-slate-100"
-                                                    style={{
-                                                        top: i * HOUR_HEIGHT,
-                                                    }}
-                                                />
-                                            ),
-                                        )}
-                                        {Array.from(
-                                            {
-                                                length: endHour - startHour,
-                                            },
-                                            (_, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="absolute left-0 right-0 border-t border-dashed border-slate-50"
-                                                    style={{
-                                                        top:
-                                                            i * HOUR_HEIGHT +
-                                                            HOUR_HEIGHT / 2,
-                                                    }}
-                                                />
-                                            ),
-                                        )}
+                                        <HourGridLines
+                                            startHour={startHour}
+                                            endHour={endHour}
+                                        />
                                         {currentTimeTop !== null &&
                                             day.itineraryDate === todayStr && (
                                                 <div
@@ -787,6 +797,12 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                                 const color =
                                                     item.categoryColor ??
                                                     '#94a3b8'
+                                                const visitOrder =
+                                                    day.items.findIndex(
+                                                        (dayItem) =>
+                                                            dayItem.id ===
+                                                            item.id,
+                                                    ) + 1
                                                 const height = item.endTime
                                                     ? getItemHeight(
                                                           item.startTime!,
@@ -819,11 +835,25 @@ export function TimetableSchedulePanel({ tripId, places, canWrite }: Props) {
                                                             backgroundColor: `${color}18`,
                                                         }}
                                                     >
-                                                        <span className="block truncate text-[10px] font-bold">
-                                                            {item.placeName ??
-                                                                '(제목 없음)'}
+                                                        <span className="flex min-w-0 items-center gap-1">
+                                                            <span
+                                                                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold text-white"
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        getItineraryDayColor(
+                                                                            day.dayNumber,
+                                                                        ),
+                                                                }}
+                                                                aria-label={`${visitOrder}번째 방문 장소`}
+                                                            >
+                                                                {visitOrder}
+                                                            </span>
+                                                            <span className="min-w-0 flex-1 truncate text-[10px] font-bold">
+                                                                {item.placeName ??
+                                                                    '(제목 없음)'}
+                                                            </span>
                                                         </span>
-                                                        <span className="block text-[9px] opacity-70">
+                                                        <span className="mt-0.5 block pl-5 text-[9px] font-medium opacity-70">
                                                             {item.startTime}
                                                             {item.endTime
                                                                 ? `–${item.endTime}`

@@ -24,6 +24,8 @@ type Props = {
     canWrite: boolean
     days: ItineraryDay[]
     currentDayId: string
+    visitOrder: number
+    dayColor: string
     onDaysChange: (days: ItineraryDay[]) => void
     highlighted?: boolean
     onHoverChange?: (itemId: string | null) => void
@@ -36,6 +38,8 @@ export function ScheduleItemCard({
     canWrite,
     days,
     currentDayId,
+    visitOrder,
+    dayColor,
     onDaysChange,
     highlighted = false,
     onHoverChange,
@@ -112,7 +116,7 @@ export function ScheduleItemCard({
                     style={{ backgroundColor: item.categoryColor ?? '#e2e8f0' }}
                 />
 
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-2">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5">
                     {/* 장소 정보와 핸들 영역 전체에서 드래그 */}
                     <div
                         {...(canWrite ? listeners : {})}
@@ -131,6 +135,13 @@ export function ScheduleItemCard({
                                 className="shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                             />
                         )}
+                        <span
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold text-white shadow-sm"
+                            style={{ backgroundColor: dayColor }}
+                            aria-label={`${visitOrder}번째 방문 장소`}
+                        >
+                            {visitOrder}
+                        </span>
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1">
                                 {item.categoryIcon && (
@@ -156,7 +167,7 @@ export function ScheduleItemCard({
                                 {formatTimeRange(item.startTime, item.endTime)}
                             </p>
                             {item.memo && (
-                                <p className="truncate text-[10px] text-slate-400">
+                                <p className="truncate text-[10px] leading-tight text-slate-400">
                                     {item.memo}
                                 </p>
                             )}
