@@ -1,31 +1,20 @@
 import { FormEvent, useState } from 'react'
 import { LogOutIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { errorMessage } from '@/shared/lib'
 import {
     deleteTrip,
     leaveTrip,
-    type CompanionType,
     type TravelStyle,
-    type TravelPace,
     type TripResponse,
     updateTrip,
     uploadTripCoverImage,
 } from '../api/trip-api'
 import { TripCoverImageField } from './trip-cover-image-field'
+import {
+    DestinationAutocomplete,
+    type DestinationResult,
+} from './destination-autocomplete'
 
-const PACES: { value: TravelPace; label: string; desc: string }[] = [
-    { value: 'FAST', label: '빠르게', desc: '일정을 빽빽하게 채워요' },
-    { value: 'NORMAL', label: '보통', desc: '무난한 속도로 즐겨요' },
-    { value: 'RELAXED', label: '여유롭게', desc: '여유롭게 충분히 머물러요' },
-]
-
-const COMPANIONS: { value: CompanionType; label: string }[] = [
-    { value: 'ALONE', label: '혼자' },
-    { value: 'FRIENDS', label: '친구와' },
-    { value: 'COUPLE', label: '연인과' },
-    { value: 'SPOUSE', label: '배우자와' },
-    { value: 'CHILDREN', label: '아이와' },
-    { value: 'PARENTS', label: '부모님과' },
-]
 const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'ACTIVITY', label: '액티비티' },
     { value: 'SNS_HOT_PLACE', label: 'SNS 핫플레이스' },
@@ -41,24 +30,16 @@ type Props = { trip: TripResponse; onClose: () => void; onChanged: () => void }
 
 export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [title, setTitle] = useState(trip.title)
-    const [companionType, setCompanionType] = useState<CompanionType | ''>(
-        trip.companionType ?? '',
-    )
     const [styles, setStyles] = useState<TravelStyle[]>(trip.travelStyles)
-    const [destination, setDestination] = useState(trip.destination ?? '')
+    const [destinationText, setDestinationText] = useState(trip.destination ?? '')
+    const [destinationResult, setDestinationResult] =
+        useState<DestinationResult | null>(null)
     const [startDate, setStartDate] = useState(trip.startDate ?? '')
     const [endDate, setEndDate] = useState(trip.endDate ?? '')
     const [confirmExit, setConfirmExit] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
-    const [dayStartTime, setDayStartTime] = useState(
-        trip.dayStartTime ?? '09:00',
-    )
-    const [dayEndTime, setDayEndTime] = useState(trip.dayEndTime ?? '21:00')
-    const [travelPace, setTravelPace] = useState<TravelPace>(
-        trip.travelPace ?? 'NORMAL',
-    )
 
     function toggleStyle(style: TravelStyle) {
         setStyles((current) =>
@@ -81,14 +62,12 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             if (trip.status !== 'COMPLETED') {
                 await updateTrip(trip.id, {
                     title: title.trim(),
-                    companionType: companionType || null,
                     travelStyles: styles,
-                    destination: destination.trim() || null,
+                    destination: destinationResult?.name ?? (destinationText.trim() || null),
+                    destinationLat: destinationResult?.lat ?? null,
+                    destinationLng: destinationResult?.lng ?? null,
                     startDate: startDate || null,
                     endDate: endDate || null,
-                    dayStartTime,
-                    dayEndTime,
-                    travelPace,
                 })
             }
             if (coverImage) {
@@ -96,7 +75,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             }
             onChanged()
         } catch (caught) {
-            setError(message(caught))
+            setError(errorMessage(caught))
         } finally {
             setBusy(false)
         }
@@ -115,7 +94,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             }
             onChanged()
         } catch (caught) {
-            setError(message(caught))
+            setError(errorMessage(caught))
             setBusy(false)
         }
     }
@@ -147,25 +126,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                         className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
                     />
                 </label>
-                <label className="mt-4 block text-sm font-bold">
-                    누구와
-                    <select
-                        value={companionType}
-                        onChange={(event) =>
-                            setCompanionType(
-                                event.target.value as CompanionType | '',
-                            )
-                        }
-                        className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
-                    >
-                        <option value="">선택 안 함</option>
-                        {COMPANIONS.map((item) => (
-                            <option key={item.value} value={item.value}>
-                                {item.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
                 <fieldset className="mt-4">
                     <legend className="text-sm font-bold">여행 스타일</legend>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -183,11 +143,13 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                 </fieldset>
                 <label className="mt-4 block text-sm font-bold">
                     여행 장소
-                    <input
-                        value={destination}
-                        maxLength={100}
-                        onChange={(event) => setDestination(event.target.value)}
-                        className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
+                    <DestinationAutocomplete
+                        value={destinationText}
+                        onChange={(result, text) => {
+                            setDestinationResult(result)
+                            setDestinationText(text)
+                        }}
+                        placeholder="예: 오사카, 제주도, 파리"
                     />
                 </label>
                 <div className="mt-4 grid grid-cols-2 gap-3">
@@ -213,46 +175,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                         />
                     </label>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                    <label className="text-sm font-bold">
-                        하루 시작 시간
-                        <input
-                            type="time"
-                            value={dayStartTime}
-                            onChange={(e) => setDayStartTime(e.target.value)}
-                            className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                    <label className="text-sm font-bold">
-                        하루 종료 시간
-                        <input
-                            type="time"
-                            value={dayEndTime}
-                            onChange={(e) => setDayEndTime(e.target.value)}
-                            className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                </div>
-                <fieldset className="mt-4">
-                    <legend className="text-sm font-bold">여행 페이스</legend>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                        {PACES.map((p) => (
-                            <button
-                                key={p.value}
-                                type="button"
-                                onClick={() => setTravelPace(p.value)}
-                                className={`rounded-xl border px-2 py-2 text-center text-xs font-bold transition-colors ${travelPace === p.value ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500'}`}
-                            >
-                                <div>{p.label}</div>
-                                <div
-                                    className={`mt-0.5 text-[10px] font-normal ${travelPace === p.value ? 'text-white/80' : 'text-slate-400'}`}
-                                >
-                                    {p.desc}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </fieldset>
                 {error && (
                     <p className="mt-4 text-sm font-semibold text-red-500">
                         {error}
@@ -318,8 +240,3 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     )
 }
 
-function message(error: unknown) {
-    return error instanceof Error
-        ? error.message
-        : '요청을 처리하지 못했습니다.'
-}

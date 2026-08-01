@@ -581,7 +581,8 @@ export function TripRoom() {
                 >
                     <MapCanvas
                         places={mapPlaces}
-                        initialLocation={room?.location}
+                        initialLat={room?.destinationLat}
+                        initialLng={room?.destinationLng}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                         onDeselect={() => setSelectedId(null)}
@@ -592,7 +593,7 @@ export function TripRoom() {
                                 : undefined
                         }
                     />
-                    {!inviteCode && canManagePlaces && !aiOpen && (
+                    {!inviteCode && canManagePlaces && (
                         <button
                             onClick={() => setAiOpen(true)}
                             className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-sm font-extrabold text-white shadow-lg hover:bg-brand-700"
@@ -746,6 +747,8 @@ export function TripRoom() {
                 {aiOpen && tripId && (
                     <AiAgentPanel
                         tripId={tripId}
+                        places={displayedPlaces}
+                        days={itineraryDays}
                         onClose={() => {
                             setAiOpen(false)
                         }}
