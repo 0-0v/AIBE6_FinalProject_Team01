@@ -23,6 +23,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -44,6 +49,10 @@ class AiPlaceRecommendationServiceTest {
     @Mock PlaceStyleRelationService placeStyleRelationService;
 
     private AiPlaceRecommendationService service;
+    private final Clock clock = Clock.fixed(
+            Instant.parse("2026-08-02T03:00:00Z"),
+            ZoneId.of("Asia/Seoul")
+    );
 
     @BeforeEach
     void setUp() {
@@ -53,7 +62,8 @@ class AiPlaceRecommendationServiceTest {
                 itineraryDayRepository,
                 tripPlaceRepository,
                 placeSearchService,
-                placeStyleRelationService
+                placeStyleRelationService,
+                clock
         );
     }
 
@@ -78,6 +88,7 @@ class AiPlaceRecommendationServiceTest {
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(Optional.of(day));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
         given(day.getItems()).willReturn(List.of(firstItem, secondItem));
         given(firstItem.getTripPlaceId()).willReturn(100L);
         given(secondItem.getTripPlaceId()).willReturn(101L);
@@ -137,6 +148,7 @@ class AiPlaceRecommendationServiceTest {
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(Optional.of(day));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
         given(day.getItems()).willReturn(List.of(firstItem, secondItem));
         given(firstItem.getTripPlaceId()).willReturn(100L);
         given(secondItem.getTripPlaceId()).willReturn(101L);
@@ -182,6 +194,29 @@ class AiPlaceRecommendationServiceTest {
                 1L,
                 new AiPlaceRecommendationRequest(
                         10L, 100L, 102L, "카페", null, 5
+                )
+        )).isInstanceOf(back.backend.global.exception.BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("t4 이미 도착 시각이 지난 동선 구간이면 추천을 거부한다")
+    void t4_recommendRejectsPastRouteSegment() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem secondItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(Optional.of(day));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(day.getItems()).willReturn(List.of(firstItem, secondItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(secondItem.getTripPlaceId()).willReturn(101L);
+        given(secondItem.getStartTime()).willReturn(LocalTime.of(10, 0));
+        assertThatThrownBy(() -> service.recommend(
+                1L,
+                new AiPlaceRecommendationRequest(
+                        10L, 100L, 101L, "카페", null, 5
                 )
         )).isInstanceOf(back.backend.global.exception.BusinessException.class);
     }

@@ -29,6 +29,31 @@ const categories = PLACE_SEARCH_CATEGORIES.filter(
     (category) => category.key !== 'all' && category.key !== 'transit_station',
 )
 
+function localDateValue(date: Date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
+function localTimeValue(date: Date) {
+    const hour = String(date.getHours()).padStart(2, '0')
+    const minute = String(date.getMinutes()).padStart(2, '0')
+    return `${hour}:${minute}`
+}
+
+function isUpcomingSegment(
+    itineraryDate: string,
+    destinationStartTime: string | null,
+    referenceTime: Date | null,
+) {
+    if (!referenceTime) return true
+    const today = localDateValue(referenceTime)
+    if (itineraryDate < today) return false
+    if (itineraryDate > today || !destinationStartTime) return true
+    return destinationStartTime.slice(0, 5) > localTimeValue(referenceTime)
+}
+
 export function AiDashboardActions({
     tripId,
     days,
@@ -42,6 +67,8 @@ export function AiDashboardActions({
     const [selectedSegmentKey, setSelectedSegmentKey] = useState<string | null>(
         null,
     )
+    const [recommendationReferenceTime, setRecommendationReferenceTime] =
+        useState<Date | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const routeSegments = days.flatMap((day) => {
@@ -51,18 +78,27 @@ export function AiDashboardActions({
                     item.tripPlaceId !== null,
             )
             .sort((first, second) => first.sortOrder - second.sortOrder)
-        return orderedItems.slice(0, -1).map((from, index) => {
-            const to = orderedItems[index + 1]
-            return {
-                key: `${day.id}:${from.tripPlaceId}:${to.tripPlaceId}`,
-                dayId: Number(day.id),
-                dayNumber: day.dayNumber,
-                itineraryDate: day.itineraryDate,
-                segmentNumber: index + 1,
-                from,
-                to,
-            }
-        })
+        return orderedItems
+            .slice(0, -1)
+            .map((from, index) => {
+                const to = orderedItems[index + 1]
+                return {
+                    key: `${day.id}:${from.tripPlaceId}:${to.tripPlaceId}`,
+                    dayId: Number(day.id),
+                    dayNumber: day.dayNumber,
+                    itineraryDate: day.itineraryDate,
+                    segmentNumber: index + 1,
+                    from,
+                    to,
+                }
+            })
+            .filter((segment) =>
+                isUpcomingSegment(
+                    segment.itineraryDate,
+                    segment.to.startTime,
+                    recommendationReferenceTime,
+                ),
+            )
     })
     const defaultSegment =
         routeSegments.find((segment) => segment.dayId === selectedDayId) ??
@@ -113,6 +149,7 @@ export function AiDashboardActions({
                         setMode('place')
                         setPrompt('')
                         setSelectedSegmentKey(null)
+                        setRecommendationReferenceTime(new Date())
                         setError(null)
                     }}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-[#fff0f3] px-3 py-2 text-xs font-extrabold text-[#c94c63] transition hover:bg-rose-100"

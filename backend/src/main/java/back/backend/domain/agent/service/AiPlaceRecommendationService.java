@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +40,7 @@ public class AiPlaceRecommendationService {
     private final TripPlaceRepository tripPlaceRepository;
     private final PlaceSearchService placeSearchService;
     private final PlaceStyleRelationService placeStyleRelationService;
+    private final Clock clock;
 
     public List<AiPlaceRecommendationResponse> recommend(
             Long tripId,
@@ -70,6 +74,19 @@ public class AiPlaceRecommendationService {
                 request.fromTripPlaceId(),
                 request.toTripPlaceId()
         );
+        var destinationItem = day.getItems().stream()
+                .filter(item -> request.toTripPlaceId().equals(
+                        item.getTripPlaceId()
+                ))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+                ));
+        if (isPastSegment(day.getItineraryDate(), destinationItem.getStartTime())) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_ROUTE_SEGMENT_PASSED
+            );
+        }
 
         Map<Long, double[]> routePointByTripPlaceId = tripPlaceRepository
                 .findAllById(segmentTripPlaceIds)
@@ -227,6 +244,18 @@ public class AiPlaceRecommendationService {
                 Math.sqrt(haversine),
                 Math.sqrt(1 - haversine)
         );
+    }
+
+    private boolean isPastSegment(
+            LocalDate itineraryDate,
+            LocalTime destinationStartTime
+    ) {
+        LocalDate today = LocalDate.now(clock);
+        if (itineraryDate.isBefore(today)) return true;
+        if (itineraryDate.isAfter(today) || destinationStartTime == null) {
+            return false;
+        }
+        return !destinationStartTime.isAfter(LocalTime.now(clock));
     }
 
     private record Candidate(
