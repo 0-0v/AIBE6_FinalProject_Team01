@@ -108,14 +108,22 @@ public class AiPlaceRecommendationService {
                 request.category(),
                 request.prompt()
         );
-        List<PlaceSearchResponse> searched = routePoints.isEmpty()
-                ? placeSearchService.search(query)
-                : placeSearchService.searchNearby(
-                        query,
-                        average(routePoints, 0),
-                        average(routePoints, 1),
-                        searchRadius(routePoints)
-                );
+        List<PlaceSearchResponse> searched = searchAlongRoute(
+                query,
+                routePoints
+        );
+        if (searched.isEmpty()
+                && request.prompt() != null
+                && !request.prompt().isBlank()) {
+            searched = searchAlongRoute(
+                    buildQuery(
+                            trip.getDestination(),
+                            request.category(),
+                            null
+                    ),
+                    routePoints
+            );
+        }
 
         List<back.backend.domain.place.entity.TripPlace> registeredPlaces =
                 tripPlaceRepository.findAllOrderedByTripId(tripId);
@@ -162,6 +170,21 @@ public class AiPlaceRecommendationService {
             return "기존 동선에서 가깝고 여행 스타일과도 잘 맞는 후보예요.";
         }
         return "요청한 조건으로 검색된 장소 중 기존 동선에서 가까운 후보예요.";
+    }
+
+    private List<PlaceSearchResponse> searchAlongRoute(
+            String query,
+            List<double[]> routePoints
+    ) {
+        if (routePoints.isEmpty()) {
+            return placeSearchService.search(query);
+        }
+        return placeSearchService.searchNearby(
+                query,
+                average(routePoints, 0),
+                average(routePoints, 1),
+                searchRadius(routePoints)
+        );
     }
 
     private String buildQuery(

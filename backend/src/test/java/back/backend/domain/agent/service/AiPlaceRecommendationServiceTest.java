@@ -221,6 +221,54 @@ class AiPlaceRecommendationServiceTest {
         )).isInstanceOf(back.backend.global.exception.BusinessException.class);
     }
 
+    @Test
+    @DisplayName("t5 사용자 조건 검색 결과가 없으면 같은 동선과 카테고리로 다시 추천한다")
+    void t5_recommendRetriesWithoutPromptWhenStrictSearchIsEmpty() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem secondItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        TripPlace firstRoutePlace = tripPlace(100L, "route-place-1", 34.67, 135.5);
+        TripPlace secondRoutePlace = tripPlace(101L, "route-place-2", 34.672, 135.502);
+        PlaceSearchResponse fallbackCandidate = searchPlace(
+                "fallback-cafe", "동선 주변 카페", 34.671, 135.501,
+                PlaceCategoryType.CAFE
+        );
+
+        given(trip.getDestination()).willReturn("오사카");
+        given(trip.getTravelStyles()).willReturn(Set.of(TravelStyle.RELAXATION));
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(Optional.of(day));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day.getItems()).willReturn(List.of(firstItem, secondItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(secondItem.getTripPlaceId()).willReturn(101L);
+        given(tripPlaceRepository.findAllById(any()))
+                .willReturn(List.of(firstRoutePlace, secondRoutePlace));
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
+        given(placeSearchService.searchNearby(
+                contains("조용하고 특별한 분위기"), anyDouble(), anyDouble(), anyDouble()
+        )).willReturn(List.of());
+        given(placeSearchService.searchNearby(
+                eq("오사카 카페"), anyDouble(), anyDouble(), anyDouble()
+        )).willReturn(List.of(fallbackCandidate));
+        given(placeStyleRelationService.calculateCompatibility(
+                PlaceCategoryType.CAFE, Set.of(TravelStyle.RELAXATION)
+        )).willReturn(0.8);
+
+        var result = service.recommend(
+                1L,
+                new AiPlaceRecommendationRequest(
+                        10L, 100L, 101L, "카페",
+                        "조용하고 특별한 분위기", 5
+                )
+        );
+
+        assertThat(result).extracting(item -> item.place().googlePlaceId())
+                .containsExactly("fallback-cafe");
+    }
+
     private TripPlace tripPlace(
             Long id,
             String googlePlaceId,
