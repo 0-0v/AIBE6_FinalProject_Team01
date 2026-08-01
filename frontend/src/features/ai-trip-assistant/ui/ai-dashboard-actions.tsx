@@ -71,6 +71,7 @@ export function AiDashboardActions({
         useState<Date | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [emptyResult, setEmptyResult] = useState(false)
     const routeSegments = days.flatMap((day) => {
         const orderedItems = [...day.items]
             .filter(
@@ -114,6 +115,7 @@ export function AiDashboardActions({
         }
         setLoading(true)
         setError(null)
+        setEmptyResult(false)
         try {
             const recommendations = await recommendPlacesAlongRoute(tripId, {
                 dayId: selectedSegment.dayId,
@@ -123,6 +125,10 @@ export function AiDashboardActions({
                 prompt,
                 limit: 5,
             })
+            if (recommendations.length === 0) {
+                setEmptyResult(true)
+                return
+            }
             savePendingAiTripAction(tripId, {
                 kind: 'place-recommendations',
                 recommendations,
@@ -151,6 +157,7 @@ export function AiDashboardActions({
                         setSelectedSegmentKey(null)
                         setRecommendationReferenceTime(new Date())
                         setError(null)
+                        setEmptyResult(false)
                     }}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-[#fff0f3] px-3 py-2 text-xs font-extrabold text-[#c94c63] transition hover:bg-rose-100"
                 >
@@ -232,6 +239,7 @@ export function AiDashboardActions({
                                                             segment.key,
                                                         )
                                                         setError(null)
+                                                        setEmptyResult(false)
                                                     }}
                                                     className={`w-full rounded-2xl border p-3 text-left transition ${
                                                         isSelected
@@ -309,9 +317,10 @@ export function AiDashboardActions({
                                         <button
                                             key={item.key}
                                             type="button"
-                                            onClick={() =>
+                                            onClick={() => {
                                                 setCategory(item.key)
-                                            }
+                                                setEmptyResult(false)
+                                            }}
                                             className={`rounded-full px-3 py-2 text-xs font-bold transition ${
                                                 category === item.key
                                                     ? 'bg-brand text-white shadow-[0_6px_16px_rgba(225,91,116,0.25)]'
@@ -328,9 +337,10 @@ export function AiDashboardActions({
                                 원하는 분위기나 취향
                                 <textarea
                                     value={prompt}
-                                    onChange={(event) =>
+                                    onChange={(event) => {
                                         setPrompt(event.target.value)
-                                    }
+                                        setEmptyResult(false)
+                                    }}
                                     maxLength={500}
                                     rows={4}
                                     placeholder="예: 진한 돈코츠 라멘을 좋아하고 너무 비싸지 않았으면 좋겠어"
@@ -342,6 +352,19 @@ export function AiDashboardActions({
                                 <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
                                     {error}
                                 </p>
+                            )}
+
+                            {emptyResult && (
+                                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+                                    <p className="text-xs font-extrabold text-amber-700">
+                                        선택한 동선과 조건에 맞는 장소를 찾지
+                                        못했어요.
+                                    </p>
+                                    <p className="mt-1 text-[11px] leading-5 text-amber-600">
+                                        다른 동선이나 카테고리를 선택하거나 검색
+                                        조건을 조금 넓혀 다시 시도해 주세요.
+                                    </p>
+                                </div>
                             )}
 
                             <button
