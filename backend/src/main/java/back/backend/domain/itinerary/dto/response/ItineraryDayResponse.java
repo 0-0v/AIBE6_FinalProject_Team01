@@ -13,8 +13,20 @@ public record ItineraryDayResponse(
     int dayNumber,
     String title,
     String status,
-    List<ItineraryItemResponse> items
+    List<ItineraryItemResponse> items,
+    DepartureInfo departure
 ) {
+    public record DepartureInfo(
+        String type,
+        String name,
+        Double lat,
+        Double lng,
+        Long tripPlaceId,
+        Integer travelMinutes,
+        Integer travelMeters,
+        String travelMode
+    ) {}
+
     public static ItineraryDayResponse from(ItineraryDay day, Map<Long, TripPlace> tripPlaceMap) {
         List<ItineraryItemResponse> itemResponses = day.getItems().stream()
             .map(item -> {
@@ -25,13 +37,28 @@ public record ItineraryDayResponse(
             })
             .toList();
 
+        DepartureInfo departure = null;
+        if (day.hasDeparture()) {
+            departure = new DepartureInfo(
+                day.getDepartureType(),
+                day.getDepartureName(),
+                day.getDepartureLat() != null ? day.getDepartureLat().doubleValue() : null,
+                day.getDepartureLng() != null ? day.getDepartureLng().doubleValue() : null,
+                day.getDepartureTripPlaceId(),
+                day.getDepartureTravelMinutes(),
+                day.getDepartureTravelMeters(),
+                day.getDepartureTravelMode()
+            );
+        }
+
         return new ItineraryDayResponse(
             day.getId(),
             day.getItineraryDate(),
             day.getDayNumber(),
             day.getTitle(),
             day.getStatus().name(),
-            itemResponses
+            itemResponses,
+            departure
         );
     }
 }

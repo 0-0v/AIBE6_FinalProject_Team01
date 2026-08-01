@@ -84,6 +84,14 @@ public class ItineraryController {
         return ApiResponse.success(itineraryService.reorderItems(tripId, dayId, request));
     }
 
+    @PatchMapping("/days/{dayId}/departure")
+    public ApiResponse<ItineraryDayResponse> updateDeparture(
+            @PathVariable Long tripId,
+            @PathVariable Long dayId,
+            @RequestBody @Valid UpdateDeparturePlaceRequest request) {
+        return ApiResponse.success(itineraryService.updateDeparture(tripId, dayId, request));
+    }
+
     @PatchMapping("/days/{dayId}/status")
     public ApiResponse<ItineraryDayResponse> updateDayStatus(
             @PathVariable Long tripId,
@@ -94,9 +102,10 @@ public class ItineraryController {
 
     @PostMapping("/route-plan/preview")
     public ApiResponse<List<RoutePlanOption>> previewRoutePlan(
-            @PathVariable Long tripId
+            @PathVariable Long tripId,
+            @RequestBody(required = false) RoutePlanSettingsRequest settings
     ) {
-        return ApiResponse.success(itineraryService.previewRoutePlan(tripId));
+        return ApiResponse.success(itineraryService.previewRoutePlan(tripId, settings));
     }
 
     @PostMapping("/route-plan/apply")

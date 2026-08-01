@@ -43,6 +43,8 @@ export function toRoom(trip: TripResponse): Room {
         startDate: trip.startDate,
         endDate: trip.endDate,
         location: trip.destination ?? '장소 미정',
+        destinationLat: trip.destinationLat ?? null,
+        destinationLng: trip.destinationLng ?? null,
         dday,
         members: trip.memberCount,
         cover:

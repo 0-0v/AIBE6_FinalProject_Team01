@@ -456,4 +456,41 @@ class ItineraryRoutePlannerTest {
                 .extracting(item -> item.tripPlaceId())
                 .containsExactly(11L);
     }
+
+    @Test
+    @DisplayName("t15 Day별 출발지와 가장 가까운 장소를 첫 방문지로 배치한다")
+    void t15_planStartsEachDayAtPlaceNearestToDeparture() {
+        ItineraryDay firstDay = day(1L, 1);
+        firstDay.updateDeparture(
+                "CUSTOM",
+                "북쪽 숙소",
+                BigDecimal.valueOf(37.60),
+                BigDecimal.valueOf(127.10),
+                null
+        );
+        ItineraryDay secondDay = day(2L, 2);
+        secondDay.updateDeparture(
+                "CUSTOM",
+                "남쪽 숙소",
+                BigDecimal.valueOf(33.20),
+                BigDecimal.valueOf(126.20),
+                null
+        );
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "북쪽 원거리", PlaceCategoryType.ATTRACTION, 37.40, 126.90),
+                tripPlace(11L, "북쪽 장소", PlaceCategoryType.ATTRACTION, 37.59, 127.09),
+                tripPlace(12L, "남쪽 원거리", PlaceCategoryType.ATTRACTION, 33.40, 126.40),
+                tripPlace(13L, "남쪽 장소", PlaceCategoryType.ATTRACTION, 33.21, 126.21)
+        );
+
+        RoutePlanPreviewResponse result = planner.plan(
+                List.of(firstDay, secondDay),
+                places
+        );
+
+        assertThat(result.days().getFirst().items().getFirst().placeName())
+                .isEqualTo("북쪽 장소");
+        assertThat(result.days().get(1).items().getFirst().placeName())
+                .isEqualTo("남쪽 장소");
+    }
 }

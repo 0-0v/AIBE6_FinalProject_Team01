@@ -5,6 +5,7 @@ import back.backend.domain.place.dto.response.PlaceSearchResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,13 +63,23 @@ public class PlaceSearchService {
     }
 
     public List<PlaceSearchResponse> search(String query) {
+        return search(query, null, null);
+    }
+
+    public List<PlaceSearchResponse> search(String query, String location, String includedType) {
         if (!StringUtils.hasText(query)) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
-        return callGooglePlacesApi(Map.of(
-                "textQuery", query,
-                "languageCode", "ko"
-        ));
+        String fullQuery = StringUtils.hasText(location)
+                ? query + " " + location
+                : query;
+        Map<String, Object> requestBody = new LinkedHashMap<>();
+        requestBody.put("textQuery", fullQuery);
+        requestBody.put("languageCode", "ko");
+        if (StringUtils.hasText(includedType)) {
+            requestBody.put("includedType", includedType);
+        }
+        return callGooglePlacesApi(requestBody);
     }
 
     public List<PlaceSearchResponse> searchNearby(

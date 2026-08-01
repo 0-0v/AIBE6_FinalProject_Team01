@@ -4,10 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
     AdvancedMarker,
     Map as GoogleMap,
-    Polyline,
     useApiIsLoaded,
     useMap,
-    useMapsLibrary,
 } from '@vis.gl/react-google-maps'
 import {
     CalendarPlusIcon,
@@ -20,6 +18,7 @@ import { Place } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
+import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
@@ -31,24 +30,15 @@ import {
 import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
 
-const JEJU_CENTER = { lat: 33.489, lng: 126.4983 }
+const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
 const DEFAULT_ZOOM = 10
 const DESTINATION_FOCUS_ZOOM = 12
 const CATEGORY_BADGE_MIN_ZOOM = 10
 
-type GeocoderResponse = {
-    results: Array<{
-        geometry: {
-            location: {
-                toJSON: () => { lat: number; lng: number }
-            }
-        }
-    }>
-}
-
 type Props = {
     places: Place[]
-    initialLocation?: string | null
+    initialLat?: number | null
+    initialLng?: number | null
     selectedId: string | null
     onSelect: (id: string) => void
     onDeselect: () => void
@@ -58,7 +48,8 @@ type Props = {
 
 export function MapCanvas({
     places,
-    initialLocation,
+    initialLat,
+    initialLng,
     selectedId,
     onSelect,
     onDeselect,
@@ -80,7 +71,8 @@ export function MapCanvas({
     return (
         <GoogleMapCanvas
             places={places}
-            initialLocation={initialLocation}
+            initialLat={initialLat}
+            initialLng={initialLng}
             selectedId={selectedId}
             onSelect={onSelect}
             onDeselect={onDeselect}
@@ -92,7 +84,8 @@ export function MapCanvas({
 
 function GoogleMapCanvas({
     places,
-    initialLocation,
+    initialLat,
+    initialLng,
     selectedId,
     onSelect,
     onDeselect,
@@ -101,7 +94,8 @@ function GoogleMapCanvas({
 }: Pick<
     Props,
     | 'places'
-    | 'initialLocation'
+    | 'initialLat'
+    | 'initialLng'
     | 'selectedId'
     | 'onSelect'
     | 'onDeselect'
@@ -111,14 +105,24 @@ function GoogleMapCanvas({
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
 
-    // 첫 번째 일정 장소가 있으면 그 위치에서 줌인 시작, 없으면 전체 평균 중심
+    // 첫 번째 일정 장소가 있으면 그 위치에서 줌인 시작, 없으면 저장 장소 평균 또는 목적지 좌표 또는 서울
     const firstScheduledPoint = days
         ?.flatMap((d) => d.items)
         .find((item) => item.lat != null && item.lng != null)
+    const destinationCenter =
+        initialLat != null && initialLng != null
+            ? { lat: initialLat, lng: initialLng }
+            : null
     const center = firstScheduledPoint
         ? { lat: firstScheduledPoint.lat, lng: firstScheduledPoint.lng }
-        : calculateCenter(places)
-    const initialZoom = firstScheduledPoint ? 14 : DEFAULT_ZOOM
+        : places.length > 0
+          ? calculateCenter(places)
+          : (destinationCenter ?? SEOUL_CENTER)
+    const initialZoom = firstScheduledPoint
+        ? 14
+        : places.length > 0
+          ? DEFAULT_ZOOM
+          : DESTINATION_FOCUS_ZOOM
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [dayPickerPlaceId, setDayPickerPlaceId] = useState<string | null>(
         null,
@@ -305,7 +309,8 @@ function GoogleMapCanvas({
             >
                 <MapController
                     places={places}
-                    initialLocation={initialLocation}
+                    initialLat={initialLat}
+                    initialLng={initialLng}
                     selectedId={selectedId}
                 />
                 <RouteFocusController points={focusedSegmentIndex == null ? selectedRoutePoints : []} />
@@ -781,36 +786,21 @@ function RouteLayer({
                           : route.confirmed
                             ? 0.85
                             : 0.65
-                    // scale * 2 = 대시 길이(px), repeat - 대시길이 = 갭
-                    // 예) scale:4, repeat:24px → 대시 8px, 갭 16px
-                    const dashScale = isFocusMode
-                        ? isFocusedSeg ? 4 : 2
-                        : 3
-                    const dashRepeat = isFocusMode
-                        ? isFocusedSeg ? '24px' : '30px'
-                        : '20px'
-
                     return (
                         <React.Fragment key={segmentId}>
-                            <Polyline
+                            <ItineraryRoutePolyline
                                 path={segPath}
-                                strokeColor={route.color}
-                                strokeOpacity={0.001}
+                                color={route.color}
+                                opacity={segOpacity}
                                 strokeWeight={2}
                                 zIndex={isFocusedSeg ? 3 : 2}
-                                geodesic
-                                icons={[
-                                    {
-                                        icon: {
-                                            path: 'M 0,-1 0,1',
-                                            strokeOpacity: segOpacity,
-                                            strokeColor: route.color,
-                                            scale: dashScale,
-                                        },
-                                        offset: '0',
-                                        repeat: dashRepeat,
-                                    },
-                                ]}
+                                emphasis={
+                                    isFocusMode
+                                        ? isFocusedSeg
+                                            ? 'focused'
+                                            : 'dimmed'
+                                        : 'normal'
+                                }
                             />
                             <AdvancedMarker
                                 position={midpoint}
@@ -908,49 +898,29 @@ function RouteFocusController({
     return null
 }
 
-// selectedId가 바뀌면 해당 장소로 지도 이동
+// selectedId가 바뀌면 해당 장소로 지도 이동 / 장소 수 변화 시 지도 범위 조정
 function MapController({
     places,
-    initialLocation,
+    initialLat,
+    initialLng,
     selectedId,
 }: {
     places: Place[]
-    initialLocation?: string | null
+    initialLat?: number | null
+    initialLng?: number | null
     selectedId: string | null
 }) {
     const map = useMap()
-    const geocodingLibrary = useMapsLibrary('geocoding')
 
     useEffect(() => {
         if (!map) return
 
         if (places.length === 0) {
-            const destination = initialLocation?.trim()
-            if (
-                !destination ||
-                destination === '장소 미정' ||
-                !geocodingLibrary
-            ) {
-                return
+            if (initialLat != null && initialLng != null) {
+                map.setCenter({ lat: initialLat, lng: initialLng })
+                map.setZoom(DESTINATION_FOCUS_ZOOM)
             }
-
-            let active = true
-            const geocoder = new geocodingLibrary.Geocoder()
-            void geocoder
-                .geocode({ address: destination })
-                .then(({ results }: GeocoderResponse) => {
-                    if (!active || results.length === 0) return
-                    const geometry = results[0].geometry
-                    map.setCenter(geometry.location.toJSON())
-                    map.setZoom(DESTINATION_FOCUS_ZOOM)
-                })
-                .catch(() => {
-                    // 지역 검색 실패 시 기존 기본 지도 위치를 유지한다.
-                })
-
-            return () => {
-                active = false
-            }
+            return
         }
 
         if (places.length === 1) {
@@ -960,7 +930,7 @@ function MapController({
         }
 
         fitBoundsToPoints(map, places)
-    }, [geocodingLibrary, initialLocation, map, places])
+    }, [initialLat, initialLng, map, places])
 
     useEffect(() => {
         if (!map || !selectedId) return
@@ -972,7 +942,6 @@ function MapController({
 }
 
 function calculateCenter(places: Place[]): { lat: number; lng: number } {
-    if (places.length === 0) return JEJU_CENTER
     const lat = places.reduce((sum, p) => sum + p.lat, 0) / places.length
     const lng = places.reduce((sum, p) => sum + p.lng, 0) / places.length
     return { lat, lng }

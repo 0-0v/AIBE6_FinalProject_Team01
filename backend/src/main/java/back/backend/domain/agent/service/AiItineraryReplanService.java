@@ -97,7 +97,7 @@ public class AiItineraryReplanService {
             );
         }
 
-        TripScheduleSettings settings = new TripScheduleSettings(
+        TripScheduleSettings settings = TripScheduleSettings.of(
                 trip.getDayStartTime() == null
                         ? LocalTime.of(9, 0) : trip.getDayStartTime(),
                 trip.getDayEndTime() == null

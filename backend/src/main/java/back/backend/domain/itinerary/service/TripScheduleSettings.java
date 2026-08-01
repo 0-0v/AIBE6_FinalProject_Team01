@@ -1,5 +1,6 @@
 package back.backend.domain.itinerary.service;
 
+import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.trip.entity.TravelPace;
 import java.time.LocalTime;
 
@@ -10,14 +11,19 @@ import java.time.LocalTime;
 public record TripScheduleSettings(
         LocalTime dayStartTime,
         LocalTime dayEndTime,
-        TravelPace travelPace
+        TravelPace travelPace,
+        ItineraryTransportMode defaultTransportMode
 ) {
 
     private static final TripScheduleSettings DEFAULT =
-            new TripScheduleSettings(LocalTime.of(9, 0), LocalTime.of(21, 0), TravelPace.NORMAL);
+            new TripScheduleSettings(LocalTime.of(9, 0), LocalTime.of(21, 0), TravelPace.NORMAL, null);
 
     public static TripScheduleSettings defaultSettings() {
         return DEFAULT;
+    }
+
+    public static TripScheduleSettings of(LocalTime start, LocalTime end, TravelPace pace) {
+        return new TripScheduleSettings(start, end, pace, null);
     }
 
     public int dayStartMinutes() {
@@ -26,5 +32,15 @@ public record TripScheduleSettings(
 
     public int dayEndMinutes() {
         return dayEndTime.getHour() * 60 + dayEndTime.getMinute();
+    }
+
+    /**
+     * 설정된 기본 이동 수단이 있으면 사용하고, 없으면 거리 기반으로 추론합니다.
+     */
+    public ItineraryTransportMode effectiveTransportMode(int haversineMeters) {
+        if (defaultTransportMode != null && defaultTransportMode != ItineraryTransportMode.AUTO) {
+            return defaultTransportMode;
+        }
+        return ItineraryTransportMode.infer(haversineMeters);
     }
 }

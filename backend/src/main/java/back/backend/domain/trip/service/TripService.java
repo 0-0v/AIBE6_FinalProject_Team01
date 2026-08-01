@@ -107,7 +107,8 @@ public class TripService {
         Trip trip = findJoinedTripWithoutLock(memberId, tripId);
         try {
             trip.update(request.title(), request.companionType(), request.normalizedTravelStyles(),
-                    request.destination(), request.startDate(), request.endDate(),
+                    request.destination(), request.destinationLat(), request.destinationLng(),
+                    request.startDate(), request.endDate(),
                     request.dayStartTime(), request.dayEndTime(), request.travelPace());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
@@ -155,7 +156,9 @@ public class TripService {
         try {
             validateCreationDates(request);
             return tripRepository.save(Trip.create(memberId, request.title(), request.companionType(),
-                    request.normalizedTravelStyles(), request.destination(), request.startDate(), request.endDate()));
+                    request.normalizedTravelStyles(), request.destination(),
+                    request.destinationLat(), request.destinationLng(),
+                    request.startDate(), request.endDate()));
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         }

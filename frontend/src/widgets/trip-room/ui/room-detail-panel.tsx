@@ -5,8 +5,6 @@ import {
     HistoryIcon,
     ListIcon,
     MapIcon,
-    ReceiptTextIcon,
-    RefreshCcwIcon,
 } from 'lucide-react'
 import {
     Place,
@@ -26,7 +24,6 @@ import {
     type ItineraryDay,
 } from '@/entities/trip'
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
-import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
@@ -40,7 +37,6 @@ import { useNotificationStore } from '@/features/manage-notification'
 import { DateVotePanel } from './date-vote-panel'
 import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
-import { RecordPanel } from './record-panel'
 import { RoomHeader } from './room-header'
 import type { PlaceCommentResponse } from '@/entities/trip'
 
@@ -53,10 +49,8 @@ function mapApiComment(comment: PlaceCommentResponse) {
     }
 }
 
-type Mode = 'plan' | 'record'
 type PlanTab = 'places' | 'itinerary' | 'schedule'
-type RecordTab = 'records' | 'expenses'
-export type TripRoomWorkspace = PlanTab | 'records' | 'expenses'
+export type TripRoomWorkspace = PlanTab
 
 type Props = {
     room: Room
@@ -109,11 +103,7 @@ export function RoomDetailPanel({
     onWorkspaceChange,
     headerContainer,
 }: Props) {
-    const [mode, setMode] = useState<Mode>(
-        room.lifecycleStatus === 'COMPLETED' ? 'record' : 'plan',
-    )
     const [planTab, setPlanTab] = useState<PlanTab>('places')
-    const [recordTab, setRecordTab] = useState<RecordTab>('records')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
@@ -139,22 +129,7 @@ export function RoomDetailPanel({
     const categoriesLoading =
         categoryState.tripId !== tripId || categoryState.loading
 
-    const activeWorkspace: TripRoomWorkspace =
-        mode === 'plan' ? planTab : recordTab
-    const modeInfo =
-        mode === 'plan'
-            ? {
-                  title: 'Plan',
-                  description:
-                      '가고 싶은 장소를 찾고 함께 여행 계획을 준비해보세요.',
-                  nextModeLabel: 'Record로 전환',
-              }
-            : {
-                  title: 'Record',
-                  description:
-                      '여행의 순간과 경비 내역을 한곳에서 관리해보세요.',
-                  nextModeLabel: 'Plan으로 전환',
-              }
+    const activeWorkspace: TripRoomWorkspace = planTab
 
     useEffect(() => {
         onWorkspaceChange?.(activeWorkspace)
@@ -212,19 +187,6 @@ export function RoomDetailPanel({
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
         void loadNotifications()
-    }
-
-    function switchMode(nextMode: Mode) {
-        const alreadyAtDefaultTab =
-            nextMode === mode &&
-            ((nextMode === 'plan' && planTab === 'places') ||
-                (nextMode === 'record' && recordTab === 'records'))
-        if (alreadyAtDefaultTab) return
-        requestDiscardDateChanges(() => {
-            setMode(nextMode)
-            if (nextMode === 'plan') setPlanTab('places')
-            else setRecordTab('records')
-        })
     }
 
     function requestDiscardDateChanges(onDiscard: () => void) {
@@ -398,13 +360,6 @@ export function RoomDetailPanel({
         }
     }
 
-    function focusPlace(placeId: string) {
-        setMode('plan')
-        setPlanTab('places')
-
-        onSelectPlace(placeId)
-    }
-
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
             {(() => {
@@ -432,35 +387,13 @@ export function RoomDetailPanel({
             })()}
             <div className="border-b border-slate-100 px-4 pb-3.5 pt-6">
                 <div className="mb-3.5 flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-2">
-                        <div className="group/mode relative shrink-0">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    switchMode(
-                                        mode === 'plan' ? 'record' : 'plan',
-                                    )
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                                aria-label={modeInfo.nextModeLabel}
-                            >
-                                <RefreshCcwIcon size={15} />
-                            </button>
-                            <span
-                                role="tooltip"
-                                className="pointer-events-none absolute left-0 top-full z-50 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-bold text-white opacity-0 shadow-lg transition duration-150 group-hover/mode:opacity-100"
-                            >
-                                {modeInfo.nextModeLabel}
-                            </span>
-                        </div>
-                        <div className="min-w-0">
-                            <h2 className="text-[22px] font-black leading-8 tracking-tight text-slate-900">
-                                {modeInfo.title}
-                            </h2>
-                            <p className="mt-1 text-xs leading-5 text-slate-400">
-                                {modeInfo.description}
-                            </p>
-                        </div>
+                    <div className="min-w-0">
+                        <h2 className="text-[22px] font-black leading-8 tracking-tight text-slate-900">
+                            Plan
+                        </h2>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">
+                            가고 싶은 장소를 찾고 함께 여행 계획을 준비해보세요.
+                        </p>
                     </div>
                     <button
                         onClick={() => setActivityOpen((value) => !value)}
@@ -474,59 +407,27 @@ export function RoomDetailPanel({
                     <div
                         className="flex min-w-0 flex-1 items-center gap-1"
                         role="tablist"
-                        aria-label={`${mode === 'plan' ? '계획' : '기록'} 화면`}
+                        aria-label="계획 화면"
                     >
-                        {(mode === 'plan'
-                            ? [
-                                  {
-                                      key: 'places' as const,
-                                      label: '장소',
-                                      icon: ListIcon,
-                                  },
-                                  {
-                                      key: 'schedule' as const,
-                                      label: '일정',
-                                      icon: MapIcon,
-                                  },
-                              ]
-                            : [
-                                  {
-                                      key: 'records' as const,
-                                      label: '기록',
-                                      icon: HistoryIcon,
-                                  },
-                                  {
-                                      key: 'expenses' as const,
-                                      label: '정산',
-                                      icon: ReceiptTextIcon,
-                                  },
-                              ]
-                        ).map((item) => {
+                        {([
+                            { key: 'places' as const, label: '장소', icon: ListIcon },
+                            { key: 'schedule' as const, label: '일정', icon: MapIcon },
+                        ]).map((item) => {
                             const active =
-                                mode === 'plan'
-                                    ? item.key === 'schedule'
-                                        ? planTab === 'itinerary' ||
-                                          planTab === 'schedule'
-                                        : planTab === item.key
-                                    : recordTab === (item.key as RecordTab)
+                                item.key === 'schedule'
+                                    ? planTab === 'itinerary' || planTab === 'schedule'
+                                    : planTab === item.key
                             return (
                                 <button
                                     key={item.key}
                                     onClick={() => {
                                         if (active) return
                                         requestDiscardDateChanges(() => {
-                                            if (mode === 'plan') {
-                                                setPlanTab(
-                                                    item.key === 'schedule' &&
-                                                        !hasConfirmedDates
-                                                        ? 'itinerary'
-                                                        : (item.key as PlanTab),
-                                                )
-                                            } else {
-                                                setRecordTab(
-                                                    item.key as RecordTab,
-                                                )
-                                            }
+                                            setPlanTab(
+                                                item.key === 'schedule' && !hasConfirmedDates
+                                                    ? 'itinerary'
+                                                    : item.key,
+                                            )
                                         })
                                     }}
                                     role="tab"
@@ -545,7 +446,7 @@ export function RoomDetailPanel({
                 </div>
             </div>
 
-            {mode === 'plan' && planTab !== 'places' && (
+            {planTab !== 'places' && (
                 <div className="border-b border-slate-100 px-6 py-4.5">
                     <nav
                         className="flex items-center gap-2 text-xs font-bold"
@@ -594,10 +495,22 @@ export function RoomDetailPanel({
                 </div>
             )}
 
-            {mode === 'plan' && planTab === 'places' && (
+            {planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
-                        {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {canPlanWrite && (
+                            <PlaceSearch
+                                onAdd={handleAdd}
+                                location={room.location || undefined}
+                                existingGooglePlaceIds={
+                                    new Set(
+                                        places
+                                            .map((p) => p.googlePlaceId)
+                                            .filter((id): id is string => !!id),
+                                    )
+                                }
+                            />
+                        )}
                         {(loadError || categoryError || placeError) && (
                             <p
                                 role="alert"
@@ -668,7 +581,7 @@ export function RoomDetailPanel({
                     </div>
                 </>
             )}
-            {mode === 'plan' && planTab === 'itinerary' && (
+            {planTab === 'itinerary' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     <DateVotePanel
                         tripId={tripId}
@@ -684,7 +597,7 @@ export function RoomDetailPanel({
                     />
                 </div>
             )}
-            {mode === 'plan' && planTab === 'schedule' && (
+            {planTab === 'schedule' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     <SchedulePanel
                         key={`schedule-${itineraryVersion}-${realtimeVersion}`}
@@ -692,24 +605,11 @@ export function RoomDetailPanel({
                         roomId={room.id}
                         places={places}
                         canWrite={canPlanWrite}
+                        location={room.location || undefined}
                         onDaysLoaded={onItineraryDaysLoaded}
                         onPlaceFocus={onSelectPlace}
                     />
                 </div>
-            )}
-            {mode === 'record' && recordTab === 'records' && (
-                <RecordPanel
-                    tripId={tripId}
-                    places={places}
-                    canWrite={canWrite}
-                    startDate={room.startDate}
-                    endDate={room.endDate}
-                    onPlaceClick={focusPlace}
-                    onChanged={refreshCollaborationData}
-                />
-            )}
-            {mode === 'record' && recordTab === 'expenses' && (
-                <ExpensePanel tripId={tripId} canWrite={canWrite} />
             )}
             {activityOpen && (
                 <div className="absolute inset-0 z-40 flex flex-col bg-white">

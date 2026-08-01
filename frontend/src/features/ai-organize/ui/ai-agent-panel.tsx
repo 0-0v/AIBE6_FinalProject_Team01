@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
     ArrowDownIcon,
     CheckIcon,
@@ -13,16 +13,25 @@ import {
     applyItineraryRoutePlan,
     initializeItinerary,
     previewItineraryRoutePlan,
+    updateDayDeparture,
     type ItineraryDay,
+    type Place,
     type RouteOption,
     type RoutePlanPreview,
     TransportModeIcon,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { AiBrandMark } from '@/features/ai-trip-assistant'
+import {
+    AiRouteSettingsModal,
+    type DepartureChange,
+    type RoutePlanSettings,
+} from './ai-route-settings-modal'
 
 type Props = {
     tripId: number
+    places: Place[]
+    days: ItineraryDay[]
     onClose: () => void
     onApplied: (days: ItineraryDay[]) => void
 }
@@ -121,24 +130,43 @@ function RoutePlanView({ plan }: { plan: RoutePlanPreview }) {
     )
 }
 
-export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
+export function AiAgentPanel({ tripId, places, days, onClose, onApplied }: Props) {
+    const [showSettings, setShowSettings] = useState(true)
     const [options, setOptions] = useState<RouteOption[]>([])
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [loading, setLoading] = useState(false)
     const [applying, setApplying] = useState(false)
     const [applied, setApplied] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    useEffect(() => {
+        return () => {
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+        }
+    }, [])
 
     const preview: RoutePlanPreview | null =
         options.length > 0 ? (options[selectedIndex]?.plan ?? null) : null
 
-    async function analyze() {
+    async function analyze(
+        settings?: RoutePlanSettings,
+        departureChanges?: DepartureChange[],
+    ) {
+        setShowSettings(false)
         setLoading(true)
         setApplied(false)
         setError(null)
         try {
+            if (departureChanges && departureChanges.length > 0) {
+                await Promise.all(
+                    departureChanges.map((change) =>
+                        updateDayDeparture(tripId, Number(change.dayId), change.payload),
+                    ),
+                )
+            }
             await initializeItinerary(tripId)
-            const result = await previewItineraryRoutePlan(tripId)
+            const result = await previewItineraryRoutePlan(tripId, settings)
             setOptions(result)
             setSelectedIndex(0)
         } catch (requestError) {
@@ -150,6 +178,20 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
         }
     }
 
+    // 설정 모달 표시 중
+    if (showSettings) {
+        return (
+            <AiRouteSettingsModal
+                places={places}
+                days={days}
+                onClose={onClose}
+                onConfirm={(settings, departures) =>
+                    void analyze(settings, departures)
+                }
+            />
+        )
+    }
+
     async function applyPlan() {
         if (!preview) return
         setApplying(true)
@@ -158,6 +200,7 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
             const days = await applyItineraryRoutePlan(tripId, preview)
             onApplied(days)
             setApplied(true)
+            closeTimerRef.current = setTimeout(onClose, 1000)
         } catch (requestError) {
             setError(
                 getApiErrorMessage(
@@ -171,139 +214,148 @@ export function AiAgentPanel({ tripId, onClose, onApplied }: Props) {
     }
 
     return (
-        <aside className="flex h-full w-[360px] shrink-0 flex-col border-l border-slate-200 bg-white">
-            <header className="flex items-center justify-between border-b border-rose-100 bg-gradient-to-r from-[#fff8fa] to-white px-4 py-3.5">
-                <div className="flex items-center gap-3">
-                    <AiBrandMark size="sm" />
-                    <div>
-                        <p className="text-sm font-extrabold">
-                            스마트 동선 추천
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                            지난 일정은 유지하고 승인 전에는 변경하지 않아요
-                        </p>
-                    </div>
-                </div>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
-                    aria-label="스마트 동선 추천 패널 닫기"
-                >
-                    <XIcon size={18} />
-                </button>
-            </header>
-
-            <div className="mp-scroll flex-1 overflow-y-auto p-4">
-                {options.length === 0 && !loading && (
-                    <div className="rounded-2xl bg-brand-50 p-4">
-                        <MapPinnedIcon className="mb-3 text-brand" size={24} />
-                        <h3 className="text-sm font-extrabold text-slate-800">
-                            저장 장소로 일정을 만들어 볼까요?
-                        </h3>
-                        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-                            저장한 장소를 여행 스타일에 맞게 정렬하고 이동
-                            거리를 최소화한 동선을 추천해 드려요.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={() => void analyze()}
-                            className="mt-4 w-full rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700"
-                        >
-                            동선 추천 받기
-                        </button>
-                    </div>
-                )}
-
-                {loading && (
-                    <div className="flex flex-col items-center gap-3 py-16 text-center">
-                        <LoaderCircleIcon
-                            className="animate-spin text-brand"
-                            size={28}
-                        />
-                        <p className="text-sm font-medium text-slate-500">
-                            장소와 이동 거리를 분석하고 있어요
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                            여행 스타일에 맞는 최적 동선을 계산 중입니다
-                        </p>
-                    </div>
-                )}
-
-                {options.length > 0 && !loading && (
-                    <div className="space-y-3">
-                        {/* 경로 선택 탭 */}
-                        <div className="flex gap-1 rounded-xl bg-slate-100 p-1 overflow-x-auto scrollbar-hide">
-                            {options.map((opt, i) => (
-                                <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedIndex(i)
-                                        setApplied(false)
-                                    }}
-                                    className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition whitespace-nowrap ${
-                                        selectedIndex === i
-                                            ? 'bg-white text-slate-800 shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                                >
-                                    {opt.routeLabel}
-                                </button>
-                            ))}
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onClose()
+            }}
+        >
+            <div
+                className="flex w-full max-w-[480px] flex-col rounded-3xl bg-white shadow-2xl"
+                style={{ maxHeight: '85dvh' }}
+            >
+                <header className="flex shrink-0 items-center justify-between border-b border-rose-100 bg-gradient-to-r from-[#fff8fa] to-white px-5 py-4">
+                    <div className="flex items-center gap-3">
+                        <AiBrandMark size="sm" />
+                        <div>
+                            <p className="text-sm font-extrabold">
+                                스마트 동선 추천
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                                지난 일정은 유지하고 승인 전에는 변경하지 않아요
+                            </p>
                         </div>
-
-                        {/* 선택된 경로 상세 */}
-                        {preview && <RoutePlanView plan={preview} />}
                     </div>
-                )}
-
-                {error && (
-                    <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-                        {error}
-                    </p>
-                )}
-            </div>
-
-            {options.length > 0 && !loading && (
-                <footer className="border-t border-slate-200 p-4">
-                    {applied ? (
-                        <div className="flex items-center justify-center gap-1.5 rounded-xl bg-green-50 py-2.5 text-sm font-bold text-green-600">
-                            <CheckIcon size={15} />
-                            일정에 반영했습니다
-                        </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => void applyPlan()}
-                            disabled={
-                                applying ||
-                                (preview?.totalPlaceCount ?? 0) === 0
-                            }
-                            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {applying && (
-                                <LoaderCircleIcon
-                                    className="animate-spin"
-                                    size={15}
-                                />
-                            )}
-                            {applying
-                                ? '적용 중...'
-                                : '이 동선으로 일정 만들기'}
-                        </button>
-                    )}
                     <button
                         type="button"
-                        onClick={() => void analyze()}
-                        disabled={loading || applying}
-                        className="mt-2 flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-600"
+                        onClick={onClose}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+                        aria-label="스마트 동선 추천 닫기"
                     >
-                        <RotateCcwIcon size={12} />
-                        다시 분석하기
+                        <XIcon size={18} />
                     </button>
-                </footer>
-            )}
-        </aside>
+                </header>
+
+                <div className="mp-scroll flex-1 overflow-y-auto p-5">
+                    {options.length === 0 && !loading && (
+                        <div className="rounded-2xl bg-brand-50 p-4">
+                            <MapPinnedIcon className="mb-3 text-brand" size={24} />
+                            <h3 className="text-sm font-extrabold text-slate-800">
+                                저장 장소로 일정을 만들어 볼까요?
+                            </h3>
+                            <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                                저장한 장소를 여행 스타일에 맞게 정렬하고
+                                이동 거리를 최소화한 동선을 추천해 드려요.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowSettings(true)}
+                                className="mt-4 w-full rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700"
+                            >
+                                동선 추천 받기
+                            </button>
+                        </div>
+                    )}
+
+                    {loading && (
+                        <div className="flex flex-col items-center gap-3 py-16 text-center">
+                            <LoaderCircleIcon
+                                className="animate-spin text-brand"
+                                size={28}
+                            />
+                            <p className="text-sm font-medium text-slate-500">
+                                장소와 이동 거리를 분석하고 있어요
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                                여행 스타일에 맞는 최적 동선을 계산 중입니다
+                            </p>
+                        </div>
+                    )}
+
+                    {options.length > 0 && !loading && (
+                        <div className="space-y-3">
+                            {/* 경로 선택 탭 */}
+                            <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+                                {options.map((opt, i) => (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedIndex(i)
+                                            setApplied(false)
+                                        }}
+                                        className={`flex-1 whitespace-nowrap rounded-lg py-1.5 text-[11px] font-bold transition ${
+                                            selectedIndex === i
+                                                ? 'bg-white text-slate-800 shadow-sm'
+                                                : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                    >
+                                        {opt.routeLabel}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* 선택된 경로 상세 */}
+                            {preview && <RoutePlanView plan={preview} />}
+                        </div>
+                    )}
+
+                    {error && (
+                        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                            {error}
+                        </p>
+                    )}
+                </div>
+
+                {options.length > 0 && !loading && (
+                    <footer className="shrink-0 border-t border-slate-200 p-5">
+                        {applied ? (
+                            <div className="flex items-center justify-center gap-1.5 rounded-xl bg-green-50 py-2.5 text-sm font-bold text-green-600">
+                                <CheckIcon size={15} />
+                                일정에 반영했습니다
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => void applyPlan()}
+                                disabled={
+                                    applying || (preview?.totalPlaceCount ?? 0) === 0
+                                }
+                                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {applying && (
+                                    <LoaderCircleIcon
+                                        className="animate-spin"
+                                        size={15}
+                                    />
+                                )}
+                                {applying
+                                    ? '적용 중...'
+                                    : '이 동선으로 일정 만들기'}
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowSettings(true)}
+                            disabled={loading || applying}
+                            className="mt-2 flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-600"
+                        >
+                            <RotateCcwIcon size={12} />
+                            다시 분석하기
+                        </button>
+                    </footer>
+                )}
+            </div>
+        </div>
     )
 }

@@ -19,6 +19,8 @@ public record TripRequest(
         Set<TravelStyle> travelStyles,
         @Size(max = 100, message = "여행 장소는 100자 이하여야 합니다.")
         String destination,
+        Double destinationLat,
+        Double destinationLng,
         LocalDate startDate,
         LocalDate endDate,
         @Schema(hidden = true)
@@ -27,6 +29,22 @@ public record TripRequest(
         LocalTime dayEndTime,
         TravelPace travelPace
 ) {
+    public TripRequest(
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate,
+            TripVisibility visibility,
+            LocalTime dayStartTime,
+            LocalTime dayEndTime,
+            TravelPace travelPace
+    ) {
+        this(title, companionType, travelStyles, destination, null, null, startDate, endDate,
+                visibility, dayStartTime, dayEndTime, travelPace);
+    }
+
     public Set<TravelStyle> normalizedTravelStyles() {
         return travelStyles == null ? Set.of() : Set.copyOf(travelStyles);
     }

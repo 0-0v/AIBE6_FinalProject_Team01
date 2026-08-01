@@ -22,6 +22,8 @@ export type TripResponse = {
     companionType: CompanionType | null
     travelStyles: TravelStyle[]
     destination: string | null
+    destinationLat: number | null
+    destinationLng: number | null
     startDate: string | null
     endDate: string | null
     coverImageUrl: string | null
@@ -46,6 +48,8 @@ export type TripRequest = {
     companionType?: CompanionType | null
     travelStyles?: TravelStyle[]
     destination?: string | null
+    destinationLat?: number | null
+    destinationLng?: number | null
     startDate?: string | null
     endDate?: string | null
     dayStartTime?: string | null
@@ -61,21 +65,14 @@ export type TripMember = {
 
 type ApiResponse<T> = { success: boolean; message: string; data: T }
 
-function authHeaders(): HeadersInit {
-    return {}
-}
-
 export async function fetchTrips() {
-    const response = await apiClient.get<ApiResponse<TripResponse[]>>(
-        '/api/trips',
-        { headers: authHeaders() },
-    )
+    const response = await apiClient.get<ApiResponse<TripResponse[]>>('/api/trips')
     return response.data
 }
+
 export async function fetchTripMembers(id: number) {
     const response = await apiClient.get<ApiResponse<TripMember[]>>(
         `/api/trips/${id}/members`,
-        { headers: authHeaders() },
     )
     return response.data
 }
@@ -84,7 +81,6 @@ export async function createTrip(request: TripRequest) {
     const response = await apiClient.post<ApiResponse<TripResponse>>(
         '/api/trips',
         request,
-        { headers: authHeaders() },
     )
     return response.data
 }
@@ -93,7 +89,6 @@ export async function updateTrip(id: number, request: TripRequest) {
     const response = await apiClient.patch<ApiResponse<TripResponse>>(
         `/api/trips/${id}`,
         request,
-        { headers: authHeaders() },
     )
     return response.data
 }
@@ -105,7 +100,6 @@ export async function updateTripVisibility(
     const response = await apiClient.patch<ApiResponse<TripResponse>>(
         `/api/trips/${id}/visibility`,
         { visibility },
-        { headers: authHeaders() },
     )
     return response.data
 }
@@ -118,7 +112,6 @@ export async function confirmTripCompletion(
     const response = await apiClient.post<ApiResponse<TripResponse>>(
         `/api/trips/${id}/completion-confirmation`,
         { visibility, tags },
-        { headers: authHeaders() },
     )
     return response.data
 }
@@ -126,9 +119,6 @@ export async function confirmTripCompletion(
 export async function fetchTripVisibilitySettings(id: number) {
     const response = await apiClient.get<ApiResponse<TripVisibilitySettings>>(
         `/api/trips/${id}/visibility-settings`,
-        {
-            headers: authHeaders(),
-        },
     )
     return response.data
 }
@@ -139,27 +129,22 @@ export async function uploadTripCoverImage(id: number, file: File) {
     const response = await apiClient.postForm<ApiResponse<TripResponse>>(
         `/api/trips/${id}/cover-image`,
         formData,
-        { headers: authHeaders() },
     )
     return response.data
 }
 
 export async function deleteTrip(id: number) {
-    await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}`, {
-        headers: authHeaders(),
-    })
+    await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}`)
 }
 
 export async function leaveTrip(id: number) {
-    await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}/members/me`, {
-        headers: authHeaders(),
-    })
+    await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}/members/me`)
 }
 
 export async function createTripInvitation(id: number) {
     const response = await apiClient.post<
         ApiResponse<{ inviteCode: string; expiresAt: string }>
-    >(`/api/trips/${id}/invitations`, {}, { headers: authHeaders() })
+    >(`/api/trips/${id}/invitations`, {})
     return response.data
 }
 

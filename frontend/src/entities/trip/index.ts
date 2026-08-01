@@ -47,6 +47,8 @@ export {
     moveItineraryItem,
     reorderItineraryItems,
     updateItineraryDayStatus,
+    updateDayDeparture,
     previewItineraryRoutePlan,
     applyItineraryRoutePlan,
 } from './api/itineraryApi'
+export type { RoutePlanSettings } from './api/itineraryApi'
