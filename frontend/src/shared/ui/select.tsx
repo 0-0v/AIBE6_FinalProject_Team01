@@ -28,6 +28,7 @@ type SelectProps = {
     className?: string
     menuClassName?: string
     menuColumns?: 1 | 2
+    variant?: 'default' | 'form'
 }
 
 type MenuPosition = {
@@ -48,6 +49,7 @@ export function Select({
     className,
     menuClassName,
     menuColumns = 1,
+    variant = 'default',
 }: SelectProps) {
     const [open, setOpen] = useState(false)
     const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null)
@@ -198,7 +200,12 @@ export function Select({
                         setOpen(true)
                     }
                 }}
-                className="flex w-full items-center gap-1.5 rounded-full px-2 py-1 text-left text-[10px] font-bold outline-none transition hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-white/80 disabled:cursor-not-allowed disabled:opacity-50"
+                className={cn(
+                    'flex w-full items-center gap-1.5 text-left outline-none transition disabled:cursor-not-allowed disabled:opacity-50',
+                    variant === 'form'
+                        ? 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand/20'
+                        : 'rounded-full px-2 py-1 text-[10px] font-bold hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-white/80',
+                )}
             >
                 {loading ? (
                     <LoaderCircleIcon
