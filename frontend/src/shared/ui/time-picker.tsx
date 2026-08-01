@@ -1,175 +1,264 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type {
+    KeyboardEvent as ReactKeyboardEvent,
+    PointerEvent as ReactPointerEvent,
+} from 'react'
 import { ChevronDownIcon } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/shared/lib'
 
 export type TimePickerProps = {
-    value: string // "HH:mm" 24h
+    value: string
     onChange: (value: string) => void
     className?: string
 }
 
-const ITEM_H = 40
-const PERIODS = ['오전', '오후']
-const HOURS = Array.from({ length: 12 }, (_, i) =>
-    String(i + 1).padStart(2, '0'),
+const PERIODS = ['오전', '오후'] as const
+const HOURS = Array.from({ length: 12 }, (_, index) =>
+    String(index + 1).padStart(2, '0'),
 )
-const MINUTES = Array.from({ length: 60 }, (_, i) =>
-    String(i).padStart(2, '0'),
-)
+const MINUTES = ['00', '10', '20', '30', '40', '50']
+const QUICK_TIMES = ['09:00', '10:00', '18:00', '21:00']
+const ITEM_HEIGHT = 40
+const POPOVER_WIDTH = 272
+const POPOVER_HEIGHT = 248
 
-function parse24(v: string): [number, number, number] {
-    const parts = (v ?? '09:00').split(':').map(Number)
-    const h = parts[0] ?? 9
-    const m = parts[1] ?? 0
-    const periodIdx = h < 12 ? 0 : 1
-    const hourIdx = (h % 12 === 0 ? 12 : h % 12) - 1
-    return [periodIdx, hourIdx, m]
+function parse24(value: string): [number, number, number] {
+    const match = /^(\d{2}):(\d{2})$/.exec(value)
+    const rawHour = match ? Number(match[1]) : 9
+    const rawMinute = match ? Number(match[2]) : 0
+    const hour = Math.min(23, Math.max(0, rawHour))
+    const minute = Math.min(59, Math.max(0, rawMinute))
+
+    return [hour < 12 ? 0 : 1, hour % 12 === 0 ? 12 : hour % 12, minute]
 }
 
-function build24(periodIdx: number, hourIdx: number, minuteIdx: number): string {
-    const h12 = hourIdx + 1
-    let h24: number
-    if (periodIdx === 0) {
-        h24 = h12 === 12 ? 0 : h12
-    } else {
-        h24 = h12 === 12 ? 12 : h12 + 12
-    }
-    return `${String(h24).padStart(2, '0')}:${String(minuteIdx).padStart(2, '0')}`
+function build24(periodIndex: number, hour12: number, minute: number): string {
+    const hour =
+        periodIndex === 0
+            ? hour12 === 12
+                ? 0
+                : hour12
+            : hour12 === 12
+              ? 12
+              : hour12 + 12
+
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
 function DrumColumn({
     items,
-    selectedIdx,
+    selectedIndex,
     onSelect,
-    colWidth,
+    className,
 }: {
-    items: string[]
-    selectedIdx: number
-    onSelect: (idx: number) => void
-    colWidth: number
+    items: readonly string[]
+    selectedIndex: number
+    onSelect: (index: number) => void
+    className?: string
 }) {
     const scrollRef = useRef<HTMLDivElement>(null)
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const programmaticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
+    )
     const isProgrammatic = useRef(false)
     const initialized = useRef(false)
+    const isDragging = useRef(false)
+    const dragStartY = useRef(0)
+    const dragStartScrollTop = useRef(0)
+    const lastPointerY = useRef(0)
+    const lastPointerTime = useRef(0)
+    const dragVelocity = useRef(0)
+    const suppressClick = useRef(false)
 
-    // Instant scroll on first mount
     useEffect(() => {
-        if (initialized.current) return
-        initialized.current = true
-        const el = scrollRef.current
-        if (el) el.scrollTop = selectedIdx * ITEM_H
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current)
+        const element = scrollRef.current
+        if (!element) return
+
+        if (!initialized.current) {
+            initialized.current = true
+            element.scrollTop = selectedIndex * ITEM_HEIGHT
+            return
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
 
-    // External value change → smooth scroll
-    useEffect(() => {
-        if (!initialized.current) return
-        const el = scrollRef.current
-        if (!el || isProgrammatic.current) return
         isProgrammatic.current = true
-        el.scrollTo({ top: selectedIdx * ITEM_H, behavior: 'smooth' })
-        const t = setTimeout(() => {
+        element.scrollTo({
+            top: selectedIndex * ITEM_HEIGHT,
+            behavior: 'smooth',
+        })
+        if (programmaticTimerRef.current) {
+            clearTimeout(programmaticTimerRef.current)
+        }
+        programmaticTimerRef.current = setTimeout(() => {
             isProgrammatic.current = false
-        }, 400)
-        return () => clearTimeout(t)
-    }, [selectedIdx])
+        }, 350)
+    }, [selectedIndex])
 
-    function handleScroll() {
-        if (isProgrammatic.current) return
-        if (timerRef.current) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(() => {
-            const el = scrollRef.current
-            if (!el) return
-            const idx = Math.max(
-                0,
-                Math.min(items.length - 1, Math.round(el.scrollTop / ITEM_H)),
-            )
-            isProgrammatic.current = true
-            el.scrollTo({ top: idx * ITEM_H, behavior: 'smooth' })
-            setTimeout(() => {
-                isProgrammatic.current = false
-            }, 400)
-            onSelect(idx)
-        }, 120)
+    useEffect(
+        () => () => {
+            if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+            if (programmaticTimerRef.current) {
+                clearTimeout(programmaticTimerRef.current)
+            }
+        },
+        [],
+    )
+
+    function selectIndex(index: number) {
+        isProgrammatic.current = true
+        onSelect(index)
+        scrollRef.current?.scrollTo({
+            top: index * ITEM_HEIGHT,
+            behavior: 'smooth',
+        })
+        if (programmaticTimerRef.current) {
+            clearTimeout(programmaticTimerRef.current)
+        }
+        programmaticTimerRef.current = setTimeout(() => {
+            isProgrammatic.current = false
+        }, 250)
     }
 
-    function scrollTo(idx: number) {
-        isProgrammatic.current = true
-        scrollRef.current?.scrollTo({ top: idx * ITEM_H, behavior: 'smooth' })
-        setTimeout(() => {
-            isProgrammatic.current = false
-        }, 400)
-        onSelect(idx)
+    function handleScroll() {
+        if (isProgrammatic.current || isDragging.current) return
+        if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+
+        scrollTimerRef.current = setTimeout(() => {
+            const element = scrollRef.current
+            if (!element) return
+            const index = Math.max(
+                0,
+                Math.min(
+                    items.length - 1,
+                    Math.round(element.scrollTop / ITEM_HEIGHT),
+                ),
+            )
+            selectIndex(index)
+        }, 100)
+    }
+
+    function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+        if (event.pointerType !== 'mouse') return
+        const element = scrollRef.current
+        if (!element) return
+
+        event.preventDefault()
+        if (programmaticTimerRef.current) {
+            clearTimeout(programmaticTimerRef.current)
+        }
+        if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+        isProgrammatic.current = false
+        isDragging.current = true
+        suppressClick.current = false
+        dragStartY.current = event.clientY
+        dragStartScrollTop.current = element.scrollTop
+        lastPointerY.current = event.clientY
+        lastPointerTime.current = performance.now()
+        dragVelocity.current = 0
+        element.setPointerCapture(event.pointerId)
+    }
+
+    function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+        if (!isDragging.current || event.pointerType !== 'mouse') return
+        const element = scrollRef.current
+        if (!element) return
+
+        const now = performance.now()
+        const elapsed = Math.max(1, now - lastPointerTime.current)
+        const pointerDelta = event.clientY - lastPointerY.current
+        const totalDelta = event.clientY - dragStartY.current
+
+        if (Math.abs(totalDelta) > 3) suppressClick.current = true
+        const currentVelocity = -pointerDelta / elapsed
+        dragVelocity.current =
+            dragVelocity.current * 0.65 + currentVelocity * 0.35
+        element.scrollTop = dragStartScrollTop.current - totalDelta
+        lastPointerY.current = event.clientY
+        lastPointerTime.current = now
+    }
+
+    function finishDrag(event: ReactPointerEvent<HTMLDivElement>) {
+        if (!isDragging.current || event.pointerType !== 'mouse') return
+        const element = scrollRef.current
+        if (!element) return
+
+        isDragging.current = false
+        if (element.hasPointerCapture(event.pointerId)) {
+            element.releasePointerCapture(event.pointerId)
+        }
+
+        const inertiaDistance = Math.max(
+            -ITEM_HEIGHT * 3,
+            Math.min(ITEM_HEIGHT * 3, dragVelocity.current * 130),
+        )
+        const projectedScrollTop = element.scrollTop + inertiaDistance
+        const index = Math.max(
+            0,
+            Math.min(
+                items.length - 1,
+                Math.round(projectedScrollTop / ITEM_HEIGHT),
+            ),
+        )
+        selectIndex(index)
+    }
+
+    function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+        event.preventDefault()
+        const direction = event.key === 'ArrowUp' ? -1 : 1
+        const nextIndex = Math.max(
+            0,
+            Math.min(items.length - 1, selectedIndex + direction),
+        )
+        selectIndex(nextIndex)
     }
 
     return (
-        <div
-            className="relative overflow-hidden"
-            style={{ width: colWidth, height: ITEM_H * 3 }}
-        >
-            {/* Brand highlight for center row */}
-            <div
-                className="pointer-events-none absolute inset-x-0 rounded-xl bg-brand"
-                style={{ top: ITEM_H, height: ITEM_H, zIndex: 1 }}
-            />
-            {/* Top fade */}
-            <div
-                className="pointer-events-none absolute inset-x-0 top-0 z-30"
-                style={{
-                    height: ITEM_H,
-                    background:
-                        'linear-gradient(to bottom, white 20%, transparent)',
-                }}
-            />
-            {/* Bottom fade */}
-            <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 z-30"
-                style={{
-                    height: ITEM_H,
-                    background:
-                        'linear-gradient(to top, white 20%, transparent)',
-                }}
-            />
-            {/* Scrollable list */}
+        <div className={cn('relative h-[120px] overflow-hidden', className)}>
+            <div className="pointer-events-none absolute inset-x-0 top-10 z-10 h-10 rounded-xl bg-brand" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-10 bg-gradient-to-b from-white to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-10 bg-gradient-to-t from-white to-transparent" />
             <div
                 ref={scrollRef}
                 onScroll={handleScroll}
-                className="absolute inset-0 overflow-y-scroll overscroll-contain"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={finishDrag}
+                onPointerCancel={finishDrag}
+                onKeyDown={handleKeyDown}
+                tabIndex={0}
+                role="listbox"
+                aria-label="시간 값 선택"
+                className="absolute inset-0 z-10 cursor-grab touch-pan-y select-none overflow-y-scroll overscroll-contain outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-brand/30"
                 style={{
                     scrollSnapType: 'y mandatory',
-                    zIndex: 2,
                     scrollbarWidth: 'none',
+                    WebkitOverflowScrolling: 'touch',
                 }}
             >
-                <div
-                    style={{
-                        paddingTop: ITEM_H,
-                        paddingBottom: ITEM_H,
-                    }}
-                >
-                    {items.map((item, i) => (
+                <div className="py-10">
+                    {items.map((item, index) => (
                         <button
-                            key={i}
+                            key={item}
                             type="button"
-                            tabIndex={-1}
-                            onClick={() => scrollTo(i)}
-                            className={cn(
-                                'flex w-full items-center justify-center text-sm font-bold transition-colors',
-                                i === selectedIdx
-                                    ? 'text-white'
-                                    : 'text-slate-500 hover:text-slate-700',
-                            )}
-                            style={{
-                                height: ITEM_H,
-                                scrollSnapAlign: 'start',
+                            role="option"
+                            aria-selected={selectedIndex === index}
+                            onClick={() => {
+                                if (suppressClick.current) {
+                                    suppressClick.current = false
+                                    return
+                                }
+                                selectIndex(index)
                             }}
+                            className={cn(
+                                'flex h-10 w-full snap-start items-center justify-center text-sm font-bold transition-colors',
+                                selectedIndex === index
+                                    ? 'text-white'
+                                    : 'text-slate-400 hover:text-slate-700',
+                            )}
                         >
                             {item}
                         </button>
@@ -180,63 +269,90 @@ function DrumColumn({
     )
 }
 
-type PopoverPos = {
+type PopoverPosition = {
     top: number
     left: number
-    minWidth: number
+}
+
+function getPopoverPosition(rect: DOMRect): PopoverPosition {
+    const spaceBelow = window.innerHeight - rect.bottom - 8
+    const openBelow = spaceBelow >= POPOVER_HEIGHT || spaceBelow >= rect.top
+    const desiredTop = openBelow
+        ? rect.bottom + 6
+        : rect.top - POPOVER_HEIGHT - 6
+
+    return {
+        top: Math.max(
+            8,
+            Math.min(desiredTop, window.innerHeight - POPOVER_HEIGHT - 8),
+        ),
+        left: Math.max(
+            8,
+            Math.min(rect.left, window.innerWidth - POPOVER_WIDTH - 8),
+        ),
+    }
 }
 
 export function TimePicker({ value, onChange, className }: TimePickerProps) {
     const [open, setOpen] = useState(false)
-    const [pos, setPos] = useState<PopoverPos | null>(null)
+    const [position, setPosition] = useState<PopoverPosition | null>(null)
     const triggerRef = useRef<HTMLButtonElement>(null)
     const popoverRef = useRef<HTMLDivElement>(null)
-
-    const [periodIdx, hourIdx, minuteIdx] = parse24(value)
+    const [periodIndex, hour12, minute] = parse24(value)
+    const selectedMinuteIndex = MINUTES.reduce(
+        (nearestIndex, option, index) => {
+            const currentDistance = Math.abs(Number(option) - minute)
+            const nearestDistance = Math.abs(
+                Number(MINUTES[nearestIndex]) - minute,
+            )
+            return currentDistance < nearestDistance ? index : nearestIndex
+        },
+        0,
+    )
 
     function openPicker() {
         const rect = triggerRef.current?.getBoundingClientRect()
         if (!rect) return
-        const popoverWidth = 184
-        const spaceBelow = window.innerHeight - rect.bottom - 8
-        const spaceAbove = rect.top - 8
-        const openBelow = spaceBelow >= 140 || spaceBelow >= spaceAbove
-        setPos({
-            top: openBelow ? rect.bottom + 6 : rect.top - 6 - 140,
-            left: Math.min(
-                rect.left,
-                window.innerWidth - popoverWidth - 8,
-            ),
-            minWidth: Math.max(rect.width, popoverWidth),
-        })
+        setPosition(getPopoverPosition(rect))
         setOpen(true)
     }
 
     useEffect(() => {
         if (!open) return
-        function onPointer(e: PointerEvent) {
-            const t = e.target as Node
-            if (triggerRef.current?.contains(t)) return
-            if (popoverRef.current?.contains(t)) return
+
+        function handlePointerDown(event: PointerEvent) {
+            const target = event.target as Node
+            if (triggerRef.current?.contains(target)) return
+            if (popoverRef.current?.contains(target)) return
             setOpen(false)
         }
-        function onKey(e: KeyboardEvent) {
-            if (e.key === 'Escape') setOpen(false)
+
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === 'Escape') setOpen(false)
         }
-        document.addEventListener('pointerdown', onPointer)
-        document.addEventListener('keydown', onKey)
+
+        function updatePosition() {
+            const rect = triggerRef.current?.getBoundingClientRect()
+            if (rect) setPosition(getPopoverPosition(rect))
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+        document.addEventListener('keydown', handleKeyDown)
+        window.addEventListener('resize', updatePosition)
+        window.addEventListener('scroll', updatePosition, true)
         return () => {
-            document.removeEventListener('pointerdown', onPointer)
-            document.removeEventListener('keydown', onKey)
+            document.removeEventListener('pointerdown', handlePointerDown)
+            document.removeEventListener('keydown', handleKeyDown)
+            window.removeEventListener('resize', updatePosition)
+            window.removeEventListener('scroll', updatePosition, true)
         }
     }, [open])
 
-    function update(p: number, h: number, m: number) {
-        onChange(build24(p, h, m))
+    function update(nextPeriod: number, nextHour: number, nextMinute: number) {
+        onChange(build24(nextPeriod, nextHour, nextMinute))
     }
 
-    const h12 = hourIdx + 1
-    const display = `${PERIODS[periodIdx]} ${String(h12).padStart(2, '0')}:${String(minuteIdx).padStart(2, '0')}`
+    const display = `${PERIODS[periodIndex]} ${String(hour12).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 
     return (
         <>
@@ -244,6 +360,8 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
                 ref={triggerRef}
                 type="button"
                 onClick={openPicker}
+                aria-haspopup="dialog"
+                aria-expanded={open}
                 className={cn(
                     'flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5',
                     'text-xs font-medium text-slate-700 outline-none transition',
@@ -263,37 +381,94 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
             </button>
 
             {open &&
-                pos &&
+                position &&
                 createPortal(
                     <div
                         ref={popoverRef}
-                        className="fixed z-[300] flex items-center gap-0.5 rounded-2xl border border-slate-100 bg-white p-3 shadow-2xl shadow-slate-900/10"
-                        style={{
-                            top: pos.top,
-                            left: pos.left,
-                        }}
+                        role="dialog"
+                        aria-label="시간 선택"
+                        className="fixed z-[300] w-[272px] rounded-2xl border border-slate-100 bg-white p-3 shadow-2xl shadow-slate-900/10"
+                        style={{ top: position.top, left: position.left }}
                     >
-                        <DrumColumn
-                            items={PERIODS}
-                            selectedIdx={periodIdx}
-                            onSelect={(i) => update(i, hourIdx, minuteIdx)}
-                            colWidth={56}
-                        />
-                        <DrumColumn
-                            items={HOURS}
-                            selectedIdx={hourIdx}
-                            onSelect={(i) => update(periodIdx, i, minuteIdx)}
-                            colWidth={44}
-                        />
-                        <span className="pb-0.5 text-lg font-bold text-slate-400">
-                            :
-                        </span>
-                        <DrumColumn
-                            items={MINUTES}
-                            selectedIdx={minuteIdx}
-                            onSelect={(i) => update(periodIdx, hourIdx, i)}
-                            colWidth={44}
-                        />
+                        <div className="flex items-center gap-1">
+                            <DrumColumn
+                                items={PERIODS}
+                                selectedIndex={periodIndex}
+                                onSelect={(index) =>
+                                    update(index, hour12, minute)
+                                }
+                                className="w-[72px]"
+                            />
+                            <DrumColumn
+                                items={HOURS}
+                                selectedIndex={hour12 - 1}
+                                onSelect={(index) =>
+                                    update(periodIndex, index + 1, minute)
+                                }
+                                className="w-[68px]"
+                            />
+                            <span className="text-lg font-bold text-slate-300">
+                                :
+                            </span>
+                            <DrumColumn
+                                items={MINUTES}
+                                selectedIndex={selectedMinuteIndex}
+                                onSelect={(index) =>
+                                    update(
+                                        periodIndex,
+                                        hour12,
+                                        Number(MINUTES[index]),
+                                    )
+                                }
+                                className="w-[68px]"
+                            />
+                        </div>
+
+                        <div className="mt-2 flex items-center gap-2">
+                            <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5">
+                                <span className="text-[10px] font-semibold text-slate-400">
+                                    직접 입력
+                                </span>
+                                <input
+                                    type="time"
+                                    value={value}
+                                    onChange={(event) => {
+                                        if (event.target.value) {
+                                            onChange(event.target.value)
+                                        }
+                                    }}
+                                    className="min-w-0 flex-1 bg-transparent text-xs font-bold text-slate-700 outline-none"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setOpen(false)}
+                                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                            >
+                                완료
+                            </button>
+                        </div>
+
+                        <div className="mt-2 flex items-center gap-1 overflow-hidden">
+                            <span className="mr-1 shrink-0 text-[10px] font-semibold text-slate-400">
+                                빠른 선택
+                            </span>
+                            {QUICK_TIMES.map((time) => (
+                                <button
+                                    key={time}
+                                    type="button"
+                                    onClick={() => onChange(time)}
+                                    className={cn(
+                                        'rounded-md px-1.5 py-1 text-[10px] font-semibold transition-colors',
+                                        value === time
+                                            ? 'bg-brand-50 text-brand'
+                                            : 'text-slate-500 hover:bg-slate-50',
+                                    )}
+                                >
+                                    {time}
+                                </button>
+                            ))}
+                        </div>
                     </div>,
                     document.body,
                 )}

@@ -19,18 +19,18 @@ export type { RoutePlanSettings }
 
 export type DepartureChange = {
     dayId: string
-    payload:
-        | { type: 'NONE' }
-        | { type: 'TRIP_PLACE'; tripPlaceId: number }
+    payload: { type: 'NONE' } | { type: 'TRIP_PLACE'; tripPlaceId: number }
 }
 
 type Props = {
     places: Place[]
     days: ItineraryDay[]
     onClose: () => void
-    onConfirm: (settings: RoutePlanSettings, departures: DepartureChange[]) => void
+    onConfirm: (
+        settings: RoutePlanSettings,
+        departures: DepartureChange[],
+    ) => void
 }
-
 
 function IssueItem({ issue }: { issue: ValidationIssue }) {
     const isError = issue.level === 'error'
@@ -74,7 +74,16 @@ function initDepartures(days: ItineraryDay[]): Record<string, string> {
     )
 }
 
-export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props) {
+function isValidTime(value: string): boolean {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+}
+
+export function AiRouteSettingsModal({
+    places,
+    days,
+    onClose,
+    onConfirm,
+}: Props) {
     const issues = useMemo(
         () => validateForRoutePlan(places, days),
         [places, days],
@@ -83,11 +92,17 @@ export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props
 
     const [startTime, setStartTime] = useState('09:00')
     const [endTime, setEndTime] = useState('21:00')
-    const [travelPace, setTravelPace] = useState<'FAST' | 'NORMAL' | 'RELAXED'>('NORMAL')
+    const [travelPace, setTravelPace] = useState<'FAST' | 'NORMAL' | 'RELAXED'>(
+        'NORMAL',
+    )
     const [initialDeps] = useState(() => initDepartures(days))
     const [departures, setDepartures] = useState<Record<string, string>>(
         () => ({ ...initialDeps }),
     )
+    const hasInvalidTimeRange =
+        !isValidTime(startTime) ||
+        !isValidTime(endTime) ||
+        startTime >= endTime
 
     function handleConfirm() {
         const departureChanges: DepartureChange[] = days
@@ -189,6 +204,12 @@ export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props
                                         />
                                     </div>
                                 </div>
+                                {hasInvalidTimeRange && (
+                                    <p className="mt-1.5 text-[10px] font-semibold text-red-500">
+                                        종료 시간은 시작 시간보다 늦게
+                                        설정해주세요.
+                                    </p>
+                                )}
                             </section>
 
                             <section>
@@ -198,19 +219,35 @@ export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props
                                 <div className="grid grid-cols-3 gap-2">
                                     {(
                                         [
-                                            { value: 'FAST', label: '빠르게', desc: '일정을 빽빽하게 채워요' },
-                                            { value: 'NORMAL', label: '보통', desc: '무난한 속도로 즐겨요' },
-                                            { value: 'RELAXED', label: '여유롭게', desc: '여유롭게 충분히 머물러요' },
+                                            {
+                                                value: 'FAST',
+                                                label: '빠르게',
+                                                desc: '일정을 빽빽하게 채워요',
+                                            },
+                                            {
+                                                value: 'NORMAL',
+                                                label: '보통',
+                                                desc: '무난한 속도로 즐겨요',
+                                            },
+                                            {
+                                                value: 'RELAXED',
+                                                label: '여유롭게',
+                                                desc: '여유롭게 충분히 머물러요',
+                                            },
                                         ] as const
                                     ).map((p) => (
                                         <button
                                             key={p.value}
                                             type="button"
-                                            onClick={() => setTravelPace(p.value)}
+                                            onClick={() =>
+                                                setTravelPace(p.value)
+                                            }
                                             className={`rounded-xl border px-2 py-2 text-center text-xs font-bold transition-colors ${travelPace === p.value ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500'}`}
                                         >
                                             <div>{p.label}</div>
-                                            <div className={`mt-0.5 text-[10px] font-normal ${travelPace === p.value ? 'text-white/80' : 'text-slate-400'}`}>
+                                            <div
+                                                className={`mt-0.5 text-[10px] font-normal ${travelPace === p.value ? 'text-white/80' : 'text-slate-400'}`}
+                                            >
                                                 {p.desc}
                                             </div>
                                         </button>
@@ -221,7 +258,10 @@ export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props
                             {days.length > 0 && (
                                 <section>
                                     <div className="mb-2 flex items-center gap-1.5">
-                                        <MapPinIcon size={13} className="text-slate-400" />
+                                        <MapPinIcon
+                                            size={13}
+                                            className="text-slate-400"
+                                        />
                                         <p className="text-xs font-bold text-slate-600">
                                             날짜별 출발지
                                         </p>
@@ -230,15 +270,31 @@ export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props
                                         {days.map((day) => {
                                             const isCustom =
                                                 departures[day.id] === 'custom'
-                                            const options: SelectOption[] = isCustom
-                                                ? [{ value: 'custom', label: day.departure?.name ?? '사용자 지정' }]
-                                                : [
-                                                    { value: 'none', label: '출발지 없음' },
-                                                    ...places.map((place) => ({
-                                                        value: String(place.id),
-                                                        label: place.name,
-                                                    })),
-                                                ]
+                                            const options: SelectOption[] =
+                                                isCustom
+                                                    ? [
+                                                          {
+                                                              value: 'custom',
+                                                              label:
+                                                                  day.departure
+                                                                      ?.name ??
+                                                                  '사용자 지정',
+                                                          },
+                                                      ]
+                                                    : [
+                                                          {
+                                                              value: 'none',
+                                                              label: '출발지 없음',
+                                                          },
+                                                          ...places.map(
+                                                              (place) => ({
+                                                                  value: String(
+                                                                      place.id,
+                                                                  ),
+                                                                  label: place.name,
+                                                              }),
+                                                          ),
+                                                      ]
                                             return (
                                                 <div
                                                     key={day.id}
@@ -252,13 +308,20 @@ export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props
                                                     </span>
                                                     <Select
                                                         aria-label={`Day ${day.dayNumber} 출발지`}
-                                                        value={departures[day.id] ?? 'none'}
+                                                        value={
+                                                            departures[
+                                                                day.id
+                                                            ] ?? 'none'
+                                                        }
                                                         options={options}
                                                         onChange={(val) =>
-                                                            setDepartures((prev) => ({
-                                                                ...prev,
-                                                                [day.id]: val,
-                                                            }))
+                                                            setDepartures(
+                                                                (prev) => ({
+                                                                    ...prev,
+                                                                    [day.id]:
+                                                                        val,
+                                                                }),
+                                                            )
                                                         }
                                                         disabled={isCustom}
                                                         variant="form"
@@ -292,7 +355,8 @@ export function AiRouteSettingsModal({ places, days, onClose, onConfirm }: Props
                         <button
                             type="button"
                             onClick={handleConfirm}
-                            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700"
+                            disabled={hasInvalidTimeRange}
+                            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                         >
                             <SparklesIcon size={15} />
                             분석 시작
