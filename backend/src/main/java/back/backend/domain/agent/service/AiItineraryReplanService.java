@@ -52,7 +52,7 @@ public class AiItineraryReplanService {
     private final AiReplanCutoffPolicy cutoffPolicy;
     private final CollaborationEventService collaborationEventService;
 
-    @Value("${app.ai.replan.allow-outside-trip:true}")
+    @Value("${app.ai.replan.allow-outside-trip:false}")
     private boolean allowOutsideTrip;
 
     public List<RoutePlanOption> preview(
@@ -62,8 +62,16 @@ public class AiItineraryReplanService {
         accessChecker.requireEdit(tripId);
         var trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
-        LocalDateTime now = LocalDateTime.now();
-        validateTripPeriod(trip.getStartDate(), trip.getEndDate(), now.toLocalDate());
+        LocalDateTime referenceTime = cutoffPolicy.resolveReferenceTime(
+                request.testCutoffAt(),
+                allowOutsideTrip,
+                LocalDateTime.now()
+        );
+        validateTripPeriod(
+                trip.getStartDate(),
+                trip.getEndDate(),
+                referenceTime.toLocalDate()
+        );
 
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId)
                 .stream()
@@ -79,7 +87,7 @@ public class AiItineraryReplanService {
                 .findAllOrderedByTripId(tripId)
                 .stream()
                 .collect(Collectors.toMap(TripPlace::getId, place -> place));
-        Set<Long> fixedPlaceIds = fixedPlaceIds(days, now);
+        Set<Long> fixedPlaceIds = fixedPlaceIds(days, referenceTime);
         List<TripPlace> movablePlaces = days.stream()
                 .flatMap(day -> day.getItems().stream())
                 .filter(item -> item.getTripPlaceId() != null)
@@ -89,7 +97,9 @@ public class AiItineraryReplanService {
                 .distinct()
                 .toList();
         List<ItineraryDay> replannableDays = days.stream()
-                .filter(day -> !day.getItineraryDate().isBefore(now.toLocalDate()))
+                .filter(day -> !day.getItineraryDate().isBefore(
+                        referenceTime.toLocalDate()
+                ))
                 .toList();
         if (replannableDays.isEmpty() || movablePlaces.isEmpty()) {
             throw new BusinessException(
@@ -110,7 +120,7 @@ public class AiItineraryReplanService {
                         movablePlaces,
                         trip.getTravelStyles(),
                         settings,
-                        request.reason()
+                        "REPLAN_REMAINING_ITINERARY"
                 )
                 .stream()
                 .map(option -> new RoutePlanOption(
@@ -127,10 +137,19 @@ public class AiItineraryReplanService {
 
     @Transactional
     public List<back.backend.domain.itinerary.dto.response.ItineraryDayResponse>
-    apply(Long tripId, RoutePlanPreviewResponse plan) {
+    apply(
+            Long tripId,
+            RoutePlanPreviewResponse plan,
+            LocalDateTime testCutoffAt
+    ) {
         Long memberId = accessChecker.requireEdit(tripId);
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
-        assertFixedItemsUnchanged(plan, days, LocalDateTime.now());
+        LocalDateTime referenceTime = cutoffPolicy.resolveReferenceTime(
+                testCutoffAt,
+                allowOutsideTrip,
+                LocalDateTime.now()
+        );
+        assertFixedItemsUnchanged(plan, days, referenceTime);
         var applied = itineraryService.applyReplan(tripId, plan);
         collaborationEventService.record(
                 tripId,

@@ -3,6 +3,7 @@ package back.backend.domain.place.service;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceStyleTag;
+import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.repository.PlaceStyleTagRepository;
 import back.backend.domain.trip.entity.TravelStyle;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -75,5 +77,29 @@ class PlaceStyleRelationServiceTest {
         );
 
         assertThat(score).isEqualTo(0.88);
+    }
+
+    @Test
+    @DisplayName("t4 여러 일정 장소의 스타일 관계를 한 번에 조회해 점수 맵을 만든다")
+    void t4_resolveCompatibilitiesLoadsRelationsInBulk() {
+        Place firstPlace = Place.builder().name("첫 장소").build();
+        ReflectionTestUtils.setField(firstPlace, "id", 1L);
+        TripPlace first = org.mockito.Mockito.mock(TripPlace.class);
+        given(first.getId()).willReturn(11L);
+        given(first.getPlace()).willReturn(firstPlace);
+        PlaceStyleTag tag = PlaceStyleTag.create(
+                firstPlace,
+                TravelStyle.FOOD,
+                0.91,
+                "CATEGORY_RULE"
+        );
+        given(repository.findAllByPlaceIdIn(List.of(1L))).willReturn(List.of(tag));
+
+        Map<Long, Double> scores = service.resolveCompatibilities(
+                List.of(first),
+                Set.of(TravelStyle.FOOD)
+        );
+
+        assertThat(scores).containsEntry(11L, 0.91);
     }
 }

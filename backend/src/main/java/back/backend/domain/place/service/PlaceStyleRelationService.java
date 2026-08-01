@@ -3,6 +3,7 @@ package back.backend.domain.place.service;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceStyleTag;
+import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.repository.PlaceStyleTagRepository;
 import back.backend.domain.trip.entity.TravelStyle;
 import lombok.RequiredArgsConstructor;
@@ -10,9 +11,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -61,6 +64,56 @@ public class PlaceStyleRelationService {
                 .mapToDouble(style -> scoresByStyle.getOrDefault(style, 0.1))
                 .average()
                 .orElse(0);
+    }
+
+    public Map<Long, Double> resolveCompatibilities(
+            List<TripPlace> tripPlaces,
+            Set<TravelStyle> travelStyles
+    ) {
+        if (tripPlaces == null || tripPlaces.isEmpty()) return Map.of();
+        if (travelStyles == null || travelStyles.isEmpty()) {
+            return tripPlaces.stream().collect(Collectors.toMap(
+                    TripPlace::getId,
+                    ignored -> 0.0
+            ));
+        }
+        List<Long> placeIds = tripPlaces.stream()
+                .map(TripPlace::getPlace)
+                .map(Place::getId)
+                .toList();
+        Map<Long, List<PlaceStyleTag>> tagsByPlaceId = repository
+                .findAllByPlaceIdIn(placeIds)
+                .stream()
+                .collect(Collectors.groupingBy(tag -> tag.getPlace().getId()));
+        Map<Long, Double> result = new HashMap<>();
+        for (TripPlace tripPlace : tripPlaces) {
+            List<PlaceStyleTag> tags = tagsByPlaceId.getOrDefault(
+                    tripPlace.getPlace().getId(),
+                    List.of()
+            );
+            if (tags.isEmpty()) {
+                PlaceCategoryType categoryType = tripPlace.getCategory() == null
+                        ? null : tripPlace.getCategory().getCategoryType();
+                result.put(
+                        tripPlace.getId(),
+                        calculateCompatibility(categoryType, travelStyles)
+                );
+                continue;
+            }
+            Map<TravelStyle, Double> scoresByStyle = new EnumMap<>(TravelStyle.class);
+            tags.forEach(tag -> scoresByStyle.put(
+                    tag.getStyleType(),
+                    tag.scoreAsDouble()
+            ));
+            result.put(
+                    tripPlace.getId(),
+                    travelStyles.stream()
+                            .mapToDouble(style -> scoresByStyle.getOrDefault(style, 0.1))
+                            .average()
+                            .orElse(0)
+            );
+        }
+        return Map.copyOf(result);
     }
 
     @Transactional

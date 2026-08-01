@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,7 +43,7 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t1 재배치 이유를 입력하면 현재 시점 이후 일정 미리보기를 반환한다")
+    @DisplayName("t1 테스트 기준 시각을 입력하면 해당 시점 이후 일정 미리보기를 반환한다")
     void t1_previewReturnsFutureReplanOptions() throws Exception {
         given(replanService.preview(eq(1L), any())).willReturn(List.of(
                 new RoutePlanOption(
@@ -59,7 +60,7 @@ class AiItineraryReplanControllerTest {
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"reason":"비가 와서 실내 위주로 바꿔줘"}
+                                {"testCutoffAt":"2026-08-03T14:00:00"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].routeLabel")
@@ -69,13 +70,40 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t2 재배치 이유가 비어 있으면 미리보기 요청을 거절한다")
-    void t2_previewRejectsBlankReason() throws Exception {
+    @DisplayName("t2 기준 시각을 생략해도 서버 현재 시각으로 미리보기를 요청한다")
+    void t2_previewAcceptsRequestWithoutTestCutoff() throws Exception {
+        given(replanService.preview(eq(1L), any())).willReturn(List.of());
+
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"reason\":\" \"}"))
-                .andExpect(status().isBadRequest());
+                        .content("{}"))
+                .andExpect(status().isOk());
 
-        then(replanService).shouldHaveNoInteractions();
+        then(replanService).should().preview(eq(1L), any());
+    }
+
+    @Test
+    @DisplayName("t3 재배치 적용 시 미리보기와 같은 테스트 기준 시각을 전달한다")
+    void t3_applyForwardsTestCutoff() throws Exception {
+        given(replanService.apply(eq(1L), any(), any())).willReturn(List.of());
+
+        mockMvc.perform(post("/api/trips/1/itinerary/replan/apply")
+                        .queryParam("testCutoffAt", "2026-08-03T14:00:00")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "summary":"재배치 결과",
+                                  "totalPlaceCount":0,
+                                  "totalDistanceMeters":0,
+                                  "days":[]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        then(replanService).should().apply(
+                eq(1L),
+                any(),
+                eq(LocalDateTime.of(2026, 8, 3, 14, 0))
+        );
     }
 }

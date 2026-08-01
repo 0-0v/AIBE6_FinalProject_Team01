@@ -2,6 +2,8 @@ package back.backend.domain.agent.service;
 
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryItem;
+import back.backend.global.exception.BusinessException;
+import back.backend.global.exception.CommonErrorCode;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -9,6 +11,18 @@ import java.time.LocalTime;
 
 @Component
 public class AiReplanCutoffPolicy {
+
+    public LocalDateTime resolveReferenceTime(
+            LocalDateTime requested,
+            boolean testOverrideAllowed,
+            LocalDateTime systemNow
+    ) {
+        if (requested == null) return systemNow;
+        if (!testOverrideAllowed) {
+            throw new BusinessException(CommonErrorCode.CONFLICT);
+        }
+        return requested;
+    }
 
     public boolean isFixed(
             ItineraryDay day,
