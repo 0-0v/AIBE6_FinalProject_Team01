@@ -208,7 +208,7 @@ class AiPlaceRecommendationServiceTest {
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(Optional.of(day));
-        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 2));
         given(day.getItems()).willReturn(List.of(firstItem, secondItem));
         given(firstItem.getTripPlaceId()).willReturn(100L);
         given(secondItem.getTripPlaceId()).willReturn(101L);
