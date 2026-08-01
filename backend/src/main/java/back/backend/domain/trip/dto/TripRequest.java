@@ -19,6 +19,8 @@ public record TripRequest(
         Set<TravelStyle> travelStyles,
         @Size(max = 100, message = "여행 장소는 100자 이하여야 합니다.")
         String destination,
+        Double destinationLat,
+        Double destinationLng,
         LocalDate startDate,
         LocalDate endDate,
         @Schema(hidden = true)

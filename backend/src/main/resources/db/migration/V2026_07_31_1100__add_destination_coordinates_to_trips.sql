@@ -1,0 +1,3 @@
+ALTER TABLE trips
+    ADD COLUMN destination_lat  DOUBLE PRECISION NULL,
+    ADD COLUMN destination_lng  DOUBLE PRECISION NULL;

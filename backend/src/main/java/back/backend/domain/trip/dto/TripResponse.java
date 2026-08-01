@@ -17,6 +17,8 @@ public record TripResponse(
         CompanionType companionType,
         Set<TravelStyle> travelStyles,
         String destination,
+        Double destinationLat,
+        Double destinationLng,
         LocalDate startDate,
         LocalDate endDate,
         String coverImageUrl,
@@ -35,7 +37,7 @@ public record TripResponse(
     public static TripResponse from(Trip trip, long memberCount) {
         return new TripResponse(
                 trip.getId(), trip.getOwnerId(), trip.getTitle(), trip.getCompanionType(),
-                trip.getTravelStyles(), trip.getDestination(), trip.getStartDate(), trip.getEndDate(),
+                trip.getTravelStyles(), trip.getDestination(), trip.getDestinationLat(), trip.getDestinationLng(), trip.getStartDate(), trip.getEndDate(),
                 trip.getCoverImageUrl(), memberCount, trip.getStatus(), trip.getVisibility(),
                 trip.isCompletionConfirmed(), trip.getCreatedAt(), trip.getUpdatedAt(),
                 trip.getDayStartTime().format(TIME_FMT),
