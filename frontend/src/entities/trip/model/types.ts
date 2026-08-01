@@ -94,6 +94,8 @@ export type Room = {
         'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
     visibility: 'PRIVATE' | 'PUBLIC'
     color: string
+    companionLabel?: string
+    travelStyleLabels?: string[]
 }
 
 export type Expense = {
