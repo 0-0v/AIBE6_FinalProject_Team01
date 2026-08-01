@@ -106,7 +106,7 @@ public class TripService {
     public TripResponse update(Long memberId, Long tripId, TripRequest request) {
         Trip trip = findJoinedTripWithoutLock(memberId, tripId);
         try {
-            validateStartDate(request);
+            validateUpdatedStartDate(trip, request);
             trip.update(request.title(), request.companionType(), request.normalizedTravelStyles(),
                     request.destination(), request.destinationLat(), request.destinationLng(),
                     request.startDate(), request.endDate(),
@@ -169,6 +169,13 @@ public class TripService {
         if (request.startDate() != null
                 && !request.startDate().isAfter(LocalDate.now(clock))) {
             throw new IllegalArgumentException("여행 시작일은 내일부터 선택할 수 있습니다.");
+        }
+    }
+
+    private void validateUpdatedStartDate(Trip trip, TripRequest request) {
+        if (request.startDate() != null
+                && !request.startDate().equals(trip.getStartDate())) {
+            validateStartDate(request);
         }
     }
 

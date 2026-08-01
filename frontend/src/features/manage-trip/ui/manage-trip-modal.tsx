@@ -52,6 +52,9 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [busy, setBusy] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
     const minimumStartDate = tomorrowDateInputValue()
+    const datesLocked = Boolean(
+        trip.startDate && trip.startDate < minimumStartDate,
+    )
 
     function toggleStyle(style: TravelStyle) {
         setStyles((current) =>
@@ -68,7 +71,11 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             return setError('여행 기간을 함께 입력해 주세요.')
         if (startDate && endDate < startDate)
             return setError('종료일은 시작일보다 빠를 수 없습니다.')
-        if (startDate && startDate < minimumStartDate)
+        if (
+            startDate &&
+            startDate !== trip.startDate &&
+            startDate < minimumStartDate
+        )
             return setError('여행 시작일은 내일부터 선택할 수 있습니다.')
         setBusy(true)
         setError(null)
@@ -175,6 +182,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                             type="date"
                             value={startDate}
                             min={minimumStartDate}
+                            disabled={datesLocked}
                             onChange={(event) =>
                                 setStartDate(event.target.value)
                             }
@@ -187,11 +195,17 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                             type="date"
                             value={endDate}
                             min={startDate || minimumStartDate}
+                            disabled={datesLocked}
                             onChange={(event) => setEndDate(event.target.value)}
                             className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
                         />
                     </label>
                 </div>
+                {datesLocked && (
+                    <p className="mt-2 text-xs font-medium text-slate-500">
+                        이미 시작된 여행의 기간은 변경할 수 없어요.
+                    </p>
+                )}
                 {error && (
                     <p className="mt-4 text-sm font-semibold text-red-500">
                         {error}
