@@ -8,6 +8,7 @@ import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.PlaceSearchService;
+import back.backend.domain.place.service.PlaceStyleRelationService;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -35,6 +36,7 @@ public class AiPlaceRecommendationService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final TripPlaceRepository tripPlaceRepository;
     private final PlaceSearchService placeSearchService;
+    private final PlaceStyleRelationService placeStyleRelationService;
 
     public List<AiPlaceRecommendationResponse> recommend(
             Long tripId,
@@ -95,10 +97,15 @@ public class AiPlaceRecommendationService {
                 ))
                 .map(place -> new Candidate(
                         place,
-                        routeDeviationMeters(place, routePoints)
+                        routeDeviationMeters(place, routePoints),
+                        placeStyleRelationService.calculateCompatibility(
+                                place.recommendedCategoryType(),
+                                trip.getTravelStyles()
+                        )
                 ))
                 .sorted(Comparator
-                        .comparingInt(Candidate::routeDeviationMeters)
+                        .comparingDouble(Candidate::rankingScore)
+                        .reversed()
                         .thenComparing(
                                 candidate -> candidate.place().rating(),
                                 Comparator.nullsLast(Comparator.reverseOrder())
@@ -111,10 +118,18 @@ public class AiPlaceRecommendationService {
                 .limit(limit)
                 .map(candidate -> new AiPlaceRecommendationResponse(
                         candidate.place(),
-                        "요청한 조건으로 검색된 장소 중 기존 동선에서 가까운 후보예요.",
-                        candidate.routeDeviationMeters()
+                        buildReason(candidate),
+                        candidate.routeDeviationMeters(),
+                        candidate.styleCompatibility()
                 ))
                 .toList();
+    }
+
+    private String buildReason(Candidate candidate) {
+        if (candidate.styleCompatibility() >= 0.7) {
+            return "기존 동선에서 가깝고 여행 스타일과도 잘 맞는 후보예요.";
+        }
+        return "요청한 조건으로 검색된 장소 중 기존 동선에서 가까운 후보예요.";
     }
 
     private String buildQuery(
@@ -190,7 +205,16 @@ public class AiPlaceRecommendationService {
 
     private record Candidate(
             PlaceSearchResponse place,
-            int routeDeviationMeters
+            int routeDeviationMeters,
+            double styleCompatibility
     ) {
+        private double rankingScore() {
+            double routeScore = 1.0 / (1.0 + routeDeviationMeters / 1_000.0);
+            double ratingScore = place.rating() == null
+                    ? 0.5 : Math.min(1, place.rating() / 5.0);
+            return routeScore * 0.65
+                    + styleCompatibility * 0.25
+                    + ratingScore * 0.10;
+        }
     }
 }

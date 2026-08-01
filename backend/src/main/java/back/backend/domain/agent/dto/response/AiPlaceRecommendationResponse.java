@@ -5,6 +5,7 @@ import back.backend.domain.place.dto.response.PlaceSearchResponse;
 public record AiPlaceRecommendationResponse(
         PlaceSearchResponse place,
         String reason,
-        int routeDeviationMeters
+        int routeDeviationMeters,
+        double styleCompatibility
 ) {
 }

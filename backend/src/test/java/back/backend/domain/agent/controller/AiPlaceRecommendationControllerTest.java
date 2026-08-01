@@ -51,7 +51,8 @@ class AiPlaceRecommendationControllerTest {
                 .willReturn(List.of(new AiPlaceRecommendationResponse(
                         place("google-1", "멘야 라멘"),
                         "기존 동선에서 가까운 라멘 전문점이에요.",
-                        320
+                        320,
+                        0.85
                 )));
 
         mockMvc.perform(post("/api/trips/1/ai/place-recommendations")
