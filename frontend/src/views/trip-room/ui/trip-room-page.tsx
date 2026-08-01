@@ -8,7 +8,7 @@ import React, {
     useState,
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { GripVerticalIcon, SparklesIcon } from 'lucide-react'
+import { SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
     Place,
@@ -596,7 +596,7 @@ export function TripRoom() {
                     className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col overflow-hidden border border-slate-200 bg-white lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none ${
                         room
                             ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
-                            : ''
+                            : 'shadow-[-10px_0_28px_rgba(33,60,81,0.10)]'
                     } ${
                         isResizingPanel
                             ? ''
@@ -638,15 +638,6 @@ export function TripRoom() {
                                     : 'w-px bg-transparent group-hover:bg-brand-200 group-focus:bg-brand-300'
                             }`}
                         />
-                        <span
-                            className={`relative flex h-10 w-5 items-center justify-center rounded-full border bg-white shadow-sm transition ${
-                                isResizingPanel
-                                    ? 'border-brand bg-brand text-white shadow-md'
-                                    : 'border-slate-200 text-slate-400 group-hover:border-brand-200 group-hover:text-brand-600 group-hover:shadow-md group-focus:border-brand group-focus:text-brand-700'
-                            }`}
-                        >
-                            <GripVerticalIcon size={14} />
-                        </span>
                         {isResizingPanel && (
                             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
                                 {customPanelWidth == null
