@@ -180,6 +180,33 @@ public class Trip {
                 TripVisibility.PRIVATE);
     }
 
+    public static Trip create(
+            Long ownerId,
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate,
+            TripVisibility visibility
+    ) {
+        return create(ownerId, title, companionType, travelStyles, destination, null, null,
+                startDate, endDate, visibility);
+    }
+
+    public static Trip create(
+            Long ownerId,
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        return create(ownerId, title, companionType, travelStyles, destination, null, null,
+                startDate, endDate, TripVisibility.PRIVATE);
+    }
+
     public void update(
             String title,
             CompanionType companionType,

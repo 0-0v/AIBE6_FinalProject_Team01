@@ -34,6 +34,31 @@ public record TripResponse(
 ) {
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
+    public TripResponse(
+            Long id,
+            Long ownerId,
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate,
+            String coverImageUrl,
+            long memberCount,
+            TripStatus status,
+            TripVisibility visibility,
+            boolean completionConfirmed,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            String dayStartTime,
+            String dayEndTime,
+            String travelPace
+    ) {
+        this(id, ownerId, title, companionType, travelStyles, destination, null, null,
+                startDate, endDate, coverImageUrl, memberCount, status, visibility,
+                completionConfirmed, createdAt, updatedAt, dayStartTime, dayEndTime, travelPace);
+    }
+
     public static TripResponse from(Trip trip, long memberCount) {
         return new TripResponse(
                 trip.getId(), trip.getOwnerId(), trip.getTitle(), trip.getCompanionType(),
