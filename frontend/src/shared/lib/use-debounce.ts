@@ -6,7 +6,10 @@ export function useDebounce<Args extends unknown[]>(
 ): (...args: Args) => void {
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const fnRef = useRef(fn)
-    fnRef.current = fn
+
+    useEffect(() => {
+        fnRef.current = fn
+    }, [fn])
 
     useEffect(() => {
         return () => {

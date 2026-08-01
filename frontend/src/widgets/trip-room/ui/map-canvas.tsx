@@ -7,7 +7,6 @@ import {
     Polyline,
     useApiIsLoaded,
     useMap,
-    useMapsLibrary,
 } from '@vis.gl/react-google-maps'
 import {
     CalendarPlusIcon,

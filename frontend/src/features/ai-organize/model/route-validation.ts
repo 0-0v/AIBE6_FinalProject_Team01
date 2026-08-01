@@ -64,7 +64,7 @@ export function validateForRoutePlan(
         issues.push({
             level: 'warning',
             code: 'MISSING_COORDINATES',
-            message: `좌표 정보가 없는 장소는 동선 추천에서 제외됩니다.`,
+            message: '좌표 정보가 없는 장소는 동선 추천에서 제외됩니다.',
             placeNames: noCoord.map((p) => p.name),
         })
     }
@@ -85,7 +85,7 @@ export function validateForRoutePlan(
             issues.push({
                 level: 'warning',
                 code: 'OUTLIER_PLACES',
-                message: `여행지와 너무 멀리 떨어진 장소가 있어요. 동선이 부정확할 수 있습니다.`,
+                message: '여행지와 너무 멀리 떨어진 장소가 있어요. 동선이 부정확할 수 있습니다.',
                 placeNames: outliers.map((p) => p.name),
             })
         }
