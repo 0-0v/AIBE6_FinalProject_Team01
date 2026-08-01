@@ -537,7 +537,7 @@ public class ItineraryRoutePlanner {
                 route = resolveRoute(
                         current,
                         next,
-                        ItineraryTransportMode.infer(haversineMeters),
+                        settings.effectiveTransportMode(haversineMeters),
                         departureTime(day, endMinutes)
                 );
             }

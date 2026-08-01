@@ -46,7 +46,7 @@ class ItineraryControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
-        dayResponse = new ItineraryDayResponse(100L, LocalDate.of(2026, 8, 1), 1, null, "DRAFT", List.of());
+        dayResponse = new ItineraryDayResponse(100L, LocalDate.of(2026, 8, 1), 1, null, "DRAFT", List.of(), null);
         itemResponse = new ItineraryItemResponse(200L, 300L, "테스트 장소", "서울시",
                 "음식점", "#dc2626", "UTENSILS", 37.5665, 126.9780,
                 null, null, 0, null, null, null, null, null, null);
@@ -128,7 +128,7 @@ class ItineraryControllerTest {
     @Test
     @DisplayName("t7 Day 상태를 변경하면 200과 업데이트된 Day를 반환한다")
     void t7_updateDayStatusReturns200() throws Exception {
-        ItineraryDayResponse confirmed = new ItineraryDayResponse(100L, LocalDate.of(2026, 8, 1), 1, null, "CONFIRMED", List.of());
+        ItineraryDayResponse confirmed = new ItineraryDayResponse(100L, LocalDate.of(2026, 8, 1), 1, null, "CONFIRMED", List.of(), null);
         given(itineraryService.updateDayStatus(eq(1L), eq(100L), any(UpdateItineraryDayStatusRequest.class)))
                 .willReturn(confirmed);
 
@@ -194,9 +194,37 @@ class ItineraryControllerTest {
     }
 
     @Test
+    @DisplayName("t18 설정 없이 동선 미리보기를 요청하면 기본 동작을 사용한다")
+    void t18_previewRoutePlanWithoutSettingsUsesDefaults() throws Exception {
+        given(itineraryService.previewRoutePlan(eq(1L), isNull())).willReturn(List.of());
+
+        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/preview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @DisplayName("t19 이동 수단 설정과 함께 동선 미리보기를 요청하면 설정을 서비스에 전달한다")
+    void t19_previewRoutePlanWithTransportModePassesSettingsToService() throws Exception {
+        given(itineraryService.previewRoutePlan(eq(1L), any())).willReturn(List.of());
+
+        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"transportMode": "WALKING"}
+                                """))
+                .andExpect(status().isOk());
+
+        then(itineraryService).should().previewRoutePlan(
+                eq(1L),
+                argThat(s -> s != null && "WALKING".equals(s.transportMode()))
+        );
+    }
+
+    @Test
     @DisplayName("t12 AI 동선 미리보기를 조회하면 경로 옵션 목록을 반환한다")
     void t12_previewRoutePlanReturnsRouteOptions() throws Exception {
-        given(itineraryService.previewRoutePlan(1L)).willReturn(
+        given(itineraryService.previewRoutePlan(eq(1L), isNull())).willReturn(
                 List.of(
                         new RoutePlanOption(
                                 "거리 최적화 코스",

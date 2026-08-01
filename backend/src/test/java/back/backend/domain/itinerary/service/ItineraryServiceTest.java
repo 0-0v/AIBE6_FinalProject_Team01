@@ -414,7 +414,7 @@ class ItineraryServiceTest {
         given(routePlanner.planMulti(any(), any(), any(), any()))
                 .willReturn(List.of(option));
 
-        List<RoutePlanOption> result = itineraryService.previewRoutePlan(TRIP_ID);
+        List<RoutePlanOption> result = itineraryService.previewRoutePlan(TRIP_ID, null);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0)).isSameAs(option);
@@ -604,7 +604,7 @@ class ItineraryServiceTest {
                         new RoutePlanPreviewResponse("추천 동선", 1, 0, List.of())
                 )));
 
-        itineraryService.previewRoutePlan(TRIP_ID);
+        itineraryService.previewRoutePlan(TRIP_ID, null);
 
         then(dayRepository).should(never()).deleteAll(any());
         then(dayRepository).should(never()).flush();
@@ -950,6 +950,40 @@ class ItineraryServiceTest {
                 item,
                 savedTripPlace,
                 nextPlace
+        );
+    }
+
+
+    @Test
+    @DisplayName("t36 좌표가 없는 장소는 동선 추천에서 자동으로 제외한다")
+    void t36_previewRoutePlanFiltersPlacesWithoutCoordinates() {
+        TripPlace noCoordPlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google789")
+                        .name("좌표없는 장소")
+                        .address("서울시")
+                        .latitude(null)
+                        .longitude(null)
+                        .build())
+                .category(mock(PlaceCategory.class))
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(noCoordPlace, "id", 888L);
+
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of(day));
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(TRIP_ID, TripPlaceStatus.SAVED))
+                .willReturn(List.of(savedTripPlace, noCoordPlace));
+        given(routePlanner.planMulti(any(), any(), any(), any())).willReturn(List.of());
+
+        itineraryService.previewRoutePlan(TRIP_ID, null);
+
+        then(routePlanner).should().planMulti(
+                any(),
+                argThat(places -> places.stream().noneMatch(p -> p.getPlace().getLatitude() == null)),
+                any(),
+                any()
         );
     }
 }
