@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
     AdvancedMarker,
     Map as GoogleMap,
-    Polyline,
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
@@ -19,6 +18,7 @@ import { Place } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
+import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
@@ -786,36 +786,21 @@ function RouteLayer({
                           : route.confirmed
                             ? 0.85
                             : 0.65
-                    // scale * 2 = 대시 길이(px), repeat - 대시길이 = 갭
-                    // 예) scale:4, repeat:24px → 대시 8px, 갭 16px
-                    const dashScale = isFocusMode
-                        ? isFocusedSeg ? 4 : 2
-                        : 3
-                    const dashRepeat = isFocusMode
-                        ? isFocusedSeg ? '24px' : '30px'
-                        : '20px'
-
                     return (
                         <React.Fragment key={segmentId}>
-                            <Polyline
+                            <ItineraryRoutePolyline
                                 path={segPath}
-                                strokeColor={route.color}
-                                strokeOpacity={0.001}
+                                color={route.color}
+                                opacity={segOpacity}
                                 strokeWeight={2}
                                 zIndex={isFocusedSeg ? 3 : 2}
-                                geodesic
-                                icons={[
-                                    {
-                                        icon: {
-                                            path: 'M 0,-1 0,1',
-                                            strokeOpacity: segOpacity,
-                                            strokeColor: route.color,
-                                            scale: dashScale,
-                                        },
-                                        offset: '0',
-                                        repeat: dashRepeat,
-                                    },
-                                ]}
+                                emphasis={
+                                    isFocusMode
+                                        ? isFocusedSeg
+                                            ? 'focused'
+                                            : 'dimmed'
+                                        : 'normal'
+                                }
                             />
                             <AdvancedMarker
                                 position={midpoint}

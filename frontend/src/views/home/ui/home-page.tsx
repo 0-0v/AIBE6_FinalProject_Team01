@@ -298,6 +298,14 @@ export function Home() {
 
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
+    const selectedDayFocusedItemId =
+        selectedItineraryDay?.items.some(
+            (item) => String(item.id) === focusedItemId,
+        ) === true
+            ? focusedItemId
+            : selectedItineraryDay?.items[0] != null
+              ? String(selectedItineraryDay.items[0].id)
+              : null
     const insightSlideCount = logs.length > 0 ? 2 : 1
     const visibleInsightSlide = insightSlide % insightSlideCount
     const bookmarkPageSize = 4
@@ -1092,7 +1100,9 @@ export function Home() {
                                             previewDayId={null}
                                             hoveredItemId={null}
                                             onItemHoverChange={() => undefined}
-                                            focusedItemId={focusedItemId}
+                                            focusedItemId={
+                                                selectedDayFocusedItemId
+                                            }
                                             focusedPlaceId={null}
                                             onItemFocus={setFocusedItemId}
                                             onPlaceFocus={() => undefined}

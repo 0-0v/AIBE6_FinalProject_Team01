@@ -12,7 +12,6 @@ import {
 import {
     AdvancedMarker,
     Map as GoogleMap,
-    Polyline,
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
@@ -28,6 +27,7 @@ import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import { ItineraryMapMarker } from './itinerary-map-marker'
+import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 
 const DEFAULT_CENTER = { lat: 33.489, lng: 126.4983 }
 const CATEGORY_BADGE_MIN_ZOOM = 10
@@ -148,6 +148,17 @@ function MapFocusController({
         if ((map.getZoom() ?? 0) < 14) {
             map.setZoom(14)
         }
+
+        const animationFrame = window.requestAnimationFrame(() => {
+            const mapHeight = map.getDiv().clientHeight
+            const focusOffset = Math.min(
+                96,
+                Math.max(48, mapHeight * 0.25),
+            )
+            map.panBy(0, -focusOffset)
+        })
+
+        return () => window.cancelAnimationFrame(animationFrame)
     }, [lat, lng, map])
 
     return null
@@ -336,37 +347,23 @@ function MapContent({
                             ? 6
                             : 3
                         : 4
-                    const casingOpacity = isFocusMode
-                        ? isFocused
-                            ? mapDisplayType === 'hybrid'
-                                ? 0.72
-                                : 0.9
-                            : 0.0
-                        : mapDisplayType === 'hybrid'
-                          ? 0.72
-                          : 0.9
                     const path = [segment.from, segment.to]
                     return (
-                        <React.Fragment key={segment.key}>
-                            <Polyline
-                                path={path}
-                                strokeColor={
-                                    mapDisplayType === 'hybrid'
-                                        ? '#0f172a'
-                                        : '#ffffff'
-                                }
-                                strokeWeight={segWeight + 4}
-                                strokeOpacity={casingOpacity}
-                                zIndex={1}
-                            />
-                            <Polyline
-                                path={path}
-                                strokeColor={segment.color}
-                                strokeWeight={segWeight}
-                                strokeOpacity={segOpacity}
-                                zIndex={2}
-                            />
-                        </React.Fragment>
+                        <ItineraryRoutePolyline
+                            key={segment.key}
+                            path={path}
+                            color={segment.color}
+                            opacity={segOpacity}
+                            strokeWeight={segWeight}
+                            zIndex={isFocused ? 3 : 2}
+                            emphasis={
+                                isFocusMode
+                                    ? isFocused
+                                        ? 'focused'
+                                        : 'dimmed'
+                                    : 'normal'
+                            }
+                        />
                     )
                 })}
                 {days.map((day) => {
