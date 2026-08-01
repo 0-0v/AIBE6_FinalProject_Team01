@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import type { ItineraryItem, Place } from '@/entities/trip'
+import type { ItineraryItem } from '@/entities/trip'
 import { Badge } from '@/shared/ui'
 import { formatLocalDate } from '../lib/date-availability'
 import { getItineraryDayColor } from '../lib/itinerary-map'
@@ -188,7 +188,6 @@ function HourGridLines({
 // ──────────────────────────────────────────
 type Props = {
     tripId: number
-    places: Place[]
     canWrite: boolean
 }
 
