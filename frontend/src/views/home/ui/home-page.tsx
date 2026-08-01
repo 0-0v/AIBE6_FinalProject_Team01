@@ -1078,11 +1078,6 @@ export function Home() {
                                                       )
                                                     : null
                                             }
-                                            onOpenTrip={() =>
-                                                navigate(
-                                                    `/app/room/${activeTrip.id}`,
-                                                )
-                                            }
                                             onReplanApplied={setItineraryDays}
                                         />
                                     ) : (
