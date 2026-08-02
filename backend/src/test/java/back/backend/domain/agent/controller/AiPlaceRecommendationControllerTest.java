@@ -45,13 +45,14 @@ class AiPlaceRecommendationControllerTest {
     }
 
     @Test
-    @DisplayName("t1 카테고리와 사용자 요청을 전달하면 동선 기반 장소 추천을 반환한다")
+    @DisplayName("t1 동선 구간과 카테고리를 전달하면 두 장소 사이의 추천 결과를 반환한다")
     void t1_recommendReturnsRouteAwarePlaces() throws Exception {
         given(recommendationService.recommend(eq(1L), any()))
                 .willReturn(List.of(new AiPlaceRecommendationResponse(
                         place("google-1", "멘야 라멘"),
                         "기존 동선에서 가까운 라멘 전문점이에요.",
-                        320
+                        320,
+                        0.85
                 )));
 
         mockMvc.perform(post("/api/trips/1/ai/place-recommendations")
@@ -59,6 +60,8 @@ class AiPlaceRecommendationControllerTest {
                         .content("""
                                 {
                                   "dayId": 10,
+                                  "fromTripPlaceId": 100,
+                                  "toTripPlaceId": 101,
                                   "category": "식사",
                                   "prompt": "진한 돈코츠 라멘을 좋아해",
                                   "limit": 5
@@ -72,7 +75,7 @@ class AiPlaceRecommendationControllerTest {
     }
 
     @Test
-    @DisplayName("t2 Day 식별자나 카테고리가 없으면 장소 추천 요청을 거절한다")
+    @DisplayName("t2 동선 구간 식별자나 카테고리가 없으면 장소 추천 요청을 거절한다")
     void t2_recommendRejectsMissingRequiredFields() throws Exception {
         mockMvc.perform(post("/api/trips/1/ai/place-recommendations")
                         .contentType(MediaType.APPLICATION_JSON)

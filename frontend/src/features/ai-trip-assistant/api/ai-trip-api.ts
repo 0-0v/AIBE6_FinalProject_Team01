@@ -10,6 +10,8 @@ export async function recommendPlacesAlongRoute(
     tripId: number,
     input: {
         dayId: number
+        fromTripPlaceId: number
+        toTripPlaceId: number
         category: string
         prompt: string
         limit?: number
@@ -24,11 +26,14 @@ export async function recommendPlacesAlongRoute(
 
 export async function previewAiItineraryReplan(
     tripId: number,
-    reason: string,
+    input: {
+        itineraryItemId: number
+        reasons: string[]
+    },
 ): Promise<RouteOption[]> {
     const response = await apiClient.post<ApiResponse<RouteOption[]>>(
         `/api/trips/${tripId}/itinerary/replan/preview`,
-        { reason },
+        input,
     )
     return response.data
 }

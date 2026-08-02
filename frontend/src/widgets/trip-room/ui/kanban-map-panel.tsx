@@ -129,6 +129,7 @@ type Props = {
     onItemHoverChange: (itemId: string | null) => void
     focusedItemId: string | null
     focusedPlaceId: string | null
+    highlightedPlaceId?: string | null
     onItemFocus: (itemId: string | null) => void
     onPlaceFocus: (placeId: string | null) => void
 }
@@ -173,6 +174,7 @@ function MapContent({
     onItemHoverChange,
     focusedItemId,
     focusedPlaceId,
+    highlightedPlaceId = null,
     onItemFocus,
     onPlaceFocus,
 }: Props) {
@@ -285,10 +287,18 @@ function MapContent({
             ? null
             : (places.find((place) => String(place.id) === focusedPlaceId) ??
               null)
+    const highlightedPlace =
+        highlightedPlaceId == null
+            ? null
+            : (places.find(
+                  (place) => String(place.id) === highlightedPlaceId,
+              ) ?? null)
     const activeFocusPosition =
         focusedPosition ??
         (focusedPlace == null
-            ? null
+            ? highlightedPlace == null
+                ? null
+                : { lat: highlightedPlace.lat, lng: highlightedPlace.lng }
             : { lat: focusedPlace.lat, lng: focusedPlace.lng })
 
     if (!isLoaded) {
@@ -453,20 +463,45 @@ function MapContent({
                     <AdvancedMarker
                         key={`saved-${place.id}`}
                         position={{ lat: place.lat, lng: place.lng }}
+                        className={
+                            highlightedPlaceId === String(place.id)
+                                ? 'outline-none focus:outline-none'
+                                : undefined
+                        }
                         onClick={() => onPlaceFocus(String(place.id))}
-                        zIndex={focusedPlaceId === String(place.id) ? 100 : 1}
+                        zIndex={
+                            highlightedPlaceId === String(place.id)
+                                ? 110
+                                : focusedPlaceId === String(place.id)
+                                  ? 100
+                                  : 1
+                        }
                     >
                         <div className="relative flex flex-col items-center">
                             {focusedPlaceId === String(place.id) && (
                                 <FocusedSavedPlaceCard place={place} />
                             )}
-                            <ItineraryMapMarker
-                                color={place.categoryColor ?? '#64748b'}
-                                categoryIcon={place.categoryIcon}
-                                categoryColor={place.categoryColor}
-                                categoryLabel={place.categoryName}
-                                selected={focusedPlaceId === String(place.id)}
-                            />
+                            {highlightedPlaceId === String(place.id) ? (
+                                <div className="relative flex flex-col items-center outline-none">
+                                    <div className="relative z-10 flex size-9 items-center justify-center rounded-full bg-brand text-[10px] font-black text-white">
+                                        추천
+                                    </div>
+                                    <span
+                                        className="-mt-2 size-3 rotate-45 rounded-[2px] bg-brand"
+                                        aria-hidden
+                                    />
+                                </div>
+                            ) : (
+                                <ItineraryMapMarker
+                                    color={place.categoryColor ?? '#64748b'}
+                                    categoryIcon={place.categoryIcon}
+                                    categoryColor={place.categoryColor}
+                                    categoryLabel={place.categoryName}
+                                    selected={
+                                        focusedPlaceId === String(place.id)
+                                    }
+                                />
+                            )}
                         </div>
                     </AdvancedMarker>
                 ))}

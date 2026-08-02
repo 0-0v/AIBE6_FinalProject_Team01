@@ -100,9 +100,7 @@ export function AiRouteSettingsModal({
         () => ({ ...initialDeps }),
     )
     const hasInvalidTimeRange =
-        !isValidTime(startTime) ||
-        !isValidTime(endTime) ||
-        startTime >= endTime
+        !isValidTime(startTime) || !isValidTime(endTime) || startTime >= endTime
 
     function handleConfirm() {
         const departureChanges: DepartureChange[] = days
@@ -142,8 +140,13 @@ export function AiRouteSettingsModal({
                 {/* 헤더 */}
                 <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
                     <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
-                            <SparklesIcon size={16} />
+                        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-rose-100 bg-rose-50">
+                            <img
+                                src="/favicon.png"
+                                alt=""
+                                aria-hidden="true"
+                                className="h-7 w-7 object-contain"
+                            />
                         </span>
                         <div>
                             <p className="text-sm font-extrabold">

@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Size;
 
 public record AiPlaceRecommendationRequest(
         @NotNull Long dayId,
+        @NotNull Long fromTripPlaceId,
+        @NotNull Long toTripPlaceId,
         @NotBlank @Size(max = 30) String category,
         @Size(max = 500) String prompt,
         @Min(1) @Max(5) Integer limit

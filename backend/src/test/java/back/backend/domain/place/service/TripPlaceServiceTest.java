@@ -70,6 +70,9 @@ class TripPlaceServiceTest {
     @Mock
     private PlacePersistenceService placePersistenceService;
 
+    @Mock
+    private PlaceStyleRelationService placeStyleRelationService;
+
     @InjectMocks
     private TripPlaceService tripPlaceService;
 
@@ -136,6 +139,10 @@ class TripPlaceServiceTest {
         assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
         then(placePersistenceService).should().findOrCreate(any(Place.class));
         then(tripPlaceRepository).should().saveAndFlush(any(TripPlace.class));
+        then(placeStyleRelationService).should().saveCategoryRelations(
+                savedPlace,
+                PlaceCategoryType.FOOD
+        );
         then(collaborationEventService).should().record(
                 org.mockito.ArgumentMatchers.eq(1L),
                 org.mockito.ArgumentMatchers.eq(1L),

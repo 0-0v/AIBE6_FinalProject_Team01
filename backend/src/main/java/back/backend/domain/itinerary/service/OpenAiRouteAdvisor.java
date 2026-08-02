@@ -2,6 +2,7 @@ package back.backend.domain.itinerary.service;
 
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.place.entity.TripPlace;
+import back.backend.domain.place.service.PlaceStyleRelationService;
 import back.backend.domain.trip.entity.TravelStyle;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class OpenAiRouteAdvisor {
 
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper;
+    private final PlaceStyleRelationService placeStyleRelationService;
 
     public Optional<Recommendation> recommend(
             List<ItineraryDay> itineraryDays,
@@ -41,7 +43,7 @@ public class OpenAiRouteAdvisor {
             List<ItineraryDay> itineraryDays,
             List<TripPlace> tripPlaces,
             Set<TravelStyle> travelStyles,
-            String userRequest
+            String planningMode
     ) {
         if (!openAiClient.isConfigured()
                 || itineraryDays.isEmpty()
@@ -56,7 +58,7 @@ public class OpenAiRouteAdvisor {
                             itineraryDays,
                             tripPlaces,
                             travelStyles,
-                            userRequest
+                            planningMode
                     ),
                     "itinerary_route_plan",
                     RESPONSE_SCHEMA
@@ -83,9 +85,17 @@ public class OpenAiRouteAdvisor {
             List<ItineraryDay> itineraryDays,
             List<TripPlace> tripPlaces,
             Set<TravelStyle> travelStyles,
-            String userRequest
+            String planningMode
     ) throws Exception {
         Map<String, Object> input = new LinkedHashMap<>();
+        boolean replan = planningMode != null
+                && planningMode.startsWith("REPLAN_REMAINING_ITINERARY");
+        Map<Long, Double> styleScores = replan
+                ? placeStyleRelationService.resolveCompatibilities(
+                        tripPlaces,
+                        travelStyles
+                )
+                : Map.of();
         input.put(
                 "days",
                 itineraryDays.stream()
@@ -99,12 +109,7 @@ public class OpenAiRouteAdvisor {
         input.put(
                 "places",
                 tripPlaces.stream()
-                        .map(place -> Map.of(
-                                "tripPlaceId", place.getId(),
-                                "category", place.getCategory() == null
-                                        ? "" : place.getCategory().getName(),
-                                "status", place.getStatus().name()
-                        ))
+                        .map(place -> placeContext(place, styleScores, replan))
                         .toList()
         );
         input.put(
@@ -114,7 +119,12 @@ public class OpenAiRouteAdvisor {
                         .sorted()
                         .toList()
         );
-        input.put("userRequest", userRequest == null ? "" : userRequest);
+        input.put("planningMode", replan ? "REPLAN" : "INITIAL_PLAN");
+        if (replan) {
+            input.put("replanReason", planningMode.substring(
+                    "REPLAN_REMAINING_ITINERARY".length()
+            ).trim());
+        }
 
         return """
                 당신은 MySQL에서 검색된 여행 일정 컨텍스트를 근거로
@@ -122,12 +132,34 @@ public class OpenAiRouteAdvisor {
                 아래 JSON에 있는 Day와 장소만 사용하세요.
                 모든 tripPlaceId를 정확히 한 번씩 배치하고 새로운 ID를 만들지 마세요.
                 가까운 장소를 같은 Day에 묶되 카테고리와 여행 스타일의 균형도 고려하세요.
-                userRequest가 있으면 현재 시점 이후 일정을 재배치하는 핵심 조건으로 반영하세요.
+                planningMode이 REPLAN이면 이미 지난 일정은 입력에서 제외된 상태이며,
+                styleSuitability가 높은 장소 관계를 비슷한 동선 후보에서 우선하세요.
                 장소명·주소·좌표·영업시간은 제공되지 않으므로 관련 사실을 추측하지 마세요.
                 summary는 한국어 한두 문장으로 작성하세요.
 
                 입력:
                 """ + objectMapper.writeValueAsString(input);
+    }
+
+    private Map<String, Object> placeContext(
+            TripPlace place,
+            Map<Long, Double> styleScores,
+            boolean includeStyleScore
+    ) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("tripPlaceId", place.getId());
+        context.put(
+                "category",
+                place.getCategory() == null ? "" : place.getCategory().getName()
+        );
+        context.put("status", place.getStatus().name());
+        if (includeStyleScore) {
+            context.put(
+                    "styleSuitability",
+                    styleScores.getOrDefault(place.getId(), 0.0)
+            );
+        }
+        return Map.copyOf(context);
     }
 
     private Optional<Recommendation> validateAndConvert(

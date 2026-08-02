@@ -120,6 +120,7 @@ public class ItineraryRoutePlanner {
 
         List<RoutePlanOption> options = new ArrayList<>();
         Set<String> routeSignatures = new HashSet<>();
+        String replanExplanation = extractReplanExplanation(userRequest);
 
         // 지리 기반 클러스터링 + 제약 정렬 (ConstraintSorter는 buildResponseFromClusters 내부에서 적용)
         List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
@@ -129,7 +130,16 @@ public class ItineraryRoutePlanner {
                 days.size()
         );
         RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
-                days, geoClusters, tripPlaces.size(), defaultGeoSummary, null, effectiveSettings);
+                days,
+                geoClusters,
+                tripPlaces.size(),
+                replanExplanation == null
+                        ? defaultGeoSummary
+                        : "변경 사유와 시작 시각 하한을 반영해 이후 일정을 다시 배치했습니다. "
+                        + defaultGeoSummary,
+                replanExplanation,
+                effectiveSettings
+        );
 
         Optional<OpenAiRouteAdvisor.Recommendation> aiRecommendation =
                 userRequest == null || userRequest.isBlank()
@@ -149,7 +159,8 @@ public class ItineraryRoutePlanner {
                         days,
                         tripPlaces,
                         recommendation,
-                        effectiveSettings
+                        effectiveSettings,
+                        replanExplanation
                 ))
                 .ifPresent(aiPlan -> {
                     options.add(new RoutePlanOption("AI 추천 코스", aiPlan));
@@ -185,7 +196,9 @@ public class ItineraryRoutePlanner {
                             days.size(),
                             priority
                     ),
-                    buildStyleReason(styleLabel),
+                    replanExplanation == null
+                            ? buildStyleReason(styleLabel)
+                            : replanExplanation,
                     effectiveSettings
             );
             if (routeSignatures.add(routeSignature(stylePlan))) {
@@ -200,7 +213,8 @@ public class ItineraryRoutePlanner {
             List<ItineraryDay> days,
             List<TripPlace> tripPlaces,
             OpenAiRouteAdvisor.Recommendation recommendation,
-            TripScheduleSettings settings
+            TripScheduleSettings settings,
+            String replanExplanation
     ) {
         Map<Long, TripPlace> placesById = tripPlaces.stream()
                 .collect(Collectors.toMap(TripPlace::getId, place -> place));
@@ -215,10 +229,26 @@ public class ItineraryRoutePlanner {
                 days,
                 clusters,
                 tripPlaces.size(),
-                recommendation.summary(),
-                "AI가 여행 스타일과 장소 간 이동을 함께 고려한 순서예요.",
+                replanExplanation == null
+                        ? recommendation.summary()
+                        : "변경 사유를 반영해 선택 일정 이후를 다시 구성했습니다. "
+                        + recommendation.summary(),
+                replanExplanation == null
+                        ? "AI가 여행 스타일과 장소 간 이동을 함께 고려한 순서예요."
+                        : replanExplanation,
                 settings
         );
+    }
+
+    private String extractReplanExplanation(String userRequest) {
+        if (userRequest == null
+                || !userRequest.startsWith("REPLAN_REMAINING_ITINERARY")) {
+            return null;
+        }
+        String context = userRequest.substring(
+                "REPLAN_REMAINING_ITINERARY".length()
+        ).trim();
+        return context.isBlank() ? null : context;
     }
 
     /**
@@ -489,12 +519,18 @@ public class ItineraryRoutePlanner {
             String defaultReason,
             TripScheduleSettings settings
     ) {
+        List<List<TripPlace>> constrainedClusters = applyPlaceConstraints(
+                days,
+                clusters,
+                settings
+        );
         List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
         int totalDistanceMeters = 0;
 
         for (int i = 0; i < days.size(); i++) {
             ItineraryDay day = days.get(i);
-            List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
+            List<TripPlace> dayPlaces = i < constrainedClusters.size()
+                    ? constrainedClusters.get(i) : List.of();
             List<TripPlace> constrainedPlaces = constraintSorter.sort(
                     dayPlaces,
                     day.getItineraryDate()
@@ -509,6 +545,37 @@ public class ItineraryRoutePlanner {
         }
 
         return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
+    }
+
+    private List<List<TripPlace>> applyPlaceConstraints(
+            List<ItineraryDay> days,
+            List<List<TripPlace>> clusters,
+            TripScheduleSettings settings
+    ) {
+        List<List<TripPlace>> adjusted = new ArrayList<>();
+        for (int index = 0; index < days.size(); index++) {
+            adjusted.add(new ArrayList<>(
+                    index < clusters.size() ? clusters.get(index) : List.of()
+            ));
+        }
+        settings.placeConstraints().forEach((tripPlaceId, constraint) -> {
+            TripPlace constrainedPlace = adjusted.stream()
+                    .flatMap(List::stream)
+                    .filter(place -> place.getId().equals(tripPlaceId))
+                    .findFirst()
+                    .orElse(null);
+            if (constrainedPlace == null) return;
+            adjusted.forEach(dayPlaces -> dayPlaces.removeIf(
+                    place -> place.getId().equals(tripPlaceId)
+            ));
+            for (int index = 0; index < days.size(); index++) {
+                if (days.get(index).getId().equals(constraint.dayId())) {
+                    adjusted.get(index).add(constrainedPlace);
+                    break;
+                }
+            }
+        });
+        return adjusted;
     }
 
     private List<TripPlace> prioritizeDeparture(
@@ -547,7 +614,7 @@ public class ItineraryRoutePlanner {
             TripScheduleSettings settings
     ) {
         List<RoutePlanItemResponse> items = new ArrayList<>();
-        int cursorMinutes = settings.dayStartMinutes();
+        int cursorMinutes = settings.dayStartMinutes(day.getId());
         int dayEndCutoff = settings.dayEndMinutes();
         double paceMultiplier = settings.travelPace().stayMultiplier();
         int totalDistanceMeters = 0;
@@ -556,6 +623,14 @@ public class ItineraryRoutePlanner {
         for (int index = 0; index < places.size(); index++) {
             TripPlace current = places.get(index);
             TripPlace next = index + 1 < places.size() ? places.get(index + 1) : null;
+            PlaceScheduleConstraint placeConstraint = settings.placeConstraints()
+                    .get(current.getId());
+            if (placeConstraint != null
+                    && placeConstraint.dayId().equals(day.getId())) {
+                int earliestMinutes = placeConstraint.earliestStartTime().getHour() * 60
+                        + placeConstraint.earliestStartTime().getMinute();
+                cursorMinutes = Math.max(cursorMinutes, earliestMinutes);
+            }
 
             int baseStay = CATEGORY_STAY_MINUTES.getOrDefault(
                     current.getCategory().getCategoryType(), DEFAULT_STAY_MINUTES);
@@ -578,7 +653,15 @@ public class ItineraryRoutePlanner {
                 );
             }
 
-            String reason = buildItemReason(index, fitsInDay, defaultReason, settings);
+            String reason = placeConstraint != null
+                    ? placeConstraint.reason()
+                    : buildItemReason(
+                            index,
+                            fitsInDay,
+                            defaultReason,
+                            settings,
+                            day.getId()
+                    );
 
             items.add(new RoutePlanItemResponse(
                     current.getId(),
@@ -612,11 +695,11 @@ public class ItineraryRoutePlanner {
     }
 
     private String buildItemReason(
-            int index, boolean fitsInDay, String defaultReason, TripScheduleSettings settings) {
+            int index, boolean fitsInDay, String defaultReason, TripScheduleSettings settings, Long dayId) {
         if (!fitsInDay) return "하루 일정이 길어 방문 시간은 직접 조정해 주세요.";
         if (defaultReason != null) return defaultReason;
         if (index == 0) {
-            return settings.dayStartTime().format(TIME_FORMATTER) + "부터 시작하는 첫 장소예요.";
+            return settings.dayStartTime(dayId).format(TIME_FORMATTER) + "부터 시작하는 첫 장소예요.";
         }
         return "이전 장소와 가까워 이동 부담이 적어요.";
     }

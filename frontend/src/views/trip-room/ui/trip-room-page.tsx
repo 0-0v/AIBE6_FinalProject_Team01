@@ -22,7 +22,6 @@ import {
 } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
 import {
-    AiPlaceRecommendationsPanel,
     consumePendingAiTripAction,
     type PendingAiTripAction,
 } from '@/features/ai-trip-assistant'
@@ -580,6 +579,7 @@ export function TripRoom() {
                     }`}
                 >
                     <MapCanvas
+                        key={`map-${tripId ?? 'none'}-${pendingAiAction?.routeContext?.dayId ?? 'all'}-${pendingAiAction?.routeContext?.segmentIndex ?? 'all'}`}
                         places={mapPlaces}
                         initialLat={room?.destinationLat}
                         initialLng={room?.destinationLng}
@@ -587,6 +587,12 @@ export function TripRoom() {
                         onSelect={setSelectedId}
                         onDeselect={() => setSelectedId(null)}
                         days={itineraryDays}
+                        initialRouteDay={
+                            pendingAiAction?.routeContext?.dayNumber ?? null
+                        }
+                        initialFocusedSegmentIndex={
+                            pendingAiAction?.routeContext?.segmentIndex ?? null
+                        }
                         onAddToSchedule={
                             !inviteCode && canManagePlaces
                                 ? handleAddToSchedule
@@ -688,7 +694,7 @@ export function TripRoom() {
                         >
                             {room ? (
                                 <RoomDetailPanel
-                                    key={room.id}
+                                    key={`${room.id}-${pendingAiAction?.kind === 'place-recommendations' ? (pendingAiAction.recommendations[0]?.place.googlePlaceId ?? 'ai') : 'default'}`}
                                     room={room}
                                     places={displayedPlaces}
                                     selectedId={selectedId}
@@ -727,6 +733,12 @@ export function TripRoom() {
                                             ? handleLoginChoice
                                             : undefined
                                     }
+                                    aiPlaceRecommendations={
+                                        pendingAiAction?.kind ===
+                                        'place-recommendations'
+                                            ? pendingAiAction.recommendations
+                                            : null
+                                    }
                                 />
                             ) : (
                                 <RoomListPanel
@@ -755,25 +767,15 @@ export function TripRoom() {
                         onApplied={handleAiRouteApplied}
                     />
                 )}
-                {tripId &&
-                    room &&
-                    pendingAiAction?.kind === 'place-recommendations' && (
-                        <AiPlaceRecommendationsPanel
-                            tripId={tripId}
-                            roomId={room.id}
-                            recommendations={pendingAiAction.recommendations}
-                            onClose={() => setPendingAiAction(null)}
-                            onRegistered={addPlace}
-                        />
-                    )}
                 {manageOpen && trip && (
                     <ManageTripModal
                         trip={trip}
                         onClose={() => setManageOpen(false)}
-                        onChanged={() => {
+                        onChanged={async () => {
+                            const currentTripId = String(trip.id)
                             setManageOpen(false)
-                            navigate('/app/room')
-                            void loadTrips()
+                            await loadTrips()
+                            selectTrip(currentTripId)
                         }}
                     />
                 )}

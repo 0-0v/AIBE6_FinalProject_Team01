@@ -42,8 +42,8 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t1 재배치 이유를 입력하면 현재 시점 이후 일정 미리보기를 반환한다")
-    void t1_previewReturnsFutureReplanOptions() throws Exception {
+    @DisplayName("t1 재배치 시작 일정과 사유를 입력하면 미리보기를 반환한다")
+    void t1_previewReturnsOptionsFromSelectedItem() throws Exception {
         given(replanService.preview(eq(1L), any())).willReturn(List.of(
                 new RoutePlanOption(
                         "AI 추천 코스",
@@ -59,7 +59,7 @@ class AiItineraryReplanControllerTest {
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"reason":"비가 와서 실내 위주로 바꿔줘"}
+                                {"itineraryItemId":11,"reasons":["WEATHER","BUSINESS_HOURS"]}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].routeLabel")
@@ -69,13 +69,34 @@ class AiItineraryReplanControllerTest {
     }
 
     @Test
-    @DisplayName("t2 재배치 이유가 비어 있으면 미리보기 요청을 거절한다")
-    void t2_previewRejectsBlankReason() throws Exception {
+    @DisplayName("t2 재배치 시작 일정을 선택하지 않으면 잘못된 요청을 반환한다")
+    void t2_previewRejectsMissingStartItem() throws Exception {
         mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"reason\":\" \"}"))
+                        .content("{\"reasons\":[\"WEATHER\"]}"))
                 .andExpect(status().isBadRequest());
+    }
 
-        then(replanService).shouldHaveNoInteractions();
+    @Test
+    @DisplayName("t3 재배치 적용 시 선택한 미리보기 결과를 전달한다")
+    void t3_applyForwardsSelectedPreview() throws Exception {
+        given(replanService.apply(eq(1L), any())).willReturn(List.of());
+
+        mockMvc.perform(post("/api/trips/1/itinerary/replan/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "summary":"재배치 결과",
+                                  "totalPlaceCount":0,
+                                  "totalDistanceMeters":0,
+                                  "days":[]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        then(replanService).should().apply(
+                eq(1L),
+                any()
+        );
     }
 }

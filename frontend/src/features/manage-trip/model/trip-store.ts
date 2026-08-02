@@ -126,7 +126,6 @@ export const useTripStore = create<TripState>()(
                     trips: [],
                     rooms: [],
                     guestRoom: null,
-                    activeTripId: null,
                     error: null,
                     isLoading: false,
                 }),

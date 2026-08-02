@@ -21,6 +21,7 @@ import {
     getTripPlaces,
     getTripPlaceVotes,
     type ItineraryDay,
+    type Place,
 } from '@/entities/trip'
 import {
     fetchExpenseData,
@@ -124,6 +125,8 @@ export function Home() {
     const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+    const [focusedRecommendationPlaceId, setFocusedRecommendationPlaceId] =
+        useState<string | null>(null)
     const [insightSlide, setInsightSlide] = useState(0)
     const [isTripSelectorOpen, setIsTripSelectorOpen] = useState(false)
     const tripSelectorRef = useRef<HTMLDivElement>(null)
@@ -1071,6 +1074,10 @@ export function Home() {
                                         <AiDashboardActions
                                             tripId={activeTrip.apiTripId}
                                             days={itineraryDays}
+                                            startDate={
+                                                activeTrip.startDate ?? null
+                                            }
+                                            endDate={activeTrip.endDate ?? null}
                                             selectedDayId={
                                                 selectedItineraryDay
                                                     ? Number(
@@ -1078,11 +1085,83 @@ export function Home() {
                                                       )
                                                     : null
                                             }
-                                            onOpenTrip={() =>
-                                                navigate(
-                                                    `/app/room/${activeTrip.id}`,
+                                            renderRecommendationMap={(
+                                                recommendation,
+                                                context,
+                                            ) => {
+                                                const recommendationPlace: Place = {
+                                                    id: `ai-recommendation-${recommendation.place.googlePlaceId}`,
+                                                    googlePlaceId:
+                                                        recommendation.place
+                                                            .googlePlaceId,
+                                                    roomId: activeTrip.id,
+                                                    name: recommendation.place
+                                                        .name,
+                                                    address:
+                                                        recommendation.place
+                                                            .address ?? '',
+                                                    category: 'other',
+                                                    categoryId: null,
+                                                    categoryName: 'AI 추천',
+                                                    categoryColor: '#e7657a',
+                                                    categoryIcon: 'HEART',
+                                                    status: 'hold',
+                                                    image: '',
+                                                    lat: recommendation.place
+                                                        .latitude,
+                                                    lng: recommendation.place
+                                                        .longitude,
+                                                    addedBy: 'PLAMINGO AI',
+                                                    comments: [],
+                                                    commentCount: 0,
+                                                }
+                                                const routeDay =
+                                                    itineraryDays.find(
+                                                        (day) =>
+                                                            Number(day.id) ===
+                                                            context.dayId,
+                                                    )
+                                                return (
+                                                    <div className="h-full [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
+                                                        <KanbanMapPanel
+                                                            days={
+                                                                routeDay
+                                                                    ? [routeDay]
+                                                                    : []
+                                                            }
+                                                            places={[
+                                                                recommendationPlace,
+                                                            ]}
+                                                            activeDragId={null}
+                                                            previewDayId={null}
+                                                            hoveredItemId={null}
+                                                            onItemHoverChange={() =>
+                                                                undefined
+                                                            }
+                                                            focusedItemId={null}
+                                                            focusedPlaceId={
+                                                                focusedRecommendationPlaceId
+                                                            }
+                                                            highlightedPlaceId={
+                                                                recommendationPlace.id
+                                                            }
+                                                            onItemFocus={() =>
+                                                                undefined
+                                                            }
+                                                            onPlaceFocus={(id) =>
+                                                                setFocusedRecommendationPlaceId(
+                                                                    (current) =>
+                                                                        current ===
+                                                                        id
+                                                                            ? null
+                                                                            : id,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
                                                 )
-                                            }
+                                            }}
+                                            onReplanApplied={setItineraryDays}
                                         />
                                     ) : (
                                         <MapIcon

@@ -44,6 +44,8 @@ type Props = {
     onDeselect: () => void
     days?: ItineraryDay[]
     onAddToSchedule?: (placeId: string, dayId: string) => Promise<void>
+    initialRouteDay?: number | null
+    initialFocusedSegmentIndex?: number | null
 }
 
 export function MapCanvas({
@@ -55,6 +57,8 @@ export function MapCanvas({
     onDeselect,
     days,
     onAddToSchedule,
+    initialRouteDay,
+    initialFocusedSegmentIndex,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -78,6 +82,8 @@ export function MapCanvas({
             onDeselect={onDeselect}
             days={days}
             onAddToSchedule={onAddToSchedule}
+            initialRouteDay={initialRouteDay}
+            initialFocusedSegmentIndex={initialFocusedSegmentIndex}
         />
     )
 }
@@ -91,6 +97,8 @@ function GoogleMapCanvas({
     onDeselect,
     days,
     onAddToSchedule,
+    initialRouteDay,
+    initialFocusedSegmentIndex,
 }: Pick<
     Props,
     | 'places'
@@ -101,6 +109,8 @@ function GoogleMapCanvas({
     | 'onDeselect'
     | 'days'
     | 'onAddToSchedule'
+    | 'initialRouteDay'
+    | 'initialFocusedSegmentIndex'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -130,9 +140,11 @@ function GoogleMapCanvas({
     const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null)
     const [scheduleError, setScheduleError] = useState<string | null>(null)
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
-        null,
+        initialRouteDay ?? null,
     )
-    const [focusedSegmentIndex, setFocusedSegmentIndex] = useState<number | null>(null)
+    const [focusedSegmentIndex, setFocusedSegmentIndex] = useState<
+        number | null
+    >(initialFocusedSegmentIndex ?? null)
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
 

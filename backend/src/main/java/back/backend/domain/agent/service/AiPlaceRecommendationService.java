@@ -8,6 +8,7 @@ import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.PlaceSearchService;
+import back.backend.domain.place.service.PlaceStyleRelationService;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -17,6 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +39,8 @@ public class AiPlaceRecommendationService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final TripPlaceRepository tripPlaceRepository;
     private final PlaceSearchService placeSearchService;
+    private final PlaceStyleRelationService placeStyleRelationService;
+    private final Clock clock;
 
     public List<AiPlaceRecommendationResponse> recommend(
             Long tripId,
@@ -51,11 +57,39 @@ public class AiPlaceRecommendationService {
                         ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND
                 ));
 
+        List<Long> orderedTripPlaceIds = day.getItems().stream()
+                .map(item -> item.getTripPlaceId())
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        int fromIndex = orderedTripPlaceIds.indexOf(request.fromTripPlaceId());
+        if (fromIndex < 0
+                || fromIndex + 1 >= orderedTripPlaceIds.size()
+                || !orderedTripPlaceIds.get(fromIndex + 1)
+                .equals(request.toTripPlaceId())) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
+        List<Long> segmentTripPlaceIds = List.of(
+                request.fromTripPlaceId(),
+                request.toTripPlaceId()
+        );
+        var destinationItem = day.getItems().stream()
+                .filter(item -> request.toTripPlaceId().equals(
+                        item.getTripPlaceId()
+                ))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+                ));
+        if (isPastSegment(day.getItineraryDate(), destinationItem.getStartTime())) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_ROUTE_SEGMENT_PASSED
+            );
+        }
+
         Map<Long, double[]> routePointByTripPlaceId = tripPlaceRepository
-                .findAllById(day.getItems().stream()
-                        .map(item -> item.getTripPlaceId())
-                        .filter(java.util.Objects::nonNull)
-                        .toList())
+                .findAllById(segmentTripPlaceIds)
                 .stream()
                 .collect(Collectors.toMap(
                         place -> place.getId(),
@@ -64,8 +98,8 @@ public class AiPlaceRecommendationService {
                                 place.getPlace().getLongitude().doubleValue()
                         }
                 ));
-        List<double[]> routePoints = day.getItems().stream()
-                .map(item -> routePointByTripPlaceId.get(item.getTripPlaceId()))
+        List<double[]> routePoints = segmentTripPlaceIds.stream()
+                .map(routePointByTripPlaceId::get)
                 .filter(java.util.Objects::nonNull)
                 .toList();
 
@@ -74,14 +108,22 @@ public class AiPlaceRecommendationService {
                 request.category(),
                 request.prompt()
         );
-        List<PlaceSearchResponse> searched = routePoints.isEmpty()
-                ? placeSearchService.search(query)
-                : placeSearchService.searchNearby(
-                        query,
-                        average(routePoints, 0),
-                        average(routePoints, 1),
-                        searchRadius(routePoints)
-                );
+        List<PlaceSearchResponse> searched = searchAlongRoute(
+                query,
+                routePoints
+        );
+        if (searched.isEmpty()
+                && request.prompt() != null
+                && !request.prompt().isBlank()) {
+            searched = searchAlongRoute(
+                    buildQuery(
+                            trip.getDestination(),
+                            request.category(),
+                            null
+                    ),
+                    routePoints
+            );
+        }
 
         List<back.backend.domain.place.entity.TripPlace> registeredPlaces =
                 tripPlaceRepository.findAllOrderedByTripId(tripId);
@@ -95,10 +137,15 @@ public class AiPlaceRecommendationService {
                 ))
                 .map(place -> new Candidate(
                         place,
-                        routeDeviationMeters(place, routePoints)
+                        routeDeviationMeters(place, routePoints),
+                        placeStyleRelationService.calculateCompatibility(
+                                place.recommendedCategoryType(),
+                                trip.getTravelStyles()
+                        )
                 ))
                 .sorted(Comparator
-                        .comparingInt(Candidate::routeDeviationMeters)
+                        .comparingDouble(Candidate::rankingScore)
+                        .reversed()
                         .thenComparing(
                                 candidate -> candidate.place().rating(),
                                 Comparator.nullsLast(Comparator.reverseOrder())
@@ -111,10 +158,33 @@ public class AiPlaceRecommendationService {
                 .limit(limit)
                 .map(candidate -> new AiPlaceRecommendationResponse(
                         candidate.place(),
-                        "요청한 조건으로 검색된 장소 중 기존 동선에서 가까운 후보예요.",
-                        candidate.routeDeviationMeters()
+                        buildReason(candidate),
+                        candidate.routeDeviationMeters(),
+                        candidate.styleCompatibility()
                 ))
                 .toList();
+    }
+
+    private String buildReason(Candidate candidate) {
+        if (candidate.styleCompatibility() >= 0.7) {
+            return "기존 동선에서 가깝고 여행 스타일과도 잘 맞는 후보예요.";
+        }
+        return "요청한 조건으로 검색된 장소 중 기존 동선에서 가까운 후보예요.";
+    }
+
+    private List<PlaceSearchResponse> searchAlongRoute(
+            String query,
+            List<double[]> routePoints
+    ) {
+        if (routePoints.isEmpty()) {
+            return placeSearchService.search(query);
+        }
+        return placeSearchService.searchNearby(
+                query,
+                average(routePoints, 0),
+                average(routePoints, 1),
+                searchRadius(routePoints)
+        );
     }
 
     private String buildQuery(
@@ -157,6 +227,17 @@ public class AiPlaceRecommendationService {
             List<double[]> routePoints
     ) {
         if (routePoints.isEmpty()) return 0;
+        if (routePoints.size() == 2) {
+            double[] from = routePoints.get(0);
+            double[] to = routePoints.get(1);
+            double throughCandidate = distanceMeters(
+                    from[0], from[1], place.latitude(), place.longitude()
+            ) + distanceMeters(
+                    place.latitude(), place.longitude(), to[0], to[1]
+            );
+            double direct = distanceMeters(from[0], from[1], to[0], to[1]);
+            return (int) Math.round(Math.max(0, throughCandidate - direct));
+        }
         return (int) Math.round(routePoints.stream()
                 .mapToDouble(point -> distanceMeters(
                         place.latitude(),
@@ -188,9 +269,30 @@ public class AiPlaceRecommendationService {
         );
     }
 
+    private boolean isPastSegment(
+            LocalDate itineraryDate,
+            LocalTime destinationStartTime
+    ) {
+        LocalDate today = LocalDate.now(clock);
+        if (itineraryDate.isBefore(today)) return true;
+        if (itineraryDate.isAfter(today) || destinationStartTime == null) {
+            return false;
+        }
+        return !destinationStartTime.isAfter(LocalTime.now(clock));
+    }
+
     private record Candidate(
             PlaceSearchResponse place,
-            int routeDeviationMeters
+            int routeDeviationMeters,
+            double styleCompatibility
     ) {
+        private double rankingScore() {
+            double routeScore = 1.0 / (1.0 + routeDeviationMeters / 1_000.0);
+            double ratingScore = place.rating() == null
+                    ? 0.5 : Math.min(1, place.rating() / 5.0);
+            return routeScore * 0.65
+                    + styleCompatibility * 0.25
+                    + ratingScore * 0.10;
+        }
     }
 }
