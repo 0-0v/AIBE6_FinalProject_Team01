@@ -38,7 +38,7 @@ export function ItineraryMapMarker({
             }`}
         >
             <div
-                className={`${sizeClass} relative flex items-center justify-center rounded-full shadow-[0_5px_12px_rgba(15,23,42,0.24)] transition-all ${borderless ? 'border-0' : 'border-[3px] border-white'} ${
+                className={`${sizeClass} relative flex items-center justify-center rounded-full transition-all ${borderless ? 'border-0 shadow-none outline-none' : 'border-[3px] border-white shadow-[0_5px_12px_rgba(15,23,42,0.24)]'} ${
                     selected && !borderless ? 'ring-4 ring-white/70' : focused && !borderless ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgba(15,23,42,0.32)]' : ''
                 } ${selected ? 'itinerary-marker-bounce' : ''} ${
                     preview ? 'animate-pulse' : ''
