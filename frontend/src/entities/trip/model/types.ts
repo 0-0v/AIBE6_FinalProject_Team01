@@ -69,6 +69,9 @@ export type Place = {
     categoryIcon: PlaceMarkerIcon
     status: PlaceStatus
     image: string
+    photoAttribution?: string | null
+    photoAttributionUrl?: string | null
+    photoSourceUrl?: string | null
     lat: number
     lng: number
     addedBy: string
@@ -86,6 +89,8 @@ export type Room = {
     startDate: string | null
     endDate: string | null
     location: string
+    destinationLat: number | null
+    destinationLng: number | null
     dday: string
     members: number
     cover: string
@@ -140,6 +145,17 @@ export type ItineraryItem = {
     memo: string | null
 }
 
+export type ItineraryDayDeparture = {
+    type: 'TRIP_PLACE' | 'CUSTOM'
+    name: string
+    lat: number
+    lng: number
+    tripPlaceId: number | null
+    travelMinutes: number | null
+    travelMeters: number | null
+    travelMode: string | null
+}
+
 export type ItineraryDay = {
     id: string
     itineraryDate: string
@@ -147,6 +163,7 @@ export type ItineraryDay = {
     title: string | null
     status: ItineraryDayStatus
     items: ItineraryItem[]
+    departure: ItineraryDayDeparture | null
 }
 
 export type RoutePlanItem = {

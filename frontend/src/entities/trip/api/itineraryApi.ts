@@ -31,9 +31,10 @@ export async function getItinerary(tripId: number): Promise<ItineraryDay[]> {
 
 export async function initializeItinerary(
     tripId: number,
+    options: { force?: boolean } = {},
 ): Promise<ItineraryDay[]> {
     const pendingRequest = itineraryInitializationRequests.get(tripId)
-    if (pendingRequest) return pendingRequest
+    if (pendingRequest && !options.force) return pendingRequest
 
     const request = apiClient
         .post<ApiResponse<ItineraryDay[]>>(
@@ -52,12 +53,20 @@ export async function initializeItinerary(
     return request
 }
 
+export type RoutePlanSettings = {
+    transportMode?: string
+    dayStartTime?: string
+    dayEndTime?: string
+    travelPace?: string
+}
+
 export async function previewItineraryRoutePlan(
     tripId: number,
+    settings?: RoutePlanSettings,
 ): Promise<RouteOption[]> {
     const res = await apiClient.post<ApiResponse<RouteOption[]>>(
         `/api/trips/${tripId}/itinerary/route-plan/preview`,
-        {},
+        settings ?? {},
     )
     return res.data
 }
@@ -150,6 +159,23 @@ export async function updateItineraryDayStatus(
     const res = await apiClient.patch<ApiResponse<ItineraryDay>>(
         `/api/trips/${tripId}/itinerary/days/${dayId}/status`,
         { status },
+    )
+    return res.data
+}
+
+type UpdateDeparturePayload =
+    | { type: 'NONE' }
+    | { type: 'TRIP_PLACE'; tripPlaceId: number }
+    | { type: 'CUSTOM'; name: string; latitude: number; longitude: number }
+
+export async function updateDayDeparture(
+    tripId: number,
+    dayId: number,
+    payload: UpdateDeparturePayload,
+): Promise<ItineraryDay> {
+    const res = await apiClient.patch<ApiResponse<ItineraryDay>>(
+        `/api/trips/${tripId}/itinerary/days/${dayId}/departure`,
+        payload,
     )
     return res.data
 }

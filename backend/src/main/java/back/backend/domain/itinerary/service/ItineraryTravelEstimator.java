@@ -1,14 +1,17 @@
 package back.backend.domain.itinerary.service;
 
+import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryItem;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.place.entity.TripPlace;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.time.Instant;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -81,6 +84,44 @@ public class ItineraryTravelEstimator {
         );
     }
 
+    /**
+     * 지정된 인덱스의 구간만 선택적으로 재계산합니다.
+     * 장소 추가/삭제/이동 시 변경된 구간만 계산해 Routes API 호출을 최소화합니다.
+     */
+    public void recalculateAt(
+            List<ItineraryItem> items,
+            Map<Long, TripPlace> tripPlaceById,
+            Set<Integer> indices
+    ) {
+        if (indices.isEmpty()) return;
+        List<ItineraryItem> ordered = items.stream()
+                .sorted(Comparator.comparingInt(ItineraryItem::getSortOrder))
+                .toList();
+        for (int index : indices) {
+            if (index < 0 || index >= ordered.size()) continue;
+            ItineraryItem current = ordered.get(index);
+            ItineraryItem next = index + 1 < ordered.size() ? ordered.get(index + 1) : null;
+            TripPlace currentPlace = tripPlaceById.get(current.getTripPlaceId());
+            TripPlace nextPlace = next == null ? null : tripPlaceById.get(next.getTripPlaceId());
+            if (currentPlace == null || nextPlace == null) {
+                current.updateTravelInformation(null, null, null);
+                continue;
+            }
+            int distanceMeters = (int) Math.round(
+                    GeoDistanceCalculator.distanceMeters(currentPlace, nextPlace));
+            ItineraryTransportMode selectedMode = current.isTransportModeManual()
+                    ? selectedPreference(current) : null;
+            boolean preserveManualMode = selectedMode != null;
+            calculateSegment(
+                    current,
+                    currentPlace,
+                    nextPlace,
+                    preserveManualMode ? selectedMode : ItineraryTransportMode.infer(distanceMeters),
+                    preserveManualMode
+            );
+        }
+    }
+
     public void recalculateSegmentAutomatically(
             ItineraryItem item,
             TripPlace currentPlace,
@@ -147,6 +188,62 @@ public class ItineraryTravelEstimator {
                 manual,
                 manual ? transportMode.name() : null
         );
+    }
+
+    /**
+     * 출발지 → 첫 번째 아이템 구간을 계산해 ItineraryDay에 저장합니다.
+     * 아이템이 없거나 출발지가 없으면 travel 정보를 null로 초기화합니다.
+     */
+    public void recalculateDeparture(
+            ItineraryDay day,
+            List<ItineraryItem> orderedItems,
+            Map<Long, TripPlace> tripPlaceById
+    ) {
+        if (!day.hasDeparture() || orderedItems.isEmpty()) {
+            day.updateDepartureTravelInfo(null, null, null);
+            return;
+        }
+
+        ItineraryItem firstItem = orderedItems.stream()
+                .min(Comparator.comparingInt(ItineraryItem::getSortOrder))
+                .orElse(null);
+        if (firstItem == null) {
+            day.updateDepartureTravelInfo(null, null, null);
+            return;
+        }
+
+        TripPlace firstPlace = tripPlaceById.get(firstItem.getTripPlaceId());
+        if (firstPlace == null) {
+            day.updateDepartureTravelInfo(null, null, null);
+            return;
+        }
+
+        double depLat = day.getDepartureLat().doubleValue();
+        double depLng = day.getDepartureLng().doubleValue();
+        double destLat = firstPlace.getPlace().getLatitude().doubleValue();
+        double destLng = firstPlace.getPlace().getLongitude().doubleValue();
+
+        int distanceMeters = (int) Math.round(
+                GeoDistanceCalculator.distanceMeters(depLat, depLng, destLat, destLng)
+        );
+        ItineraryTransportMode mode = ItineraryTransportMode.infer(distanceMeters);
+
+        var routeInfo = routesClient.getRouteInfo(
+                depLat, depLng, destLat, destLng,
+                mode.directionsMode(), mode.transitMode(), null
+        );
+
+        int travelMinutes = routeInfo
+                .map(GoogleRoutesClient.RouteInfo::durationMinutes)
+                .orElseGet(() -> estimateTransportMinutes(distanceMeters, mode.fallbackSpeedKmh()));
+        int travelMeters = routeInfo
+                .map(GoogleRoutesClient.RouteInfo::distanceMeters)
+                .orElse(distanceMeters);
+        String travelMode = routeInfo
+                .map(GoogleRoutesClient.RouteInfo::actualTransportMode)
+                .orElse(mode.displayName());
+
+        day.updateDepartureTravelInfo(travelMinutes, travelMeters, travelMode);
     }
 
     private ItineraryTransportMode selectedPreference(

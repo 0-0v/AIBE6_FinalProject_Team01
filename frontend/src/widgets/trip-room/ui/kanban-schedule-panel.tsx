@@ -49,6 +49,7 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
         handleDragCancel,
         handleDragEnd,
     } = useItineraryBoard(tripId, places, canWrite)
+    const useFluidDayColumns = days.length <= 4
 
     if (loading) {
         return (
@@ -133,9 +134,16 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                     />
 
                     {/* 칸반 보드 — 수평 스크롤 */}
-                    <div className="mp-scroll flex flex-1 gap-4 overflow-x-auto overflow-y-auto px-4 py-4">
+                    <div className="mp-scroll flex flex-1 items-start gap-3 overflow-x-auto overflow-y-auto p-3">
                         {days.map((day) => (
-                            <div key={day.id} className="w-72 shrink-0">
+                            <div
+                                key={day.id}
+                                className={
+                                    useFluidDayColumns
+                                        ? 'min-w-64 flex-1'
+                                        : 'w-72 shrink-0'
+                                }
+                            >
                                 <DayColumn
                                     day={day}
                                     tripId={tripId}
@@ -143,6 +151,7 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                                     days={days}
                                     isDragging={isDragging}
                                     unscheduledPlaces={unscheduledPlaces}
+                                    allPlaces={places}
                                     onAddPlace={(placeId) =>
                                         void addPlaceToDay(
                                             placeId,

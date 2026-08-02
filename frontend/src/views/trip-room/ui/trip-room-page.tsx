@@ -16,11 +16,15 @@ import {
     getTripPlaceAccess,
     getTripPlaceVotes,
     getItinerary,
-    addItineraryItem,
+    initializeItinerary,
     fromApiToPlace,
     type ItineraryDay,
 } from '@/entities/trip'
 import { AiAgentPanel } from '@/features/ai-organize'
+import {
+    consumePendingAiTripAction,
+    type PendingAiTripAction,
+} from '@/features/ai-trip-assistant'
 import { useCommentStore } from '@/features/comment-place'
 import {
     claimGuestTripAccess,
@@ -34,7 +38,6 @@ import {
     MapCanvas,
     RoomDetailPanel,
     RoomListPanel,
-    getNextSortOrder,
     type TripRoomMode,
 } from '@/widgets/trip-room'
 import {
@@ -99,25 +102,15 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         },
         [tripId],
     )
+    const refreshTripDates = useCallback(async () => {
+        await loadTrips()
+        if (!tripId) return
 
-    const handleAddToSchedule = useCallback(
-        async (placeId: string, dayId: string) => {
-            if (!tripId) return
-            const currentDays =
-                itineraryState.tripId === tripId ? itineraryState.days : []
-            const targetDay = currentDays.find((d) => String(d.id) === dayId)
-            if (!targetDay) return
-            await addItineraryItem(
-                tripId,
-                Number(dayId),
-                Number(placeId),
-                getNextSortOrder(targetDay.items),
-            )
-            const updated = await getItinerary(tripId)
-            setItineraryState({ tripId, days: updated })
-        },
-        [tripId, itineraryState],
-    )
+        const days = await initializeItinerary(tripId, { force: true })
+        setItineraryState({ tripId, days })
+        setItineraryVersion((current) => current + 1)
+    }, [loadTrips, tripId])
+
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [headerContainer, setHeaderContainer] =
         useState<HTMLDivElement | null>(null)
@@ -127,6 +120,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const [isResizingPanel, setIsResizingPanel] = useState(false)
     const workspacePanelRef = useRef<HTMLElement>(null)
     const [aiOpen, setAiOpen] = useState(false)
+    const [pendingAiAction, setPendingAiAction] =
+        useState<PendingAiTripAction | null>(null)
     const [manageOpen, setManageOpen] = useState(false)
     const [visibilityOpen, setVisibilityOpen] = useState(false)
     const [placesError, setPlacesError] = useState<string | null>(null)
@@ -248,6 +243,17 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }, [roomId, selectTrip])
 
     useEffect(() => {
+        if (!tripId) return
+        const action = consumePendingAiTripAction(tripId)
+        if (!action) return
+        Promise.resolve().then(() => {
+            if (action.kind === 'place-recommendations') {
+                setPendingAiAction(action)
+            }
+        })
+    }, [tripId])
+
+    useEffect(() => {
         if (
             !inviteCode ||
             !isReturningFromLogin ||
@@ -340,11 +346,41 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         [displayedPlaces],
     )
 
-    function updatePlace(id: string, update: (place: Place) => Place) {
-        setPlaces((current) =>
-            current.map((place) => (place.id === id ? update(place) : place)),
-        )
-    }
+    const updatePlace = useCallback(
+        (id: string, update: (place: Place) => Place) => {
+            setPlaces((current) =>
+                current.map((place) =>
+                    place.id === id ? update(place) : place,
+                ),
+            )
+        },
+        [],
+    )
+
+    const handlePlacePhotoResolved = useCallback(
+        (
+            placeId: string,
+            photoUrl: string,
+            attribution: string | null,
+            attributionUrl: string | null,
+            sourceUrl: string,
+        ) => {
+            setPlaces((current) =>
+                current.map((place) =>
+                    place.id === placeId && place.image !== photoUrl
+                        ? {
+                              ...place,
+                              image: photoUrl,
+                              photoAttribution: attribution,
+                              photoAttributionUrl: attributionUrl,
+                              photoSourceUrl: sourceUrl,
+                          }
+                        : place,
+                ),
+            )
+        },
+        [],
+    )
 
     function addPlace(place: Place) {
         setPlaces((current) => [place, ...current])
@@ -566,19 +602,23 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                     }`}
                 >
                     <MapCanvas
+                        key={`map-${tripId ?? 'none'}-${pendingAiAction?.routeContext?.dayId ?? 'all'}-${pendingAiAction?.routeContext?.segmentIndex ?? 'all'}`}
                         places={mapPlaces}
-                        initialLocation={room?.location}
+                        initialLat={room?.destinationLat}
+                        initialLng={room?.destinationLng}
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                         onDeselect={() => setSelectedId(null)}
+                        onPlacePhotoResolved={handlePlacePhotoResolved}
                         days={itineraryDays}
-                        onAddToSchedule={
-                            !inviteCode && canManagePlaces
-                                ? handleAddToSchedule
-                                : undefined
+                        initialRouteDay={
+                            pendingAiAction?.routeContext?.dayNumber ?? null
+                        }
+                        initialFocusedSegmentIndex={
+                            pendingAiAction?.routeContext?.segmentIndex ?? null
                         }
                     />
-                    {!inviteCode && canManagePlaces && !aiOpen && (
+                    {!inviteCode && canManagePlaces && (
                         <button
                             onClick={() => setAiOpen(true)}
                             className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-sm font-extrabold text-white shadow-lg hover:bg-brand-700"
@@ -670,7 +710,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         >
                             {room ? (
                                 <RoomDetailPanel
-                                    key={room.id}
+                                    key={`${room.id}-${pendingAiAction?.kind === 'place-recommendations' ? (pendingAiAction.recommendations[0]?.place.googlePlaceId ?? 'ai') : 'default'}`}
                                     room={room}
                                     places={displayedPlaces}
                                     selectedId={selectedId}
@@ -694,7 +734,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                         searchParams.get('activity') === 'open'
                                     }
                                     onTripDatesChanged={async () => {
-                                        await loadTrips()
+                                        await refreshTripDates()
                                     }}
                                     onItineraryDaysLoaded={
                                         handleItineraryDaysLoaded
@@ -714,6 +754,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                         setSelectedId(placeId)
                                         navigate(`/app/room/${room.id}`)
                                     }}
+                                    aiPlaceRecommendations={
+                                        pendingAiAction?.kind ===
+                                        'place-recommendations'
+                                            ? pendingAiAction.recommendations
+                                            : null
+                                    }
                                 />
                             ) : (
                                 <RoomListPanel
@@ -734,7 +780,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 {aiOpen && tripId && (
                     <AiAgentPanel
                         tripId={tripId}
-                        onClose={() => setAiOpen(false)}
+                        places={displayedPlaces}
+                        days={itineraryDays}
+                        onClose={() => {
+                            setAiOpen(false)
+                        }}
                         onApplied={handleAiRouteApplied}
                     />
                 )}
@@ -742,10 +792,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                     <ManageTripModal
                         trip={trip}
                         onClose={() => setManageOpen(false)}
-                        onChanged={() => {
+                        onChanged={async () => {
+                            const currentTripId = String(trip.id)
+                            await refreshTripDates()
+                            selectTrip(currentTripId)
                             setManageOpen(false)
-                            navigate('/app/room')
-                            void loadTrips()
                         }}
                     />
                 )}

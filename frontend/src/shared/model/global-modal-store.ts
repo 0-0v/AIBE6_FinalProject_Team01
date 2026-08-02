@@ -3,6 +3,7 @@ import { create } from 'zustand'
 export type GlobalModalOptions = {
     title: string
     description?: string
+    tone?: 'default' | 'danger'
     confirmText?: string
     cancelText?: string
     showCancel?: boolean
@@ -19,6 +20,7 @@ const INITIAL_MODAL_STATE = {
     isOpen: false,
     title: '',
     description: undefined,
+    tone: 'default' as const,
     confirmText: '확인',
     cancelText: '취소',
     showCancel: false,

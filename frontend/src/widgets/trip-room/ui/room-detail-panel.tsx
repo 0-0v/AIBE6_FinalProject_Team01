@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
     ChevronRightIcon,
@@ -29,7 +29,10 @@ import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
-import type { PlaceSearchResult } from '@/features/search-place'
+import type {
+    AiPlaceSearchRecommendation,
+    PlaceSearchResult,
+} from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { globalModal } from '@/shared/model'
 import { UNSAVED_DATE_MODAL_COPY } from '../lib/unsaved-date-modal-copy'
@@ -53,9 +56,55 @@ function mapApiComment(comment: PlaceCommentResponse) {
 }
 
 export type TripRoomMode = 'plan' | 'record'
+
+function median(values: number[]) {
+    const sorted = [...values].sort((a, b) => a - b)
+    const middle = Math.floor(sorted.length / 2)
+    return sorted.length % 2 === 0
+        ? (sorted[middle - 1] + sorted[middle]) / 2
+        : sorted[middle]
+}
+
+function resolvePlaceSearchCenter(room: Room, places: Place[]) {
+    const destinationLat = room.destinationLat
+    const destinationLng = room.destinationLng
+    if (
+        destinationLat != null &&
+        destinationLng != null &&
+        Number.isFinite(destinationLat) &&
+        Number.isFinite(destinationLng)
+    ) {
+        return {
+            latitude: destinationLat,
+            longitude: destinationLng,
+        }
+    }
+
+    const savedPlaces = places.filter(
+        (place) =>
+            place.status === 'saved' &&
+            Number.isFinite(place.lat) &&
+            Number.isFinite(place.lng),
+    )
+    const centerCandidates =
+        savedPlaces.length > 0
+            ? savedPlaces
+            : places.filter(
+                  (place) =>
+                      Number.isFinite(place.lat) && Number.isFinite(place.lng),
+              )
+    if (centerCandidates.length === 0) {
+        return { latitude: undefined, longitude: undefined }
+    }
+
+    return {
+        latitude: median(centerCandidates.map((place) => place.lat)),
+        longitude: median(centerCandidates.map((place) => place.lng)),
+    }
+}
 type PlanTab = 'places' | 'itinerary' | 'schedule'
 type RecordTab = 'records' | 'expenses'
-export type TripRoomWorkspace = PlanTab | 'records' | 'expenses'
+export type TripRoomWorkspace = PlanTab | RecordTab
 
 type Props = {
     room: Room
@@ -83,6 +132,7 @@ type Props = {
     headerContainer?: HTMLElement | null
     mode?: TripRoomMode
     onOpenPlanPlace?: (placeId: string) => void
+    aiPlaceRecommendations?: AiPlaceSearchRecommendation[] | null
 }
 
 export function RoomDetailPanel({
@@ -111,6 +161,7 @@ export function RoomDetailPanel({
     headerContainer,
     mode = 'plan',
     onOpenPlanPlace,
+    aiPlaceRecommendations,
 }: Props) {
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
@@ -119,6 +170,7 @@ export function RoomDetailPanel({
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [members, setMembers] = useState<TripMember[]>([])
+
     const isPublic = room.visibility === 'PUBLIC'
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
@@ -138,6 +190,10 @@ export function RoomDetailPanel({
         categoryState.tripId === tripId ? categoryState.items : []
     const categoriesLoading =
         categoryState.tripId !== tripId || categoryState.loading
+    const placeSearchCenter = useMemo(
+        () => resolvePlaceSearchCenter(room, places),
+        [room, places],
+    )
 
     const activeWorkspace: TripRoomWorkspace =
         mode === 'plan' ? planTab : recordTab
@@ -153,6 +209,25 @@ export function RoomDetailPanel({
                   description:
                       '여행의 순간과 경비 내역을 한곳에서 관리해보세요.',
               }
+
+    const handlePhotoResolved = useCallback(
+        (
+            placeId: string,
+            photoUrl: string,
+            attribution: string | null,
+            attributionUrl: string | null,
+            sourceUrl: string,
+        ) => {
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                image: photoUrl,
+                photoAttribution: attribution,
+                photoAttributionUrl: attributionUrl,
+                photoSourceUrl: sourceUrl,
+            }))
+        },
+        [onUpdatePlace],
+    )
 
     useEffect(() => {
         onWorkspaceChange?.(activeWorkspace)
@@ -345,7 +420,9 @@ export function RoomDetailPanel({
         setPlaceError(null)
         try {
             const tripPlace = await addTripPlace(tripId, result)
-            onAddPlace(fromApiToPlace(tripPlace, room.id))
+            const addedPlace = fromApiToPlace(tripPlace, room.id)
+            onAddPlace(addedPlace)
+            onSelectPlace(addedPlace.id)
             refreshCollaborationData()
         } catch (error) {
             setPlaceError(
@@ -390,7 +467,6 @@ export function RoomDetailPanel({
         }
         onSelectPlace(placeId)
     }
-
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
             {(() => {
@@ -474,7 +550,7 @@ export function RoomDetailPanel({
                                         ? planTab === 'itinerary' ||
                                           planTab === 'schedule'
                                         : planTab === item.key
-                                    : recordTab === (item.key as RecordTab)
+                                    : recordTab === item.key
                             return (
                                 <button
                                     key={item.key}
@@ -489,9 +565,7 @@ export function RoomDetailPanel({
                                                         : (item.key as PlanTab),
                                                 )
                                             } else {
-                                                setRecordTab(
-                                                    item.key as RecordTab,
-                                                )
+                                                setRecordTab(item.key as RecordTab)
                                             }
                                         })
                                     }}
@@ -563,7 +637,22 @@ export function RoomDetailPanel({
             {mode === 'plan' && planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
-                        {canPlanWrite && <PlaceSearch onAdd={handleAdd} />}
+                        {canPlanWrite && (
+                            <PlaceSearch
+                                onAdd={handleAdd}
+                                location={room.location || undefined}
+                                latitude={placeSearchCenter.latitude}
+                                longitude={placeSearchCenter.longitude}
+                                existingGooglePlaceIds={
+                                    new Set(
+                                        places
+                                            .map((p) => p.googlePlaceId)
+                                            .filter((id): id is string => !!id),
+                                    )
+                                }
+                                aiRecommendations={aiPlaceRecommendations}
+                            />
+                        )}
                         {(loadError || categoryError || placeError) && (
                             <p
                                 role="alert"
@@ -628,6 +717,7 @@ export function RoomDetailPanel({
                                             categoryId,
                                         )
                                     }
+                                    onPhotoResolved={handlePhotoResolved}
                                 />
                             ))
                         )}

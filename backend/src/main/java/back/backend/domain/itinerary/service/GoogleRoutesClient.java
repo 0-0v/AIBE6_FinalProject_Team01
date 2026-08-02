@@ -5,9 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -21,26 +19,14 @@ import org.springframework.web.client.RestClient;
 @Component
 public class GoogleRoutesClient {
 
-    private static final String FIELD_MASK =
+    private static final String FIELD_MASK_DRIVE_WALK =
+            "routes.distanceMeters,routes.duration";
+    private static final String FIELD_MASK_TRANSIT =
             "routes.distanceMeters,routes.duration,"
                     + "routes.legs.steps.transitDetails";
-    private static final int CACHE_MAX_ENTRIES = 500;
-    private static final Duration CACHE_TTL = Duration.ofMinutes(30);
-
     private final RestClient restClient;
     private final String apiKey;
     private final boolean configured;
-    private final Map<RouteRequestKey, CachedRoute> cache =
-            java.util.Collections.synchronizedMap(
-                    new LinkedHashMap<>(64, 0.75f, true) {
-                        @Override
-                        protected boolean removeEldestEntry(
-                                Map.Entry<RouteRequestKey, CachedRoute> eldest
-                        ) {
-                            return size() > CACHE_MAX_ENTRIES;
-                        }
-                    }
-            );
 
     @Autowired
     public GoogleRoutesClient(
@@ -118,21 +104,6 @@ public class GoogleRoutesClient {
     ) {
         if (!configured) return Optional.empty();
 
-        RouteRequestKey cacheKey = new RouteRequestKey(
-                originLat,
-                originLng,
-                destLat,
-                destLng,
-                mode,
-                transitMode,
-                departureTime
-        );
-        CachedRoute cached = cache.get(cacheKey);
-        if (cached != null
-                && cached.cachedAt().plus(CACHE_TTL).isAfter(Instant.now())) {
-            return Optional.of(cached.routeInfo());
-        }
-
         try {
             String travelMode = toRoutesTravelMode(mode);
             // TRAFFIC_AWARE는 DRIVE 모드에서만 지원 (WALK, TRANSIT은 미지원)
@@ -150,10 +121,12 @@ public class GoogleRoutesClient {
                     departureTime,
                     routingPreference
             );
+            String fieldMask = "TRANSIT".equals(travelMode)
+                    ? FIELD_MASK_TRANSIT : FIELD_MASK_DRIVE_WALK;
             ComputeRoutesResponse response = restClient.post()
                     .uri("/directions/v2:computeRoutes")
                     .header("X-Goog-Api-Key", apiKey)
-                    .header("X-Goog-FieldMask", FIELD_MASK)
+                    .header("X-Goog-FieldMask", fieldMask)
                     .body(request)
                     .retrieve()
                     .body(ComputeRoutesResponse.class);
@@ -172,11 +145,11 @@ public class GoogleRoutesClient {
                     actualTransportMode(route, mode),
                     transitDetail(route)
             );
-            cache.put(cacheKey, new CachedRoute(routeInfo, Instant.now()));
             return Optional.of(routeInfo);
 
         } catch (Exception e) {
-            log.warn("Routes API 호출 실패 — Haversine 폴백: {}", e.getMessage());
+            log.warn("Routes API 호출 실패 — mode={}, Haversine 폴백: {}",
+                    mode, e.getMessage());
             return Optional.empty();
         }
     }
@@ -351,14 +324,4 @@ public class GoogleRoutesClient {
     private record Location(LatLng latLng) {}
     private record LatLng(double latitude, double longitude) {}
     private record TransitPreferences(List<String> allowedTravelModes) {}
-    private record RouteRequestKey(
-            double originLat,
-            double originLng,
-            double destLat,
-            double destLng,
-            String mode,
-            String transitMode,
-            Instant departureTime
-    ) {}
-    private record CachedRoute(RouteInfo routeInfo, Instant cachedAt) {}
 }

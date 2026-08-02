@@ -11,6 +11,7 @@ const buttonVariants = cva(
         variants: {
             variant: {
                 default: 'bg-brand text-white hover:bg-brand-700',
+                danger: 'bg-red-600 text-white hover:bg-red-700',
                 outline: 'border border-slate-200 bg-white hover:bg-slate-50',
                 ghost: 'hover:bg-slate-100',
             },

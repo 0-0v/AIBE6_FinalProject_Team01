@@ -3,8 +3,10 @@ package back.backend.domain.place.service;
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.service.CollaborationEventService;
+import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
 import back.backend.domain.place.entity.Place;
+import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
@@ -34,12 +36,14 @@ public class TripPlaceService {
 
     private final PlaceRepository placeRepository;
     private final TripPlaceRepository tripPlaceRepository;
+    private final ItineraryDayRepository itineraryDayRepository;
     private final TripAccessRepository tripAccessRepository;
     private final PlaceCommentRepository placeCommentRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
     private final PlaceCategoryService categoryService;
     private final PlacePersistenceService placePersistenceService;
+    private final PlaceStyleRelationService placeStyleRelationService;
     private final CollaborationEventService collaborationEventService;
 
     @Transactional
@@ -53,7 +57,6 @@ public class TripPlaceService {
                         .latitude(BigDecimal.valueOf(request.latitude()))
                         .longitude(BigDecimal.valueOf(request.longitude()))
                         .placeType(request.placeType())
-                        .googlePhotoName(request.photoName())
                         .build()));
 
         Optional<TripPlace> existingTripPlace =
@@ -64,21 +67,26 @@ public class TripPlaceService {
                 throw new BusinessException(PlaceErrorCode.TRIP_PLACE_ALREADY_EXISTS);
             }
             tripPlace.updateStatus(TripPlaceStatus.SAVED);
+            placeStyleRelationService.saveCategoryRelations(
+                    place,
+                    tripPlace.getCategory().getCategoryType()
+            );
             recordPlaceAdded(tripId, memberId, tripPlace, request.name());
             return TripPlaceResponse.from(tripPlace);
         }
 
+        PlaceCategory category = categoryService.recommend(
+                tripId,
+                request.name(),
+                request.placeType(),
+                request.placeTypes()
+        );
         TripPlace tripPlace;
         try {
             tripPlace = tripPlaceRepository.saveAndFlush(TripPlace.builder()
                     .tripId(tripId)
                     .place(place)
-                    .category(categoryService.recommend(
-                            tripId,
-                            request.name(),
-                            request.placeType(),
-                            request.placeTypes()
-                    ))
+                    .category(category)
                     .addedBy(memberId)
                     .status(TripPlaceStatus.SAVED)
                     .build());
@@ -89,6 +97,10 @@ public class TripPlaceService {
             throw exception;
         }
 
+        placeStyleRelationService.saveCategoryRelations(
+                place,
+                category.getCategoryType()
+        );
         recordPlaceAdded(tripId, memberId, tripPlace, request.name());
         return TripPlaceResponse.from(tripPlace);
     }
@@ -173,6 +185,8 @@ public class TripPlaceService {
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         String placeName = tripPlace.getPlace().getName();
+        itineraryDayRepository.findAllByTripIdAndDepartureTripPlaceId(tripId, tripPlaceId)
+                .forEach(day -> day.clearDeparture());
         tripPlaceRepository.delete(tripPlace);
         collaborationEventService.record(
                 tripId,

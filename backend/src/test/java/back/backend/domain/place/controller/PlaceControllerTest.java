@@ -56,7 +56,8 @@ class PlaceControllerTest {
                         null, null, null, null, null, null, null, null, null, null, null
                 )
         );
-        given(placeSearchService.search("카멜리아힐")).willReturn(responses);
+        given(placeSearchService.search("카멜리아힐", null, null, null, null))
+                .willReturn(responses);
 
         mockMvc.perform(get("/api/places/search").param("query", "카멜리아힐"))
                 .andExpect(status().isOk())
@@ -71,7 +72,7 @@ class PlaceControllerTest {
     @Test
     @DisplayName("t2 query 파라미터가 빈 문자열이면 400과 PLACE_SEARCH_QUERY_REQUIRED 코드를 반환한다")
     void t2_query파라미터없으면400반환() throws Exception {
-        given(placeSearchService.search(""))
+        given(placeSearchService.search("", null, null, null, null))
                 .willThrow(new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED));
 
         mockMvc.perform(get("/api/places/search").param("query", ""))
@@ -83,7 +84,7 @@ class PlaceControllerTest {
     @Test
     @DisplayName("t3 query 파라미터가 누락되면 400을 반환한다")
     void t3_query파라미터누락시400반환() throws Exception {
-        given(placeSearchService.search(null))
+        given(placeSearchService.search(null, null, null, null, null))
                 .willThrow(new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED));
 
         mockMvc.perform(get("/api/places/search"))
@@ -103,6 +104,50 @@ class PlaceControllerTest {
         mockMvc.perform(get("/api/places/photo").param("name", photoName))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.IMAGE_JPEG))
-                .andExpect(content().bytes(new byte[]{1, 2, 3}));
+                .andExpect(content().bytes(new byte[]{1, 2, 3}))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
+    }
+
+    @Test
+    @DisplayName("t5 장소 ID로 사진 메타데이터를 요청하면 최신 사진과 출처 정보를 반환한다")
+    void t5_photoMetadataReturnsCurrentPhotoAndAttribution() throws Exception {
+        given(placePhotoService.getPhotoMetadata("ChIJphoto"))
+                .willReturn(new PlacePhotoService.PhotoMetadata(
+                        "places/ChIJphoto/photos/AWCphoto",
+                        "https://maps.google.com/photo/source",
+                        List.of(new PlacePhotoService.PhotoAuthor(
+                                "사진 제공자",
+                                "https://maps.google.com/contributor"
+                        ))
+                ));
+
+        mockMvc.perform(get("/api/places/photo/metadata").param("placeId", "ChIJphoto"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.photoName")
+                        .value("places/ChIJphoto/photos/AWCphoto"))
+                .andExpect(jsonPath("$.data.googleMapsUri")
+                        .value("https://maps.google.com/photo/source"))
+                .andExpect(jsonPath("$.data.authorAttributions[0].displayName")
+                        .value("사진 제공자"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
+    }
+
+    @Test
+    @DisplayName("t6 여행지 좌표와 카테고리를 장소 검색 서비스에 전달한다")
+    void t6_searchPassesTripCoordinatesAndCategory() throws Exception {
+        given(placeSearchService.search(
+                "카페", "오사카", "cafe", 34.6937, 135.5023
+        )).willReturn(List.of());
+
+        mockMvc.perform(get("/api/places/search")
+                        .param("query", "카페")
+                        .param("location", "오사카")
+                        .param("includedType", "cafe")
+                        .param("latitude", "34.6937")
+                        .param("longitude", "135.5023"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray());
     }
 }

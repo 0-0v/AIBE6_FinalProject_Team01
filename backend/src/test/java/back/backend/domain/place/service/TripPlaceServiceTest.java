@@ -2,6 +2,8 @@ package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.collaboration.service.CollaborationEventService;
+import back.backend.domain.itinerary.entity.ItineraryDay;
+import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategory;
@@ -53,6 +55,9 @@ class TripPlaceServiceTest {
     private TripAccessRepository tripAccessRepository;
 
     @Mock
+    private ItineraryDayRepository itineraryDayRepository;
+
+    @Mock
     private SecurityContextAccessor securityContextAccessor;
 
     @Mock
@@ -69,6 +74,9 @@ class TripPlaceServiceTest {
 
     @Mock
     private PlacePersistenceService placePersistenceService;
+
+    @Mock
+    private PlaceStyleRelationService placeStyleRelationService;
 
     @InjectMocks
     private TripPlaceService tripPlaceService;
@@ -136,6 +144,10 @@ class TripPlaceServiceTest {
         assertThat(result.status()).isEqualTo(TripPlaceStatus.SAVED);
         then(placePersistenceService).should().findOrCreate(any(Place.class));
         then(tripPlaceRepository).should().saveAndFlush(any(TripPlace.class));
+        then(placeStyleRelationService).should().saveCategoryRelations(
+                savedPlace,
+                PlaceCategoryType.FOOD
+        );
         then(collaborationEventService).should().record(
                 org.mockito.ArgumentMatchers.eq(1L),
                 org.mockito.ArgumentMatchers.eq(1L),
@@ -339,6 +351,40 @@ class TripPlaceServiceTest {
                 eq("point_of_interest"),
                 eq(List.of("point_of_interest", "aquarium"))
         );
+    }
+
+    @Test
+    @DisplayName("t14 출발지로 지정된 저장 장소를 삭제하면 해당 Day 출발지도 함께 해제한다")
+    void t14_deletingDeparturePlaceClearsDayDeparture() {
+        ItineraryDay itineraryDay = ItineraryDay.create(
+                1L,
+                java.time.LocalDate.of(2026, 8, 3),
+                1
+        );
+        itineraryDay.updateDeparture(
+                "TRIP_PLACE",
+                savedPlace.getName(),
+                savedPlace.getLatitude(),
+                savedPlace.getLongitude(),
+                savedTripPlace.getId()
+        );
+        itineraryDay.updateDepartureTravelInfo(15, 3200, "DRIVE");
+        given(tripPlaceRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(Optional.of(savedTripPlace));
+        given(itineraryDayRepository.findAllByTripIdAndDepartureTripPlaceId(1L, 10L))
+                .willReturn(List.of(itineraryDay));
+
+        tripPlaceService.deletePlace(1L, 10L);
+
+        assertThat(itineraryDay.getDepartureType()).isNull();
+        assertThat(itineraryDay.getDepartureName()).isNull();
+        assertThat(itineraryDay.getDepartureLat()).isNull();
+        assertThat(itineraryDay.getDepartureLng()).isNull();
+        assertThat(itineraryDay.getDepartureTripPlaceId()).isNull();
+        assertThat(itineraryDay.getDepartureTravelMinutes()).isNull();
+        assertThat(itineraryDay.getDepartureTravelMeters()).isNull();
+        assertThat(itineraryDay.getDepartureTravelMode()).isNull();
+        then(tripPlaceRepository).should().delete(savedTripPlace);
     }
 
 }

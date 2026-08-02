@@ -46,6 +46,7 @@ const termsSections: Section[] = [
         items: [
             'AI가 생성한 분류·일정·동선은 참고 정보이며 정확성이나 완전성을 보장하지 않습니다.',
             '장소, 지도와 경로 정보는 Google Maps 등 외부 서비스의 정보와 정책에 영향을 받을 수 있습니다.',
+            'Google Maps 기능 이용에는 Google Maps/Google Earth 추가 서비스 약관과 Google 개인정보처리방침이 적용됩니다.',
             '이용자는 영업시간, 교통, 안전 및 예약 정보를 직접 최종 확인해야 합니다.',
         ],
     },
@@ -270,6 +271,22 @@ function LegalPage({
                     <Link to="/" className="hover:text-brand">
                         Plamingo 홈
                     </Link>
+                    <a
+                        href="https://maps.google.com/help/terms_maps.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-brand"
+                    >
+                        Google Maps 추가 약관
+                    </a>
+                    <a
+                        href="https://policies.google.com/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-brand"
+                    >
+                        Google 개인정보처리방침
+                    </a>
                 </footer>
             </article>
         </main>

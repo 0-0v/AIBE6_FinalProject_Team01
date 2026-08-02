@@ -2,6 +2,7 @@ package back.backend.domain.place.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -12,6 +13,8 @@ import back.backend.domain.place.dto.response.PlaceSearchResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.util.List;
+import java.time.LocalTime;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -57,12 +60,9 @@ class PlaceSearchServiceTest {
                 .andExpect(header(
                         "X-Goog-FieldMask",
                         "places.id,places.displayName,places.formattedAddress,places.location," +
-                        "places.primaryType,places.types,places.photos," +
+                        "places.primaryType,places.types," +
                         "places.rating,places.userRatingCount," +
-                        "places.currentOpeningHours.openNow," +
-                        "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions," +
-                        "places.nationalPhoneNumber,places.websiteUri," +
-                        "places.editorialSummary,places.reviews"
+                        "places.currentOpeningHours.openNow"
                 ))
                 .andExpect(header("X-Goog-Api-Key", "test-api-key"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
@@ -81,8 +81,8 @@ class PlaceSearchServiceTest {
     }
 
     @Test
-    @DisplayName("t7 사진이 있는 검색 결과는 API 키가 포함된 URL 대신 사진 리소스 이름을 반환한다")
-    void t7_photoReturnsResourceNameWithoutApiKey() {
+    @DisplayName("t7 장소 검색은 사진 리소스를 요청하거나 응답에 보관하지 않는다")
+    void t7_searchDoesNotRetainPhotoResource() {
         String responseJson = """
                 {"places":[{
                   "id":"ChIJphoto",
@@ -96,7 +96,7 @@ class PlaceSearchServiceTest {
 
         PlaceSearchResponse result = service.search("벳푸").get(0);
 
-        assertThat(result.photoName()).isEqualTo("places/ChIJphoto/photos/AWCphoto");
+        assertThat(result.photoName()).isNull();
         assertThat(result.toString()).doesNotContain("test-api-key");
         server.verify();
     }
@@ -216,6 +216,91 @@ class PlaceSearchServiceTest {
                 back.backend.domain.place.entity.PlaceCategoryType.ATTRACTION
         );
         assertThat(result.placeTypes()).containsExactly("castle", "tourist_attraction");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t10 장소 운영정보 조회 시 영업 상태와 다음 개점·폐점 시각을 반환한다")
+    void t10_operationalDetailsContainCurrentGoogleOpeningData() {
+        String responseJson = """
+                {
+                  "id":"ChIJhankyu",
+                  "businessStatus":"OPERATIONAL",
+                  "currentOpeningHours":{
+                    "openNow":false,
+                    "nextOpenTime":"2026-08-02T11:00:00+09:00",
+                    "nextCloseTime":"2026-08-02T20:00:00+09:00",
+                    "weekdayDescriptions":["일요일: 오전 11:00~오후 8:00"],
+                    "periods":[{
+                      "open":{"date":{"year":2026,"month":8,"day":2},"hour":11,"minute":0},
+                      "close":{"date":{"year":2026,"month":8,"day":2},"hour":20,"minute":0}
+                    }]
+                  }
+                }
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places/ChIJhankyu")))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(
+                        "X-Goog-FieldMask",
+                        org.hamcrest.Matchers.containsString("currentOpeningHours.nextOpenTime")
+                ))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        var result = service.getOperationalDetails("ChIJhankyu");
+
+        assertThat(result.businessStatus()).isEqualTo("OPERATIONAL");
+        assertThat(result.openNow()).isFalse();
+        assertThat(result.nextOpenTime().toLocalTime()).isEqualTo(LocalTime.of(11, 0));
+        assertThat(result.nextCloseTime().toLocalTime()).isEqualTo(LocalTime.of(20, 0));
+        assertThat(result.openingWindows()).singleElement().satisfies(window -> {
+            assertThat(window.opensAt()).isEqualTo(LocalDateTime.of(2026, 8, 2, 11, 0));
+            assertThat(window.closesAt()).isEqualTo(LocalDateTime.of(2026, 8, 2, 20, 0));
+        });
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t11 여행지 좌표로 검색하면 지역 밖 장소를 제외하고 카테고리를 엄격히 적용한다")
+    void t11_roomLocationFiltersDistantResultsAndStrictlyAppliesCategory() {
+        String responseJson = """
+                {"places":[
+                  {
+                    "id":"ChIJosaka",
+                    "displayName":{"text":"오사카 카페"},
+                    "location":{"latitude":34.7000,"longitude":135.5000},
+                    "primaryType":"cafe",
+                    "types":["cafe","food"]
+                  },
+                  {
+                    "id":"ChIJtokyo",
+                    "displayName":{"text":"도쿄 카페"},
+                    "location":{"latitude":35.6762,"longitude":139.6503},
+                    "primaryType":"cafe",
+                    "types":["cafe","food"]
+                  }
+                ]}
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andExpect(content().json("""
+                        {
+                          "textQuery":"카페 오사카",
+                          "languageCode":"ko",
+                          "includedType":"cafe",
+                          "strictTypeFiltering":true,
+                          "locationBias":{"circle":{"center":{
+                            "latitude":34.6937,
+                            "longitude":135.5023
+                          },"radius":50000.0}}
+                        }
+                        """))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        List<PlaceSearchResponse> result = service.search(
+                "카페", "오사카", "cafe", 34.6937, 135.5023);
+
+        assertThat(result)
+                .extracting(PlaceSearchResponse::googlePlaceId)
+                .containsExactly("ChIJosaka");
         server.verify();
     }
 }

@@ -47,6 +47,12 @@ public class Trip {
     @Column(length = 100)
     private String destination;
 
+    @Column(name = "destination_lat")
+    private Double destinationLat;
+
+    @Column(name = "destination_lng")
+    private Double destinationLng;
+
     @Column(name = "start_date")
     private LocalDate startDate;
 
@@ -122,6 +128,8 @@ public class Trip {
             CompanionType companionType,
             Set<TravelStyle> travelStyles,
             String destination,
+            Double destinationLat,
+            Double destinationLng,
             LocalDate startDate,
             LocalDate endDate,
             TripVisibility visibility
@@ -132,6 +140,8 @@ public class Trip {
         this.companionType = companionType;
         this.travelStyles = copyStyles(travelStyles);
         this.destination = normalizeNullable(destination);
+        this.destinationLat = destinationLat;
+        this.destinationLng = destinationLng;
         this.startDate = startDate;
         this.endDate = endDate;
         this.status = TripStatus.PLANNING;
@@ -146,11 +156,42 @@ public class Trip {
             CompanionType companionType,
             Set<TravelStyle> travelStyles,
             String destination,
+            Double destinationLat,
+            Double destinationLng,
             LocalDate startDate,
             LocalDate endDate,
             TripVisibility visibility
     ) {
-        return new Trip(ownerId, title, companionType, travelStyles, destination, startDate, endDate, visibility);
+        return new Trip(ownerId, title, companionType, travelStyles, destination, destinationLat, destinationLng, startDate, endDate, visibility);
+    }
+
+    public static Trip create(
+            Long ownerId,
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            Double destinationLat,
+            Double destinationLng,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        return create(ownerId, title, companionType, travelStyles, destination, destinationLat, destinationLng, startDate, endDate,
+                TripVisibility.PRIVATE);
+    }
+
+    public static Trip create(
+            Long ownerId,
+            String title,
+            CompanionType companionType,
+            Set<TravelStyle> travelStyles,
+            String destination,
+            LocalDate startDate,
+            LocalDate endDate,
+            TripVisibility visibility
+    ) {
+        return create(ownerId, title, companionType, travelStyles, destination, null, null,
+                startDate, endDate, visibility);
     }
 
     public static Trip create(
@@ -162,8 +203,8 @@ public class Trip {
             LocalDate startDate,
             LocalDate endDate
     ) {
-        return create(ownerId, title, companionType, travelStyles, destination, startDate, endDate,
-                TripVisibility.PRIVATE);
+        return create(ownerId, title, companionType, travelStyles, destination, null, null,
+                startDate, endDate, TripVisibility.PRIVATE);
     }
 
     public void update(
@@ -171,6 +212,8 @@ public class Trip {
             CompanionType companionType,
             Set<TravelStyle> travelStyles,
             String destination,
+            Double destinationLat,
+            Double destinationLng,
             LocalDate startDate,
             LocalDate endDate,
             LocalTime dayStartTime,
@@ -184,6 +227,8 @@ public class Trip {
         this.travelStyles.clear();
         this.travelStyles.addAll(copyStyles(travelStyles));
         this.destination = normalizeNullable(destination);
+        this.destinationLat = destinationLat;
+        this.destinationLng = destinationLng;
         this.startDate = startDate;
         this.endDate = endDate;
         if (dayStartTime != null) this.dayStartTime = dayStartTime;
@@ -284,6 +329,9 @@ public class Trip {
     public String getDescription() {
         return description;
     }
+
+    public Double getDestinationLat() { return destinationLat; }
+    public Double getDestinationLng() { return destinationLng; }
 
     public String getDestination() {
         return destination;

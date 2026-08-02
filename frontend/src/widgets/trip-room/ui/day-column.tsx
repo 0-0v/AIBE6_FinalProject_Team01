@@ -11,25 +11,31 @@ import {
     CircleIcon,
     ExternalLinkIcon,
     FootprintsIcon,
+    MapPinIcon,
     PlusIcon,
     TrainFrontIcon,
+    XIcon,
 } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import {
     updateItineraryDayStatus,
     updateItineraryTransportMode,
+    updateDayDeparture,
     getItinerary,
     CategoryIcon,
     TransportModeIcon,
+    CATEGORY_META,
 } from '@/entities/trip'
 import type {
     ItineraryDay,
+    ItineraryDayDeparture,
     ItineraryItem,
     Place,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ScheduleItemCard } from './schedule-item-card'
+import { getItineraryDayColor } from '../lib/itinerary-map'
 import { buildGoogleMapsDirectionsUrl } from '../lib/google-maps-directions'
 import { buildItineraryDropZoneId } from '../lib/itinerary-drop-position'
 import {
@@ -37,6 +43,240 @@ import {
     resolveSelectableTransportMode,
     type SelectableItineraryTransportMode,
 } from '../lib/itinerary-transport'
+
+// ────────────────────────────────────────────────────────────
+// DeparturePicker
+// ────────────────────────────────────────────────────────────
+type DeparturePickerProps = {
+    lodgingPlaces: Place[]
+    savedPlaces: Place[]
+    onSelect: (
+        payload:
+            | { type: 'TRIP_PLACE'; tripPlaceId: number; name: string }
+            | { type: 'NONE' },
+    ) => void
+    onClose: () => void
+}
+
+function DeparturePicker({
+    lodgingPlaces,
+    savedPlaces,
+    onSelect,
+    onClose,
+}: DeparturePickerProps) {
+    const nonLodgingPlaces = savedPlaces.filter((p) => p.category !== 'lodging')
+
+    return (
+        <>
+            {/* 배경 클릭 닫기 */}
+            <div className="fixed inset-0 z-40" onClick={onClose} />
+            <div className="absolute left-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div className="border-b border-slate-100 px-3 py-2.5">
+                    <p className="text-xs font-bold text-slate-700">
+                        저장된 장소에서 선택
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                        출발지로 사용할 장소를 선택해주세요.
+                    </p>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto">
+                    {/* 저장된 숙소 */}
+                    {lodgingPlaces.length > 0 && (
+                        <div>
+                            <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                저장된 숙소
+                            </p>
+                            {lodgingPlaces.map((place) => (
+                                <button
+                                    key={place.id}
+                                    type="button"
+                                    onClick={() =>
+                                        onSelect({
+                                            type: 'TRIP_PLACE',
+                                            tripPlaceId: Number(place.id),
+                                            name: place.name,
+                                        })
+                                    }
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
+                                >
+                                    <span
+                                        style={{
+                                            color: CATEGORY_META.lodging.color,
+                                        }}
+                                    >
+                                        <CategoryIcon icon="HOTEL" size={12} />
+                                    </span>
+                                    <span className="truncate text-xs font-medium text-slate-700">
+                                        {place.name}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* 저장된 다른 장소 */}
+                    {nonLodgingPlaces.length > 0 && (
+                        <div>
+                            <p className="border-t border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                저장된 장소
+                            </p>
+                            {nonLodgingPlaces.map((place) => (
+                                <button
+                                    key={place.id}
+                                    type="button"
+                                    onClick={() =>
+                                        onSelect({
+                                            type: 'TRIP_PLACE',
+                                            tripPlaceId: Number(place.id),
+                                            name: place.name,
+                                        })
+                                    }
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
+                                >
+                                    {place.categoryIcon && (
+                                        <span
+                                            style={{
+                                                color:
+                                                    place.categoryColor ??
+                                                    '#94a3b8',
+                                            }}
+                                        >
+                                            <CategoryIcon
+                                                icon={place.categoryIcon}
+                                                size={12}
+                                            />
+                                        </span>
+                                    )}
+                                    <span className="truncate text-xs font-medium text-slate-700">
+                                        {place.name}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {savedPlaces.length === 0 && (
+                        <p className="px-3 py-4 text-center text-xs text-slate-400">
+                            저장된 장소가 없습니다.
+                        </p>
+                    )}
+
+                    {/* 출발지 없음 */}
+                    <button
+                        type="button"
+                        onClick={() => onSelect({ type: 'NONE' })}
+                        className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-xs text-slate-400 hover:bg-slate-50"
+                    >
+                        <XIcon size={12} />
+                        출발지 없음
+                    </button>
+                </div>
+            </div>
+        </>
+    )
+}
+
+// ────────────────────────────────────────────────────────────
+// DepartureRow
+// ────────────────────────────────────────────────────────────
+type DepartureRowProps = {
+    departure: ItineraryDayDeparture | null
+    tripId: number
+    dayId: string
+    canWrite: boolean
+    lodgingPlaces: Place[]
+    savedPlaces: Place[]
+    days: ItineraryDay[]
+    onDaysChange: (days: ItineraryDay[]) => void
+}
+
+function DepartureRow({
+    departure,
+    tripId,
+    dayId,
+    canWrite,
+    lodgingPlaces,
+    savedPlaces,
+    days,
+    onDaysChange,
+}: DepartureRowProps) {
+    const [open, setOpen] = useState(false)
+    const [updating, setUpdating] = useState(false)
+
+    async function handleSelect(
+        payload:
+            | { type: 'TRIP_PLACE'; tripPlaceId: number; name: string }
+            | { type: 'NONE' },
+    ) {
+        setOpen(false)
+        if (updating) return
+        setUpdating(true)
+        try {
+            const updated = await updateDayDeparture(
+                tripId,
+                Number(dayId),
+                payload,
+            )
+            onDaysChange(days.map((d) => (d.id === updated.id ? updated : d)))
+        } catch {
+            /* ignore — 사용자 피드백은 상위에서 처리 */
+        } finally {
+            setUpdating(false)
+        }
+    }
+
+    const timeText =
+        departure?.travelMinutes != null
+            ? departure.travelMinutes < 60
+                ? `${departure.travelMinutes}분`
+                : `${Math.floor(departure.travelMinutes / 60)}시간${departure.travelMinutes % 60 > 0 ? ` ${departure.travelMinutes % 60}분` : ''}`
+            : null
+
+    return (
+        <div className="relative flex items-center gap-2 border-b border-slate-100 px-3 py-1.5">
+            <MapPinIcon size={12} className="shrink-0 text-brand" />
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                {departure ? (
+                    <>
+                        <span className="truncate text-[11px] font-semibold text-slate-700">
+                            {departure.name}
+                        </span>
+                        {timeText && (
+                            <span className="shrink-0 text-[10px] text-slate-400">
+                                → {timeText}
+                            </span>
+                        )}
+                    </>
+                ) : (
+                    <span className="text-[11px] text-slate-400">
+                        출발지를 설정해주세요
+                    </span>
+                )}
+            </div>
+            {canWrite && (
+                <button
+                    type="button"
+                    disabled={updating}
+                    onClick={() => setOpen((v) => !v)}
+                    className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold text-brand transition hover:bg-brand/10 disabled:opacity-40"
+                    aria-label={departure ? '출발지 변경' : '출발지 선택'}
+                >
+                    <MapPinIcon size={11} aria-hidden />
+                    {departure ? '변경' : '출발지 선택'}
+                </button>
+            )}
+            {open && (
+                <DeparturePicker
+                    lodgingPlaces={lodgingPlaces}
+                    savedPlaces={savedPlaces}
+                    onSelect={handleSelect}
+                    onClose={() => setOpen(false)}
+                />
+            )}
+        </div>
+    )
+}
 
 const TRANSPORT_MODE_OPTIONS: {
     value: SelectableItineraryTransportMode
@@ -141,7 +381,7 @@ function TransportConnector({
     }
 
     return (
-        <div className="relative flex flex-col items-center justify-center py-1.5">
+        <div className="relative flex flex-col items-center justify-center py-1">
             {/* 세로 점선 */}
             <div className="absolute inset-y-0 left-1/2 -translate-x-px border-l-2 border-dashed border-slate-200" />
             <div className="relative z-10 flex items-center rounded-full border border-brand/25 bg-white text-brand shadow-sm">
@@ -187,16 +427,13 @@ function TransportConnector({
                         </p>
                         {TRANSPORT_MODE_OPTIONS.map((option) => {
                             const Icon = option.icon
-                            const selected =
-                                option.value === currentPreference
+                            const selected = option.value === currentPreference
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     disabled={updating}
-                                    onClick={() =>
-                                        void applyMode(option.value)
-                                    }
+                                    onClick={() => void applyMode(option.value)}
                                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
                                         selected
                                             ? 'bg-brand/10 font-bold text-brand'
@@ -238,6 +475,7 @@ type Props = {
     days: ItineraryDay[]
     isDragging: boolean
     unscheduledPlaces: Place[]
+    allPlaces?: Place[]
     onAddPlace: (placeId: string) => void
     onDaysChange: (days: ItineraryDay[]) => void
     hoveredItemId?: string | null
@@ -280,6 +518,7 @@ export function DayColumn({
     days,
     isDragging,
     unscheduledPlaces,
+    allPlaces = [],
     onAddPlace,
     onDaysChange,
     hoveredItemId,
@@ -462,9 +701,23 @@ export function DayColumn({
 
             {error && <p className="px-3 pb-1 text-xs text-red-500">{error}</p>}
 
+            {/* 출발지 행 */}
+            <DepartureRow
+                departure={day.departure}
+                tripId={tripId}
+                dayId={String(day.id)}
+                canWrite={canWrite}
+                lodgingPlaces={allPlaces.filter(
+                    (p) => p.category === 'lodging',
+                )}
+                savedPlaces={allPlaces}
+                days={days}
+                onDaysChange={onDaysChange}
+            />
+
             {/* 아이템 목록 (접으면 숨김) */}
             {!collapsed && (
-                <div className="flex flex-col gap-1 px-3 pb-3">
+                <div className="flex flex-col gap-0.5 px-2.5 pb-2.5">
                     <SortableContext
                         id={String(day.id)}
                         items={day.items.map((i) => i.id)}
@@ -472,7 +725,7 @@ export function DayColumn({
                     >
                         {day.items.length === 0 ? (
                             <div
-                                className={`flex min-h-[52px] items-center justify-center rounded-lg border-2 border-dashed text-xs transition-all ${
+                                className={`flex min-h-12 items-center justify-center rounded-lg border-2 border-dashed text-xs transition-all ${
                                     isOver
                                         ? 'scale-[1.02] border-brand bg-brand/10 text-brand'
                                         : isDragging
@@ -503,6 +756,10 @@ export function DayColumn({
                                             canWrite={canWrite}
                                             days={days}
                                             currentDayId={String(day.id)}
+                                            visitOrder={index + 1}
+                                            dayColor={getItineraryDayColor(
+                                                day.dayNumber,
+                                            )}
                                             onDaysChange={onDaysChange}
                                             highlighted={
                                                 hoveredItemId ===

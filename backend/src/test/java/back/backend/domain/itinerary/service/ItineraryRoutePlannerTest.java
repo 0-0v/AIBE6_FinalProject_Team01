@@ -20,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -41,6 +42,9 @@ class ItineraryRoutePlannerTest {
     private OpenAiRouteAdvisor openAiRouteAdvisor;
 
     @Mock
+    private PlaceGraphEdgeService placeGraphEdgeService;
+
+    @Mock
     private ConstraintSorter constraintSorter;
 
     private ItineraryRoutePlanner planner;
@@ -56,8 +60,13 @@ class ItineraryRoutePlannerTest {
                 anyString(),
                 nullable(String.class),
                 nullable(java.time.Instant.class)
-        ))
+                ))
                 .thenReturn(Optional.empty());
+        lenient().when(placeGraphEdgeService.find(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(Optional.empty());
         // ConstraintSorter: 입력 리스트를 그대로 반환 (정렬 없이 통과)
         lenient().when(constraintSorter.sort(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -65,7 +74,8 @@ class ItineraryRoutePlannerTest {
         planner = new ItineraryRoutePlanner(
                 routesClient,
                 openAiRouteAdvisor,
-                constraintSorter
+                constraintSorter,
+                placeGraphEdgeService
         );
     }
 
@@ -453,6 +463,288 @@ class ItineraryRoutePlannerTest {
                 .extracting(item -> item.tripPlaceId())
                 .containsExactly(12L, 10L);
         assertThat(options.getFirst().plan().days().get(1).items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactly(11L);
+    }
+
+    @Test
+    @DisplayName("t15 Day별 출발지와 가장 가까운 장소를 첫 방문지로 배치한다")
+    void t15_planStartsEachDayAtPlaceNearestToDeparture() {
+        ItineraryDay firstDay = day(1L, 1);
+        firstDay.updateDeparture(
+                "CUSTOM",
+                "북쪽 숙소",
+                BigDecimal.valueOf(37.60),
+                BigDecimal.valueOf(127.10),
+                null
+        );
+        ItineraryDay secondDay = day(2L, 2);
+        secondDay.updateDeparture(
+                "CUSTOM",
+                "남쪽 숙소",
+                BigDecimal.valueOf(33.20),
+                BigDecimal.valueOf(126.20),
+                null
+        );
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "북쪽 원거리", PlaceCategoryType.ATTRACTION, 37.40, 126.90),
+                tripPlace(11L, "북쪽 장소", PlaceCategoryType.ATTRACTION, 37.59, 127.09),
+                tripPlace(12L, "남쪽 원거리", PlaceCategoryType.ATTRACTION, 33.40, 126.40),
+                tripPlace(13L, "남쪽 장소", PlaceCategoryType.ATTRACTION, 33.21, 126.21)
+        );
+
+        RoutePlanPreviewResponse result = planner.plan(
+                List.of(firstDay, secondDay),
+                places
+        );
+
+        assertThat(result.days().getFirst().items().getFirst().placeName())
+                .isEqualTo("북쪽 장소");
+        assertThat(result.days().get(1).items().getFirst().placeName())
+                .isEqualTo("남쪽 장소");
+    }
+
+    @Test
+    @DisplayName("t16 재배치 시작 Day는 선택 일정 시각부터 시작하고 다음 Day는 기본 시각을 사용한다")
+    void t16_replanUsesStartOverrideOnlyForSelectedDay() {
+        ItineraryDay day1 = day(1L, 1);
+        ItineraryDay day2 = day(2L, 2);
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "한큐 우메다", PlaceCategoryType.SHOPPING, 34.7028, 135.4985),
+                tripPlace(11L, "다음 장소", PlaceCategoryType.ATTRACTION, 34.7100, 135.5100)
+        );
+        TripScheduleSettings settings = TripScheduleSettings
+                .of(LocalTime.of(9, 0), LocalTime.of(21, 0), TravelPace.NORMAL)
+                .withDayStartOverride(1L, LocalTime.of(10, 46));
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(day1, day2),
+                places,
+                Set.of(),
+                settings
+        ).getFirst().plan();
+
+        assertThat(result.days().getFirst().items().getFirst().startTime())
+                .isEqualTo("10:46");
+    }
+
+    @Test
+    @DisplayName("t17 장소 그래프에 경로가 있으면 Routes API 호출 없이 이동 정보를 사용한다")
+    void t17_graphEdgeAvoidsRoutesApiCall() {
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
+                tripPlace(11L, "장소 B", PlaceCategoryType.ATTRACTION, 33.46, 126.51)
+        );
+        when(placeGraphEdgeService.find(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(Optional.of(
+                new PlaceGraphEdgeService.CachedRoute(2400, 11)
+        ));
+
+        RoutePlanPreviewResponse result = planner.plan(
+                List.of(day(1L, 1)),
+                places
+        );
+
+        assertThat(result.days().getFirst().items().getFirst().transportMeters())
+                .isEqualTo(2400);
+        assertThat(result.days().getFirst().items().getFirst().transportMinutes())
+                .isEqualTo(11);
+        org.mockito.Mockito.verifyNoInteractions(routesClient);
+    }
+
+    @Test
+    @DisplayName("t18 장소 그래프 저장이 실패해도 조회한 경로로 동선을 생성한다")
+    void t18_graphCacheFailureDoesNotBreakRoutePlan() {
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
+                tripPlace(11L, "장소 B", PlaceCategoryType.ATTRACTION, 33.46, 126.51)
+        );
+        when(routesClient.getRouteInfo(
+                anyDouble(),
+                anyDouble(),
+                anyDouble(),
+                anyDouble(),
+                anyString(),
+                nullable(String.class),
+                nullable(java.time.Instant.class)
+        )).thenReturn(Optional.of(new GoogleRoutesClient.RouteInfo(
+                2300,
+                12,
+                "자동차",
+                null
+        )));
+        org.mockito.Mockito.doThrow(new IllegalStateException("cache unavailable"))
+                .when(placeGraphEdgeService)
+                .cache(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyInt()
+                );
+
+        RoutePlanPreviewResponse result = planner.plan(
+                List.of(day(1L, 1)),
+                places
+        );
+
+        assertThat(result.days().getFirst().items().getFirst().transportMeters())
+                .isEqualTo(2300);
+        assertThat(result.days().getFirst().items().getFirst().transportMinutes())
+                .isEqualTo(12);
+    }
+
+    @Test
+    @DisplayName("t19 재배치 결과에는 선택 장소와 변경 사유를 반영한 이유를 표시한다")
+    void t19_replanResultExplainsWhyScheduleChanged() {
+        String context = "선택 장소: 한큐 우메다. 변경 사유: 영업시간 변경. "
+                + "재배치 시작 하한: 10:46. 이후 일정을 함께 조정함.";
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(day(1L, 1)),
+                List.of(tripPlace(
+                        10L,
+                        "한큐 우메다",
+                        PlaceCategoryType.SHOPPING,
+                        34.7028,
+                        135.4985
+                )),
+                Set.of(),
+                TripScheduleSettings.defaultSettings(),
+                "REPLAN_REMAINING_ITINERARY\n" + context
+        ).getFirst().plan();
+
+        assertThat(result.summary()).contains("변경 사유");
+        assertThat(result.days().getFirst().items().getFirst().reason())
+                .contains("한큐 우메다", "영업시간 변경", "10:46");
+    }
+
+    @Test
+    @DisplayName("t20 영업시간 제약 장소는 지정한 Day와 개점 시각 이후에 배치한다")
+    void t20_operatingHoursConstraintMovesPlaceToOpeningWindow() {
+        ItineraryDay day1 = day(1L, 1);
+        ItineraryDay day2 = day(2L, 2);
+        TripPlace hankyu = tripPlace(
+                10L,
+                "한큐 우메다",
+                PlaceCategoryType.SHOPPING,
+                34.7028,
+                135.4985
+        );
+        TripPlace another = tripPlace(
+                11L,
+                "다음 장소",
+                PlaceCategoryType.ATTRACTION,
+                34.7100,
+                135.5100
+        );
+        TripScheduleSettings settings = TripScheduleSettings
+                .defaultSettings()
+                .withPlaceConstraint(
+                        10L,
+                        new PlaceScheduleConstraint(
+                                2L,
+                                LocalTime.of(11, 0),
+                                "다음 영업 가능 시각에 배치했습니다."
+                        )
+                );
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(day1, day2),
+                List.of(hankyu, another),
+                Set.of(),
+                settings
+        ).getFirst().plan();
+
+        assertThat(result.days().getFirst().items())
+                .extracting(item -> item.tripPlaceId())
+                .doesNotContain(10L);
+        assertThat(result.days().get(1).items())
+                .filteredOn(item -> item.tripPlaceId().equals(10L))
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.startTime()).isEqualTo("11:00");
+                    assertThat(item.reason()).contains("영업 가능 시각");
+                });
+    }
+
+    @Test
+    @DisplayName("t21 AI가 만든 Day 묶음을 날짜별 출발지와 가까운 Day에 배정한다")
+    void t21_aiClustersAreAlignedWithEachDayDeparture() {
+        ItineraryDay northDay = day(1L, 1);
+        northDay.updateDeparture(
+                "CUSTOM",
+                "북쪽 숙소",
+                BigDecimal.valueOf(37.60),
+                BigDecimal.valueOf(127.10),
+                null
+        );
+        ItineraryDay southDay = day(2L, 2);
+        southDay.updateDeparture(
+                "CUSTOM",
+                "남쪽 숙소",
+                BigDecimal.valueOf(33.20),
+                BigDecimal.valueOf(126.20),
+                null
+        );
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "북쪽 장소 A", PlaceCategoryType.ATTRACTION, 37.59, 127.09),
+                tripPlace(11L, "북쪽 장소 B", PlaceCategoryType.ATTRACTION, 37.58, 127.08),
+                tripPlace(12L, "남쪽 장소 A", PlaceCategoryType.ATTRACTION, 33.21, 126.21),
+                tripPlace(13L, "남쪽 장소 B", PlaceCategoryType.ATTRACTION, 33.22, 126.22)
+        );
+        when(openAiRouteAdvisor.recommend(
+                List.of(northDay, southDay),
+                places,
+                Set.of()
+        )).thenReturn(Optional.of(new OpenAiRouteAdvisor.Recommendation(
+                "AI가 장소를 지역별로 묶었어요.",
+                List.of(List.of(12L, 13L), List.of(10L, 11L))
+        )));
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(northDay, southDay),
+                places,
+                Set.of(),
+                TripScheduleSettings.defaultSettings()
+        ).getFirst().plan();
+
+        assertThat(result.days().getFirst().items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactlyInAnyOrder(10L, 11L);
+        assertThat(result.days().get(1).items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactlyInAnyOrder(12L, 13L);
+    }
+
+    @Test
+    @DisplayName("t22 저장 장소를 출발지로 선택하면 방문 일정에서는 제외한다")
+    void t22_selectedDeparturePlaceIsExcludedFromVisits() {
+        ItineraryDay itineraryDay = day(1L, 1);
+        itineraryDay.updateDeparture(
+                "TRIP_PLACE",
+                "센타라 그랜드 호텔",
+                BigDecimal.valueOf(34.67),
+                BigDecimal.valueOf(135.50),
+                10L
+        );
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "센타라 그랜드 호텔", PlaceCategoryType.LODGING, 34.67, 135.50),
+                tripPlace(11L, "도톤보리", PlaceCategoryType.ATTRACTION, 34.668, 135.501)
+        );
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(itineraryDay),
+                places,
+                Set.of(),
+                TripScheduleSettings.defaultSettings()
+        ).getFirst().plan();
+
+        assertThat(result.totalPlaceCount()).isEqualTo(1);
+        assertThat(result.days().getFirst().items())
                 .extracting(item -> item.tripPlaceId())
                 .containsExactly(11L);
     }

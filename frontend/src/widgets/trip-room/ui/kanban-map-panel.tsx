@@ -12,7 +12,6 @@ import {
 import {
     AdvancedMarker,
     Map as GoogleMap,
-    Polyline,
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
@@ -28,6 +27,7 @@ import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import { ItineraryMapMarker } from './itinerary-map-marker'
+import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 
 const DEFAULT_CENTER = { lat: 33.489, lng: 126.4983 }
 const CATEGORY_BADGE_MIN_ZOOM = 10
@@ -129,6 +129,7 @@ type Props = {
     onItemHoverChange: (itemId: string | null) => void
     focusedItemId: string | null
     focusedPlaceId: string | null
+    highlightedPlaceId?: string | null
     onItemFocus: (itemId: string | null) => void
     onPlaceFocus: (placeId: string | null) => void
 }
@@ -148,6 +149,17 @@ function MapFocusController({
         if ((map.getZoom() ?? 0) < 14) {
             map.setZoom(14)
         }
+
+        const animationFrame = window.requestAnimationFrame(() => {
+            const mapHeight = map.getDiv().clientHeight
+            const focusOffset = Math.min(
+                96,
+                Math.max(48, mapHeight * 0.25),
+            )
+            map.panBy(0, -focusOffset)
+        })
+
+        return () => window.cancelAnimationFrame(animationFrame)
     }, [lat, lng, map])
 
     return null
@@ -162,6 +174,7 @@ function MapContent({
     onItemHoverChange,
     focusedItemId,
     focusedPlaceId,
+    highlightedPlaceId = null,
     onItemFocus,
     onPlaceFocus,
 }: Props) {
@@ -185,18 +198,25 @@ function MapContent({
         }
     }, [allItems])
 
-    const routes = useMemo(
+    const segments = useMemo(
         () =>
-            days
-                .map((day) => ({
-                    color: getItineraryDayColor(day.dayNumber),
-                    path: day.items
-                        .filter(hasMapCoordinates)
-                        .map((i) => ({ lat: i.lat, lng: i.lng })),
+            days.flatMap((day) => {
+                const color = getItineraryDayColor(day.dayNumber)
+                const itemsWithCoords = day.items.filter(hasMapCoordinates)
+                return itemsWithCoords.slice(0, -1).map((item, index) => ({
+                    key: `${day.id}-${item.id}`,
+                    color,
+                    fromItemId: String(item.id),
+                    from: { lat: item.lat, lng: item.lng },
+                    to: {
+                        lat: itemsWithCoords[index + 1].lat,
+                        lng: itemsWithCoords[index + 1].lng,
+                    },
                 }))
-                .filter((r) => r.path.length >= 2),
+            }),
         [days],
     )
+
     const previewDay = days.find((day) => String(day.id) === previewDayId)
     const previewDayNumber = previewDay?.dayNumber ?? null
     const draggedItem =
@@ -230,6 +250,19 @@ function MapContent({
     const effectiveFocusedItem = focusedItem ?? scheduledItemForFocusedPlace
     const effectiveFocusedItemId =
         effectiveFocusedItem == null ? null : String(effectiveFocusedItem.id)
+
+    const focusedNextItemId = useMemo(() => {
+        if (effectiveFocusedItemId == null) return null
+        for (const day of days) {
+            const idx = day.items.findIndex(
+                (item) => String(item.id) === effectiveFocusedItemId,
+            )
+            if (idx >= 0 && idx + 1 < day.items.length) {
+                return String(day.items[idx + 1].id)
+            }
+        }
+        return null
+    }, [days, effectiveFocusedItemId])
     const focusedPosition =
         effectiveFocusedItem != null && hasMapCoordinates(effectiveFocusedItem)
             ? {
@@ -254,10 +287,18 @@ function MapContent({
             ? null
             : (places.find((place) => String(place.id) === focusedPlaceId) ??
               null)
+    const highlightedPlace =
+        highlightedPlaceId == null
+            ? null
+            : (places.find(
+                  (place) => String(place.id) === highlightedPlaceId,
+              ) ?? null)
     const activeFocusPosition =
         focusedPosition ??
         (focusedPlace == null
-            ? null
+            ? highlightedPlace == null
+                ? null
+                : { lat: highlightedPlace.lat, lng: highlightedPlace.lng }
             : { lat: focusedPlace.lat, lng: focusedPlace.lng })
 
     if (!isLoaded) {
@@ -301,34 +342,54 @@ function MapContent({
                     lat={activeFocusPosition?.lat ?? null}
                     lng={activeFocusPosition?.lng ?? null}
                 />
-                {routes.map((route, i) => (
-                    <React.Fragment key={i}>
-                        <Polyline
-                            path={route.path}
-                            strokeColor={
-                                mapDisplayType === 'hybrid'
-                                    ? '#0f172a'
-                                    : '#ffffff'
+                {segments.map((segment) => {
+                    const isFocusMode = effectiveFocusedItemId != null
+                    const isFocused =
+                        isFocusMode &&
+                        segment.fromItemId === effectiveFocusedItemId
+                    const segOpacity = isFocusMode
+                        ? isFocused
+                            ? 1.0
+                            : 0.15
+                        : 0.9
+                    const segWeight = isFocusMode
+                        ? isFocused
+                            ? 6
+                            : 3
+                        : 4
+                    const path = [segment.from, segment.to]
+                    return (
+                        <ItineraryRoutePolyline
+                            key={segment.key}
+                            path={path}
+                            color={segment.color}
+                            opacity={segOpacity}
+                            strokeWeight={segWeight}
+                            zIndex={isFocused ? 3 : 2}
+                            emphasis={
+                                isFocusMode
+                                    ? isFocused
+                                        ? 'focused'
+                                        : 'dimmed'
+                                    : 'normal'
                             }
-                            strokeWeight={8}
-                            strokeOpacity={
-                                mapDisplayType === 'hybrid' ? 0.72 : 0.9
-                            }
-                            zIndex={1}
                         />
-                        <Polyline
-                            path={route.path}
-                            strokeColor={route.color}
-                            strokeWeight={4}
-                            strokeOpacity={0.9}
-                            zIndex={2}
-                        />
-                    </React.Fragment>
-                ))}
+                    )
+                })}
                 {days.map((day) => {
                     return day.items
                         .filter(hasMapCoordinates)
-                        .map((item, index) => (
+                        .map((item, index) => {
+                            const isFocusMode = effectiveFocusedItemId != null
+                            const isItemFocused =
+                                effectiveFocusedItemId === String(item.id)
+                            const isNextFocused =
+                                focusedNextItemId === String(item.id)
+                            const markerOpacity =
+                                isFocusMode && !isItemFocused && !isNextFocused
+                                    ? 'opacity-25'
+                                    : 'opacity-100'
+                            return (
                             <AdvancedMarker
                                 key={item.id}
                                 position={{ lat: item.lat, lng: item.lng }}
@@ -336,16 +397,22 @@ function MapContent({
                                     onItemHoverChange(String(item.id))
                                 }
                                 onMouseLeave={() => onItemHoverChange(null)}
-                                onClick={() => onItemFocus(String(item.id))}
+                                onClick={() =>
+                                    onItemFocus(
+                                        isItemFocused
+                                            ? null
+                                            : String(item.id),
+                                    )
+                                }
                                 zIndex={
-                                    effectiveFocusedItemId === String(item.id)
+                                    isItemFocused
                                         ? 100
                                         : hoveredItemId === String(item.id)
                                           ? 90
                                           : 5
                                 }
                             >
-                                <div className="relative flex flex-col items-center">
+                                <div className={`relative flex flex-col items-center transition-opacity ${markerOpacity}`}>
                                     {effectiveFocusedItemId ===
                                         String(item.id) && (
                                         <FocusedItineraryItemCard
@@ -382,36 +449,59 @@ function MapContent({
                                         categoryColor={item.categoryColor}
                                         categoryLabel={item.categoryName}
                                         showCategoryBadge={showCategoryBadges}
-                                        selected={
-                                            effectiveFocusedItemId ===
-                                            String(item.id)
-                                        }
+                                        selected={isItemFocused}
                                         hovered={
                                             hoveredItemId === String(item.id)
                                         }
                                     />
                                 </div>
                             </AdvancedMarker>
-                        ))
+                            )
+                        })
                 })}
                 {unscheduledMapPlaces.map((place) => (
                     <AdvancedMarker
                         key={`saved-${place.id}`}
                         position={{ lat: place.lat, lng: place.lng }}
+                        className={
+                            highlightedPlaceId === String(place.id)
+                                ? 'outline-none focus:outline-none'
+                                : undefined
+                        }
                         onClick={() => onPlaceFocus(String(place.id))}
-                        zIndex={focusedPlaceId === String(place.id) ? 100 : 1}
+                        zIndex={
+                            highlightedPlaceId === String(place.id)
+                                ? 110
+                                : focusedPlaceId === String(place.id)
+                                  ? 100
+                                  : 1
+                        }
                     >
                         <div className="relative flex flex-col items-center">
                             {focusedPlaceId === String(place.id) && (
                                 <FocusedSavedPlaceCard place={place} />
                             )}
-                            <ItineraryMapMarker
-                                color={place.categoryColor ?? '#64748b'}
-                                categoryIcon={place.categoryIcon}
-                                categoryColor={place.categoryColor}
-                                categoryLabel={place.categoryName}
-                                selected={focusedPlaceId === String(place.id)}
-                            />
+                            {highlightedPlaceId === String(place.id) ? (
+                                <div className="relative flex flex-col items-center outline-none">
+                                    <div className="relative z-10 flex size-9 items-center justify-center rounded-full bg-brand text-[10px] font-black text-white">
+                                        추천
+                                    </div>
+                                    <span
+                                        className="-mt-2 size-3 rotate-45 rounded-[2px] bg-brand"
+                                        aria-hidden
+                                    />
+                                </div>
+                            ) : (
+                                <ItineraryMapMarker
+                                    color={place.categoryColor ?? '#64748b'}
+                                    categoryIcon={place.categoryIcon}
+                                    categoryColor={place.categoryColor}
+                                    categoryLabel={place.categoryName}
+                                    selected={
+                                        focusedPlaceId === String(place.id)
+                                    }
+                                />
+                            )}
                         </div>
                     </AdvancedMarker>
                 ))}

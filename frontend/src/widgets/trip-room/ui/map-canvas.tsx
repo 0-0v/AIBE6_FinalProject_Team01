@@ -4,14 +4,10 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
     AdvancedMarker,
     Map as GoogleMap,
-    Polyline,
     useApiIsLoaded,
     useMap,
-    useMapsLibrary,
 } from '@vis.gl/react-google-maps'
 import {
-    ArrowUpIcon,
-    CalendarPlusIcon,
     ClockIcon,
     ExternalLinkIcon,
     NavigationIcon,
@@ -21,6 +17,8 @@ import { Place } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
+import { ItineraryRoutePolyline } from './itinerary-route-polyline'
+import { LazyPlacePhoto } from './lazy-place-photo'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
@@ -32,39 +30,42 @@ import {
 import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
 
-const JEJU_CENTER = { lat: 33.489, lng: 126.4983 }
+const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
 const DEFAULT_ZOOM = 10
 const DESTINATION_FOCUS_ZOOM = 12
+const SELECTED_PLACE_FOCUS_ZOOM = 16
 const CATEGORY_BADGE_MIN_ZOOM = 10
-
-type GeocoderResponse = {
-    results: Array<{
-        geometry: {
-            location: {
-                toJSON: () => { lat: number; lng: number }
-            }
-        }
-    }>
-}
 
 type Props = {
     places: Place[]
-    initialLocation?: string | null
+    initialLat?: number | null
+    initialLng?: number | null
     selectedId: string | null
     onSelect: (id: string) => void
     onDeselect: () => void
+    onPlacePhotoResolved?: (
+        placeId: string,
+        photoUrl: string,
+        attribution: string | null,
+        attributionUrl: string | null,
+        sourceUrl: string,
+    ) => void
     days?: ItineraryDay[]
-    onAddToSchedule?: (placeId: string, dayId: string) => Promise<void>
+    initialRouteDay?: number | null
+    initialFocusedSegmentIndex?: number | null
 }
 
 export function MapCanvas({
     places,
-    initialLocation,
+    initialLat,
+    initialLng,
     selectedId,
     onSelect,
     onDeselect,
+    onPlacePhotoResolved,
     days,
-    onAddToSchedule,
+    initialRouteDay,
+    initialFocusedSegmentIndex,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -81,46 +82,71 @@ export function MapCanvas({
     return (
         <GoogleMapCanvas
             places={places}
-            initialLocation={initialLocation}
+            initialLat={initialLat}
+            initialLng={initialLng}
             selectedId={selectedId}
             onSelect={onSelect}
             onDeselect={onDeselect}
+            onPlacePhotoResolved={onPlacePhotoResolved}
             days={days}
-            onAddToSchedule={onAddToSchedule}
+            initialRouteDay={initialRouteDay}
+            initialFocusedSegmentIndex={initialFocusedSegmentIndex}
         />
     )
 }
 
 function GoogleMapCanvas({
     places,
-    initialLocation,
+    initialLat,
+    initialLng,
     selectedId,
     onSelect,
     onDeselect,
+    onPlacePhotoResolved,
     days,
-    onAddToSchedule,
+    initialRouteDay,
+    initialFocusedSegmentIndex,
 }: Pick<
     Props,
     | 'places'
-    | 'initialLocation'
+    | 'initialLat'
+    | 'initialLng'
     | 'selectedId'
     | 'onSelect'
     | 'onDeselect'
+    | 'onPlacePhotoResolved'
     | 'days'
-    | 'onAddToSchedule'
+    | 'initialRouteDay'
+    | 'initialFocusedSegmentIndex'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
-    const center = calculateCenter(places)
+
+    // 첫 번째 일정 장소가 있으면 그 위치에서 줌인 시작, 없으면 저장 장소 평균 또는 목적지 좌표 또는 서울
+    const firstScheduledPoint = days
+        ?.flatMap((d) => d.items)
+        .find((item) => item.lat != null && item.lng != null)
+    const destinationCenter =
+        initialLat != null && initialLng != null
+            ? { lat: initialLat, lng: initialLng }
+            : null
+    const center = firstScheduledPoint
+        ? { lat: firstScheduledPoint.lat, lng: firstScheduledPoint.lng }
+        : places.length > 0
+          ? calculateCenter(places)
+          : (destinationCenter ?? SEOUL_CENTER)
+    const initialZoom = firstScheduledPoint
+        ? 14
+        : places.length > 0
+          ? DEFAULT_ZOOM
+          : DESTINATION_FOCUS_ZOOM
     const [hoveredId, setHoveredId] = useState<string | null>(null)
-    const [dayPickerPlaceId, setDayPickerPlaceId] = useState<string | null>(
-        null,
-    )
-    const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null)
-    const [scheduleError, setScheduleError] = useState<string | null>(null)
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
-        null,
+        initialRouteDay ?? null,
     )
+    const [focusedSegmentIndex, setFocusedSegmentIndex] = useState<
+        number | null
+    >(initialFocusedSegmentIndex ?? null)
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
 
@@ -176,6 +202,10 @@ function GoogleMapCanvas({
                 points: day.items.filter(hasMapCoordinates).map((item) => ({
                     lat: item.lat,
                     lng: item.lng,
+                    tripPlaceId:
+                        item.tripPlaceId != null
+                            ? String(item.tripPlaceId)
+                            : null,
                     placeName: item.placeName ?? '장소',
                     transportMinutes: item.transportMinutes,
                     transportMeters: item.transportMeters,
@@ -185,6 +215,7 @@ function GoogleMapCanvas({
             }))
             .filter((route) => route.points.length > 0)
     }, [days])
+
     const activeRouteDay =
         selectedRouteDay != null &&
         itineraryRoutes.some((route) => route.dayNumber === selectedRouteDay)
@@ -196,15 +227,68 @@ function GoogleMapCanvas({
             : itineraryRoutes.filter(
                   (route) => route.dayNumber === activeRouteDay,
               )
-    const selectedRoutePoints = useMemo(
+
+    // 현재 선택된 Day의 좌표 목록 (구간 네비게이션용)
+    const activeDayPoints = useMemo(
         () =>
             activeRouteDay == null
                 ? []
-                : itineraryRoutes
-                      .filter((route) => route.dayNumber === activeRouteDay)
-                      .flatMap((route) => route.points),
+                : (itineraryRoutes.find((r) => r.dayNumber === activeRouteDay)
+                      ?.points ?? []),
         [activeRouteDay, itineraryRoutes],
     )
+    const totalSegments = Math.max(0, activeDayPoints.length - 1)
+
+    // placeId → activeDayPoints 인덱스 맵
+    const activeDayPlaceIndexMap = useMemo(() => {
+        const map = new Map<string, number>()
+        activeDayPoints.forEach((point, idx) => {
+            if (point.tripPlaceId) map.set(point.tripPlaceId, idx)
+        })
+        return map
+    }, [activeDayPoints])
+
+    // focusedSegmentIndex → focusedSegment ({fromPlaceId, toPlaceId})
+    const focusedSegment = useMemo(() => {
+        if (focusedSegmentIndex == null || activeDayPoints.length < 2)
+            return null
+        const from = activeDayPoints[focusedSegmentIndex]
+        const to = activeDayPoints[focusedSegmentIndex + 1]
+        if (!from?.tripPlaceId || !to?.tripPlaceId) return null
+        return { fromPlaceId: from.tripPlaceId, toPlaceId: to.tripPlaceId }
+    }, [focusedSegmentIndex, activeDayPoints])
+
+    // 집중 구간의 두 장소 ID (마커 dim용)
+    const focusedPlaceIds = useMemo(
+        () =>
+            focusedSegment
+                ? new Set([
+                      focusedSegment.fromPlaceId,
+                      focusedSegment.toPlaceId,
+                  ])
+                : null,
+        [focusedSegment],
+    )
+
+    // 구간 네비게이션 시 두 마커에 맞춰 fitBounds
+    const focusedSegmentPoints = useMemo(() => {
+        if (focusedSegmentIndex == null) return null
+        const from = activeDayPoints[focusedSegmentIndex]
+        const to = activeDayPoints[focusedSegmentIndex + 1]
+        if (!from || !to) return null
+        return { from, to }
+    }, [focusedSegmentIndex, activeDayPoints])
+
+    const selectedRoutePoints = useMemo(() => {
+        if (activeRouteDay != null) {
+            return itineraryRoutes
+                .filter((route) => route.dayNumber === activeRouteDay)
+                .flatMap((route) => route.points)
+        }
+        // 전체 일정: Day 1 첫 번째 장소만 → panTo + zoom 으로 확대
+        const firstDayPoints = itineraryRoutes[0]?.points ?? []
+        return firstDayPoints.slice(0, 1)
+    }, [activeRouteDay, itineraryRoutes])
     if (!isLoaded) {
         return (
             <div className="flex h-full w-full items-center justify-center bg-slate-100">
@@ -217,7 +301,7 @@ function GoogleMapCanvas({
         <div className="relative h-full w-full">
             <GoogleMap
                 defaultCenter={center}
-                defaultZoom={DEFAULT_ZOOM}
+                defaultZoom={initialZoom}
                 minZoom={ITINERARY_MAP_MIN_ZOOM}
                 restriction={{
                     latLngBounds: ITINERARY_MAP_BOUNDS,
@@ -238,35 +322,70 @@ function GoogleMapCanvas({
                 }}
                 onClick={() => {
                     setHoveredId(null)
-                    setDayPickerPlaceId(null)
-                    setScheduleError(null)
+                    setFocusedSegmentIndex(null)
                     onDeselect()
                 }}
             >
                 <MapController
                     places={places}
-                    initialLocation={initialLocation}
+                    initialLat={initialLat}
+                    initialLng={initialLng}
                     selectedId={selectedId}
                 />
-                <RouteFocusController points={selectedRoutePoints} />
+                <RouteFocusController
+                    points={
+                        focusedSegmentIndex == null ? selectedRoutePoints : []
+                    }
+                />
+                <SegmentPanController points={focusedSegmentPoints} />
                 <RouteLayer
                     routes={visibleRoutes}
                     emphasized={activeRouteDay != null}
-                    mapDisplayType={mapDisplayType}
+                    focusedSegment={focusedSegment}
                 />
                 {places.map((place) => {
                     const isSelected = place.id === selectedId
                     const isHovered = place.id === hoveredId
                     const scheduled = scheduledPlaceDetailsMap.get(place.id)
-                    const belongsToVisibleRoute =
-                        selectedRouteDay == null ||
-                        scheduled == null ||
-                        scheduled.dayNumber === selectedRouteDay
+                    // Day 선택 시 해당 Day 외 마커 완전히 숨김
+                    if (
+                        activeRouteDay != null &&
+                        scheduled?.dayNumber !== activeRouteDay
+                    ) {
+                        return null
+                    }
+                    // 구간 집중 모드 dim
+                    const isFocusModeActive = focusedSegment != null
+                    const isFocusedPlace =
+                        focusedPlaceIds?.has(place.id) ?? false
+                    const isFromPlace =
+                        isFocusModeActive &&
+                        focusedSegment?.fromPlaceId === place.id
+                    const markerOpacity =
+                        isFocusModeActive &&
+                        scheduled != null &&
+                        !isFocusedPlace
+                            ? 'opacity-20'
+                            : 'opacity-100'
                     return (
                         <AdvancedMarker
                             key={place.id}
                             position={{ lat: place.lat, lng: place.lng }}
-                            onClick={() => onSelect(place.id)}
+                            onClick={() => {
+                                onSelect(place.id)
+                                // 현재 Day 소속 마커 클릭 → 해당 구간으로 이동
+                                if (
+                                    activeRouteDay != null &&
+                                    scheduled?.dayNumber === activeRouteDay
+                                ) {
+                                    const idx = activeDayPlaceIndexMap.get(
+                                        place.id,
+                                    )
+                                    if (idx != null && idx < totalSegments) {
+                                        setFocusedSegmentIndex(idx)
+                                    }
+                                }
+                            }}
                             zIndex={
                                 isSelected
                                     ? 100
@@ -278,11 +397,7 @@ function GoogleMapCanvas({
                             }
                         >
                             <div
-                                className={`relative flex flex-col items-center transition-opacity ${
-                                    belongsToVisibleRoute
-                                        ? 'opacity-100'
-                                        : 'opacity-25'
-                                }`}
+                                className={`relative flex flex-col items-center transition-opacity ${markerOpacity}`}
                                 onMouseEnter={() => setHoveredId(place.id)}
                                 onMouseLeave={() => setHoveredId(null)}
                             >
@@ -329,6 +444,7 @@ function GoogleMapCanvas({
                                     showCategoryBadge={showCategoryBadges}
                                     selected={isSelected}
                                     hovered={isHovered}
+                                    focused={isFromPlace}
                                 />
                                 {isSelected && (
                                     <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
@@ -338,19 +454,72 @@ function GoogleMapCanvas({
                                             onClick={(event) => {
                                                 event.stopPropagation()
                                                 setHoveredId(null)
-                                                setDayPickerPlaceId(null)
-                                                setScheduleError(null)
                                                 onDeselect()
                                             }}
                                             className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-white/95 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                                         >
                                             <XIcon size={14} aria-hidden />
                                         </button>
-                                        {place.image && (
+                                        {place.photoSourceUrl ? (
+                                            <div className="relative bg-slate-100">
+                                                <img
+                                                    src={place.image}
+                                                    alt={place.name}
+                                                    className="h-20 w-full object-cover"
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-slate-950/65 px-2 py-1 text-[9px] text-white">
+                                                    <a
+                                                        href={
+                                                            place.photoAttributionUrl ??
+                                                            place.photoSourceUrl
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="truncate hover:underline"
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                    >
+                                                        {place.photoAttribution
+                                                            ? `사진: ${place.photoAttribution}`
+                                                            : 'Google Maps 사진'}
+                                                    </a>
+                                                    <a
+                                                        href={
+                                                            place.photoSourceUrl
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex shrink-0 items-center gap-0.5 font-bold hover:underline"
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                    >
+                                                        원본
+                                                        <ExternalLinkIcon
+                                                            size={9}
+                                                            aria-hidden
+                                                        />
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        ) : place.googlePlaceId ? (
+                                            <LazyPlacePhoto
+                                                key={place.googlePlaceId}
+                                                placeId={place.id}
+                                                googlePlaceId={
+                                                    place.googlePlaceId
+                                                }
+                                                placeName={place.name}
+                                                onPhotoResolved={
+                                                    onPlacePhotoResolved
+                                                }
+                                            />
+                                        ) : (
                                             <img
                                                 src={place.image}
                                                 alt={place.name}
-                                                className="h-20 w-full object-cover"
+                                                className="h-20 w-full bg-slate-100 object-cover"
                                             />
                                         )}
                                         <div className="space-y-2 px-3 pb-3 pt-2.5">
@@ -380,7 +549,7 @@ function GoogleMapCanvas({
                                                 )}
                                             </div>
 
-                                            {scheduled != null ? (
+                                            {scheduled != null && (
                                                 <div className="space-y-1.5 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px]">
                                                     <p className="font-bold text-brand">
                                                         Day{' '}
@@ -426,144 +595,7 @@ function GoogleMapCanvas({
                                                         </p>
                                                     )}
                                                 </div>
-                                            ) : onAddToSchedule &&
-                                              days &&
-                                              days.length > 0 ? (
-                                                <div className="relative">
-                                                    <button
-                                                        type="button"
-                                                        disabled={
-                                                            addingPlaceId ===
-                                                            place.id
-                                                        }
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setScheduleError(
-                                                                null,
-                                                            )
-                                                            setDayPickerPlaceId(
-                                                                dayPickerPlaceId ===
-                                                                    place.id
-                                                                    ? null
-                                                                    : place.id,
-                                                            )
-                                                        }}
-                                                        className="flex w-full items-center justify-center gap-1 rounded-lg bg-brand py-1.5 text-[11px] font-bold text-white transition hover:bg-brand/90 disabled:cursor-wait disabled:opacity-60"
-                                                    >
-                                                        <CalendarPlusIcon
-                                                            size={11}
-                                                        />
-                                                        {addingPlaceId ===
-                                                        place.id
-                                                            ? '추가 중...'
-                                                            : '일정에 추가'}
-                                                    </button>
-                                                    {dayPickerPlaceId ===
-                                                        place.id && (
-                                                        <>
-                                                            <div
-                                                                className="fixed inset-0 z-40"
-                                                                onClick={(
-                                                                    e,
-                                                                ) => {
-                                                                    e.stopPropagation()
-                                                                    setDayPickerPlaceId(
-                                                                        null,
-                                                                    )
-                                                                }}
-                                                            />
-                                                            <div className="absolute bottom-full left-0 z-50 mb-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-                                                                <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                                                    추가할 Day
-                                                                </p>
-                                                                <div className="max-h-40 overflow-y-auto">
-                                                                    {days.map(
-                                                                        (
-                                                                            day,
-                                                                        ) => (
-                                                                            <button
-                                                                                key={
-                                                                                    day.id
-                                                                                }
-                                                                                type="button"
-                                                                                onClick={async (
-                                                                                    e,
-                                                                                ) => {
-                                                                                    e.stopPropagation()
-                                                                                    setDayPickerPlaceId(
-                                                                                        null,
-                                                                                    )
-                                                                                    setAddingPlaceId(
-                                                                                        place.id,
-                                                                                    )
-                                                                                    setScheduleError(
-                                                                                        null,
-                                                                                    )
-                                                                                    try {
-                                                                                        await onAddToSchedule(
-                                                                                            place.id,
-                                                                                            String(
-                                                                                                day.id,
-                                                                                            ),
-                                                                                        )
-                                                                                    } catch {
-                                                                                        setScheduleError(
-                                                                                            '일정에 추가하지 못했습니다.',
-                                                                                        )
-                                                                                    } finally {
-                                                                                        setAddingPlaceId(
-                                                                                            null,
-                                                                                        )
-                                                                                    }
-                                                                                }}
-                                                                                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
-                                                                            >
-                                                                                <span className="text-xs font-bold text-brand">
-                                                                                    Day{' '}
-                                                                                    {
-                                                                                        day.dayNumber
-                                                                                    }
-                                                                                </span>
-                                                                                <span className="truncate text-[10px] text-slate-400">
-                                                                                    {new Date(
-                                                                                        day.itineraryDate +
-                                                                                            'T00:00:00',
-                                                                                    ).toLocaleDateString(
-                                                                                        'ko-KR',
-                                                                                        {
-                                                                                            month: 'numeric',
-                                                                                            day: 'numeric',
-                                                                                        },
-                                                                                    )}
-                                                                                </span>
-                                                                                {day
-                                                                                    .items
-                                                                                    .length >
-                                                                                    0 && (
-                                                                                    <span className="ml-auto shrink-0 text-[10px] text-slate-300">
-                                                                                        {
-                                                                                            day
-                                                                                                .items
-                                                                                                .length
-                                                                                        }
-
-                                                                                        개
-                                                                                    </span>
-                                                                                )}
-                                                                            </button>
-                                                                        ),
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                    {scheduleError && (
-                                                        <p className="mt-1 text-center text-[10px] font-medium text-red-500">
-                                                            {scheduleError}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            ) : null}
+                                            )}
 
                                             <a
                                                 href={buildGoogleMapsPlaceUrl(
@@ -604,9 +636,50 @@ function GoogleMapCanvas({
                 <MapRouteFilter
                     routes={itineraryRoutes}
                     selectedDay={activeRouteDay}
-                    onSelect={setSelectedRouteDay}
+                    onSelect={(day) => {
+                        setSelectedRouteDay(day)
+                        setFocusedSegmentIndex(day != null ? 0 : null)
+                    }}
                 />
             )}
+            {focusedSegmentIndex != null &&
+                activeRouteDay != null &&
+                totalSegments > 0 && (
+                    <div className="absolute bottom-10 left-1/2 z-20 -translate-x-1/2">
+                        <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
+                            <button
+                                type="button"
+                                disabled={focusedSegmentIndex === 0}
+                                onClick={() =>
+                                    setFocusedSegmentIndex(
+                                        focusedSegmentIndex - 1,
+                                    )
+                                }
+                                className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
+                            >
+                                ‹ 이전
+                            </button>
+                            <span className="text-xs font-bold text-slate-700">
+                                Day {activeRouteDay} · {focusedSegmentIndex + 1}{' '}
+                                / {totalSegments}
+                            </span>
+                            <button
+                                type="button"
+                                disabled={
+                                    focusedSegmentIndex >= totalSegments - 1
+                                }
+                                onClick={() =>
+                                    setFocusedSegmentIndex(
+                                        focusedSegmentIndex + 1,
+                                    )
+                                }
+                                className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
+                            >
+                                다음 ›
+                            </button>
+                        </div>
+                    </div>
+                )}
 
             {itineraryRoutes.length > 0 && (
                 <p className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-medium text-slate-500 shadow">
@@ -621,12 +694,13 @@ function GoogleMapCanvas({
 function RouteLayer({
     routes,
     emphasized,
-    mapDisplayType,
+    focusedSegment,
 }: {
     routes: Array<{
         points: Array<{
             lat: number
             lng: number
+            tripPlaceId: string | null
             placeName: string
             transportMinutes: number | null
             transportMeters: number | null
@@ -639,104 +713,124 @@ function RouteLayer({
         confirmed: boolean
     }>
     emphasized: boolean
-    mapDisplayType: 'roadmap' | 'hybrid'
+    focusedSegment: { fromPlaceId: string; toPlaceId: string } | null
 }) {
     const [hoveredSegment, setHoveredSegment] = useState<string | null>(null)
-    const casingColor = mapDisplayType === 'hybrid' ? '#0f172a' : '#ffffff'
+    const isFocusMode = focusedSegment != null
 
     return (
         <>
-            {routes.map((route) => {
-                const path = route.points.map(({ lat, lng }) => ({ lat, lng }))
-                return (
-                    <React.Fragment key={route.dayId}>
-                        {path.length >= 2 && (
-                            <>
-                                <Polyline
-                                    path={path}
-                                    strokeColor={casingColor}
-                                    strokeOpacity={
-                                        mapDisplayType === 'hybrid' ? 0.72 : 0.9
-                                    }
-                                    strokeWeight={emphasized ? 10 : 8}
-                                    zIndex={1}
-                                    geodesic
-                                />
-                                <Polyline
-                                    path={path}
-                                    strokeColor={route.color}
-                                    strokeOpacity={
-                                        emphasized
-                                            ? 1
-                                            : route.confirmed
-                                              ? 0.92
-                                              : 0.72
-                                    }
-                                    strokeWeight={
-                                        emphasized ? 6 : route.confirmed ? 5 : 4
-                                    }
-                                    zIndex={2}
-                                    geodesic
-                                />
-                            </>
-                        )}
-                        {route.points.slice(0, -1).map((point, index) => {
-                            const next = route.points[index + 1]
-                            const segmentId = `${route.dayId}-${index}`
-                            const midpoint = {
-                                lat: (point.lat + next.lat) / 2,
-                                lng: (point.lng + next.lng) / 2,
-                            }
-                            const angle = getBearing(point, next)
-                            return (
-                                <AdvancedMarker
-                                    key={segmentId}
-                                    position={midpoint}
-                                    zIndex={5}
-                                    onMouseEnter={() =>
-                                        setHoveredSegment(segmentId)
-                                    }
-                                    onMouseLeave={() => setHoveredSegment(null)}
+            {routes.map((route) =>
+                route.points.slice(0, -1).map((point, index) => {
+                    const next = route.points[index + 1]
+                    const segmentId = `${route.dayId}-${index}`
+                    const segPath = [
+                        { lat: point.lat, lng: point.lng },
+                        { lat: next.lat, lng: next.lng },
+                    ]
+                    const midpoint = {
+                        lat: (point.lat + next.lat) / 2,
+                        lng: (point.lng + next.lng) / 2,
+                    }
+                    const isFocusedSeg =
+                        isFocusMode &&
+                        point.tripPlaceId === focusedSegment!.fromPlaceId &&
+                        next.tripPlaceId === focusedSegment!.toPlaceId
+                    const segOpacity = isFocusMode
+                        ? isFocusedSeg
+                            ? 1
+                            : 0.08
+                        : emphasized
+                          ? 0.95
+                          : route.confirmed
+                            ? 0.85
+                            : 0.65
+                    return (
+                        <React.Fragment key={segmentId}>
+                            <ItineraryRoutePolyline
+                                path={segPath}
+                                color={route.color}
+                                opacity={segOpacity}
+                                strokeWeight={2}
+                                zIndex={isFocusedSeg ? 3 : 2}
+                                emphasis={
+                                    isFocusMode
+                                        ? isFocusedSeg
+                                            ? 'focused'
+                                            : 'dimmed'
+                                        : 'normal'
+                                }
+                            />
+                            <AdvancedMarker
+                                position={midpoint}
+                                zIndex={isFocusedSeg ? 10 : 5}
+                                onMouseEnter={() =>
+                                    setHoveredSegment(segmentId)
+                                }
+                                onMouseLeave={() => setHoveredSegment(null)}
+                            >
+                                <div
+                                    className={`relative transition-opacity ${
+                                        isFocusMode && !isFocusedSeg
+                                            ? 'opacity-10'
+                                            : 'opacity-100'
+                                    }`}
                                 >
-                                    <div className="relative">
-                                        {hoveredSegment === segmentId && (
-                                            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-center shadow-lg">
-                                                <p className="truncate text-[11px] font-bold text-slate-700">
-                                                    {point.placeName} →{' '}
-                                                    {next.placeName}
-                                                </p>
-                                                <p className="mt-0.5 text-[10px] text-slate-400">
-                                                    {formatTransportSummary(
-                                                        point,
-                                                    )}
-                                                </p>
-                                            </div>
-                                        )}
-                                        <span
-                                            className="flex size-6 items-center justify-center rounded-full border-2 border-white bg-white/95 shadow-md"
-                                            style={{
-                                                color: route.color,
-                                                transform: `rotate(${angle}deg)`,
-                                            }}
-                                        >
-                                            <ArrowUpIcon
-                                                size={15}
-                                                strokeWidth={4}
-                                                className={
-                                                    emphasized
-                                                        ? 'itinerary-route-arrow-flow'
-                                                        : ''
-                                                }
-                                            />
-                                        </span>
-                                    </div>
-                                </AdvancedMarker>
-                            )
-                        })}
-                    </React.Fragment>
-                )
-            })}
+                                    {hoveredSegment === segmentId && (
+                                        <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-center shadow-lg">
+                                            <p className="truncate text-[11px] font-bold text-slate-700">
+                                                {point.placeName} →{' '}
+                                                {next.placeName}
+                                            </p>
+                                            <p className="mt-0.5 text-[10px] text-slate-400">
+                                                {formatTransportSummary(point)}
+                                            </p>
+                                        </div>
+                                    )}
+                                    <div className="size-6 cursor-default" />
+                                </div>
+                            </AdvancedMarker>
+                        </React.Fragment>
+                    )
+                }),
+            )}
         </>
+    )
+}
+
+// 구간 선택 시 출발 장소 중심으로 확대
+function SegmentPanController({
+    points,
+}: {
+    points: {
+        from: { lat: number; lng: number }
+        to: { lat: number; lng: number }
+    } | null
+}) {
+    const map = useMap()
+    useEffect(() => {
+        if (map == null || points == null) return
+        map.panTo(points.from)
+        map.setZoom(16)
+    }, [map, points])
+    return null
+}
+
+function fitBoundsToPoints(
+    map: NonNullable<ReturnType<typeof useMap>>,
+    points: Array<{ lat: number; lng: number }>,
+    padding?: number,
+) {
+    const lats = points.map((p) => p.lat)
+    const lngs = points.map((p) => p.lng)
+    map.fitBounds(
+        {
+            north: Math.max(...lats),
+            south: Math.min(...lats),
+            east: Math.max(...lngs),
+            west: Math.min(...lngs),
+        },
+        padding,
     )
 }
 
@@ -751,21 +845,11 @@ function RouteFocusController({
         if (map == null || points.length === 0) return
         if (points.length === 1) {
             map.panTo(points[0])
-            map.setZoom(14)
+            map.setZoom(16)
             return
         }
 
-        const latitudes = points.map((point) => point.lat)
-        const longitudes = points.map((point) => point.lng)
-        map.fitBounds(
-            {
-                north: Math.max(...latitudes),
-                south: Math.min(...latitudes),
-                east: Math.max(...longitudes),
-                west: Math.min(...longitudes),
-            },
-            96,
-        )
+        fitBoundsToPoints(map, points, 96)
         const listener = map.addListener('idle', () => {
             if ((map.getZoom() ?? 0) > 15) map.setZoom(15)
             listener.remove()
@@ -776,63 +860,29 @@ function RouteFocusController({
     return null
 }
 
-function getBearing(
-    from: { lat: number; lng: number },
-    to: { lat: number; lng: number },
-): number {
-    const latitude1 = (from.lat * Math.PI) / 180
-    const latitude2 = (to.lat * Math.PI) / 180
-    const longitudeDelta = ((to.lng - from.lng) * Math.PI) / 180
-    const y = Math.sin(longitudeDelta) * Math.cos(latitude2)
-    const x =
-        Math.cos(latitude1) * Math.sin(latitude2) -
-        Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(longitudeDelta)
-    return (Math.atan2(y, x) * 180) / Math.PI
-}
-
-// selectedId가 바뀌면 해당 장소로 지도 이동
+// selectedId가 바뀌면 해당 장소로 지도 이동 / 장소 수 변화 시 지도 범위 조정
 function MapController({
     places,
-    initialLocation,
+    initialLat,
+    initialLng,
     selectedId,
 }: {
     places: Place[]
-    initialLocation?: string | null
+    initialLat?: number | null
+    initialLng?: number | null
     selectedId: string | null
 }) {
     const map = useMap()
-    const geocodingLibrary = useMapsLibrary('geocoding')
 
     useEffect(() => {
         if (!map) return
 
         if (places.length === 0) {
-            const destination = initialLocation?.trim()
-            if (
-                !destination ||
-                destination === '장소 미정' ||
-                !geocodingLibrary
-            ) {
-                return
+            if (initialLat != null && initialLng != null) {
+                map.setCenter({ lat: initialLat, lng: initialLng })
+                map.setZoom(DESTINATION_FOCUS_ZOOM)
             }
-
-            let active = true
-            const geocoder = new geocodingLibrary.Geocoder()
-            void geocoder
-                .geocode({ address: destination })
-                .then(({ results }: GeocoderResponse) => {
-                    if (!active || results.length === 0) return
-                    const geometry = results[0].geometry
-                    map.setCenter(geometry.location.toJSON())
-                    map.setZoom(DESTINATION_FOCUS_ZOOM)
-                })
-                .catch(() => {
-                    // 지역 검색 실패 시 기존 기본 지도 위치를 유지한다.
-                })
-
-            return () => {
-                active = false
-            }
+            return
         }
 
         if (places.length === 1) {
@@ -841,27 +891,22 @@ function MapController({
             return
         }
 
-        const latitudes = places.map((place) => place.lat)
-        const longitudes = places.map((place) => place.lng)
-        map.fitBounds({
-            north: Math.max(...latitudes),
-            south: Math.min(...latitudes),
-            east: Math.max(...longitudes),
-            west: Math.min(...longitudes),
-        })
-    }, [geocodingLibrary, initialLocation, map, places])
+        fitBoundsToPoints(map, places)
+    }, [initialLat, initialLng, map, places])
 
     useEffect(() => {
         if (!map || !selectedId) return
         const place = places.find((p) => p.id === selectedId)
-        if (place) map.panTo({ lat: place.lat, lng: place.lng })
+        if (place) {
+            map.panTo({ lat: place.lat, lng: place.lng })
+            map.setZoom(SELECTED_PLACE_FOCUS_ZOOM)
+        }
     }, [map, selectedId, places])
 
     return null
 }
 
 function calculateCenter(places: Place[]): { lat: number; lng: number } {
-    if (places.length === 0) return JEJU_CENTER
     const lat = places.reduce((sum, p) => sum + p.lat, 0) / places.length
     const lng = places.reduce((sum, p) => sum + p.lng, 0) / places.length
     return { lat, lng }

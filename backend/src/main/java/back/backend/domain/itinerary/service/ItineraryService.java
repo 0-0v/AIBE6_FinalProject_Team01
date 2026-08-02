@@ -11,6 +11,7 @@ import back.backend.domain.itinerary.entity.*;
 import back.backend.domain.itinerary.exception.ItineraryErrorCode;
 import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.itinerary.repository.ItineraryItemRepository;
+import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.repository.TripPlaceRepository;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
@@ -60,7 +62,70 @@ public class ItineraryService {
     public List<ItineraryDayResponse> initializeItinerary(Long tripId) {
         accessChecker.requireEdit(tripId);
         synchronizeItineraryDays(tripId);
+        autoSetLodgingDeparture(tripId);
         return buildDayResponses(tripId);
+    }
+
+    @Transactional
+    public ItineraryDayResponse updateDeparture(
+            Long tripId,
+            Long dayId,
+            UpdateDeparturePlaceRequest request
+    ) {
+        accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
+        ItineraryDay day = findDayOrThrow(dayId, tripId);
+
+        if ("NONE".equals(request.type())) {
+            day.updateDeparture(null, null, null, null, null);
+            day.updateDepartureTravelInfo(null, null, null);
+            publishChanged(tripId, dayId);
+            return getDayResponseById(tripId, dayId);
+        }
+
+        if ("TRIP_PLACE".equals(request.type())) {
+            if (request.tripPlaceId() == null) {
+                throw new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND);
+            }
+            TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(request.tripPlaceId(), tripId)
+                    .orElseThrow(() -> new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND));
+            day.updateDeparture(
+                    "TRIP_PLACE",
+                    tripPlace.getPlace().getName(),
+                    tripPlace.getPlace().getLatitude(),
+                    tripPlace.getPlace().getLongitude(),
+                    tripPlace.getId()
+            );
+        } else if ("CUSTOM".equals(request.type())) {
+            if (request.name() == null || request.latitude() == null || request.longitude() == null) {
+                throw new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND);
+            }
+            day.updateDeparture(
+                    "CUSTOM",
+                    request.name(),
+                    BigDecimal.valueOf(request.latitude()),
+                    BigDecimal.valueOf(request.longitude()),
+                    null
+            );
+        } else {
+            throw new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND);
+        }
+
+        // 출발지 → 첫 아이템 이동 시간 재계산
+        List<ItineraryItem> items = itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day);
+        if (!items.isEmpty()) {
+            Set<Long> placeIds = items.stream()
+                    .map(ItineraryItem::getTripPlaceId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Map<Long, TripPlace> tripPlaceById = placeIds.isEmpty() ? Map.of()
+                    : tripPlaceRepository.findAllById(placeIds).stream()
+                            .collect(Collectors.toMap(TripPlace::getId, tp -> tp));
+            travelEstimator.recalculateDeparture(day, items, tripPlaceById);
+        }
+
+        publishChanged(tripId, dayId);
+        return getDayResponseById(tripId, dayId);
     }
 
     @Transactional
@@ -113,7 +178,14 @@ public class ItineraryService {
         updateSortOrders(existingItems);
         itemRepository.saveAllAndFlush(existingItems);
         markDayDraft(item.getItineraryDay());
-        recalculateItems(existingItems);
+        // 변경된 구간만 재계산: 삽입 위치의 이전 구간(P-1→P)과 새 구간(P→P+1)
+        int p = request.sortOrder();
+        Set<Integer> affected = new HashSet<>();
+        if (p > 0) affected.add(p - 1);
+        affected.add(p);
+        recalculateItemsAt(existingItems, affected);
+        // 첫 번째 위치에 삽입되면 departure → 첫 아이템 구간도 재계산
+        if (p == 0) recalculateDepartureTravelIfNeeded(day, existingItems);
 
         publishChanged(tripId, item.getId());
         return getDayResponseById(tripId, dayId);
@@ -124,6 +196,7 @@ public class ItineraryService {
         accessChecker.requireEdit(tripId);
         lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
+        int removedSortOrder = item.getSortOrder(); // 삭제 전 인덱스 기록
         ItineraryDay day = item.getItineraryDay();
         itemRepository.delete(item);
         itemRepository.flush();
@@ -134,7 +207,12 @@ public class ItineraryService {
             itemRepository.saveAllAndFlush(remainingItems);
         }
         markDayDraft(day);
-        recalculateItems(remainingItems);
+        // 변경된 구간만 재계산: 삭제된 위치의 이전 아이템(P-1→new P)만 영향받음
+        if (removedSortOrder > 0 && !remainingItems.isEmpty()) {
+            recalculateItemsAt(remainingItems, Set.of(removedSortOrder - 1));
+        }
+        // 첫 번째 아이템 삭제 시 departure travel 재계산
+        if (removedSortOrder == 0) recalculateDepartureTravelIfNeeded(day, remainingItems);
         publishChanged(tripId, itemId);
     }
 
@@ -309,6 +387,17 @@ public class ItineraryService {
                 : new ArrayList<>(
                         itemRepository.findAllByItineraryDayOrderBySortOrderAsc(targetDay)
                 );
+
+        // 이동 전 원본 인덱스와 순서 기록 (변경 구간 계산용)
+        int originalSourceIndex = 0;
+        for (int i = 0; i < sourceItems.size(); i++) {
+            if (sourceItems.get(i).getId().equals(item.getId())) {
+                originalSourceIndex = i;
+                break;
+            }
+        }
+        List<ItineraryItem> originalSourceOrder = new ArrayList<>(sourceItems);
+
         sourceItems.removeIf(candidate -> candidate.getId().equals(item.getId()));
         if (sourceDay.getId().equals(targetDay.getId())) {
             targetItems = sourceItems;
@@ -328,9 +417,20 @@ public class ItineraryService {
 
         markDayDraft(sourceDay);
         markDayDraft(targetDay);
-        recalculateItems(sourceItems);
-        if (!sourceDay.getId().equals(targetDay.getId())) {
-            recalculateItems(targetItems);
+
+        if (sourceDay.getId().equals(targetDay.getId())) {
+            // 같은 Day 이동: 순서가 바뀐 구간만 재계산
+            recalculateItemsAt(targetItems, changedSegmentIndices(originalSourceOrder, targetItems));
+        } else {
+            // 다른 Day 이동: 출발 Day는 삭제 위치 이전 구간, 도착 Day는 삽입 위치 주변 구간
+            if (originalSourceIndex > 0 && !sourceItems.isEmpty()) {
+                recalculateItemsAt(sourceItems, Set.of(originalSourceIndex - 1));
+            }
+            int tp = request.sortOrder();
+            Set<Integer> targetAffected = new HashSet<>();
+            if (tp > 0) targetAffected.add(tp - 1);
+            targetAffected.add(tp);
+            recalculateItemsAt(targetItems, targetAffected);
         }
 
         TripPlace tp = item.getTripPlaceId() != null
@@ -366,7 +466,8 @@ public class ItineraryService {
         }
         itemRepository.saveAllAndFlush(reorderedItems);
         markDayDraft(day);
-        recalculateItems(reorderedItems);
+        // 순서 변경 시 다음 장소가 달라진 구간만 재계산
+        recalculateItemsAt(reorderedItems, changedSegmentIndices(dayItems, reorderedItems));
 
         publishChanged(tripId, dayId);
         return getDayResponseById(tripId, dayId);
@@ -385,26 +486,67 @@ public class ItineraryService {
     }
 
     @Transactional(readOnly = true)
-    public List<RoutePlanOption> previewRoutePlan(Long tripId) {
+    public List<RoutePlanOption> previewRoutePlan(Long tripId, RoutePlanSettingsRequest requestSettings) {
         accessChecker.requireView(tripId);
         var trip = tripRepository.findById(tripId);
         var travelStyles = trip.map(t -> t.getTravelStyles()).orElse(Set.of());
-        var settings = trip.map(t -> {
-            LocalTime start = t.getDayStartTime();
-            LocalTime end = t.getDayEndTime();
-            TravelPace pace = t.getTravelPace();
+
+        ItineraryTransportMode defaultTransportMode = resolveTransportMode(requestSettings);
+        LocalTime overrideStart = resolveTime(requestSettings != null ? requestSettings.dayStartTime() : null);
+        LocalTime overrideEnd   = resolveTime(requestSettings != null ? requestSettings.dayEndTime()   : null);
+        TravelPace overridePace = resolveTravelPace(requestSettings != null ? requestSettings.travelPace() : null);
+        var scheduleSettings = trip.map(t -> {
+            LocalTime start = overrideStart != null ? overrideStart : t.getDayStartTime();
+            LocalTime end   = overrideEnd   != null ? overrideEnd   : t.getDayEndTime();
+            TravelPace pace = overridePace  != null ? overridePace  : t.getTravelPace();
             return new TripScheduleSettings(
                     start != null ? start : LocalTime.of(9, 0),
-                    end != null ? end : LocalTime.of(21, 0),
-                    pace != null ? pace : TravelPace.NORMAL
+                    end   != null ? end   : LocalTime.of(21, 0),
+                    pace  != null ? pace  : TravelPace.NORMAL,
+                    defaultTransportMode,
+                    Map.of(),
+                    Map.of()
             );
         }).orElse(TripScheduleSettings.defaultSettings());
+
+        // 좌표 없는 장소 필터 (NullPointerException 방지 및 동선 정확도)
+        List<TripPlace> savedPlaces = findSavedTripPlaces(tripId).stream()
+                .filter(p -> p.getPlace().getLatitude() != null && p.getPlace().getLongitude() != null)
+                .collect(Collectors.toList());
+
         return routePlanner.planMulti(
                 dayRepository.findAllWithItemsByTripId(tripId),
-                findSavedTripPlaces(tripId),
+                savedPlaces,
                 travelStyles,
-                settings
+                scheduleSettings
         );
+    }
+
+    private ItineraryTransportMode resolveTransportMode(RoutePlanSettingsRequest settings) {
+        if (settings == null || settings.transportMode() == null) return null;
+        try {
+            return ItineraryTransportMode.valueOf(settings.transportMode());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private LocalTime resolveTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return LocalTime.parse(value, TIME_FMT);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private TravelPace resolveTravelPace(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return TravelPace.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     @Transactional
@@ -412,12 +554,46 @@ public class ItineraryService {
             Long tripId,
             RoutePlanPreviewResponse plan
     ) {
+        return applyRoutePlanInternal(tripId, plan, false);
+    }
+
+    @Transactional
+    public List<ItineraryDayResponse> applyReplan(
+            Long tripId,
+            RoutePlanPreviewResponse plan
+    ) {
+        return applyRoutePlanInternal(tripId, plan, true);
+    }
+
+    private List<ItineraryDayResponse> applyRoutePlanInternal(
+            Long tripId,
+            RoutePlanPreviewResponse plan,
+            boolean scheduledPlacesOnly
+    ) {
         accessChecker.requireEdit(tripId);
         lockTripForUpdate(tripId);
         synchronizeItineraryDays(tripId);
 
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
-        validateRoutePlan(plan, days, findSavedTripPlaces(tripId));
+        List<TripPlace> expectedPlaces = scheduledPlacesOnly
+                ? tripPlaceRepository.findAllById(days.stream()
+                        .flatMap(day -> day.getItems().stream())
+                        .map(ItineraryItem::getTripPlaceId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet()))
+                : findSavedTripPlaces(tripId);
+        Set<Long> departurePlaceIds = days.stream()
+                .map(ItineraryDay::getDepartureTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        expectedPlaces = expectedPlaces.stream()
+                .filter(place -> !departurePlaceIds.contains(place.getId()))
+                .toList();
+        RoutePlanPreviewResponse effectivePlan = removeDepartureVisits(
+                plan,
+                departurePlaceIds
+        );
+        validateRoutePlan(effectivePlan, days, expectedPlaces);
         Map<Long, ItineraryDay> dayById = days.stream()
                 .collect(Collectors.toMap(ItineraryDay::getId, day -> day));
         List<ItineraryItem> existingItems = days.stream()
@@ -429,7 +605,7 @@ public class ItineraryService {
                         ItineraryItem::getTripPlaceId,
                         item -> item
                 ));
-        Set<Long> plannedTripPlaceIds = plan.days().stream()
+        Set<Long> plannedTripPlaceIds = effectivePlan.days().stream()
                 .flatMap(day -> day.items().stream())
                 .map(item -> item.tripPlaceId())
                 .collect(Collectors.toSet());
@@ -452,7 +628,7 @@ public class ItineraryService {
         }
 
         List<ItineraryItem> plannedItems = new ArrayList<>();
-        for (var plannedDay : plan.days()) {
+        for (var plannedDay : effectivePlan.days()) {
             ItineraryDay day = dayById.get(plannedDay.dayId());
             if (day == null) continue;
             for (int index = 0; index < plannedDay.items().size(); index++) {
@@ -491,6 +667,45 @@ public class ItineraryService {
         entityManager.clear();
         publishChanged(tripId, null);
         return buildDayResponses(tripId);
+    }
+
+    private RoutePlanPreviewResponse removeDepartureVisits(
+            RoutePlanPreviewResponse plan,
+            Set<Long> departurePlaceIds
+    ) {
+        if (plan == null || plan.days() == null || departurePlaceIds.isEmpty()) {
+            return plan;
+        }
+        List<RoutePlanDayResponse> sanitizedDays = plan.days().stream()
+                .map(day -> {
+                    if (day == null || day.items() == null) {
+                        return day;
+                    }
+                    List<RoutePlanItemResponse> visitItems = day.items().stream()
+                            .filter(item -> item == null
+                                    || !departurePlaceIds.contains(item.tripPlaceId()))
+                            .toList();
+                    return new RoutePlanDayResponse(
+                            day.dayId(),
+                            day.dayNumber(),
+                            day.itineraryDate(),
+                            day.totalDistanceMeters(),
+                            visitItems
+                    );
+                })
+                .toList();
+        int visitCount = sanitizedDays.stream()
+                .filter(Objects::nonNull)
+                .map(RoutePlanDayResponse::items)
+                .filter(Objects::nonNull)
+                .mapToInt(List::size)
+                .sum();
+        return new RoutePlanPreviewResponse(
+                plan.summary(),
+                visitCount,
+                plan.totalDistanceMeters(),
+                sanitizedDays
+        );
     }
 
     // ── private helpers ──────────────────────────────────────
@@ -671,6 +886,56 @@ public class ItineraryService {
 
 
 
+    /**
+     * 출발지가 없는 날에 한해, 저장된 숙소(LODGING) 중 첫 번째를 기본 출발지로 설정합니다.
+     * 숙소가 없으면 아무 작업도 하지 않습니다.
+     */
+    private void autoSetLodgingDeparture(Long tripId) {
+        List<TripPlace> lodgings = tripPlaceRepository
+                .findAllOrderedByTripIdAndStatus(tripId, TripPlaceStatus.SAVED)
+                .stream()
+                .filter(tp -> tp.getCategory() != null
+                        && PlaceCategoryType.LODGING == tp.getCategory().getCategoryType())
+                .toList();
+
+        if (lodgings.isEmpty()) return;
+
+        TripPlace defaultLodging = lodgings.get(0);
+        List<ItineraryDay> days = dayRepository.findAllByTripIdOrderByItineraryDateAsc(tripId);
+
+        for (ItineraryDay day : days) {
+            if (day.hasDeparture()) continue; // 이미 설정된 날은 건드리지 않음
+            day.updateDeparture(
+                    "TRIP_PLACE",
+                    defaultLodging.getPlace().getName(),
+                    defaultLodging.getPlace().getLatitude(),
+                    defaultLodging.getPlace().getLongitude(),
+                    defaultLodging.getId()
+            );
+        }
+        if (!days.isEmpty()) {
+            dayRepository.saveAll(days);
+        }
+    }
+
+    /**
+     * 첫 번째 아이템이 바뀌었을 때 departure travel 정보를 재계산합니다.
+     */
+    private void recalculateDepartureTravelIfNeeded(
+            ItineraryDay day,
+            List<ItineraryItem> items
+    ) {
+        if (!day.hasDeparture()) return;
+        Set<Long> placeIds = items.stream()
+                .map(ItineraryItem::getTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, TripPlace> tripPlaceById = placeIds.isEmpty() ? Map.of()
+                : tripPlaceRepository.findAllById(placeIds).stream()
+                        .collect(Collectors.toMap(TripPlace::getId, tp -> tp));
+        travelEstimator.recalculateDeparture(day, items, tripPlaceById);
+    }
+
     private List<TripPlace> findSavedTripPlaces(Long tripId) {
         return tripPlaceRepository.findAllOrderedByTripIdAndStatus(
                 tripId,
@@ -700,6 +965,46 @@ public class ItineraryService {
                 : tripPlaceRepository.findAllById(tripPlaceIds).stream()
                         .collect(Collectors.toMap(TripPlace::getId, place -> place));
         travelEstimator.recalculate(items, tripPlaceById);
+    }
+
+    /** 변경된 인덱스의 구간만 재계산 — Routes API 호출 최소화용 */
+    private void recalculateItemsAt(List<ItineraryItem> items, Set<Integer> indices) {
+        if (items.isEmpty() || indices.isEmpty()) return;
+        Set<Long> tripPlaceIds = items.stream()
+                .map(ItineraryItem::getTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, TripPlace> tripPlaceById = tripPlaceIds.isEmpty()
+                ? Map.of()
+                : tripPlaceRepository.findAllById(tripPlaceIds).stream()
+                        .collect(Collectors.toMap(TripPlace::getId, place -> place));
+        travelEstimator.recalculateAt(items, tripPlaceById, indices);
+    }
+
+    /**
+     * newOrder 내에서 구간(i → i+1)의 다음 장소가 oldOrder와 달라진 인덱스를 반환합니다.
+     * 드래그·이동 시 실제로 변경된 구간만 API를 호출하기 위해 사용합니다.
+     */
+    private Set<Integer> changedSegmentIndices(
+            List<ItineraryItem> oldOrder,
+            List<ItineraryItem> newOrder
+    ) {
+        Map<Long, Long> oldNextMap = new HashMap<>();
+        for (int i = 0; i < oldOrder.size(); i++) {
+            Long nextTpId = i + 1 < oldOrder.size()
+                    ? oldOrder.get(i + 1).getTripPlaceId() : null;
+            oldNextMap.put(oldOrder.get(i).getId(), nextTpId);
+        }
+        Set<Integer> changed = new HashSet<>();
+        for (int i = 0; i < newOrder.size(); i++) {
+            Long itemId = newOrder.get(i).getId();
+            Long newNext = i + 1 < newOrder.size()
+                    ? newOrder.get(i + 1).getTripPlaceId() : null;
+            if (!Objects.equals(newNext, oldNextMap.getOrDefault(itemId, null))) {
+                changed.add(i);
+            }
+        }
+        return changed;
     }
 
     private List<ItineraryDayResponse> buildDayResponses(Long tripId) {

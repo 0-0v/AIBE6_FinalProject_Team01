@@ -106,8 +106,10 @@ public class TripService {
     public TripResponse update(Long memberId, Long tripId, TripRequest request) {
         Trip trip = findJoinedTripWithoutLock(memberId, tripId);
         try {
+            validateUpdatedStartDate(trip, request);
             trip.update(request.title(), request.companionType(), request.normalizedTravelStyles(),
-                    request.destination(), request.startDate(), request.endDate(),
+                    request.destination(), request.destinationLat(), request.destinationLng(),
+                    request.startDate(), request.endDate(),
                     request.dayStartTime(), request.dayEndTime(), request.travelPace());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
@@ -153,18 +155,27 @@ public class TripService {
 
     private Trip saveValidTrip(Long memberId, TripRequest request) {
         try {
-            validateCreationDates(request);
+            validateStartDate(request);
             return tripRepository.save(Trip.create(memberId, request.title(), request.companionType(),
-                    request.normalizedTravelStyles(), request.destination(), request.startDate(), request.endDate()));
+                    request.normalizedTravelStyles(), request.destination(),
+                    request.destinationLat(), request.destinationLng(),
+                    request.startDate(), request.endDate()));
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         }
     }
 
-    private void validateCreationDates(TripRequest request) {
+    private void validateStartDate(TripRequest request) {
         if (request.startDate() != null
                 && !request.startDate().isAfter(LocalDate.now(clock))) {
             throw new IllegalArgumentException("여행 시작일은 내일부터 선택할 수 있습니다.");
+        }
+    }
+
+    private void validateUpdatedStartDate(Trip trip, TripRequest request) {
+        if (request.startDate() != null
+                && !request.startDate().equals(trip.getStartDate())) {
+            validateStartDate(request);
         }
     }
 

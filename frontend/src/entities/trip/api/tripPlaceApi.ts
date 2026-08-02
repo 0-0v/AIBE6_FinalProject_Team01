@@ -39,6 +39,15 @@ export type PlaceVoteSummaryResponse = PlaceVoteSummary & {
     tripPlaceId: number
 }
 
+export type PlacePhotoMetadata = {
+    photoName: string
+    googleMapsUri: string | null
+    authorAttributions: Array<{
+        displayName: string | null
+        uri: string | null
+    }>
+}
+
 const API_STATUS_MAP: Record<'SAVED' | 'HOLD' | 'REJECTED', PlaceStatus> = {
     SAVED: 'saved',
     HOLD: 'hold',
@@ -183,6 +192,18 @@ export async function getTripPlaceAccess(
         { signal },
     )
     return res.data
+}
+
+export async function getPlacePhotoMetadata(
+    googlePlaceId: string,
+    signal?: AbortSignal,
+): Promise<PlacePhotoMetadata> {
+    const params = new URLSearchParams({ placeId: googlePlaceId })
+    const response = await apiClient.get<ApiResponse<PlacePhotoMetadata>>(
+        `/api/places/photo/metadata?${params.toString()}`,
+        { signal },
+    )
+    return response.data
 }
 
 export async function deleteTripPlace(

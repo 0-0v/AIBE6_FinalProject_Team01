@@ -55,4 +55,38 @@ class PlacePhotoServiceTest {
                 .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
                         .isEqualTo(PlaceErrorCode.PLACE_PHOTO_NAME_INVALID));
     }
+
+    @Test
+    @DisplayName("t3 장소 ID로 사진을 조회하면 최신 사진 식별자와 Google Maps 출처를 반환한다")
+    void t3_placeIdReturnsCurrentPhotoMetadata() {
+        String responseJson = """
+                {
+                  "photos":[{
+                    "name":"places/ChIJphoto/photos/AWCphoto",
+                    "googleMapsUri":"https://maps.google.com/photo/source",
+                    "authorAttributions":[{
+                      "displayName":"사진 제공자",
+                      "uri":"https://maps.google.com/contributor"
+                    }]
+                  }]
+                }
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places/ChIJphoto")))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(
+                        "X-Goog-FieldMask",
+                        "photos.name,photos.googleMapsUri,photos.authorAttributions"
+                ))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        PlacePhotoService.PhotoMetadata result = service.getPhotoMetadata("ChIJphoto");
+
+        assertThat(result.photoName()).isEqualTo("places/ChIJphoto/photos/AWCphoto");
+        assertThat(result.googleMapsUri()).isEqualTo("https://maps.google.com/photo/source");
+        assertThat(result.authorAttributions()).singleElement().satisfies(author -> {
+            assertThat(author.displayName()).isEqualTo("사진 제공자");
+            assertThat(author.uri()).isEqualTo("https://maps.google.com/contributor");
+        });
+        server.verify();
+    }
 }

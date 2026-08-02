@@ -21,6 +21,7 @@ import {
     getTripPlaces,
     getTripPlaceVotes,
     type ItineraryDay,
+    type Place,
 } from '@/entities/trip'
 import {
     fetchExpenseData,
@@ -32,6 +33,7 @@ import {
     useTripStore,
     type TripResponse,
 } from '@/features/manage-trip'
+import { AiDashboardActions } from '@/features/ai-trip-assistant'
 import {
     NotificationPanel,
     useNotificationStore,
@@ -123,6 +125,8 @@ export function Home() {
     const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+    const [focusedRecommendationPlaceId, setFocusedRecommendationPlaceId] =
+        useState<string | null>(null)
     const [insightSlide, setInsightSlide] = useState(0)
     const [isTripSelectorOpen, setIsTripSelectorOpen] = useState(false)
     const tripSelectorRef = useRef<HTMLDivElement>(null)
@@ -297,6 +301,14 @@ export function Home() {
 
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
+    const selectedDayFocusedItemId =
+        selectedItineraryDay?.items.some(
+            (item) => String(item.id) === focusedItemId,
+        ) === true
+            ? focusedItemId
+            : selectedItineraryDay?.items[0] != null
+              ? String(selectedItineraryDay.items[0].id)
+              : null
     const insightSlideCount = logs.length > 0 ? 2 : 1
     const visibleInsightSlide = insightSlide % insightSlideCount
     const bookmarkPageSize = 4
@@ -1058,10 +1070,105 @@ export function Home() {
                                                 : '날짜를 선택하면 지도가 표시됩니다'}
                                         </h2>
                                     </div>
-                                    <MapIcon
-                                        className="text-slate-300"
-                                        size={22}
-                                    />
+                                    {activeTrip.apiTripId ? (
+                                        <AiDashboardActions
+                                            tripId={activeTrip.apiTripId}
+                                            days={itineraryDays}
+                                            startDate={
+                                                activeTrip.startDate ?? null
+                                            }
+                                            endDate={activeTrip.endDate ?? null}
+                                            selectedDayId={
+                                                selectedItineraryDay
+                                                    ? Number(
+                                                          selectedItineraryDay.id,
+                                                      )
+                                                    : null
+                                            }
+                                            renderRecommendationMap={(
+                                                recommendation,
+                                                context,
+                                            ) => {
+                                                const recommendationPlace: Place = {
+                                                    id: `ai-recommendation-${recommendation.place.googlePlaceId}`,
+                                                    googlePlaceId:
+                                                        recommendation.place
+                                                            .googlePlaceId,
+                                                    roomId: activeTrip.id,
+                                                    name: recommendation.place
+                                                        .name,
+                                                    address:
+                                                        recommendation.place
+                                                            .address ?? '',
+                                                    category: 'other',
+                                                    categoryId: null,
+                                                    categoryName: 'AI 추천',
+                                                    categoryColor: '#e7657a',
+                                                    categoryIcon: 'HEART',
+                                                    status: 'hold',
+                                                    image: '',
+                                                    lat: recommendation.place
+                                                        .latitude,
+                                                    lng: recommendation.place
+                                                        .longitude,
+                                                    addedBy: 'PLAMINGO AI',
+                                                    comments: [],
+                                                    commentCount: 0,
+                                                }
+                                                const routeDay =
+                                                    itineraryDays.find(
+                                                        (day) =>
+                                                            Number(day.id) ===
+                                                            context.dayId,
+                                                    )
+                                                return (
+                                                    <div className="h-full [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
+                                                        <KanbanMapPanel
+                                                            days={
+                                                                routeDay
+                                                                    ? [routeDay]
+                                                                    : []
+                                                            }
+                                                            places={[
+                                                                recommendationPlace,
+                                                            ]}
+                                                            activeDragId={null}
+                                                            previewDayId={null}
+                                                            hoveredItemId={null}
+                                                            onItemHoverChange={() =>
+                                                                undefined
+                                                            }
+                                                            focusedItemId={null}
+                                                            focusedPlaceId={
+                                                                focusedRecommendationPlaceId
+                                                            }
+                                                            highlightedPlaceId={
+                                                                recommendationPlace.id
+                                                            }
+                                                            onItemFocus={() =>
+                                                                undefined
+                                                            }
+                                                            onPlaceFocus={(id) =>
+                                                                setFocusedRecommendationPlaceId(
+                                                                    (current) =>
+                                                                        current ===
+                                                                        id
+                                                                            ? null
+                                                                            : id,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                )
+                                            }}
+                                            onReplanApplied={setItineraryDays}
+                                        />
+                                    ) : (
+                                        <MapIcon
+                                            className="text-slate-300"
+                                            size={22}
+                                        />
+                                    )}
                                 </div>
                                 {selectedItineraryDay ? (
                                     <div className="min-h-[430px] flex-1 [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
@@ -1072,7 +1179,9 @@ export function Home() {
                                             previewDayId={null}
                                             hoveredItemId={null}
                                             onItemHoverChange={() => undefined}
-                                            focusedItemId={focusedItemId}
+                                            focusedItemId={
+                                                selectedDayFocusedItemId
+                                            }
                                             focusedPlaceId={null}
                                             onItemFocus={setFocusedItemId}
                                             onPlaceFocus={() => undefined}
@@ -1389,7 +1498,7 @@ export function Home() {
                                             <button
                                                 onClick={() =>
                                                     navigate(
-                                                        `/app/room/${activeTrip.id}`,
+                                                        `/app/room/${activeTrip.id}/schedule`,
                                                     )
                                                 }
                                                 disabled={!activeTrip.id}
@@ -1400,78 +1509,122 @@ export function Home() {
                                         }
                                     />
                                     {selectedItineraryDay == null ? (
-                                        <p className="py-10 text-center text-xs text-slate-400">
+                                        <p className="flex flex-1 items-center justify-center text-center text-xs text-slate-400">
                                             달력에서 여행 날짜를 선택해 주세요.
                                         </p>
-                                    ) : selectedItineraryDay.items.length ===
-                                      0 ? (
-                                        <p className="py-10 text-center text-xs text-slate-400">
-                                            선택한 날짜에 등록된 일정이
-                                            없습니다.
-                                        </p>
                                     ) : (
-                                        <ol className="flex min-h-0 flex-1 flex-col justify-center gap-4 pt-3">
-                                            {selectedItineraryDay.items
-                                                .slice(
-                                                    0,
-                                                    DASHBOARD_SCHEDULE_ITEM_LIMIT,
-                                                )
-                                                .map((item, index, items) => (
-                                                    <li
-                                                        key={item.id}
-                                                        className="relative flex gap-4"
-                                                    >
-                                                        <div className="relative flex w-9 shrink-0 justify-center">
-                                                            {index <
-                                                                items.length -
-                                                                    1 && (
-                                                                <span
-                                                                    aria-hidden="true"
-                                                                    className="absolute left-1/2 top-8 h-[calc(100%+1rem)] -translate-x-1/2 border-l-2 border-dotted border-slate-300"
-                                                                />
-                                                            )}
-                                                            <span
-                                                                className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 bg-white text-xs font-black shadow-sm ${
-                                                                    focusedItemId ===
-                                                                    String(
-                                                                        item.id,
-                                                                    )
-                                                                        ? 'border-[#e7657a] text-[#e7657a]'
-                                                                        : 'border-slate-400 text-slate-600'
-                                                                }`}
-                                                            >
-                                                                {index + 1}
-                                                            </span>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                setFocusedItemId(
-                                                                    String(
-                                                                        item.id,
-                                                                    ),
-                                                                )
+                                        <>
+                                            <ol className="flex min-h-0 flex-1 flex-col justify-center gap-2 pt-3">
+                                                {Array.from({
+                                                    length: DASHBOARD_SCHEDULE_ITEM_LIMIT,
+                                                }).map((_, index, slots) => {
+                                                    const item =
+                                                        selectedItineraryDay
+                                                            .items[index]
+                                                    return (
+                                                        <li
+                                                            key={
+                                                                item?.id ??
+                                                                `empty-${index}`
                                                             }
-                                                            className={`min-w-0 flex-1 rounded-2xl px-4 py-3 text-left transition ${
-                                                                focusedItemId ===
-                                                                String(item.id)
-                                                                    ? 'bg-[#fff0f3]'
-                                                                    : 'bg-slate-50 hover:bg-slate-100'
-                                                            }`}
+                                                            className="relative flex gap-4"
                                                         >
-                                                            <b className="block truncate text-sm text-slate-800">
-                                                                {item.placeName ??
-                                                                    '장소 미정'}
-                                                            </b>
-                                                            <span className="mt-1 block truncate text-[11px] text-slate-400">
-                                                                {item.placeAddress ??
-                                                                    item.categoryName ??
-                                                                    '상세 정보 없음'}
-                                                            </span>
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                        </ol>
+                                                            <div className="relative flex w-9 shrink-0 justify-center">
+                                                                {index <
+                                                                    slots.length -
+                                                                        1 && (
+                                                                    <span
+                                                                        aria-hidden="true"
+                                                                        className="absolute left-1/2 top-8 h-[calc(100%+0.5rem)] -translate-x-1/2 border-l-2 border-dotted border-slate-200"
+                                                                    />
+                                                                )}
+                                                                <span
+                                                                    className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 bg-white text-xs font-black ${
+                                                                        item ==
+                                                                        null
+                                                                            ? 'border-slate-200 bg-slate-50 text-slate-300'
+                                                                            : 'shadow-sm'
+                                                                    } ${
+                                                                        focusedItemId ===
+                                                                        String(
+                                                                            item?.id,
+                                                                        )
+                                                                            ? 'border-[#e7657a] text-[#e7657a]'
+                                                                            : item
+                                                                              ? 'border-slate-400 text-slate-600'
+                                                                              : ''
+                                                                    }`}
+                                                                >
+                                                                    {index + 1}
+                                                                </span>
+                                                            </div>
+                                                            {item ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setFocusedItemId(
+                                                                            focusedItemId ===
+                                                                                String(
+                                                                                    item.id,
+                                                                                )
+                                                                                ? null
+                                                                                : String(
+                                                                                      item.id,
+                                                                                  ),
+                                                                        )
+                                                                    }
+                                                                    className={`min-w-0 flex-1 rounded-2xl px-4 py-2.5 text-left transition ${
+                                                                        focusedItemId ===
+                                                                        String(
+                                                                            item.id,
+                                                                        )
+                                                                            ? 'bg-[#fff0f3]'
+                                                                            : 'bg-slate-50 hover:bg-slate-100'
+                                                                    }`}
+                                                                >
+                                                                    <b className="block truncate text-sm text-slate-800">
+                                                                        {item.placeName ??
+                                                                            '장소 미정'}
+                                                                    </b>
+                                                                    <span className="mt-0.5 block truncate text-[11px] text-slate-400">
+                                                                        {item.placeAddress ??
+                                                                            item.categoryName ??
+                                                                            '상세 정보 없음'}
+                                                                    </span>
+                                                                </button>
+                                                            ) : (
+                                                                <div
+                                                                    className="flex min-h-[55px] min-w-0 flex-1 flex-col justify-center rounded-2xl bg-slate-50 px-4"
+                                                                    aria-label={`${index + 1}번째 빈 일정`}
+                                                                >
+                                                                    <span className="h-2.5 w-2/5 rounded-full bg-slate-200/80" />
+                                                                    <span className="mt-2 h-2 w-3/4 rounded-full bg-slate-200/55" />
+                                                                </div>
+                                                            )}
+                                                        </li>
+                                                    )
+                                                })}
+                                            </ol>
+                                            {selectedItineraryDay.items.length >
+                                                DASHBOARD_SCHEDULE_ITEM_LIMIT && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        navigate(
+                                                            `/app/room/${activeTrip.id}/schedule`,
+                                                        )
+                                                    }
+                                                    className="mt-2 w-full rounded-xl bg-brand-50 px-3 py-2 text-xs font-extrabold text-brand-700 transition hover:bg-brand-100"
+                                                >
+                                                    +
+                                                    {selectedItineraryDay.items
+                                                        .length -
+                                                        DASHBOARD_SCHEDULE_ITEM_LIMIT}
+                                                    개의 일정이 더 있어요 · 전체
+                                                    일정에서 보기
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </section>,
                                 'min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)] xl:h-[560px]',

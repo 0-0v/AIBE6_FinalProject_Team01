@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
     CheckIcon,
     MessageCircleIcon,
@@ -9,6 +9,7 @@ import {
 import { CategoryIcon, Place, type PlaceCategoryInfo } from '@/entities/trip'
 import { useCurrentUserStore } from '@/shared/model'
 import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
+import { LazyPlacePhoto } from './lazy-place-photo'
 
 type Props = {
     place: Place
@@ -23,6 +24,13 @@ type Props = {
     categories: PlaceCategoryInfo[]
     categoriesLoading: boolean
     onCategoryChange: (categoryId: number) => Promise<void>
+    onPhotoResolved: (
+        placeId: string,
+        photoUrl: string,
+        attribution: string | null,
+        attributionUrl: string | null,
+        sourceUrl: string,
+    ) => void
 }
 
 export function PlaceCard({
@@ -38,6 +46,7 @@ export function PlaceCard({
     categories,
     categoriesLoading,
     onCategoryChange,
+    onPhotoResolved,
 }: Props) {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isMe = place.addedBy === String(currentUser?.id)
@@ -55,6 +64,25 @@ export function PlaceCard({
         : 0
     const [submittingVote, setSubmittingVote] = useState(false)
     const [changingCategory, setChangingCategory] = useState(false)
+    const thumbnailRef = useRef<HTMLDivElement>(null)
+    const [shouldLoadPhoto, setShouldLoadPhoto] = useState(false)
+
+    useEffect(() => {
+        if (!place.googlePlaceId || place.photoSourceUrl) return
+        const element = thumbnailRef.current
+        if (!element) return
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry?.isIntersecting) {
+                    setShouldLoadPhoto(true)
+                    observer.disconnect()
+                }
+            },
+            { rootMargin: '120px' },
+        )
+        observer.observe(element)
+        return () => observer.disconnect()
+    }, [place.googlePlaceId, place.photoSourceUrl])
     const categoryOptions =
         categories.length > 0
             ? categories.map((category) => ({
@@ -93,11 +121,45 @@ export function PlaceCard({
             className={`cursor-pointer rounded-2xl border bg-white p-3 transition ${selected ? 'border-brand ring-2 ring-brand-100' : 'border-slate-100 hover:border-slate-300'}`}
         >
             <div className="flex gap-3">
-                <img
-                    src={place.image}
-                    alt=""
-                    className="h-16 w-16 shrink-0 rounded-xl object-cover"
-                />
+                <div
+                    ref={thumbnailRef}
+                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-200"
+                >
+                    {place.googlePlaceId && !place.photoSourceUrl ? (
+                        shouldLoadPhoto ? (
+                            <LazyPlacePhoto
+                                placeId={place.id}
+                                googlePlaceId={place.googlePlaceId}
+                                placeName={place.name}
+                                onPhotoResolved={onPhotoResolved}
+                                variant="card"
+                            />
+                        ) : (
+                            <div className="h-full w-full animate-pulse bg-slate-200" />
+                        )
+                    ) : (
+                        <img
+                            src={place.image}
+                            alt=""
+                            className="h-full w-full object-cover"
+                        />
+                    )}
+                    {place.photoSourceUrl && (
+                        <a
+                            href={
+                                place.photoAttributionUrl ??
+                                place.photoSourceUrl
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(event) => event.stopPropagation()}
+                            className="absolute inset-x-0 bottom-0 truncate bg-slate-950/65 px-1 py-0.5 text-center text-[7px] font-semibold text-white hover:underline"
+                            title={place.photoAttribution ?? 'Google Maps 사진'}
+                        >
+                            {place.photoAttribution ?? 'Google Maps'}
+                        </a>
+                    )}
+                </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
@@ -180,24 +242,13 @@ export function PlaceCard({
                 </div>
             </div>
 
-            <div className="mt-3 flex items-center rounded-xl bg-[#fffaf0] p-2.5">
-                <div className="flex items-center gap-2">
+            {vote && (
+                <div className="mt-3 rounded-xl bg-[#fffaf0] p-2.5">
                     <span className="text-[11px] font-bold text-slate-600">
-                        {vote
-                            ? `찬성 ${upVotes} · 반대 ${downVotes}`
-                            : '투표를 신청해 의견을 모아보세요'}
+                        찬성 {upVotes} · 반대 {downVotes}
                     </span>
                 </div>
-                <button
-                    onClick={(event) => {
-                        event.stopPropagation()
-                        onOpenComments()
-                    }}
-                    className="ml-auto flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-500 hover:bg-white"
-                >
-                    <MessageCircleIcon size={13} /> {place.commentCount}
-                </button>
-            </div>
+            )}
 
             <div className="mt-3 border-t border-slate-100 pt-2">
                 <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-300">
@@ -252,6 +303,17 @@ export function PlaceCard({
                             {adderName} 등록
                         </span>
                     </div>
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            onOpenComments()
+                        }}
+                        className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                        aria-label={`${place.name} 댓글 ${place.commentCount}개 보기`}
+                    >
+                        <MessageCircleIcon size={13} /> {place.commentCount}
+                    </button>
                     {canWrite && (
                         <div className="flex items-center gap-1">
                             <button

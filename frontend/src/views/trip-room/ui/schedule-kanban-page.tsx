@@ -192,7 +192,6 @@ export function ScheduleKanbanPage() {
                 <TimetableSchedulePanel
                     key={`timetable-${tripId}-${realtimeVersion}`}
                     tripId={tripId}
-                    places={places}
                     canWrite={canPlanWrite}
                 />
             )}

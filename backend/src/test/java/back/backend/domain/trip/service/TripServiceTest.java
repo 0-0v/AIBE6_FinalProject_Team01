@@ -245,6 +245,52 @@ class TripServiceTest {
         verify(tripRepository, never()).save(any());
     }
 
+    @Test
+    @DisplayName("t12 여행방 수정일이 오늘 또는 과거이면 수정을 거부한다")
+    void t12_updateTripRejectsTodayOrPastStartDate() {
+        Trip trip = trip("제주 여행");
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 2L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        TripRequest request = new TripRequest(
+                "수정 여행",
+                CompanionType.FRIENDS,
+                Set.of(TravelStyle.FOOD),
+                "제주도",
+                LocalDate.of(2026, 7, 31),
+                LocalDate.of(2026, 8, 2),
+                TripVisibility.PRIVATE,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> tripService.update(2L, 10L, request))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.INVALID_TRIP));
+    }
+
+    @Test
+    @DisplayName("t13 진행 중인 여행방은 기존 시작일을 유지하면 다른 정보를 수정할 수 있다")
+    void t13_updateTripAllowsUnchangedPastStartDate() {
+        LocalDate startDate = LocalDate.of(2026, 7, 30);
+        Trip trip = Trip.create(
+                1L, "제주 여행", CompanionType.FRIENDS, Set.of(TravelStyle.FOOD),
+                "제주도", startDate, LocalDate.of(2026, 8, 2)
+        );
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 2L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        TripRequest request = new TripRequest(
+                "수정 여행", CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
+                startDate, LocalDate.of(2026, 8, 2), TripVisibility.PRIVATE,
+                null, null, null
+        );
+
+        var response = tripService.update(2L, 10L, request);
+
+        assertThat(response.title()).isEqualTo("수정 여행");
+    }
+
     private TripRequest request(String title) {
         return new TripRequest(title, CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
                 LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15), TripVisibility.PRIVATE, null, null, null);

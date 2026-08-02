@@ -1,9 +1,13 @@
 package back.backend.domain.place.service;
 
+import back.backend.domain.place.dto.response.GooglePlacesApiResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.time.Duration;
+import java.util.List;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -17,9 +21,12 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class PlacePhotoService {
 
+    private static final Logger log = LoggerFactory.getLogger(PlacePhotoService.class);
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
     private static final Pattern PHOTO_NAME_PATTERN =
             Pattern.compile("^places/[^/]+/photos/[^/]+$");
+    private static final String PHOTO_METADATA_FIELD_MASK =
+            "photos.name,photos.googleMapsUri,photos.authorAttributions";
 
     private final RestClient restClient;
 
@@ -28,7 +35,7 @@ public class PlacePhotoService {
             @Value("${app.integrations.google-maps.api-key}") String apiKey,
             @Value("${app.integrations.google-maps.referer:}") String referer,
             @Value("${app.integrations.google-maps.connect-timeout:3s}") Duration connectTimeout,
-            @Value("${app.integrations.google-maps.read-timeout:5s}") Duration readTimeout
+            @Value("${app.integrations.google-maps.photo-read-timeout:30s}") Duration readTimeout
     ) {
         this(createRestClientBuilder(connectTimeout, readTimeout), apiKey, referer);
     }
@@ -66,6 +73,41 @@ public class PlacePhotoService {
         } catch (BusinessException exception) {
             throw exception;
         } catch (RestClientException exception) {
+            log.warn("Google 장소 사진 조회에 실패했습니다. photoName={}, cause={}",
+                    photoName, exception.getMessage());
+            throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_EXTERNAL_API_ERROR);
+        }
+    }
+
+    public PhotoMetadata getPhotoMetadata(String googlePlaceId) {
+        if (!StringUtils.hasText(googlePlaceId)) {
+            throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_NAME_INVALID);
+        }
+        try {
+            GooglePlacesApiResponse.Place place = restClient.get()
+                    .uri("/places/{placeId}", googlePlaceId)
+                    .header("X-Goog-FieldMask", PHOTO_METADATA_FIELD_MASK)
+                    .retrieve()
+                    .body(GooglePlacesApiResponse.Place.class);
+            if (place == null || place.photos() == null || place.photos().isEmpty()) {
+                throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_NOT_FOUND);
+            }
+
+            GooglePlacesApiResponse.Photo photo = place.photos().getFirst();
+            if (!StringUtils.hasText(photo.name()) || !StringUtils.hasText(photo.googleMapsUri())) {
+                throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_NOT_FOUND);
+            }
+            List<PhotoAuthor> authors = photo.authorAttributions() == null
+                    ? List.of()
+                    : photo.authorAttributions().stream()
+                    .map(author -> new PhotoAuthor(author.displayName(), author.uri()))
+                    .toList();
+            return new PhotoMetadata(photo.name(), photo.googleMapsUri(), authors);
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
+            log.warn("Google 장소 사진 메타데이터 조회에 실패했습니다. placeId={}, cause={}",
+                    googlePlaceId, exception.getMessage());
             throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_EXTERNAL_API_ERROR);
         }
     }
@@ -81,5 +123,15 @@ public class PlacePhotoService {
     }
 
     public record PhotoContent(byte[] bytes, MediaType contentType) {
+    }
+
+    public record PhotoMetadata(
+            String photoName,
+            String googleMapsUri,
+            List<PhotoAuthor> authorAttributions
+    ) {
+    }
+
+    public record PhotoAuthor(String displayName, String uri) {
     }
 }

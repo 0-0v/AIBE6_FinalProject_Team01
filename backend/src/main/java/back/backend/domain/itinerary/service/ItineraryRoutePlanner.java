@@ -6,6 +6,7 @@ import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
+import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.trip.entity.TravelStyle;
@@ -82,6 +83,7 @@ public class ItineraryRoutePlanner {
     private final GoogleRoutesClient routesClient;
     private final OpenAiRouteAdvisor openAiRouteAdvisor;
     private final ConstraintSorter constraintSorter;
+    private final PlaceGraphEdgeService placeGraphEdgeService;
 
     /**
      * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
@@ -92,35 +94,82 @@ public class ItineraryRoutePlanner {
             Set<TravelStyle> travelStyles,
             TripScheduleSettings settings
     ) {
+        return planMulti(
+                itineraryDays,
+                tripPlaces,
+                travelStyles,
+                settings,
+                null
+        );
+    }
+
+    public List<RoutePlanOption> planMulti(
+            List<ItineraryDay> itineraryDays,
+            List<TripPlace> tripPlaces,
+            Set<TravelStyle> travelStyles,
+            TripScheduleSettings settings,
+            String userRequest
+    ) {
         TripScheduleSettings effectiveSettings = settings != null
                 ? settings : TripScheduleSettings.defaultSettings();
         List<ItineraryDay> days = sortedDays(itineraryDays);
+        Set<Long> departurePlaceIds = days.stream()
+                .map(ItineraryDay::getDepartureTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<TripPlace> eligibleTripPlaces = tripPlaces.stream()
+                .filter(place -> !departurePlaceIds.contains(place.getId()))
+                .toList();
 
-        if (days.isEmpty() || tripPlaces.isEmpty()) {
+        if (days.isEmpty() || eligibleTripPlaces.isEmpty()) {
             log.debug("일정 또는 장소 없음 — 빈 지리 최적 코스 반환");
             return List.of(new RoutePlanOption("지리 최적 코스",
-                    emptyResponse(days, tripPlaces)));
+                    emptyResponse(days, eligibleTripPlaces)));
         }
 
         List<RoutePlanOption> options = new ArrayList<>();
         Set<String> routeSignatures = new HashSet<>();
+        String replanExplanation = extractReplanExplanation(userRequest);
 
         // 지리 기반 클러스터링 + 제약 정렬 (ConstraintSorter는 buildResponseFromClusters 내부에서 적용)
-        List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
+        List<List<TripPlace>> geoClusters = clusterByGeography(eligibleTripPlaces, days.size());
         String defaultGeoSummary = String.format(
                 "저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
-                tripPlaces.size(),
+                eligibleTripPlaces.size(),
                 days.size()
         );
         RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
-                days, geoClusters, tripPlaces.size(), defaultGeoSummary, null, effectiveSettings);
+                days,
+                geoClusters,
+                eligibleTripPlaces.size(),
+                replanExplanation == null
+                        ? defaultGeoSummary
+                        : "변경 사유와 시작 시각 하한을 반영해 이후 일정을 다시 배치했습니다. "
+                        + defaultGeoSummary,
+                replanExplanation,
+                effectiveSettings
+        );
 
-        openAiRouteAdvisor.recommend(days, tripPlaces, travelStyles)
+        Optional<OpenAiRouteAdvisor.Recommendation> aiRecommendation =
+                userRequest == null || userRequest.isBlank()
+                        ? openAiRouteAdvisor.recommend(
+                                days,
+                                eligibleTripPlaces,
+                                travelStyles
+                        )
+                        : openAiRouteAdvisor.recommend(
+                                days,
+                                eligibleTripPlaces,
+                                travelStyles,
+                                userRequest
+                        );
+        aiRecommendation
                 .map(recommendation -> buildAiPlan(
                         days,
-                        tripPlaces,
+                        eligibleTripPlaces,
                         recommendation,
-                        effectiveSettings
+                        effectiveSettings,
+                        replanExplanation
                 ))
                 .ifPresent(aiPlan -> {
                     options.add(new RoutePlanOption("AI 추천 코스", aiPlan));
@@ -134,7 +183,7 @@ public class ItineraryRoutePlanner {
         // 스타일별 코스 추가
         if (!travelStyles.isEmpty()) {
             log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
-                    tripPlaces.size(), days.size(), travelStyles);
+                    eligibleTripPlaces.size(), days.size(), travelStyles);
         }
         List<TravelStyle> orderedStyles = travelStyles.stream()
                 .sorted(Comparator.comparingInt(Enum::ordinal))
@@ -145,18 +194,20 @@ public class ItineraryRoutePlanner {
             String styleLabel = STYLE_LABEL.getOrDefault(style, style.name());
             String label = styleLabel + " 코스";
             List<List<TripPlace>> styleClusters =
-                    clusterByStylePriority(tripPlaces, days.size(), priority);
+                    clusterByStylePriority(eligibleTripPlaces, days.size(), priority);
             RoutePlanPreviewResponse stylePlan = buildResponseFromClusters(
                     days,
                     styleClusters,
-                    tripPlaces.size(),
+                    eligibleTripPlaces.size(),
                     buildStyleSummary(
                             styleLabel,
-                            tripPlaces.size(),
+                            eligibleTripPlaces.size(),
                             days.size(),
                             priority
                     ),
-                    buildStyleReason(styleLabel),
+                    replanExplanation == null
+                            ? buildStyleReason(styleLabel)
+                            : replanExplanation,
                     effectiveSettings
             );
             if (routeSignatures.add(routeSignature(stylePlan))) {
@@ -171,7 +222,8 @@ public class ItineraryRoutePlanner {
             List<ItineraryDay> days,
             List<TripPlace> tripPlaces,
             OpenAiRouteAdvisor.Recommendation recommendation,
-            TripScheduleSettings settings
+            TripScheduleSettings settings,
+            String replanExplanation
     ) {
         Map<Long, TripPlace> placesById = tripPlaces.stream()
                 .collect(Collectors.toMap(TripPlace::getId, place -> place));
@@ -186,10 +238,26 @@ public class ItineraryRoutePlanner {
                 days,
                 clusters,
                 tripPlaces.size(),
-                recommendation.summary(),
-                "AI가 여행 스타일과 장소 간 이동을 함께 고려한 순서예요.",
+                replanExplanation == null
+                        ? recommendation.summary()
+                        : "변경 사유를 반영해 선택 일정 이후를 다시 구성했습니다. "
+                        + recommendation.summary(),
+                replanExplanation == null
+                        ? "AI가 여행 스타일과 장소 간 이동을 함께 고려한 순서예요."
+                        : replanExplanation,
                 settings
         );
+    }
+
+    private String extractReplanExplanation(String userRequest) {
+        if (userRequest == null
+                || !userRequest.startsWith("REPLAN_REMAINING_ITINERARY")) {
+            return null;
+        }
+        String context = userRequest.substring(
+                "REPLAN_REMAINING_ITINERARY".length()
+        ).trim();
+        return context.isBlank() ? null : context;
     }
 
     /**
@@ -460,19 +528,157 @@ public class ItineraryRoutePlanner {
             String defaultReason,
             TripScheduleSettings settings
     ) {
+        List<List<TripPlace>> departureAlignedClusters =
+                alignClustersToDepartures(days, clusters);
+        List<List<TripPlace>> constrainedClusters = applyPlaceConstraints(
+                days,
+                departureAlignedClusters,
+                settings
+        );
         List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
         int totalDistanceMeters = 0;
 
         for (int i = 0; i < days.size(); i++) {
             ItineraryDay day = days.get(i);
-            List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
-            List<TripPlace> sortedPlaces = constraintSorter.sort(dayPlaces, day.getItineraryDate());
+            List<TripPlace> dayPlaces = i < constrainedClusters.size()
+                    ? constrainedClusters.get(i) : List.of();
+            List<TripPlace> constrainedPlaces = constraintSorter.sort(
+                    dayPlaces,
+                    day.getItineraryDate()
+            );
+            List<TripPlace> sortedPlaces = prioritizeDeparture(
+                    day,
+                    constrainedPlaces
+            );
             RoutePlanDayResponse plannedDay = planDay(day, sortedPlaces, defaultReason, settings);
             plannedDays.add(plannedDay);
             totalDistanceMeters += plannedDay.totalDistanceMeters();
         }
 
         return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
+    }
+
+    private List<List<TripPlace>> alignClustersToDepartures(
+            List<ItineraryDay> days,
+            List<List<TripPlace>> clusters
+    ) {
+        if (days.stream().noneMatch(ItineraryDay::hasDeparture)
+                || clusters.size() <= 1) {
+            return clusters;
+        }
+
+        List<List<TripPlace>> aligned = new ArrayList<>(
+                Collections.nCopies(days.size(), null)
+        );
+        Set<Integer> assignedClusterIndexes = new HashSet<>();
+
+        for (int dayIndex = 0; dayIndex < days.size(); dayIndex++) {
+            ItineraryDay day = days.get(dayIndex);
+            if (!day.hasDeparture()) {
+                continue;
+            }
+            GeoPoint departure = new GeoPoint(
+                    day.getDepartureLat().doubleValue(),
+                    day.getDepartureLng().doubleValue()
+            );
+            int nearestClusterIndex = java.util.stream.IntStream
+                    .range(0, clusters.size())
+                    .filter(index -> !assignedClusterIndexes.contains(index))
+                    .boxed()
+                    .min(Comparator.comparingDouble(index ->
+                            distanceToCluster(departure, clusters.get(index))))
+                    .orElse(-1);
+            if (nearestClusterIndex >= 0) {
+                aligned.set(dayIndex, clusters.get(nearestClusterIndex));
+                assignedClusterIndexes.add(nearestClusterIndex);
+            }
+        }
+
+        Iterator<List<TripPlace>> remainingClusters = java.util.stream.IntStream
+                .range(0, clusters.size())
+                .filter(index -> !assignedClusterIndexes.contains(index))
+                .mapToObj(clusters::get)
+                .iterator();
+        for (int dayIndex = 0; dayIndex < aligned.size(); dayIndex++) {
+            if (aligned.get(dayIndex) == null) {
+                aligned.set(
+                        dayIndex,
+                        remainingClusters.hasNext()
+                                ? remainingClusters.next() : List.of()
+                );
+            }
+        }
+        return aligned;
+    }
+
+    private double distanceToCluster(
+            GeoPoint departure,
+            List<TripPlace> cluster
+    ) {
+        return cluster.stream()
+                .mapToDouble(place -> distanceMeters(place, departure))
+                .min()
+                .orElse(Double.MAX_VALUE);
+    }
+
+    private List<List<TripPlace>> applyPlaceConstraints(
+            List<ItineraryDay> days,
+            List<List<TripPlace>> clusters,
+            TripScheduleSettings settings
+    ) {
+        List<List<TripPlace>> adjusted = new ArrayList<>();
+        for (int index = 0; index < days.size(); index++) {
+            adjusted.add(new ArrayList<>(
+                    index < clusters.size() ? clusters.get(index) : List.of()
+            ));
+        }
+        settings.placeConstraints().forEach((tripPlaceId, constraint) -> {
+            TripPlace constrainedPlace = adjusted.stream()
+                    .flatMap(List::stream)
+                    .filter(place -> place.getId().equals(tripPlaceId))
+                    .findFirst()
+                    .orElse(null);
+            if (constrainedPlace == null) return;
+            adjusted.forEach(dayPlaces -> dayPlaces.removeIf(
+                    place -> place.getId().equals(tripPlaceId)
+            ));
+            for (int index = 0; index < days.size(); index++) {
+                if (days.get(index).getId().equals(constraint.dayId())) {
+                    adjusted.get(index).add(constrainedPlace);
+                    break;
+                }
+            }
+        });
+        return adjusted;
+    }
+
+    private List<TripPlace> prioritizeDeparture(
+            ItineraryDay day,
+            List<TripPlace> places
+    ) {
+        if (!day.hasDeparture() || places.size() <= 1) {
+            return places;
+        }
+
+        GeoPoint departure = new GeoPoint(
+                day.getDepartureLat().doubleValue(),
+                day.getDepartureLng().doubleValue()
+        );
+        TripPlace nearestPlace = places.stream()
+                .min(Comparator.comparingDouble(place ->
+                        distanceMeters(place, departure)))
+                .orElseThrow();
+
+        if (places.getFirst().getId().equals(nearestPlace.getId())) {
+            return places;
+        }
+
+        List<TripPlace> reordered = new ArrayList<>(places.size());
+        reordered.add(nearestPlace);
+        places.stream()
+                .filter(place -> !place.getId().equals(nearestPlace.getId()))
+                .forEach(reordered::add);
+        return reordered;
     }
 
     private RoutePlanDayResponse planDay(
@@ -482,7 +688,7 @@ public class ItineraryRoutePlanner {
             TripScheduleSettings settings
     ) {
         List<RoutePlanItemResponse> items = new ArrayList<>();
-        int cursorMinutes = settings.dayStartMinutes();
+        int cursorMinutes = settings.dayStartMinutes(day.getId());
         int dayEndCutoff = settings.dayEndMinutes();
         double paceMultiplier = settings.travelPace().stayMultiplier();
         int totalDistanceMeters = 0;
@@ -491,6 +697,14 @@ public class ItineraryRoutePlanner {
         for (int index = 0; index < places.size(); index++) {
             TripPlace current = places.get(index);
             TripPlace next = index + 1 < places.size() ? places.get(index + 1) : null;
+            PlaceScheduleConstraint placeConstraint = settings.placeConstraints()
+                    .get(current.getId());
+            if (placeConstraint != null
+                    && placeConstraint.dayId().equals(day.getId())) {
+                int earliestMinutes = placeConstraint.earliestStartTime().getHour() * 60
+                        + placeConstraint.earliestStartTime().getMinute();
+                cursorMinutes = Math.max(cursorMinutes, earliestMinutes);
+            }
 
             int baseStay = CATEGORY_STAY_MINUTES.getOrDefault(
                     current.getCategory().getCategoryType(), DEFAULT_STAY_MINUTES);
@@ -508,12 +722,20 @@ public class ItineraryRoutePlanner {
                 route = resolveRoute(
                         current,
                         next,
-                        ItineraryTransportMode.infer(haversineMeters),
+                        settings.effectiveTransportMode(haversineMeters),
                         departureTime(day, endMinutes)
                 );
             }
 
-            String reason = buildItemReason(index, fitsInDay, defaultReason, settings);
+            String reason = placeConstraint != null
+                    ? placeConstraint.reason()
+                    : buildItemReason(
+                            index,
+                            fitsInDay,
+                            defaultReason,
+                            settings,
+                            day.getId()
+                    );
 
             items.add(new RoutePlanItemResponse(
                     current.getId(),
@@ -547,11 +769,11 @@ public class ItineraryRoutePlanner {
     }
 
     private String buildItemReason(
-            int index, boolean fitsInDay, String defaultReason, TripScheduleSettings settings) {
+            int index, boolean fitsInDay, String defaultReason, TripScheduleSettings settings, Long dayId) {
         if (!fitsInDay) return "하루 일정이 길어 방문 시간은 직접 조정해 주세요.";
         if (defaultReason != null) return defaultReason;
         if (index == 0) {
-            return settings.dayStartTime().format(TIME_FORMATTER) + "부터 시작하는 첫 장소예요.";
+            return settings.dayStartTime(dayId).format(TIME_FORMATTER) + "부터 시작하는 첫 장소예요.";
         }
         return "이전 장소와 가까워 이동 부담이 적어요.";
     }
@@ -632,6 +854,22 @@ public class ItineraryRoutePlanner {
             ItineraryTransportMode requestedMode,
             Instant departureTime
     ) {
+        Optional<PlaceGraphEdgeService.CachedRoute> cachedRoute =
+                placeGraphEdgeService.find(
+                        from.getPlace(),
+                        to.getPlace(),
+                        requestedMode
+                );
+        if (cachedRoute.isPresent()) {
+            PlaceGraphEdgeService.CachedRoute cached = cachedRoute.get();
+            return new RouteResult(
+                    cached.distanceMeters(),
+                    cached.travelMinutes(),
+                    requestedMode.displayName(),
+                    null
+            );
+        }
+
         double fromLat = from.getPlace().getLatitude().doubleValue();
         double fromLng = from.getPlace().getLongitude().doubleValue();
         double toLat   = to.getPlace().getLatitude().doubleValue();
@@ -647,14 +885,23 @@ public class ItineraryRoutePlanner {
                         requestedMode.transitMode(),
                         departureTime
                 )
-                .map(info -> new RouteResult(
-                        info.distanceMeters(),
-                        info.durationMinutes(),
-                        info.actualTransportMode() != null
-                                ? info.actualTransportMode()
-                                : requestedMode.displayName(),
-                        info.transportDetail()
-                ))
+                .map(info -> {
+                    cacheRouteSafely(
+                            from.getPlace(),
+                            to.getPlace(),
+                            requestedMode,
+                            info.distanceMeters(),
+                            info.durationMinutes()
+                    );
+                    return new RouteResult(
+                            info.distanceMeters(),
+                            info.durationMinutes(),
+                            info.actualTransportMode() != null
+                                    ? info.actualTransportMode()
+                                    : requestedMode.displayName(),
+                            info.transportDetail()
+                    );
+                })
                 .orElseGet(() -> {
                     int haversineMeters = (int) Math.round(distanceMeters(from, to));
                     return new RouteResult(
@@ -667,6 +914,32 @@ public class ItineraryRoutePlanner {
                             null
                     );
                 });
+    }
+
+    private void cacheRouteSafely(
+            Place from,
+            Place to,
+            ItineraryTransportMode mode,
+            int distanceMeters,
+            int travelMinutes
+    ) {
+        try {
+            placeGraphEdgeService.cache(
+                    from,
+                    to,
+                    mode,
+                    distanceMeters,
+                    travelMinutes
+            );
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "장소 경로 캐시 저장에 실패했지만 조회한 경로를 계속 사용합니다. from={}, to={}, mode={}, type={}",
+                    from.getId(),
+                    to.getId(),
+                    mode,
+                    exception.getClass().getSimpleName()
+            );
+        }
     }
 
     private record RouteResult(

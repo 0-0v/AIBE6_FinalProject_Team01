@@ -1,13 +1,16 @@
 import { FormEvent, useState } from 'react'
 import { XIcon } from 'lucide-react'
+import { errorMessage } from '@/shared/lib'
 import {
     createTrip,
     uploadTripCoverImage,
-    type CompanionType,
     type TravelStyle,
-    type TravelPace,
 } from '../api/trip-api'
 import { TripCoverImageField } from './trip-cover-image-field'
+import {
+    DestinationAutocomplete,
+    type DestinationResult,
+} from './destination-autocomplete'
 
 function tomorrowDateInputValue() {
     const tomorrow = new Date()
@@ -17,21 +20,6 @@ function tomorrowDateInputValue() {
     const day = String(tomorrow.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
 }
-
-const PACES: { value: TravelPace; label: string; desc: string }[] = [
-    { value: 'FAST', label: '빠르게', desc: '일정을 빽빽하게 채워요' },
-    { value: 'NORMAL', label: '보통', desc: '무난한 속도로 즐겨요' },
-    { value: 'RELAXED', label: '여유롭게', desc: '여유롭게 충분히 머물러요' },
-]
-
-const COMPANIONS: { value: CompanionType; label: string }[] = [
-    { value: 'ALONE', label: '혼자' },
-    { value: 'FRIENDS', label: '친구와' },
-    { value: 'COUPLE', label: '연인과' },
-    { value: 'SPOUSE', label: '배우자와' },
-    { value: 'CHILDREN', label: '아이와' },
-    { value: 'PARENTS', label: '부모님과' },
-]
 
 const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'ACTIVITY', label: '액티비티' },
@@ -56,18 +44,16 @@ export function CreateTripModal({
     requireDates = false,
 }: Props) {
     const [title, setTitle] = useState('')
-    const [companionType, setCompanionType] = useState<CompanionType | ''>('')
     const [travelStyles, setTravelStyles] = useState<TravelStyle[]>([])
-    const [destination, setDestination] = useState('')
+    const [destinationText, setDestinationText] = useState('')
+    const [destinationResult, setDestinationResult] =
+        useState<DestinationResult | null>(null)
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
     const [createdTripId, setCreatedTripId] = useState<number | null>(null)
-    const [dayStartTime, setDayStartTime] = useState('09:00')
-    const [dayEndTime, setDayEndTime] = useState('21:00')
-    const [travelPace, setTravelPace] = useState<TravelPace>('NORMAL')
     const minimumStartDate = tomorrowDateInputValue()
 
     function toggleStyle(style: TravelStyle) {
@@ -110,14 +96,14 @@ export function CreateTripModal({
                 (
                     await createTrip({
                         title: normalizedTitle,
-                        companionType: companionType || null,
                         travelStyles,
-                        destination: destination.trim() || null,
+                        destination:
+                            destinationResult?.name ??
+                            (destinationText.trim() || null),
+                        destinationLat: destinationResult?.lat ?? null,
+                        destinationLng: destinationResult?.lng ?? null,
                         startDate: startDate || null,
                         endDate: endDate || null,
-                        dayStartTime,
-                        dayEndTime,
-                        travelPace,
                     })
                 ).id
             setCreatedTripId(tripId)
@@ -126,11 +112,7 @@ export function CreateTripModal({
             }
             onCreated(tripId)
         } catch (caught) {
-            setError(
-                caught instanceof Error
-                    ? caught.message
-                    : '여행방을 생성하지 못했습니다.',
-            )
+            setError(errorMessage(caught, '여행방을 생성하지 못했습니다.'))
         } finally {
             setIsSubmitting(false)
         }
@@ -140,9 +122,9 @@ export function CreateTripModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4">
             <form
                 onSubmit={submit}
-                className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl md:overflow-visible"
             >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 md:px-6">
                     <h2 className="text-xl font-extrabold">새 여행방</h2>
                     <button
                         type="button"
@@ -154,151 +136,102 @@ export function CreateTripModal({
                     </button>
                 </div>
 
-                <TripCoverImageField
-                    file={coverImage}
-                    disabled={isSubmitting}
-                    onFileChange={setCoverImage}
-                />
-
-                <label className="mt-5 block text-sm font-bold">
-                    여행방 이름 <span className="text-brand">*</span>
-                    <input
-                        value={title}
-                        onChange={(event) => setTitle(event.target.value)}
-                        maxLength={100}
-                        className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-brand"
-                        placeholder="예: 제주 가족 여행"
-                    />
-                </label>
-
-                <label className="mt-4 block text-sm font-bold">
-                    누구와
-                    <select
-                        value={companionType}
-                        onChange={(event) =>
-                            setCompanionType(
-                                event.target.value as CompanionType | '',
-                            )
-                        }
-                        className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                    >
-                        <option value="">선택 안 함</option>
-                        {COMPANIONS.map((item) => (
-                            <option key={item.value} value={item.value}>
-                                {item.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                <fieldset className="mt-4">
-                    <legend className="text-sm font-bold">여행 스타일</legend>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {STYLES.map((style) => (
-                            <button
-                                key={style.value}
-                                type="button"
-                                onClick={() => toggleStyle(style.value)}
-                                className={`rounded-full px-3 py-1.5 text-xs font-bold ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
-                            >
-                                {style.label}
-                            </button>
-                        ))}
+                <div className="grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                    <div className="bg-slate-50 p-5 md:rounded-bl-3xl md:p-6">
+                        <TripCoverImageField
+                            file={coverImage}
+                            disabled={isSubmitting}
+                            compact
+                            onFileChange={setCoverImage}
+                        />
                     </div>
-                </fieldset>
 
-                <label className="mt-4 block text-sm font-bold">
-                    어디로 떠나시나요?
-                    <input
-                        value={destination}
-                        onChange={(event) => setDestination(event.target.value)}
-                        maxLength={100}
-                        className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                        placeholder="예: 오사카, 제주도, 부산 해운대"
-                    />
-                    <span className="mt-1.5 block text-xs font-normal text-slate-400">
-                        입력한 지역 주변으로 여행 지도를 준비해 드릴게요.
-                    </span>
-                </label>
+                    <div className="p-5 md:p-6">
+                        <label className="block text-sm font-bold">
+                            여행방 이름 <span className="text-brand">*</span>
+                            <input
+                                value={title}
+                                onChange={(event) =>
+                                    setTitle(event.target.value)
+                                }
+                                maxLength={100}
+                                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-brand"
+                                placeholder="예: 제주 가족 여행"
+                            />
+                        </label>
 
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                    <label className="text-sm font-bold">
-                        시작일
-                        <input
-                            type="date"
-                            value={startDate}
-                            min={minimumStartDate}
-                            onChange={(event) =>
-                                setStartDate(event.target.value)
-                            }
-                            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                    <label className="text-sm font-bold">
-                        종료일
-                        <input
-                            type="date"
-                            value={endDate}
-                            min={startDate || minimumStartDate}
-                            onChange={(event) => setEndDate(event.target.value)}
-                            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                </div>
+                        <fieldset className="mt-3.5">
+                            <legend className="text-sm font-bold">
+                                여행 스타일
+                            </legend>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {STYLES.map((style) => (
+                                    <button
+                                        key={style.value}
+                                        type="button"
+                                        onClick={() => toggleStyle(style.value)}
+                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
+                                    >
+                                        {style.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </fieldset>
 
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                    <label className="text-sm font-bold">
-                        하루 시작 시간
-                        <input
-                            type="time"
-                            value={dayStartTime}
-                            onChange={(e) => setDayStartTime(e.target.value)}
-                            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                    <label className="text-sm font-bold">
-                        하루 종료 시간
-                        <input
-                            type="time"
-                            value={dayEndTime}
-                            onChange={(e) => setDayEndTime(e.target.value)}
-                            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                </div>
+                        <label className="mt-3.5 block text-sm font-bold">
+                            어디로 떠나시나요?
+                            <DestinationAutocomplete
+                                value={destinationText}
+                                onChange={(result, text) => {
+                                    setDestinationResult(result)
+                                    setDestinationText(text)
+                                }}
+                            />
+                            <span className="mt-1 block text-[11px] font-normal text-slate-400">
+                                목적지를 선택하면 지도가 해당 위치로 맞춰져요.
+                            </span>
+                        </label>
 
-                <fieldset className="mt-4">
-                    <legend className="text-sm font-bold">여행 페이스</legend>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
-                        {PACES.map((p) => (
-                            <button
-                                key={p.value}
-                                type="button"
-                                onClick={() => setTravelPace(p.value)}
-                                className={`rounded-xl border px-2 py-2 text-center text-xs font-bold transition-colors ${travelPace === p.value ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500'}`}
-                            >
-                                <div>{p.label}</div>
-                                <div
-                                    className={`mt-0.5 text-[10px] font-normal ${travelPace === p.value ? 'text-white/80' : 'text-slate-400'}`}
-                                >
-                                    {p.desc}
-                                </div>
-                            </button>
-                        ))}
+                        <div className="mt-3.5 grid grid-cols-2 gap-3">
+                            <label className="text-sm font-bold">
+                                시작일
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    min={minimumStartDate}
+                                    onChange={(event) =>
+                                        setStartDate(event.target.value)
+                                    }
+                                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
+                                />
+                            </label>
+                            <label className="text-sm font-bold">
+                                종료일
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    min={startDate || minimumStartDate}
+                                    onChange={(event) =>
+                                        setEndDate(event.target.value)
+                                    }
+                                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
+                                />
+                            </label>
+                        </div>
+
+                        {error && (
+                            <p className="mt-3 text-sm font-semibold text-red-500">
+                                {error}
+                            </p>
+                        )}
+                        <button
+                            disabled={isSubmitting}
+                            className="mt-4 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-60"
+                        >
+                            {isSubmitting ? '생성 중...' : '여행방 만들기'}
+                        </button>
                     </div>
-                </fieldset>
-
-                {error && (
-                    <p className="mt-4 text-sm font-semibold text-red-500">
-                        {error}
-                    </p>
-                )}
-                <button
-                    disabled={isSubmitting}
-                    className="mt-6 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-60"
-                >
-                    {isSubmitting ? '생성 중...' : '여행방 만들기'}
-                </button>
+                </div>
             </form>
         </div>
     )

@@ -217,6 +217,7 @@ export function SchedulePanel({
                             days={days}
                             isDragging={isDragging}
                             unscheduledPlaces={unscheduledPlaces}
+                            allPlaces={places}
                             onAddPlace={(placeId) =>
                                 void addPlaceToDay(placeId, String(day.id))
                             }

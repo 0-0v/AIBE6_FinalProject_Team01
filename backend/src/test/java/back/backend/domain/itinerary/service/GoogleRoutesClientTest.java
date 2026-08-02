@@ -86,8 +86,8 @@ class GoogleRoutesClientTest {
     }
 
     @Test
-    @DisplayName("t2 동일한 경로 요청은 캐시된 결과를 반환한다")
-    void t2_returnsCachedRouteForSameRequest() {
+    @DisplayName("t2 동일한 경로도 Google 결과를 저장하지 않고 매번 새로 요청한다")
+    void t2_sameRouteDoesNotCacheGoogleResponse() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server =
                 MockRestServiceServer.bindTo(builder).build();
@@ -105,6 +105,15 @@ class GoogleRoutesClientTest {
                         """,
                         MediaType.APPLICATION_JSON
                 ));
+        server.expect(requestTo(
+                        "https://routes.googleapis.com/directions/v2:computeRoutes"
+                ))
+                .andRespond(withSuccess(
+                        """
+                        {"routes":[{"distanceMeters":550,"duration":"360s"}]}
+                        """,
+                        MediaType.APPLICATION_JSON
+                ));
 
         var first = client.getRouteInfo(
                 37.1, 127.1, 37.2, 127.2, "walking"
@@ -113,7 +122,8 @@ class GoogleRoutesClientTest {
                 37.1, 127.1, 37.2, 127.2, "walking"
         );
 
-        assertThat(second).isEqualTo(first);
+        assertThat(first.orElseThrow().distanceMeters()).isEqualTo(500);
+        assertThat(second.orElseThrow().distanceMeters()).isEqualTo(550);
         server.verify();
     }
 

@@ -2,12 +2,17 @@ package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.response.GooglePlacesApiResponse;
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
+import back.backend.domain.place.dto.response.PlaceOperationalDetails;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -21,14 +26,18 @@ import org.springframework.web.client.RestClientException;
 public class PlaceSearchService {
 
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
+    private static final double ROOM_SEARCH_RADIUS_METERS = 50_000.0;
+    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
     private static final String FIELD_MASK =
             "places.id,places.displayName,places.formattedAddress,places.location," +
-            "places.primaryType,places.types,places.photos," +
+            "places.primaryType,places.types," +
             "places.rating,places.userRatingCount," +
-            "places.currentOpeningHours.openNow," +
-            "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions," +
-            "places.nationalPhoneNumber,places.websiteUri," +
-            "places.editorialSummary,places.reviews";
+            "places.currentOpeningHours.openNow";
+    private static final String DETAILS_FIELD_MASK =
+            "id,businessStatus,currentOpeningHours.openNow," +
+            "currentOpeningHours.nextOpenTime,currentOpeningHours.nextCloseTime," +
+            "currentOpeningHours.weekdayDescriptions,currentOpeningHours.periods," +
+            "regularOpeningHours.weekdayDescriptions";
 
     private final RestClient restClient;
     @Autowired
@@ -48,8 +57,7 @@ public class PlaceSearchService {
     PlaceSearchService(RestClient.Builder builder, String apiKey, String referer) {
         RestClient.Builder configuredBuilder = builder
                 .baseUrl(GOOGLE_PLACES_BASE_URL)
-                .defaultHeader("X-Goog-Api-Key", apiKey)
-                .defaultHeader("X-Goog-FieldMask", FIELD_MASK);
+                .defaultHeader("X-Goog-Api-Key", apiKey);
         if (StringUtils.hasText(referer)) {
             configuredBuilder.defaultHeader("Referer", referer);
         }
@@ -66,20 +74,116 @@ public class PlaceSearchService {
     }
 
     public List<PlaceSearchResponse> search(String query) {
+        return search(query, null, null);
+    }
+
+    public List<PlaceSearchResponse> search(String query, String location, String includedType) {
+        return search(query, location, includedType, null, null);
+    }
+
+    public List<PlaceSearchResponse> search(
+            String query,
+            String location,
+            String includedType,
+            Double latitude,
+            Double longitude
+    ) {
         if (!StringUtils.hasText(query)) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
-        return callGooglePlacesApi(query);
+        String fullQuery = StringUtils.hasText(location)
+                ? query + " " + location
+                : query;
+        Map<String, Object> requestBody = new LinkedHashMap<>();
+        requestBody.put("textQuery", fullQuery);
+        requestBody.put("languageCode", "ko");
+        if (StringUtils.hasText(includedType)) {
+            requestBody.put("includedType", includedType);
+            requestBody.put("strictTypeFiltering", true);
+        }
+        boolean hasRoomCenter = hasValidCoordinates(latitude, longitude);
+        if (hasRoomCenter) {
+            requestBody.put("locationBias", createLocationCircle(
+                    latitude, longitude, ROOM_SEARCH_RADIUS_METERS));
+        }
+        List<PlaceSearchResponse> results = callGooglePlacesApi(requestBody);
+        if (!hasRoomCenter) {
+            return results;
+        }
+        return results.stream()
+                .filter(place -> distanceMeters(
+                        latitude, longitude, place.latitude(), place.longitude())
+                        <= ROOM_SEARCH_RADIUS_METERS)
+                .toList();
     }
 
-    private List<PlaceSearchResponse> callGooglePlacesApi(String query) {
+    public List<PlaceSearchResponse> searchNearby(
+            String query,
+            double latitude,
+            double longitude,
+            double radiusMeters
+    ) {
+        if (!StringUtils.hasText(query)) {
+            throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
+        }
+        double safeRadius = Math.max(500, Math.min(radiusMeters, 20_000));
+        return callGooglePlacesApi(Map.of(
+                "textQuery", query,
+                "languageCode", "ko",
+                "locationBias", createLocationCircle(latitude, longitude, safeRadius)
+        ));
+    }
+
+    private Map<String, Object> createLocationCircle(
+            double latitude,
+            double longitude,
+            double radiusMeters
+    ) {
+        return Map.of("circle", Map.of(
+                "center", Map.of(
+                        "latitude", latitude,
+                        "longitude", longitude
+                ),
+                "radius", radiusMeters
+        ));
+    }
+
+    private boolean hasValidCoordinates(Double latitude, Double longitude) {
+        return latitude != null
+                && longitude != null
+                && Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && latitude >= -90.0
+                && latitude <= 90.0
+                && longitude >= -180.0
+                && longitude <= 180.0;
+    }
+
+    private double distanceMeters(
+            double originLatitude,
+            double originLongitude,
+            double destinationLatitude,
+            double destinationLongitude
+    ) {
+        double latitudeDelta = Math.toRadians(destinationLatitude - originLatitude);
+        double longitudeDelta = Math.toRadians(destinationLongitude - originLongitude);
+        double originLatitudeRadians = Math.toRadians(originLatitude);
+        double destinationLatitudeRadians = Math.toRadians(destinationLatitude);
+        double haversine = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
+                + Math.cos(originLatitudeRadians) * Math.cos(destinationLatitudeRadians)
+                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+        double normalizedHaversine = Math.max(0.0, Math.min(1.0, haversine));
+        return EARTH_RADIUS_METERS * 2 * Math.atan2(
+                Math.sqrt(normalizedHaversine), Math.sqrt(1 - normalizedHaversine));
+    }
+
+    private List<PlaceSearchResponse> callGooglePlacesApi(
+            Map<String, Object> requestBody
+    ) {
         try {
-            Map<String, String> requestBody = Map.of(
-                    "textQuery", query,
-                    "languageCode", "ko"
-            );
             GooglePlacesApiResponse response = restClient.post()
                     .uri("/places:searchText")
+                    .header("X-Goog-FieldMask", FIELD_MASK)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
@@ -87,6 +191,87 @@ public class PlaceSearchService {
             return mapToResponses(response);
         } catch (RestClientException e) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+        }
+    }
+
+    public PlaceOperationalDetails getOperationalDetails(String googlePlaceId) {
+        try {
+            GooglePlacesApiResponse.Place place = restClient.get()
+                    .uri("/places/{placeId}", googlePlaceId)
+                    .header("X-Goog-FieldMask", DETAILS_FIELD_MASK)
+                    .retrieve()
+                    .body(GooglePlacesApiResponse.Place.class);
+            if (place == null) {
+                throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+            }
+            var current = place.currentOpeningHours();
+            List<String> descriptions = current != null
+                    && current.weekdayDescriptions() != null
+                    ? current.weekdayDescriptions()
+                    : place.regularOpeningHours() == null
+                    || place.regularOpeningHours().weekdayDescriptions() == null
+                    ? List.of()
+                    : place.regularOpeningHours().weekdayDescriptions();
+            return new PlaceOperationalDetails(
+                    place.businessStatus(),
+                    current == null ? null : current.openNow(),
+                    parseOffsetDateTime(current == null ? null : current.nextOpenTime()),
+                    parseOffsetDateTime(current == null ? null : current.nextCloseTime()),
+                    List.copyOf(descriptions),
+                    mapOpeningWindows(current)
+            );
+        } catch (RestClientException e) {
+            throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+        }
+    }
+
+    private List<PlaceOperationalDetails.OpeningWindow> mapOpeningWindows(
+            GooglePlacesApiResponse.CurrentOpeningHours current
+    ) {
+        if (current == null || current.periods() == null) return List.of();
+        return current.periods().stream()
+                .map(period -> toOpeningWindow(period.open(), period.close()))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    private PlaceOperationalDetails.OpeningWindow toOpeningWindow(
+            GooglePlacesApiResponse.OpeningPoint open,
+            GooglePlacesApiResponse.OpeningPoint close
+    ) {
+        LocalDateTime opensAt = toLocalDateTime(open);
+        LocalDateTime closesAt = toLocalDateTime(close);
+        if (opensAt == null || closesAt == null) return null;
+        return new PlaceOperationalDetails.OpeningWindow(opensAt, closesAt);
+    }
+
+    private LocalDateTime toLocalDateTime(
+            GooglePlacesApiResponse.OpeningPoint point
+    ) {
+        if (point == null || point.date() == null
+                || point.date().year() == null
+                || point.date().month() == null
+                || point.date().day() == null
+                || point.hour() == null) {
+            return null;
+        }
+        int minute = point.minute() == null ? 0 : point.minute();
+        return LocalDateTime.of(
+                LocalDate.of(
+                        point.date().year(),
+                        point.date().month(),
+                        point.date().day()
+                ),
+                LocalTime.of(point.hour(), minute)
+        );
+    }
+
+    private OffsetDateTime parseOffsetDateTime(String value) {
+        if (!StringUtils.hasText(value)) return null;
+        try {
+            return OffsetDateTime.parse(value);
+        } catch (RuntimeException ignored) {
+            return null;
         }
     }
 
@@ -116,25 +301,8 @@ public class PlaceSearchService {
                 place.types(),
                 name
         );
-        String photoName = resolvePhotoName(place);
-
-        Boolean openNow = Optional.ofNullable(place.regularOpeningHours())
-                .map(GooglePlacesApiResponse.RegularOpeningHours::openNow)
-                .orElseGet(() -> place.currentOpeningHours() != null
-                        ? place.currentOpeningHours().openNow()
-                        : null);
-
-        List<String> weekdayDescriptions = place.regularOpeningHours() != null
-                ? place.regularOpeningHours().weekdayDescriptions()
-                : null;
-
-        String editorialSummary = place.editorialSummary() != null
-                ? place.editorialSummary().text()
-                : null;
-
-        GooglePlacesApiResponse.Review topReview = (place.reviews() != null && !place.reviews().isEmpty())
-                ? place.reviews().get(0)
-                : null;
+        Boolean openNow = place.currentOpeningHours() == null
+                ? null : place.currentOpeningHours().openNow();
 
         return new PlaceSearchResponse(
                 place.id(),
@@ -145,25 +313,19 @@ public class PlaceSearchService {
                 placeType,
                 place.types() == null ? List.of() : List.copyOf(place.types()),
                 recommendedCategoryType,
-                photoName,
+                null,
                 place.rating(),
                 place.userRatingCount(),
                 openNow,
-                weekdayDescriptions,
-                place.nationalPhoneNumber(),
-                place.websiteUri(),
-                editorialSummary,
-                topReview != null && topReview.text() != null ? topReview.text().text() : null,
-                topReview != null ? topReview.rating() : null,
-                topReview != null && topReview.authorAttribution() != null
-                        ? topReview.authorAttribution().displayName() : null,
-                topReview != null ? topReview.relativePublishTimeDescription() : null
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
-    }
-
-    private String resolvePhotoName(GooglePlacesApiResponse.Place place) {
-        if (place.photos() == null || place.photos().isEmpty()) return null;
-        return place.photos().get(0).name();
     }
 
     private String firstTypeOrNull(List<String> types) {

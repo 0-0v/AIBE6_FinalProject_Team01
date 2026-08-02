@@ -22,3 +22,30 @@ export type PlaceSearchResult = {
     topReviewAuthor: string | null
     topReviewTime: string | null
 }
+
+export type PlaceSearchCategory = {
+    key: string
+    label: string
+    placeholder: string
+    categoryKey:
+        | 'lodging'
+        | 'attraction'
+        | 'food'
+        | 'cafe'
+        | 'shopping'
+        | 'transport'
+        | null
+    suggestions: PlaceSearchSuggestion[]
+}
+
+export type PlaceSearchSuggestion = {
+    label: string
+    includedType: string | null
+}
+
+export type AiPlaceSearchRecommendation = {
+    place: PlaceSearchResult
+    reason: string
+    routeDeviationMeters: number
+    styleCompatibility: number
+}

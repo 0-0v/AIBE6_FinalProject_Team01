@@ -10,6 +10,7 @@ type Props = {
     selected?: boolean
     hovered?: boolean
     preview?: boolean
+    focused?: boolean
 }
 
 export function ItineraryMapMarker({
@@ -22,9 +23,10 @@ export function ItineraryMapMarker({
     selected = false,
     hovered = false,
     preview = false,
+    focused = false,
 }: Props) {
     const emphasized = selected || hovered
-    const sizeClass = selected ? 'size-10' : emphasized ? 'size-9' : 'size-8'
+    const sizeClass = selected ? 'size-10' : emphasized ? 'size-9' : focused ? 'size-9' : 'size-8'
     const hasOrderLabel = label != null
 
     return (
@@ -35,7 +37,7 @@ export function ItineraryMapMarker({
         >
             <div
                 className={`${sizeClass} relative flex items-center justify-center rounded-full border-[3px] border-white shadow-[0_5px_12px_rgba(15,23,42,0.24)] transition-all ${
-                    selected ? 'ring-4 ring-white/70' : ''
+                    selected ? 'ring-4 ring-white/70' : focused ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgba(15,23,42,0.32)]' : ''
                 } ${selected ? 'itinerary-marker-bounce' : ''} ${
                     preview ? 'animate-pulse' : ''
                 }`}
@@ -44,6 +46,13 @@ export function ItineraryMapMarker({
                 {selected && (
                     <span
                         className="itinerary-marker-pulse pointer-events-none absolute -inset-1 z-0 rounded-full border-2"
+                        style={{ borderColor: color }}
+                        aria-hidden
+                    />
+                )}
+                {focused && !selected && (
+                    <span
+                        className="pointer-events-none absolute -inset-1 z-0 rounded-full border-2 opacity-60"
                         style={{ borderColor: color }}
                         aria-hidden
                     />
