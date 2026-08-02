@@ -518,4 +518,78 @@ class ItineraryRoutePlannerTest {
         assertThat(result.days().getFirst().items().getFirst().startTime())
                 .isEqualTo("10:46");
     }
+
+    @Test
+    @DisplayName("t17 재배치 결과에는 선택 장소와 변경 사유를 반영한 이유를 표시한다")
+    void t17_replanResultExplainsWhyScheduleChanged() {
+        String context = "선택 장소: 한큐 우메다. 변경 사유: 영업시간 변경. "
+                + "재배치 시작 하한: 10:46. 이후 일정을 함께 조정함.";
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(day(1L, 1)),
+                List.of(tripPlace(
+                        10L,
+                        "한큐 우메다",
+                        PlaceCategoryType.SHOPPING,
+                        34.7028,
+                        135.4985
+                )),
+                Set.of(),
+                TripScheduleSettings.defaultSettings(),
+                "REPLAN_REMAINING_ITINERARY\n" + context
+        ).getFirst().plan();
+
+        assertThat(result.summary()).contains("변경 사유");
+        assertThat(result.days().getFirst().items().getFirst().reason())
+                .contains("한큐 우메다", "영업시간 변경", "10:46");
+    }
+
+    @Test
+    @DisplayName("t18 영업시간 제약 장소는 지정한 Day와 개점 시각 이후에 배치한다")
+    void t18_operatingHoursConstraintMovesPlaceToOpeningWindow() {
+        ItineraryDay day1 = day(1L, 1);
+        ItineraryDay day2 = day(2L, 2);
+        TripPlace hankyu = tripPlace(
+                10L,
+                "한큐 우메다",
+                PlaceCategoryType.SHOPPING,
+                34.7028,
+                135.4985
+        );
+        TripPlace another = tripPlace(
+                11L,
+                "다음 장소",
+                PlaceCategoryType.ATTRACTION,
+                34.7100,
+                135.5100
+        );
+        TripScheduleSettings settings = TripScheduleSettings
+                .defaultSettings()
+                .withPlaceConstraint(
+                        10L,
+                        new PlaceScheduleConstraint(
+                                2L,
+                                LocalTime.of(11, 0),
+                                "다음 영업 가능 시각에 배치했습니다."
+                        )
+                );
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(day1, day2),
+                List.of(hankyu, another),
+                Set.of(),
+                settings
+        ).getFirst().plan();
+
+        assertThat(result.days().getFirst().items())
+                .extracting(item -> item.tripPlaceId())
+                .doesNotContain(10L);
+        assertThat(result.days().get(1).items())
+                .filteredOn(item -> item.tripPlaceId().equals(10L))
+                .singleElement()
+                .satisfies(item -> {
+                    assertThat(item.startTime()).isEqualTo("11:00");
+                    assertThat(item.reason()).contains("영업 가능 시각");
+                });
+    }
 }

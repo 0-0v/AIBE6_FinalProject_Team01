@@ -97,6 +97,10 @@ function ReplanPreview({
         (count, day) => count + day.items.length,
         0,
     )
+    const affectedDistanceMeters = affectedDays.reduce(
+        (distance, day) => distance + day.totalDistanceMeters,
+        0,
+    )
     return (
         <div className="space-y-3">
             <div className="rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 p-4">
@@ -108,7 +112,7 @@ function ReplanPreview({
                         재배치 장소 {affectedPlaceCount}곳
                     </span>
                     <span className="rounded-full bg-white px-2.5 py-1">
-                        예상 이동 {formatDistance(plan.totalDistanceMeters)}
+                        예상 이동 {formatDistance(affectedDistanceMeters)}
                     </span>
                 </div>
             </div>

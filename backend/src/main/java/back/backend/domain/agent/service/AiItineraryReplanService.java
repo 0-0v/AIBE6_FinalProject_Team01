@@ -15,6 +15,7 @@ import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.itinerary.service.ItineraryRoutePlanner;
 import back.backend.domain.itinerary.service.ItineraryService;
 import back.backend.domain.itinerary.service.TripScheduleSettings;
+import back.backend.domain.itinerary.service.PlaceScheduleConstraint;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
@@ -168,6 +169,14 @@ public class AiItineraryReplanService {
                 request.reasons(),
                 operationalDetails
         );
+        ReplanPlacement placement = resolveSelectedPlacePlacement(
+                replannableDays,
+                startingDay,
+                startingItem,
+                request.reasons(),
+                operationalDetails,
+                replanStartTime
+        );
         String replanContext = buildReplanContext(
                 startingTripPlace,
                 startingItem,
@@ -181,7 +190,15 @@ public class AiItineraryReplanService {
                         ? LocalTime.of(21, 0) : trip.getDayEndTime(),
                 trip.getTravelPace() == null
                         ? TravelPace.NORMAL : trip.getTravelPace()
-        ).withDayStartOverride(startingDay.getId(), replanStartTime);
+        ).withDayStartOverride(startingDay.getId(), replanStartTime)
+                .withPlaceConstraint(
+                        startingTripPlace.getId(),
+                        new PlaceScheduleConstraint(
+                                placement.dayId(),
+                                placement.startTime(),
+                                placement.reason()
+                        )
+                );
         return routePlanner.planMulti(
                         replannableDays,
                         movablePlaces,
@@ -288,6 +305,61 @@ public class AiItineraryReplanService {
     private boolean requiresOperationalDetails(List<AiReplanReason> reasons) {
         return reasons.contains(AiReplanReason.BUSINESS_HOURS)
                 || reasons.contains(AiReplanReason.TEMPORARY_CLOSURE);
+    }
+
+    private ReplanPlacement resolveSelectedPlacePlacement(
+            List<ItineraryDay> replannableDays,
+            ItineraryDay startingDay,
+            ItineraryItem startingItem,
+            List<AiReplanReason> reasons,
+            PlaceOperationalDetails details,
+            LocalTime replanStartTime
+    ) {
+        boolean operatingIssue = reasons.contains(AiReplanReason.BUSINESS_HOURS)
+                || reasons.contains(AiReplanReason.TEMPORARY_CLOSURE);
+        LocalDateTime originalStart = LocalDateTime.of(
+                startingDay.getItineraryDate(),
+                startingItem.getStartTime() == null
+                        ? replanStartTime : startingItem.getStartTime()
+        );
+        if (operatingIssue && details != null) {
+            var nextWindow = details.openingWindows().stream()
+                    .filter(window -> window.opensAt().isAfter(originalStart))
+                    .filter(window -> replannableDays.stream().anyMatch(day ->
+                            day.getItineraryDate().equals(
+                                    window.opensAt().toLocalDate()
+                            )))
+                    .findFirst();
+            if (nextWindow.isPresent()) {
+                var window = nextWindow.get();
+                ItineraryDay targetDay = replannableDays.stream()
+                        .filter(day -> day.getItineraryDate().equals(
+                                window.opensAt().toLocalDate()
+                        ))
+                        .findFirst()
+                        .orElseThrow();
+                return new ReplanPlacement(
+                        targetDay.getId(),
+                        window.opensAt().toLocalTime(),
+                        "Google Places에서 확인한 다음 영업 가능 시각인 "
+                                + window.opensAt()
+                                + " 이후로 다시 배치했습니다."
+                );
+            }
+        }
+        String labels = reasons.stream()
+                .map(AiReplanReason::label)
+                .distinct()
+                .collect(Collectors.joining(", "));
+        String evidence = operatingIssue && details == null
+                ? "Google 운영정보를 확인하지 못해 사용자 입력을 우선 적용했습니다. "
+                : "";
+        return new ReplanPlacement(
+                startingDay.getId(),
+                replanStartTime,
+                evidence + labels + " 사유를 반영해 " + replanStartTime
+                        + " 이후로 다시 배치했습니다."
+        );
     }
 
     private String buildReplanContext(
@@ -469,6 +541,13 @@ public class AiItineraryReplanService {
             int sortOrder,
             String startTime,
             String endTime
+    ) {
+    }
+
+    private record ReplanPlacement(
+            Long dayId,
+            LocalTime startTime,
+            String reason
     ) {
     }
 }

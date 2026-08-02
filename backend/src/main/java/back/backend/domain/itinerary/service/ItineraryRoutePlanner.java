@@ -519,12 +519,18 @@ public class ItineraryRoutePlanner {
             String defaultReason,
             TripScheduleSettings settings
     ) {
+        List<List<TripPlace>> constrainedClusters = applyPlaceConstraints(
+                days,
+                clusters,
+                settings
+        );
         List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
         int totalDistanceMeters = 0;
 
         for (int i = 0; i < days.size(); i++) {
             ItineraryDay day = days.get(i);
-            List<TripPlace> dayPlaces = i < clusters.size() ? clusters.get(i) : List.of();
+            List<TripPlace> dayPlaces = i < constrainedClusters.size()
+                    ? constrainedClusters.get(i) : List.of();
             List<TripPlace> constrainedPlaces = constraintSorter.sort(
                     dayPlaces,
                     day.getItineraryDate()
@@ -539,6 +545,37 @@ public class ItineraryRoutePlanner {
         }
 
         return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
+    }
+
+    private List<List<TripPlace>> applyPlaceConstraints(
+            List<ItineraryDay> days,
+            List<List<TripPlace>> clusters,
+            TripScheduleSettings settings
+    ) {
+        List<List<TripPlace>> adjusted = new ArrayList<>();
+        for (int index = 0; index < days.size(); index++) {
+            adjusted.add(new ArrayList<>(
+                    index < clusters.size() ? clusters.get(index) : List.of()
+            ));
+        }
+        settings.placeConstraints().forEach((tripPlaceId, constraint) -> {
+            TripPlace constrainedPlace = adjusted.stream()
+                    .flatMap(List::stream)
+                    .filter(place -> place.getId().equals(tripPlaceId))
+                    .findFirst()
+                    .orElse(null);
+            if (constrainedPlace == null) return;
+            adjusted.forEach(dayPlaces -> dayPlaces.removeIf(
+                    place -> place.getId().equals(tripPlaceId)
+            ));
+            for (int index = 0; index < days.size(); index++) {
+                if (days.get(index).getId().equals(constraint.dayId())) {
+                    adjusted.get(index).add(constrainedPlace);
+                    break;
+                }
+            }
+        });
+        return adjusted;
     }
 
     private List<TripPlace> prioritizeDeparture(
@@ -586,6 +623,14 @@ public class ItineraryRoutePlanner {
         for (int index = 0; index < places.size(); index++) {
             TripPlace current = places.get(index);
             TripPlace next = index + 1 < places.size() ? places.get(index + 1) : null;
+            PlaceScheduleConstraint placeConstraint = settings.placeConstraints()
+                    .get(current.getId());
+            if (placeConstraint != null
+                    && placeConstraint.dayId().equals(day.getId())) {
+                int earliestMinutes = placeConstraint.earliestStartTime().getHour() * 60
+                        + placeConstraint.earliestStartTime().getMinute();
+                cursorMinutes = Math.max(cursorMinutes, earliestMinutes);
+            }
 
             int baseStay = CATEGORY_STAY_MINUTES.getOrDefault(
                     current.getCategory().getCategoryType(), DEFAULT_STAY_MINUTES);
@@ -608,7 +653,15 @@ public class ItineraryRoutePlanner {
                 );
             }
 
-            String reason = buildItemReason(index, fitsInDay, defaultReason, settings, day.getId());
+            String reason = placeConstraint != null
+                    ? placeConstraint.reason()
+                    : buildItemReason(
+                            index,
+                            fitsInDay,
+                            defaultReason,
+                            settings,
+                            day.getId()
+                    );
 
             items.add(new RoutePlanItemResponse(
                     current.getId(),

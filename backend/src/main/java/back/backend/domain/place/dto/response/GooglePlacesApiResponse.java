@@ -33,7 +33,29 @@ public record GooglePlacesApiResponse(
             Boolean openNow,
             String nextOpenTime,
             String nextCloseTime,
-            List<String> weekdayDescriptions
+            List<String> weekdayDescriptions,
+            List<OpeningPeriod> periods
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record OpeningPeriod(
+            OpeningPoint open,
+            OpeningPoint close
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record OpeningPoint(
+            GoogleDate date,
+            Integer day,
+            Integer hour,
+            Integer minute
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record GoogleDate(
+            Integer year,
+            Integer month,
+            Integer day
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

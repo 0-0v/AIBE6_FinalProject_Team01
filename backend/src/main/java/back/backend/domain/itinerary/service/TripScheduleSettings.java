@@ -14,18 +14,19 @@ public record TripScheduleSettings(
         LocalTime dayEndTime,
         TravelPace travelPace,
         ItineraryTransportMode defaultTransportMode,
-        Map<Long, LocalTime> dayStartOverrides
+        Map<Long, LocalTime> dayStartOverrides,
+        Map<Long, PlaceScheduleConstraint> placeConstraints
 ) {
 
     private static final TripScheduleSettings DEFAULT =
-            new TripScheduleSettings(LocalTime.of(9, 0), LocalTime.of(21, 0), TravelPace.NORMAL, null, Map.of());
+            new TripScheduleSettings(LocalTime.of(9, 0), LocalTime.of(21, 0), TravelPace.NORMAL, null, Map.of(), Map.of());
 
     public static TripScheduleSettings defaultSettings() {
         return DEFAULT;
     }
 
     public static TripScheduleSettings of(LocalTime start, LocalTime end, TravelPace pace) {
-        return new TripScheduleSettings(start, end, pace, null, Map.of());
+        return new TripScheduleSettings(start, end, pace, null, Map.of(), Map.of());
     }
 
     public int dayStartMinutes() {
@@ -47,7 +48,22 @@ public record TripScheduleSettings(
                 dayEndTime,
                 travelPace,
                 defaultTransportMode,
-                Map.of(dayId, start)
+                Map.of(dayId, start),
+                placeConstraints
+        );
+    }
+
+    public TripScheduleSettings withPlaceConstraint(
+            Long tripPlaceId,
+            PlaceScheduleConstraint constraint
+    ) {
+        return new TripScheduleSettings(
+                dayStartTime,
+                dayEndTime,
+                travelPace,
+                defaultTransportMode,
+                dayStartOverrides,
+                Map.of(tripPlaceId, constraint)
         );
     }
 

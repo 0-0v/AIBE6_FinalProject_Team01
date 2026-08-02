@@ -504,6 +504,7 @@ public class ItineraryService {
                     end   != null ? end   : LocalTime.of(21, 0),
                     pace  != null ? pace  : TravelPace.NORMAL,
                     defaultTransportMode,
+                    Map.of(),
                     Map.of()
             );
         }).orElse(TripScheduleSettings.defaultSettings());

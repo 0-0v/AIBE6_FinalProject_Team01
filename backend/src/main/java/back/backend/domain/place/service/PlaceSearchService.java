@@ -7,6 +7,9 @@ import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +34,8 @@ public class PlaceSearchService {
     private static final String DETAILS_FIELD_MASK =
             "id,businessStatus,currentOpeningHours.openNow," +
             "currentOpeningHours.nextOpenTime,currentOpeningHours.nextCloseTime," +
-            "currentOpeningHours.weekdayDescriptions,regularOpeningHours.weekdayDescriptions";
+            "currentOpeningHours.weekdayDescriptions,currentOpeningHours.periods," +
+            "regularOpeningHours.weekdayDescriptions";
 
     private final RestClient restClient;
     @Autowired
@@ -151,11 +155,53 @@ public class PlaceSearchService {
                     current == null ? null : current.openNow(),
                     parseOffsetDateTime(current == null ? null : current.nextOpenTime()),
                     parseOffsetDateTime(current == null ? null : current.nextCloseTime()),
-                    List.copyOf(descriptions)
+                    List.copyOf(descriptions),
+                    mapOpeningWindows(current)
             );
         } catch (RestClientException e) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
         }
+    }
+
+    private List<PlaceOperationalDetails.OpeningWindow> mapOpeningWindows(
+            GooglePlacesApiResponse.CurrentOpeningHours current
+    ) {
+        if (current == null || current.periods() == null) return List.of();
+        return current.periods().stream()
+                .map(period -> toOpeningWindow(period.open(), period.close()))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    private PlaceOperationalDetails.OpeningWindow toOpeningWindow(
+            GooglePlacesApiResponse.OpeningPoint open,
+            GooglePlacesApiResponse.OpeningPoint close
+    ) {
+        LocalDateTime opensAt = toLocalDateTime(open);
+        LocalDateTime closesAt = toLocalDateTime(close);
+        if (opensAt == null || closesAt == null) return null;
+        return new PlaceOperationalDetails.OpeningWindow(opensAt, closesAt);
+    }
+
+    private LocalDateTime toLocalDateTime(
+            GooglePlacesApiResponse.OpeningPoint point
+    ) {
+        if (point == null || point.date() == null
+                || point.date().year() == null
+                || point.date().month() == null
+                || point.date().day() == null
+                || point.hour() == null) {
+            return null;
+        }
+        int minute = point.minute() == null ? 0 : point.minute();
+        return LocalDateTime.of(
+                LocalDate.of(
+                        point.date().year(),
+                        point.date().month(),
+                        point.date().day()
+                ),
+                LocalTime.of(point.hour(), minute)
+        );
     }
 
     private OffsetDateTime parseOffsetDateTime(String value) {
