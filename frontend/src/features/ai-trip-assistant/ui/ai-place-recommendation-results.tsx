@@ -102,7 +102,6 @@ export function AiPlaceRecommendationResults({
 
     if (!selected) return null
 
-    const photoUrl = resolveGooglePlacePhotoUrl(selected.place.photoName)
     const mapPosition = {
         lat: selected.place.latitude,
         lng: selected.place.longitude,
@@ -202,21 +201,7 @@ export function AiPlaceRecommendationResults({
             </div>
 
             <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60">
-                <div className="grid sm:grid-cols-2">
-                    <div className="relative h-[240px] bg-slate-200 sm:h-[260px]">
-                        {photoUrl ? (
-                            <img
-                                src={photoUrl}
-                                alt={`${selected.place.name} 사진`}
-                                className="absolute inset-0 h-full w-full object-cover"
-                            />
-                        ) : (
-                            <div className="flex h-full items-center justify-center text-slate-400">
-                                <MapPinIcon size={30} />
-                            </div>
-                        )}
-                    </div>
-                    <div className="h-[240px] min-w-0 overflow-hidden bg-slate-100 sm:h-[260px]">
+                <div className="h-[280px] w-full overflow-hidden bg-slate-100 sm:h-[320px]">
                         {mapLoaded ? (
                             <GoogleMap
                                 key={selected.place.googlePlaceId}
@@ -241,7 +226,6 @@ export function AiPlaceRecommendationResults({
                                 지도를 불러오는 중입니다.
                             </div>
                         )}
-                    </div>
                 </div>
 
                 <div className="p-5">
