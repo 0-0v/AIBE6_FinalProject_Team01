@@ -12,6 +12,7 @@ import {
 import type { ItineraryDay } from '@/entities/trip'
 import { PLACE_SEARCH_CATEGORIES } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { globalModal } from '@/shared/model'
 import { recommendPlacesAlongRoute } from '../api/ai-trip-api'
 import type { AiPlaceRecommendation } from '../model/types'
 import { AiBrandMark } from './ai-brand-mark'
@@ -21,6 +22,8 @@ import { AiPlaceRecommendationResults } from './ai-place-recommendation-results'
 type Props = {
     tripId: number
     days: ItineraryDay[]
+    startDate: string | null
+    endDate: string | null
     selectedDayId: number | null
     onReplanApplied: (days: ItineraryDay[]) => void
 }
@@ -65,6 +68,8 @@ function isUpcomingSegment(
 export function AiDashboardActions({
     tripId,
     days,
+    startDate,
+    endDate,
     selectedDayId,
     onReplanApplied,
 }: Props) {
@@ -119,6 +124,26 @@ export function AiDashboardActions({
     const selectedSegment =
         routeSegments.find((segment) => segment.key === selectedSegmentKey) ??
         defaultSegment
+
+    function openItineraryReplan() {
+        const today = localDateValue(new Date())
+        if (
+            startDate === null ||
+            endDate === null ||
+            today < startDate ||
+            today > endDate
+        ) {
+            globalModal.open({
+                title: '여행 중에만 사용할 수 있어요',
+                description:
+                    'AI 일정 재배치는 여행 시작일부터 종료일까지 이용할 수 있습니다.',
+                confirmText: '확인',
+            })
+            return
+        }
+        setMode('replan')
+        setError(null)
+    }
 
     async function submitPlaceRecommendation() {
         if (recommendationSubmitting.current) return
@@ -195,10 +220,7 @@ export function AiDashboardActions({
                 </button>
                 <button
                     type="button"
-                    onClick={() => {
-                        setMode('replan')
-                        setError(null)
-                    }}
+                    onClick={openItineraryReplan}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-slate-800"
                 >
                     <RouteIcon size={15} />

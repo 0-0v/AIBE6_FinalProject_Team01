@@ -1071,6 +1071,10 @@ export function Home() {
                                         <AiDashboardActions
                                             tripId={activeTrip.apiTripId}
                                             days={itineraryDays}
+                                            startDate={
+                                                activeTrip.startDate ?? null
+                                            }
+                                            endDate={activeTrip.endDate ?? null}
                                             selectedDayId={
                                                 selectedItineraryDay
                                                     ? Number(

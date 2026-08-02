@@ -26,7 +26,6 @@ import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,9 +55,6 @@ public class AiItineraryReplanService {
     private final AiReplanCutoffPolicy cutoffPolicy;
     private final CollaborationEventService collaborationEventService;
     private final PlaceSearchService placeSearchService;
-
-    @Value("${app.ai.replan.allow-outside-trip:false}")
-    private boolean allowOutsideTrip;
 
     public List<RoutePlanOption> preview(
             Long tripId,
@@ -226,6 +222,15 @@ public class AiItineraryReplanService {
             RoutePlanPreviewResponse plan
     ) {
         Long memberId = accessChecker.requireEdit(tripId);
+        var trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.NOT_FOUND
+                ));
+        validateTripPeriod(
+                trip.getStartDate(),
+                trip.getEndDate(),
+                LocalDate.now()
+        );
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
         LocalDateTime referenceTime = LocalDateTime.now();
         assertFixedItemsUnchanged(plan, days, referenceTime);
@@ -249,11 +254,7 @@ public class AiItineraryReplanService {
             LocalDate endDate,
             LocalDate today
     ) {
-        if (allowOutsideTrip) return;
-        if (startDate == null
-                || endDate == null
-                || today.isBefore(startDate)
-                || today.isAfter(endDate)) {
+        if (!cutoffPolicy.isTripInProgress(startDate, endDate, today)) {
             throw new BusinessException(CommonErrorCode.CONFLICT);
         }
     }

@@ -146,4 +146,31 @@ class AiReplanCutoffPolicyTest {
 
         assertThat(replannableDays).containsExactly(day2, day3);
     }
+
+    @Test
+    @DisplayName("t8 여행 시작일과 종료일 사이인 오늘은 일정 재배치를 허용한다")
+    void t8_tripInProgressAllowsReplan() {
+        boolean inProgress = policy.isTripInProgress(
+                LocalDate.of(2026, 8, 2),
+                LocalDate.of(2026, 8, 5),
+                LocalDate.of(2026, 8, 2)
+        );
+
+        assertThat(inProgress).isTrue();
+    }
+
+    @Test
+    @DisplayName("t9 여행 시작 전이거나 종료 후이면 일정 재배치를 허용하지 않는다")
+    void t9_outsideTripPeriodRejectsReplan() {
+        assertThat(policy.isTripInProgress(
+                LocalDate.of(2026, 8, 3),
+                LocalDate.of(2026, 8, 5),
+                LocalDate.of(2026, 8, 2)
+        )).isFalse();
+        assertThat(policy.isTripInProgress(
+                LocalDate.of(2026, 8, 3),
+                LocalDate.of(2026, 8, 5),
+                LocalDate.of(2026, 8, 6)
+        )).isFalse();
+    }
 }

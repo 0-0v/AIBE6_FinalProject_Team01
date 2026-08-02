@@ -184,23 +184,26 @@ export function AiItineraryReplanModal({
     const [applying, setApplying] = useState(false)
     const [applied, setApplied] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const remainingDays = useMemo(
+    const displayDays = useMemo(
         () =>
             days
                 .map((day) => ({
                     ...day,
                     items: day.items.filter(
-                        (item) =>
-                            item.tripPlaceId !== null &&
-                            isRemainingItem(day.itineraryDate, item, openedAt),
+                        (item) => item.tripPlaceId !== null,
                     ),
                 }))
                 .filter((day) => day.items.length > 0),
-        [days, openedAt],
+        [days],
     )
     const remainingItems = useMemo(
-        () => remainingDays.flatMap((day) => day.items),
-        [remainingDays],
+        () =>
+            displayDays.flatMap((day) =>
+                day.items.filter((item) =>
+                    isRemainingItem(day.itineraryDate, item, openedAt),
+                ),
+            ),
+        [displayDays, openedAt],
     )
     const selectedItemIndex = remainingItems.findIndex(
         (item) => Number(item.id) === selectedItemId,
@@ -335,13 +338,13 @@ export function AiItineraryReplanModal({
                                 </div>
 
                                 <div className="mt-3 space-y-3">
-                                    {remainingDays.length === 0 ? (
+                                    {displayDays.length === 0 ? (
                                         <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-xs font-bold text-slate-400">
                                             재배치할 수 있는 남은 일정이
                                             없습니다.
                                         </div>
                                     ) : (
-                                        remainingDays.map((day) => (
+                                        displayDays.map((day) => (
                                             <section
                                                 key={day.id}
                                                 className="rounded-2xl border border-slate-200 p-3"
@@ -357,6 +360,12 @@ export function AiItineraryReplanModal({
                                                         const itemId = Number(
                                                             item.id,
                                                         )
+                                                        const selectable =
+                                                            isRemainingItem(
+                                                                day.itineraryDate,
+                                                                item,
+                                                                openedAt,
+                                                            )
                                                         const selected =
                                                             selectedItemId ===
                                                             itemId
@@ -364,12 +373,15 @@ export function AiItineraryReplanModal({
                                                             <button
                                                                 key={item.id}
                                                                 type="button"
+                                                                disabled={
+                                                                    !selectable
+                                                                }
                                                                 onClick={() =>
                                                                     selectStartingItem(
                                                                         itemId,
                                                                     )
                                                                 }
-                                                                className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${selected ? 'border-brand bg-rose-50' : 'border-slate-200 hover:border-rose-200'}`}
+                                                                className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${!selectable ? 'cursor-not-allowed border-slate-100 bg-slate-100/80 opacity-55 grayscale' : selected ? 'border-brand bg-rose-50' : 'border-slate-200 hover:border-rose-200'}`}
                                                             >
                                                                 <span
                                                                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white'}`}
@@ -395,6 +407,8 @@ export function AiItineraryReplanModal({
                                                                         />
                                                                         {item.startTime ??
                                                                             '시간 미정'}
+                                                                        {!selectable &&
+                                                                            ' · 지난 일정'}
                                                                     </span>
                                                                 </span>
                                                             </button>
@@ -517,7 +531,7 @@ export function AiItineraryReplanModal({
                             disabled={
                                 loading ||
                                 applying ||
-                                remainingDays.length === 0
+                                remainingItems.length === 0
                             }
                             onClick={() =>
                                 selectedPlan ? void apply() : void preview()

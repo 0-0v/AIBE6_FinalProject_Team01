@@ -17,6 +17,17 @@ import java.util.stream.Collectors;
 @Component
 public class AiReplanCutoffPolicy {
 
+    public boolean isTripInProgress(
+            LocalDate startDate,
+            LocalDate endDate,
+            LocalDate today
+    ) {
+        return startDate != null
+                && endDate != null
+                && !today.isBefore(startDate)
+                && !today.isAfter(endDate);
+    }
+
     public boolean isFixed(
             ItineraryDay day,
             ItineraryItem item,
