@@ -129,6 +129,7 @@ type Props = {
     onItemHoverChange: (itemId: string | null) => void
     focusedItemId: string | null
     focusedPlaceId: string | null
+    highlightedPlaceId?: string | null
     onItemFocus: (itemId: string | null) => void
     onPlaceFocus: (placeId: string | null) => void
 }
@@ -173,6 +174,7 @@ function MapContent({
     onItemHoverChange,
     focusedItemId,
     focusedPlaceId,
+    highlightedPlaceId = null,
     onItemFocus,
     onPlaceFocus,
 }: Props) {
@@ -285,10 +287,18 @@ function MapContent({
             ? null
             : (places.find((place) => String(place.id) === focusedPlaceId) ??
               null)
+    const highlightedPlace =
+        highlightedPlaceId == null
+            ? null
+            : (places.find(
+                  (place) => String(place.id) === highlightedPlaceId,
+              ) ?? null)
     const activeFocusPosition =
         focusedPosition ??
         (focusedPlace == null
-            ? null
+            ? highlightedPlace == null
+                ? null
+                : { lat: highlightedPlace.lat, lng: highlightedPlace.lng }
             : { lat: focusedPlace.lat, lng: focusedPlace.lng })
 
     if (!isLoaded) {
@@ -454,18 +464,40 @@ function MapContent({
                         key={`saved-${place.id}`}
                         position={{ lat: place.lat, lng: place.lng }}
                         onClick={() => onPlaceFocus(String(place.id))}
-                        zIndex={focusedPlaceId === String(place.id) ? 100 : 1}
+                        zIndex={
+                            highlightedPlaceId === String(place.id)
+                                ? 110
+                                : focusedPlaceId === String(place.id)
+                                  ? 100
+                                  : 1
+                        }
                     >
                         <div className="relative flex flex-col items-center">
                             {focusedPlaceId === String(place.id) && (
                                 <FocusedSavedPlaceCard place={place} />
                             )}
                             <ItineraryMapMarker
-                                color={place.categoryColor ?? '#64748b'}
-                                categoryIcon={place.categoryIcon}
+                                color={
+                                    highlightedPlaceId === String(place.id)
+                                        ? '#e15b74'
+                                        : (place.categoryColor ?? '#64748b')
+                                }
+                                label={
+                                    highlightedPlaceId === String(place.id)
+                                        ? '추천'
+                                        : undefined
+                                }
+                                categoryIcon={
+                                    highlightedPlaceId === String(place.id)
+                                        ? null
+                                        : place.categoryIcon
+                                }
                                 categoryColor={place.categoryColor}
                                 categoryLabel={place.categoryName}
                                 selected={focusedPlaceId === String(place.id)}
+                                focused={
+                                    highlightedPlaceId === String(place.id)
+                                }
                             />
                         </div>
                     </AdvancedMarker>

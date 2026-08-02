@@ -1137,7 +1137,8 @@ export function Home() {
                                                                 undefined
                                                             }
                                                             focusedItemId={null}
-                                                            focusedPlaceId={
+                                                            focusedPlaceId={null}
+                                                            highlightedPlaceId={
                                                                 recommendationPlace.id
                                                             }
                                                             onItemFocus={() =>
