@@ -6,6 +6,7 @@ import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
+import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.trip.entity.TravelStyle;
@@ -82,6 +83,7 @@ public class ItineraryRoutePlanner {
     private final GoogleRoutesClient routesClient;
     private final OpenAiRouteAdvisor openAiRouteAdvisor;
     private final ConstraintSorter constraintSorter;
+    private final PlaceGraphEdgeService placeGraphEdgeService;
 
     /**
      * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
@@ -519,9 +521,11 @@ public class ItineraryRoutePlanner {
             String defaultReason,
             TripScheduleSettings settings
     ) {
+        List<List<TripPlace>> departureAlignedClusters =
+                alignClustersToDepartures(days, clusters);
         List<List<TripPlace>> constrainedClusters = applyPlaceConstraints(
                 days,
-                clusters,
+                departureAlignedClusters,
                 settings
         );
         List<RoutePlanDayResponse> plannedDays = new ArrayList<>();
@@ -545,6 +549,69 @@ public class ItineraryRoutePlanner {
         }
 
         return new RoutePlanPreviewResponse(summary, totalPlaceCount, totalDistanceMeters, plannedDays);
+    }
+
+    private List<List<TripPlace>> alignClustersToDepartures(
+            List<ItineraryDay> days,
+            List<List<TripPlace>> clusters
+    ) {
+        if (days.stream().noneMatch(ItineraryDay::hasDeparture)
+                || clusters.size() <= 1) {
+            return clusters;
+        }
+
+        List<List<TripPlace>> aligned = new ArrayList<>(
+                Collections.nCopies(days.size(), null)
+        );
+        Set<Integer> assignedClusterIndexes = new HashSet<>();
+
+        for (int dayIndex = 0; dayIndex < days.size(); dayIndex++) {
+            ItineraryDay day = days.get(dayIndex);
+            if (!day.hasDeparture()) {
+                continue;
+            }
+            GeoPoint departure = new GeoPoint(
+                    day.getDepartureLat().doubleValue(),
+                    day.getDepartureLng().doubleValue()
+            );
+            int nearestClusterIndex = java.util.stream.IntStream
+                    .range(0, clusters.size())
+                    .filter(index -> !assignedClusterIndexes.contains(index))
+                    .boxed()
+                    .min(Comparator.comparingDouble(index ->
+                            distanceToCluster(departure, clusters.get(index))))
+                    .orElse(-1);
+            if (nearestClusterIndex >= 0) {
+                aligned.set(dayIndex, clusters.get(nearestClusterIndex));
+                assignedClusterIndexes.add(nearestClusterIndex);
+            }
+        }
+
+        Iterator<List<TripPlace>> remainingClusters = java.util.stream.IntStream
+                .range(0, clusters.size())
+                .filter(index -> !assignedClusterIndexes.contains(index))
+                .mapToObj(clusters::get)
+                .iterator();
+        for (int dayIndex = 0; dayIndex < aligned.size(); dayIndex++) {
+            if (aligned.get(dayIndex) == null) {
+                aligned.set(
+                        dayIndex,
+                        remainingClusters.hasNext()
+                                ? remainingClusters.next() : List.of()
+                );
+            }
+        }
+        return aligned;
+    }
+
+    private double distanceToCluster(
+            GeoPoint departure,
+            List<TripPlace> cluster
+    ) {
+        return cluster.stream()
+                .mapToDouble(place -> distanceMeters(place, departure))
+                .min()
+                .orElse(Double.MAX_VALUE);
     }
 
     private List<List<TripPlace>> applyPlaceConstraints(
@@ -780,6 +847,22 @@ public class ItineraryRoutePlanner {
             ItineraryTransportMode requestedMode,
             Instant departureTime
     ) {
+        Optional<PlaceGraphEdgeService.CachedRoute> cachedRoute =
+                placeGraphEdgeService.find(
+                        from.getPlace(),
+                        to.getPlace(),
+                        requestedMode
+                );
+        if (cachedRoute.isPresent()) {
+            PlaceGraphEdgeService.CachedRoute cached = cachedRoute.get();
+            return new RouteResult(
+                    cached.distanceMeters(),
+                    cached.travelMinutes(),
+                    requestedMode.displayName(),
+                    null
+            );
+        }
+
         double fromLat = from.getPlace().getLatitude().doubleValue();
         double fromLng = from.getPlace().getLongitude().doubleValue();
         double toLat   = to.getPlace().getLatitude().doubleValue();
@@ -795,14 +878,23 @@ public class ItineraryRoutePlanner {
                         requestedMode.transitMode(),
                         departureTime
                 )
-                .map(info -> new RouteResult(
-                        info.distanceMeters(),
-                        info.durationMinutes(),
-                        info.actualTransportMode() != null
-                                ? info.actualTransportMode()
-                                : requestedMode.displayName(),
-                        info.transportDetail()
-                ))
+                .map(info -> {
+                    cacheRouteSafely(
+                            from.getPlace(),
+                            to.getPlace(),
+                            requestedMode,
+                            info.distanceMeters(),
+                            info.durationMinutes()
+                    );
+                    return new RouteResult(
+                            info.distanceMeters(),
+                            info.durationMinutes(),
+                            info.actualTransportMode() != null
+                                    ? info.actualTransportMode()
+                                    : requestedMode.displayName(),
+                            info.transportDetail()
+                    );
+                })
                 .orElseGet(() -> {
                     int haversineMeters = (int) Math.round(distanceMeters(from, to));
                     return new RouteResult(
@@ -815,6 +907,32 @@ public class ItineraryRoutePlanner {
                             null
                     );
                 });
+    }
+
+    private void cacheRouteSafely(
+            Place from,
+            Place to,
+            ItineraryTransportMode mode,
+            int distanceMeters,
+            int travelMinutes
+    ) {
+        try {
+            placeGraphEdgeService.cache(
+                    from,
+                    to,
+                    mode,
+                    distanceMeters,
+                    travelMinutes
+            );
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "장소 경로 캐시 저장에 실패했지만 조회한 경로를 계속 사용합니다. from={}, to={}, mode={}, type={}",
+                    from.getId(),
+                    to.getId(),
+                    mode,
+                    exception.getClass().getSimpleName()
+            );
+        }
     }
 
     private record RouteResult(
