@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
     CheckIcon,
     ExternalLinkIcon,
@@ -14,6 +14,7 @@ import {
     AdvancedMarker,
     Map as GoogleMap,
     useApiIsLoaded,
+    useMap,
 } from '@vis.gl/react-google-maps'
 import { addTripPlace } from '@/entities/trip'
 import {
@@ -30,6 +31,37 @@ type Props = {
 
 function formatDistance(meters: number) {
     return meters < 1000 ? `${meters}m` : `${(meters / 1000).toFixed(1)}km`
+}
+
+function RecommendationMapViewport({
+    position,
+}: {
+    position: { lat: number; lng: number }
+}) {
+    const map = useMap()
+
+    useEffect(() => {
+        if (!map) return
+        const mapElement = map.getDiv()
+        let animationFrame = 0
+        const refreshViewport = () => {
+            cancelAnimationFrame(animationFrame)
+            animationFrame = requestAnimationFrame(() => {
+                map.setCenter(position)
+                map.setZoom(16)
+            })
+        }
+        const resizeObserver = new ResizeObserver(refreshViewport)
+        resizeObserver.observe(mapElement)
+        refreshViewport()
+
+        return () => {
+            resizeObserver.disconnect()
+            cancelAnimationFrame(animationFrame)
+        }
+    }, [map, position])
+
+    return null
 }
 
 export function AiPlaceRecommendationResults({
@@ -170,8 +202,8 @@ export function AiPlaceRecommendationResults({
             </div>
 
             <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60">
-                <div className="grid min-h-[220px] sm:grid-cols-2">
-                    <div className="relative min-h-[190px] bg-slate-200">
+                <div className="grid sm:grid-cols-2">
+                    <div className="relative h-[240px] bg-slate-200 sm:h-[260px]">
                         {photoUrl ? (
                             <img
                                 src={photoUrl}
@@ -184,7 +216,7 @@ export function AiPlaceRecommendationResults({
                             </div>
                         )}
                     </div>
-                    <div className="min-h-[190px] overflow-hidden bg-slate-100">
+                    <div className="h-[240px] min-w-0 overflow-hidden bg-slate-100 sm:h-[260px]">
                         {mapLoaded ? (
                             <GoogleMap
                                 key={selected.place.googlePlaceId}
@@ -197,12 +229,15 @@ export function AiPlaceRecommendationResults({
                                         .NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ??
                                     'DEMO_MAP_ID'
                                 }
-                                className="h-full min-h-[190px] w-full"
+                                className="h-full w-full"
                             >
                                 <AdvancedMarker position={mapPosition} />
+                                <RecommendationMapViewport
+                                    position={mapPosition}
+                                />
                             </GoogleMap>
                         ) : (
-                            <div className="flex h-full min-h-[190px] items-center justify-center text-xs font-bold text-slate-400">
+                            <div className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
                                 지도를 불러오는 중입니다.
                             </div>
                         )}
