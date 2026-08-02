@@ -16,7 +16,7 @@ import {
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
-import { addTripPlace } from '@/entities/trip'
+import { addTripPlace, type ItineraryItem } from '@/entities/trip'
 import {
     getApiErrorMessage,
     resolveGooglePlacePhotoUrl,
@@ -26,6 +26,12 @@ import type { AiPlaceRecommendation } from '../model/types'
 type Props = {
     tripId: number
     recommendations: AiPlaceRecommendation[]
+    routeContext: {
+        dayNumber: number
+        itineraryDate: string
+        from: ItineraryItem
+        to: ItineraryItem
+    }
     onReset: () => void
 }
 
@@ -35,8 +41,12 @@ function formatDistance(meters: number) {
 
 function RecommendationMapViewport({
     position,
+    fromPosition,
+    toPosition,
 }: {
     position: { lat: number; lng: number }
+    fromPosition: { lat: number; lng: number }
+    toPosition: { lat: number; lng: number }
 }) {
     const map = useMap()
 
@@ -47,8 +57,25 @@ function RecommendationMapViewport({
         const refreshViewport = () => {
             cancelAnimationFrame(animationFrame)
             animationFrame = requestAnimationFrame(() => {
-                map.setCenter(position)
-                map.setZoom(16)
+                const latitudes = [
+                    fromPosition.lat,
+                    position.lat,
+                    toPosition.lat,
+                ]
+                const longitudes = [
+                    fromPosition.lng,
+                    position.lng,
+                    toPosition.lng,
+                ]
+                map.fitBounds(
+                    {
+                        north: Math.max(...latitudes),
+                        south: Math.min(...latitudes),
+                        east: Math.max(...longitudes),
+                        west: Math.min(...longitudes),
+                    },
+                    54,
+                )
             })
         }
         const resizeObserver = new ResizeObserver(refreshViewport)
@@ -59,7 +86,7 @@ function RecommendationMapViewport({
             resizeObserver.disconnect()
             cancelAnimationFrame(animationFrame)
         }
-    }, [map, position])
+    }, [fromPosition, map, position, toPosition])
 
     return null
 }
@@ -67,6 +94,7 @@ function RecommendationMapViewport({
 export function AiPlaceRecommendationResults({
     tripId,
     recommendations,
+    routeContext,
     onReset,
 }: Props) {
     const [selectedId, setSelectedId] = useState(
@@ -105,6 +133,14 @@ export function AiPlaceRecommendationResults({
     const mapPosition = {
         lat: selected.place.latitude,
         lng: selected.place.longitude,
+    }
+    const fromPosition = {
+        lat: routeContext.from.lat,
+        lng: routeContext.from.lng,
+    }
+    const toPosition = {
+        lat: routeContext.to.lat,
+        lng: routeContext.to.lng,
     }
     const registered = registeredIds.has(selected.place.googlePlaceId)
     const registering = registeringId === selected.place.googlePlaceId
@@ -201,6 +237,24 @@ export function AiPlaceRecommendationResults({
             </div>
 
             <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60">
+                <div className="border-b border-slate-200 bg-white px-5 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-brand">
+                        Day {routeContext.dayNumber} · {routeContext.itineraryDate}
+                    </p>
+                    <div className="mt-1 flex min-w-0 items-center gap-2 text-xs font-extrabold text-slate-700">
+                        <span className="min-w-0 truncate">
+                            {routeContext.from.placeName ?? '출발 장소'}
+                        </span>
+                        <span className="shrink-0 text-brand">→</span>
+                        <span className="min-w-0 truncate text-brand">
+                            {selected.place.name}
+                        </span>
+                        <span className="shrink-0 text-brand">→</span>
+                        <span className="min-w-0 truncate">
+                            {routeContext.to.placeName ?? '도착 장소'}
+                        </span>
+                    </div>
+                </div>
                 <div className="h-[280px] w-full overflow-hidden bg-slate-100 sm:h-[320px]">
                         {mapLoaded ? (
                             <GoogleMap
@@ -216,9 +270,25 @@ export function AiPlaceRecommendationResults({
                                 }
                                 className="h-full w-full"
                             >
-                                <AdvancedMarker position={mapPosition} />
+                                <AdvancedMarker position={fromPosition}>
+                                    <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-700 text-[10px] font-black text-white shadow-md">
+                                        출
+                                    </span>
+                                </AdvancedMarker>
+                                <AdvancedMarker position={mapPosition}>
+                                    <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-brand text-[9px] font-black text-white shadow-lg">
+                                        추천
+                                    </span>
+                                </AdvancedMarker>
+                                <AdvancedMarker position={toPosition}>
+                                    <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-700 text-[10px] font-black text-white shadow-md">
+                                        도
+                                    </span>
+                                </AdvancedMarker>
                                 <RecommendationMapViewport
                                     position={mapPosition}
+                                    fromPosition={fromPosition}
+                                    toPosition={toPosition}
                                 />
                             </GoogleMap>
                         ) : (

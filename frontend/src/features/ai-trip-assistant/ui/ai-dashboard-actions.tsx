@@ -264,6 +264,13 @@ export function AiDashboardActions({
                             <AiPlaceRecommendationResults
                                 tripId={tripId}
                                 recommendations={recommendations}
+                                routeContext={{
+                                    dayNumber: selectedSegment.dayNumber,
+                                    itineraryDate:
+                                        selectedSegment.itineraryDate,
+                                    from: selectedSegment.from,
+                                    to: selectedSegment.to,
+                                }}
                                 onReset={() => {
                                     setRecommendations([])
                                     setError(null)
