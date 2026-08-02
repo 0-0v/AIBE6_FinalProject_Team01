@@ -22,6 +22,7 @@ import { searchPlaces } from '../api/placeApi'
 import { PLACE_SEARCH_CATEGORIES } from '../model/categories'
 import type {
     AiPlaceSearchRecommendation,
+    PlaceSearchSuggestion,
     PlaceSearchResult,
 } from '../model/types'
 import { resolveGooglePlacePhotoUrl } from '@/shared/api/client'
@@ -29,6 +30,8 @@ import { resolveGooglePlacePhotoUrl } from '@/shared/api/client'
 type Props = {
     onAdd: (r: PlaceSearchResult) => Promise<void>
     location?: string
+    latitude?: number
+    longitude?: number
     existingGooglePlaceIds?: Set<string>
     aiRecommendations?: AiPlaceSearchRecommendation[] | null
 }
@@ -36,11 +39,16 @@ type Props = {
 export function PlaceSearch({
     onAdd,
     location,
+    latitude,
+    longitude,
     existingGooglePlaceIds,
     aiRecommendations,
 }: Props) {
     const [q, setQ] = useState('')
     const [selectedCategory, setSelectedCategory] = useState<string>('all')
+    const [selectedSuggestion, setSelectedSuggestion] =
+        useState<PlaceSearchSuggestion | null>(null)
+    const [searchDismissed, setSearchDismissed] = useState(false)
     const [results, setResults] = useState<PlaceSearchResult[]>(() =>
         aiRecommendations
             ? aiRecommendations.map((recommendation) => recommendation.place)
@@ -63,13 +71,18 @@ export function PlaceSearch({
 
     useEffect(() => {
         const trimmed = q.trim()
+        const categoryQuery =
+            selectedCategory === 'all' || searchDismissed
+                ? ''
+                : activeTab.label
+        const searchQuery = trimmed || categoryQuery
         const currentRequestId = ++requestId.current
         const controller = new AbortController()
 
         if (debounceTimer.current) clearTimeout(debounceTimer.current)
 
         debounceTimer.current = setTimeout(async () => {
-            if (trimmed.length < 2) {
+            if (searchQuery.length < 2) {
                 setResults([])
                 setError(null)
                 setLoading(false)
@@ -79,12 +92,15 @@ export function PlaceSearch({
             setLoading(true)
             setError(null)
             try {
-                const data = await searchPlaces(trimmed, {
+                const data = await searchPlaces(searchQuery, {
                     location,
                     includedType:
-                        selectedCategory === 'all'
+                        selectedSuggestion?.includedType ??
+                        (selectedSuggestion || selectedCategory === 'all'
                             ? undefined
-                            : selectedCategory,
+                            : selectedCategory),
+                    latitude,
+                    longitude,
                     signal: controller.signal,
                 })
                 if (requestId.current === currentRequestId) setResults(data)
@@ -105,20 +121,45 @@ export function PlaceSearch({
             if (debounceTimer.current) clearTimeout(debounceTimer.current)
             controller.abort()
         }
-    }, [q, selectedCategory, location])
+    }, [
+        q,
+        selectedCategory,
+        selectedSuggestion,
+        activeTab.label,
+        searchDismissed,
+        location,
+        latitude,
+        longitude,
+    ])
 
     function handleCategorySelect(key: string) {
         setActiveAiRecommendations(null)
         setSelectedCategory(key)
+        setSelectedSuggestion(null)
+        setSearchDismissed(false)
         setResults([])
         setQ('')
         setTimeout(() => inputRef.current?.focus(), 0)
     }
 
-    function handleSuggestionClick(suggestion: string) {
+    function handleSuggestionClick(suggestion: PlaceSearchSuggestion) {
         setActiveAiRecommendations(null)
-        setQ(suggestion)
+        setSelectedSuggestion(suggestion)
+        setSearchDismissed(false)
+        setQ(suggestion.label)
         setTimeout(() => inputRef.current?.focus(), 0)
+    }
+
+    function resetSearchAfterAdd() {
+        requestId.current += 1
+        if (debounceTimer.current) clearTimeout(debounceTimer.current)
+        setQ('')
+        setResults([])
+        setActiveAiRecommendations(null)
+        setSelectedSuggestion(null)
+        setSearchDismissed(true)
+        setError(null)
+        setLoading(false)
     }
 
     return (
@@ -136,6 +177,8 @@ export function PlaceSearch({
                         aria-label="장소 검색"
                         onChange={(e) => {
                             setActiveAiRecommendations(null)
+                            setSelectedSuggestion(null)
+                            setSearchDismissed(false)
                             setResults([])
                             setQ(e.target.value)
                         }}
@@ -146,6 +189,8 @@ export function PlaceSearch({
                         <button
                             onClick={() => {
                                 setActiveAiRecommendations(null)
+                                setSelectedSuggestion(null)
+                                setSearchDismissed(true)
                                 setQ('')
                             }}
                             aria-label="검색어 지우기"
@@ -208,17 +253,24 @@ export function PlaceSearch({
                 </div>
 
                 {/* 하위 키워드 칩 */}
-                {activeTab.suggestions.length > 0 && !q && (
+                {activeTab.suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         {activeTab.suggestions.map((suggestion) => (
                             <button
-                                key={suggestion}
+                                key={suggestion.label}
                                 onClick={() =>
                                     handleSuggestionClick(suggestion)
                                 }
-                                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                                aria-pressed={
+                                    selectedSuggestion?.label === suggestion.label
+                                }
+                                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                                    selectedSuggestion?.label === suggestion.label
+                                        ? 'border-brand bg-brand-50 text-brand'
+                                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800'
+                                }`}
                             >
-                                {suggestion}
+                                {suggestion.label}
                             </button>
                         ))}
                     </div>
@@ -237,7 +289,9 @@ export function PlaceSearch({
                         </p>
                     </div>
                 )}
-                {(q.trim().length >= 2 || activeAiRecommendations) && (
+                {((q.trim().length >= 2 ||
+                    (!searchDismissed && selectedCategory !== 'all')) ||
+                    activeAiRecommendations) && (
                     <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-100">
                         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold text-slate-500">
                             장소 정보 제공:{' '}
@@ -343,7 +397,7 @@ export function PlaceSearch({
                                                         </div>
                                                         <div className="flex items-center gap-1.5">
                                                             <span
-                                                                className="inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                                                                className="inline-block shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
                                                                 style={{
                                                                     backgroundColor:
                                                                         presentation.color +
@@ -393,7 +447,7 @@ export function PlaceSearch({
                                                                 {r.name}
                                                             </p>
                                                             <span
-                                                                className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"
+                                                                className="mt-1 inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold leading-none"
                                                                 style={{
                                                                     backgroundColor:
                                                                         presentation.color +
@@ -609,6 +663,7 @@ export function PlaceSearch({
                                                                   r.googlePlaceId,
                                                               ],
                                                     )
+                                                    resetSearchAfterAdd()
                                                 } catch {
                                                     // 호출부에서 사용자 오류 UI를 처리한다.
                                                 } finally {

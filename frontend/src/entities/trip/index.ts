@@ -19,8 +19,12 @@ export {
     fromApiToPlace,
     apiStatusToPlaceStatus,
     updateTripPlaceCategory,
+    getPlacePhotoMetadata,
 } from './api/tripPlaceApi'
-export type { PlaceVoteSummaryResponse } from './api/tripPlaceApi'
+export type {
+    PlaceVoteSummaryResponse,
+    PlacePhotoMetadata,
+} from './api/tripPlaceApi'
 export {
     getPlaceComments,
     addPlaceComment,

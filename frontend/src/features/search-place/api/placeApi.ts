@@ -12,12 +12,21 @@ export async function searchPlaces(
     options?: {
         location?: string
         includedType?: string
+        latitude?: number
+        longitude?: number
         signal?: AbortSignal
     },
 ): Promise<PlaceSearchResult[]> {
     const params = new URLSearchParams({ query })
     if (options?.location) params.append('location', options.location)
     if (options?.includedType) params.append('includedType', options.includedType)
+    if (
+        Number.isFinite(options?.latitude) &&
+        Number.isFinite(options?.longitude)
+    ) {
+        params.append('latitude', String(options?.latitude))
+        params.append('longitude', String(options?.longitude))
+    }
     const res = await apiClient.get<ApiResponse<PlaceSearchResult[]>>(
         `/api/places/search?${params.toString()}`,
         { signal: options?.signal },

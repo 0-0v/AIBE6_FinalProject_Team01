@@ -16,7 +16,7 @@ import {
     getTripPlaceAccess,
     getTripPlaceVotes,
     getItinerary,
-    addItineraryItem,
+    initializeItinerary,
     fromApiToPlace,
     type ItineraryDay,
 } from '@/entities/trip'
@@ -34,12 +34,7 @@ import {
 } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
-import {
-    MapCanvas,
-    RoomDetailPanel,
-    RoomListPanel,
-    getNextSortOrder,
-} from '@/widgets/trip-room'
+import { MapCanvas, RoomDetailPanel, RoomListPanel } from '@/widgets/trip-room'
 import {
     REALTIME_EVENT_NAME,
     type RealtimeEvent,
@@ -101,25 +96,15 @@ export function TripRoom() {
         },
         [tripId],
     )
+    const refreshTripDates = useCallback(async () => {
+        await loadTrips()
+        if (!tripId) return
 
-    const handleAddToSchedule = useCallback(
-        async (placeId: string, dayId: string) => {
-            if (!tripId) return
-            const currentDays =
-                itineraryState.tripId === tripId ? itineraryState.days : []
-            const targetDay = currentDays.find((d) => String(d.id) === dayId)
-            if (!targetDay) return
-            await addItineraryItem(
-                tripId,
-                Number(dayId),
-                Number(placeId),
-                getNextSortOrder(targetDay.items),
-            )
-            const updated = await getItinerary(tripId)
-            setItineraryState({ tripId, days: updated })
-        },
-        [tripId, itineraryState],
-    )
+        const days = await initializeItinerary(tripId, { force: true })
+        setItineraryState({ tripId, days })
+        setItineraryVersion((current) => current + 1)
+    }, [loadTrips, tripId])
+
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [headerContainer, setHeaderContainer] =
         useState<HTMLDivElement | null>(null)
@@ -355,11 +340,41 @@ export function TripRoom() {
         [displayedPlaces],
     )
 
-    function updatePlace(id: string, update: (place: Place) => Place) {
-        setPlaces((current) =>
-            current.map((place) => (place.id === id ? update(place) : place)),
-        )
-    }
+    const updatePlace = useCallback(
+        (id: string, update: (place: Place) => Place) => {
+            setPlaces((current) =>
+                current.map((place) =>
+                    place.id === id ? update(place) : place,
+                ),
+            )
+        },
+        [],
+    )
+
+    const handlePlacePhotoResolved = useCallback(
+        (
+            placeId: string,
+            photoUrl: string,
+            attribution: string | null,
+            attributionUrl: string | null,
+            sourceUrl: string,
+        ) => {
+            setPlaces((current) =>
+                current.map((place) =>
+                    place.id === placeId && place.image !== photoUrl
+                        ? {
+                              ...place,
+                              image: photoUrl,
+                              photoAttribution: attribution,
+                              photoAttributionUrl: attributionUrl,
+                              photoSourceUrl: sourceUrl,
+                          }
+                        : place,
+                ),
+            )
+        },
+        [],
+    )
 
     function addPlace(place: Place) {
         setPlaces((current) => [place, ...current])
@@ -586,17 +601,13 @@ export function TripRoom() {
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                         onDeselect={() => setSelectedId(null)}
+                        onPlacePhotoResolved={handlePlacePhotoResolved}
                         days={itineraryDays}
                         initialRouteDay={
                             pendingAiAction?.routeContext?.dayNumber ?? null
                         }
                         initialFocusedSegmentIndex={
                             pendingAiAction?.routeContext?.segmentIndex ?? null
-                        }
-                        onAddToSchedule={
-                            !inviteCode && canManagePlaces
-                                ? handleAddToSchedule
-                                : undefined
                         }
                     />
                     {!inviteCode && canManagePlaces && (
@@ -718,7 +729,7 @@ export function TripRoom() {
                                         searchParams.get('activity') === 'open'
                                     }
                                     onTripDatesChanged={async () => {
-                                        await loadTrips()
+                                        await refreshTripDates()
                                     }}
                                     onItineraryDaysLoaded={
                                         handleItineraryDaysLoaded
@@ -773,9 +784,9 @@ export function TripRoom() {
                         onClose={() => setManageOpen(false)}
                         onChanged={async () => {
                             const currentTripId = String(trip.id)
-                            setManageOpen(false)
-                            await loadTrips()
+                            await refreshTripDates()
                             selectTrip(currentTripId)
+                            setManageOpen(false)
                         }}
                     />
                 )}

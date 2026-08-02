@@ -8,7 +8,6 @@ import {
     useMap,
 } from '@vis.gl/react-google-maps'
 import {
-    CalendarPlusIcon,
     ClockIcon,
     ExternalLinkIcon,
     NavigationIcon,
@@ -19,6 +18,7 @@ import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
 import { ItineraryRoutePolyline } from './itinerary-route-polyline'
+import { LazyPlacePhoto } from './lazy-place-photo'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
@@ -33,6 +33,7 @@ import { formatTransportSummary } from '../lib/itinerary-transport'
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
 const DEFAULT_ZOOM = 10
 const DESTINATION_FOCUS_ZOOM = 12
+const SELECTED_PLACE_FOCUS_ZOOM = 16
 const CATEGORY_BADGE_MIN_ZOOM = 10
 
 type Props = {
@@ -42,8 +43,14 @@ type Props = {
     selectedId: string | null
     onSelect: (id: string) => void
     onDeselect: () => void
+    onPlacePhotoResolved?: (
+        placeId: string,
+        photoUrl: string,
+        attribution: string | null,
+        attributionUrl: string | null,
+        sourceUrl: string,
+    ) => void
     days?: ItineraryDay[]
-    onAddToSchedule?: (placeId: string, dayId: string) => Promise<void>
     initialRouteDay?: number | null
     initialFocusedSegmentIndex?: number | null
 }
@@ -55,8 +62,8 @@ export function MapCanvas({
     selectedId,
     onSelect,
     onDeselect,
+    onPlacePhotoResolved,
     days,
-    onAddToSchedule,
     initialRouteDay,
     initialFocusedSegmentIndex,
 }: Props) {
@@ -80,8 +87,8 @@ export function MapCanvas({
             selectedId={selectedId}
             onSelect={onSelect}
             onDeselect={onDeselect}
+            onPlacePhotoResolved={onPlacePhotoResolved}
             days={days}
-            onAddToSchedule={onAddToSchedule}
             initialRouteDay={initialRouteDay}
             initialFocusedSegmentIndex={initialFocusedSegmentIndex}
         />
@@ -95,8 +102,8 @@ function GoogleMapCanvas({
     selectedId,
     onSelect,
     onDeselect,
+    onPlacePhotoResolved,
     days,
-    onAddToSchedule,
     initialRouteDay,
     initialFocusedSegmentIndex,
 }: Pick<
@@ -107,8 +114,8 @@ function GoogleMapCanvas({
     | 'selectedId'
     | 'onSelect'
     | 'onDeselect'
+    | 'onPlacePhotoResolved'
     | 'days'
-    | 'onAddToSchedule'
     | 'initialRouteDay'
     | 'initialFocusedSegmentIndex'
 >) {
@@ -134,11 +141,6 @@ function GoogleMapCanvas({
           ? DEFAULT_ZOOM
           : DESTINATION_FOCUS_ZOOM
     const [hoveredId, setHoveredId] = useState<string | null>(null)
-    const [dayPickerPlaceId, setDayPickerPlaceId] = useState<string | null>(
-        null,
-    )
-    const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null)
-    const [scheduleError, setScheduleError] = useState<string | null>(null)
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
         initialRouteDay ?? null,
     )
@@ -200,7 +202,10 @@ function GoogleMapCanvas({
                 points: day.items.filter(hasMapCoordinates).map((item) => ({
                     lat: item.lat,
                     lng: item.lng,
-                    tripPlaceId: item.tripPlaceId != null ? String(item.tripPlaceId) : null,
+                    tripPlaceId:
+                        item.tripPlaceId != null
+                            ? String(item.tripPlaceId)
+                            : null,
                     placeName: item.placeName ?? '장소',
                     transportMinutes: item.transportMinutes,
                     transportMeters: item.transportMeters,
@@ -245,7 +250,8 @@ function GoogleMapCanvas({
 
     // focusedSegmentIndex → focusedSegment ({fromPlaceId, toPlaceId})
     const focusedSegment = useMemo(() => {
-        if (focusedSegmentIndex == null || activeDayPoints.length < 2) return null
+        if (focusedSegmentIndex == null || activeDayPoints.length < 2)
+            return null
         const from = activeDayPoints[focusedSegmentIndex]
         const to = activeDayPoints[focusedSegmentIndex + 1]
         if (!from?.tripPlaceId || !to?.tripPlaceId) return null
@@ -256,7 +262,10 @@ function GoogleMapCanvas({
     const focusedPlaceIds = useMemo(
         () =>
             focusedSegment
-                ? new Set([focusedSegment.fromPlaceId, focusedSegment.toPlaceId])
+                ? new Set([
+                      focusedSegment.fromPlaceId,
+                      focusedSegment.toPlaceId,
+                  ])
                 : null,
         [focusedSegment],
     )
@@ -313,8 +322,6 @@ function GoogleMapCanvas({
                 }}
                 onClick={() => {
                     setHoveredId(null)
-                    setDayPickerPlaceId(null)
-                    setScheduleError(null)
                     setFocusedSegmentIndex(null)
                     onDeselect()
                 }}
@@ -325,7 +332,11 @@ function GoogleMapCanvas({
                     initialLng={initialLng}
                     selectedId={selectedId}
                 />
-                <RouteFocusController points={focusedSegmentIndex == null ? selectedRoutePoints : []} />
+                <RouteFocusController
+                    points={
+                        focusedSegmentIndex == null ? selectedRoutePoints : []
+                    }
+                />
                 <SegmentPanController points={focusedSegmentPoints} />
                 <RouteLayer
                     routes={visibleRoutes}
@@ -345,10 +356,15 @@ function GoogleMapCanvas({
                     }
                     // 구간 집중 모드 dim
                     const isFocusModeActive = focusedSegment != null
-                    const isFocusedPlace = focusedPlaceIds?.has(place.id) ?? false
-                    const isFromPlace = isFocusModeActive && focusedSegment?.fromPlaceId === place.id
+                    const isFocusedPlace =
+                        focusedPlaceIds?.has(place.id) ?? false
+                    const isFromPlace =
+                        isFocusModeActive &&
+                        focusedSegment?.fromPlaceId === place.id
                     const markerOpacity =
-                        isFocusModeActive && scheduled != null && !isFocusedPlace
+                        isFocusModeActive &&
+                        scheduled != null &&
+                        !isFocusedPlace
                             ? 'opacity-20'
                             : 'opacity-100'
                     return (
@@ -362,7 +378,9 @@ function GoogleMapCanvas({
                                     activeRouteDay != null &&
                                     scheduled?.dayNumber === activeRouteDay
                                 ) {
-                                    const idx = activeDayPlaceIndexMap.get(place.id)
+                                    const idx = activeDayPlaceIndexMap.get(
+                                        place.id,
+                                    )
                                     if (idx != null && idx < totalSegments) {
                                         setFocusedSegmentIndex(idx)
                                     }
@@ -436,19 +454,72 @@ function GoogleMapCanvas({
                                             onClick={(event) => {
                                                 event.stopPropagation()
                                                 setHoveredId(null)
-                                                setDayPickerPlaceId(null)
-                                                setScheduleError(null)
                                                 onDeselect()
                                             }}
                                             className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-white/95 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                                         >
                                             <XIcon size={14} aria-hidden />
                                         </button>
-                                        {place.image && (
+                                        {place.photoSourceUrl ? (
+                                            <div className="relative bg-slate-100">
+                                                <img
+                                                    src={place.image}
+                                                    alt={place.name}
+                                                    className="h-20 w-full object-cover"
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-slate-950/65 px-2 py-1 text-[9px] text-white">
+                                                    <a
+                                                        href={
+                                                            place.photoAttributionUrl ??
+                                                            place.photoSourceUrl
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="truncate hover:underline"
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                    >
+                                                        {place.photoAttribution
+                                                            ? `사진: ${place.photoAttribution}`
+                                                            : 'Google Maps 사진'}
+                                                    </a>
+                                                    <a
+                                                        href={
+                                                            place.photoSourceUrl
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex shrink-0 items-center gap-0.5 font-bold hover:underline"
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                    >
+                                                        원본
+                                                        <ExternalLinkIcon
+                                                            size={9}
+                                                            aria-hidden
+                                                        />
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        ) : place.googlePlaceId ? (
+                                            <LazyPlacePhoto
+                                                key={place.googlePlaceId}
+                                                placeId={place.id}
+                                                googlePlaceId={
+                                                    place.googlePlaceId
+                                                }
+                                                placeName={place.name}
+                                                onPhotoResolved={
+                                                    onPlacePhotoResolved
+                                                }
+                                            />
+                                        ) : (
                                             <img
                                                 src={place.image}
                                                 alt={place.name}
-                                                className="h-20 w-full object-cover"
+                                                className="h-20 w-full bg-slate-100 object-cover"
                                             />
                                         )}
                                         <div className="space-y-2 px-3 pb-3 pt-2.5">
@@ -478,7 +549,7 @@ function GoogleMapCanvas({
                                                 )}
                                             </div>
 
-                                            {scheduled != null ? (
+                                            {scheduled != null && (
                                                 <div className="space-y-1.5 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px]">
                                                     <p className="font-bold text-brand">
                                                         Day{' '}
@@ -524,144 +595,7 @@ function GoogleMapCanvas({
                                                         </p>
                                                     )}
                                                 </div>
-                                            ) : onAddToSchedule &&
-                                              days &&
-                                              days.length > 0 ? (
-                                                <div className="relative">
-                                                    <button
-                                                        type="button"
-                                                        disabled={
-                                                            addingPlaceId ===
-                                                            place.id
-                                                        }
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setScheduleError(
-                                                                null,
-                                                            )
-                                                            setDayPickerPlaceId(
-                                                                dayPickerPlaceId ===
-                                                                    place.id
-                                                                    ? null
-                                                                    : place.id,
-                                                            )
-                                                        }}
-                                                        className="flex w-full items-center justify-center gap-1 rounded-lg bg-brand py-1.5 text-[11px] font-bold text-white transition hover:bg-brand/90 disabled:cursor-wait disabled:opacity-60"
-                                                    >
-                                                        <CalendarPlusIcon
-                                                            size={11}
-                                                        />
-                                                        {addingPlaceId ===
-                                                        place.id
-                                                            ? '추가 중...'
-                                                            : '일정에 추가'}
-                                                    </button>
-                                                    {dayPickerPlaceId ===
-                                                        place.id && (
-                                                        <>
-                                                            <div
-                                                                className="fixed inset-0 z-40"
-                                                                onClick={(
-                                                                    e,
-                                                                ) => {
-                                                                    e.stopPropagation()
-                                                                    setDayPickerPlaceId(
-                                                                        null,
-                                                                    )
-                                                                }}
-                                                            />
-                                                            <div className="absolute bottom-full left-0 z-50 mb-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-                                                                <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                                                    추가할 Day
-                                                                </p>
-                                                                <div className="max-h-40 overflow-y-auto">
-                                                                    {days.map(
-                                                                        (
-                                                                            day,
-                                                                        ) => (
-                                                                            <button
-                                                                                key={
-                                                                                    day.id
-                                                                                }
-                                                                                type="button"
-                                                                                onClick={async (
-                                                                                    e,
-                                                                                ) => {
-                                                                                    e.stopPropagation()
-                                                                                    setDayPickerPlaceId(
-                                                                                        null,
-                                                                                    )
-                                                                                    setAddingPlaceId(
-                                                                                        place.id,
-                                                                                    )
-                                                                                    setScheduleError(
-                                                                                        null,
-                                                                                    )
-                                                                                    try {
-                                                                                        await onAddToSchedule(
-                                                                                            place.id,
-                                                                                            String(
-                                                                                                day.id,
-                                                                                            ),
-                                                                                        )
-                                                                                    } catch {
-                                                                                        setScheduleError(
-                                                                                            '일정에 추가하지 못했습니다.',
-                                                                                        )
-                                                                                    } finally {
-                                                                                        setAddingPlaceId(
-                                                                                            null,
-                                                                                        )
-                                                                                    }
-                                                                                }}
-                                                                                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
-                                                                            >
-                                                                                <span className="text-xs font-bold text-brand">
-                                                                                    Day{' '}
-                                                                                    {
-                                                                                        day.dayNumber
-                                                                                    }
-                                                                                </span>
-                                                                                <span className="truncate text-[10px] text-slate-400">
-                                                                                    {new Date(
-                                                                                        day.itineraryDate +
-                                                                                            'T00:00:00',
-                                                                                    ).toLocaleDateString(
-                                                                                        'ko-KR',
-                                                                                        {
-                                                                                            month: 'numeric',
-                                                                                            day: 'numeric',
-                                                                                        },
-                                                                                    )}
-                                                                                </span>
-                                                                                {day
-                                                                                    .items
-                                                                                    .length >
-                                                                                    0 && (
-                                                                                    <span className="ml-auto shrink-0 text-[10px] text-slate-300">
-                                                                                        {
-                                                                                            day
-                                                                                                .items
-                                                                                                .length
-                                                                                        }
-
-                                                                                        개
-                                                                                    </span>
-                                                                                )}
-                                                                            </button>
-                                                                        ),
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                    {scheduleError && (
-                                                        <p className="mt-1 text-center text-[10px] font-medium text-red-500">
-                                                            {scheduleError}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            ) : null}
+                                            )}
 
                                             <a
                                                 href={buildGoogleMapsPlaceUrl(
@@ -708,31 +642,44 @@ function GoogleMapCanvas({
                     }}
                 />
             )}
-            {focusedSegmentIndex != null && activeRouteDay != null && totalSegments > 0 && (
-                <div className="absolute bottom-10 left-1/2 z-20 -translate-x-1/2">
-                    <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
-                        <button
-                            type="button"
-                            disabled={focusedSegmentIndex === 0}
-                            onClick={() => setFocusedSegmentIndex(focusedSegmentIndex - 1)}
-                            className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
-                        >
-                            ‹ 이전
-                        </button>
-                        <span className="text-xs font-bold text-slate-700">
-                            Day {activeRouteDay} · {focusedSegmentIndex + 1} / {totalSegments}
-                        </span>
-                        <button
-                            type="button"
-                            disabled={focusedSegmentIndex >= totalSegments - 1}
-                            onClick={() => setFocusedSegmentIndex(focusedSegmentIndex + 1)}
-                            className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
-                        >
-                            다음 ›
-                        </button>
+            {focusedSegmentIndex != null &&
+                activeRouteDay != null &&
+                totalSegments > 0 && (
+                    <div className="absolute bottom-10 left-1/2 z-20 -translate-x-1/2">
+                        <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-4 py-2 shadow-lg backdrop-blur">
+                            <button
+                                type="button"
+                                disabled={focusedSegmentIndex === 0}
+                                onClick={() =>
+                                    setFocusedSegmentIndex(
+                                        focusedSegmentIndex - 1,
+                                    )
+                                }
+                                className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
+                            >
+                                ‹ 이전
+                            </button>
+                            <span className="text-xs font-bold text-slate-700">
+                                Day {activeRouteDay} · {focusedSegmentIndex + 1}{' '}
+                                / {totalSegments}
+                            </span>
+                            <button
+                                type="button"
+                                disabled={
+                                    focusedSegmentIndex >= totalSegments - 1
+                                }
+                                onClick={() =>
+                                    setFocusedSegmentIndex(
+                                        focusedSegmentIndex + 1,
+                                    )
+                                }
+                                className="text-xs font-bold text-slate-500 transition hover:text-slate-800 disabled:opacity-30"
+                            >
+                                다음 ›
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
             {itineraryRoutes.length > 0 && (
                 <p className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-medium text-slate-500 shadow">
@@ -855,7 +802,10 @@ function RouteLayer({
 function SegmentPanController({
     points,
 }: {
-    points: { from: { lat: number; lng: number }; to: { lat: number; lng: number } } | null
+    points: {
+        from: { lat: number; lng: number }
+        to: { lat: number; lng: number }
+    } | null
 }) {
     const map = useMap()
     useEffect(() => {
@@ -947,7 +897,10 @@ function MapController({
     useEffect(() => {
         if (!map || !selectedId) return
         const place = places.find((p) => p.id === selectedId)
-        if (place) map.panTo({ lat: place.lat, lng: place.lng })
+        if (place) {
+            map.panTo({ lat: place.lat, lng: place.lng })
+            map.setZoom(SELECTED_PLACE_FOCUS_ZOOM)
+        }
     }, [map, selectedId, places])
 
     return null

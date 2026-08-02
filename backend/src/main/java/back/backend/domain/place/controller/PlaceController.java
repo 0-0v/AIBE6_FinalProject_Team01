@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/places")
@@ -29,8 +28,11 @@ public class PlaceController {
     public ApiResponse<List<PlaceSearchResponse>> search(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String location,
-            @RequestParam(required = false) String includedType) {
-        return ApiResponse.success(placeSearchService.search(query, location, includedType));
+            @RequestParam(required = false) String includedType,
+            @RequestParam(required = false) Double latitude,
+            @RequestParam(required = false) Double longitude) {
+        return ApiResponse.success(placeSearchService.search(
+                query, location, includedType, latitude, longitude));
     }
 
     @GetMapping("/photo")
@@ -38,7 +40,16 @@ public class PlaceController {
         PlacePhotoService.PhotoContent photo = placePhotoService.getPhoto(name);
         return ResponseEntity.ok()
                 .contentType(photo.contentType())
-                .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS).cachePublic())
+                .cacheControl(CacheControl.noStore())
                 .body(photo.bytes());
+    }
+
+    @GetMapping("/photo/metadata")
+    public ResponseEntity<ApiResponse<PlacePhotoService.PhotoMetadata>> getPhotoMetadata(
+            @RequestParam String placeId
+    ) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ApiResponse.success(placePhotoService.getPhotoMetadata(placeId)));
     }
 }
