@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import {
     ArrowRightIcon,
     Clock3Icon,
@@ -26,6 +26,16 @@ type Props = {
     endDate: string | null
     selectedDayId: number | null
     onReplanApplied: (days: ItineraryDay[]) => void
+    renderRecommendationMap: (
+        recommendation: AiPlaceRecommendation,
+        context: {
+            dayId: number
+            dayNumber: number
+            itineraryDate: string
+            from: ItineraryDay['items'][number]
+            to: ItineraryDay['items'][number]
+        },
+    ) => ReactNode
 }
 
 const categories = PLACE_SEARCH_CATEGORIES.filter(
@@ -72,6 +82,7 @@ export function AiDashboardActions({
     endDate,
     selectedDayId,
     onReplanApplied,
+    renderRecommendationMap,
 }: Props) {
     const [mode, setMode] = useState<'place' | 'replan' | null>(null)
     const [category, setCategory] = useState(categories[0].key)
@@ -265,12 +276,14 @@ export function AiDashboardActions({
                                 tripId={tripId}
                                 recommendations={recommendations}
                                 routeContext={{
+                                    dayId: selectedSegment.dayId,
                                     dayNumber: selectedSegment.dayNumber,
                                     itineraryDate:
                                         selectedSegment.itineraryDate,
                                     from: selectedSegment.from,
                                     to: selectedSegment.to,
                                 }}
+                                renderMap={renderRecommendationMap}
                                 onReset={() => {
                                     setRecommendations([])
                                     setError(null)

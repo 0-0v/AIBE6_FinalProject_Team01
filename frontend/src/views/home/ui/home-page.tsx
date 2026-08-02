@@ -21,6 +21,7 @@ import {
     getTripPlaces,
     getTripPlaceVotes,
     type ItineraryDay,
+    type Place,
 } from '@/entities/trip'
 import {
     fetchExpenseData,
@@ -1082,6 +1083,73 @@ export function Home() {
                                                       )
                                                     : null
                                             }
+                                            renderRecommendationMap={(
+                                                recommendation,
+                                                context,
+                                            ) => {
+                                                const recommendationPlace: Place = {
+                                                    id: `ai-recommendation-${recommendation.place.googlePlaceId}`,
+                                                    googlePlaceId:
+                                                        recommendation.place
+                                                            .googlePlaceId,
+                                                    roomId: activeTrip.id,
+                                                    name: recommendation.place
+                                                        .name,
+                                                    address:
+                                                        recommendation.place
+                                                            .address ?? '',
+                                                    category: 'other',
+                                                    categoryId: null,
+                                                    categoryName: 'AI 추천',
+                                                    categoryColor: '#e7657a',
+                                                    categoryIcon: 'HEART',
+                                                    status: 'hold',
+                                                    image: '',
+                                                    lat: recommendation.place
+                                                        .latitude,
+                                                    lng: recommendation.place
+                                                        .longitude,
+                                                    addedBy: 'PLAMINGO AI',
+                                                    comments: [],
+                                                    commentCount: 0,
+                                                }
+                                                const routeDay =
+                                                    itineraryDays.find(
+                                                        (day) =>
+                                                            Number(day.id) ===
+                                                            context.dayId,
+                                                    )
+                                                return (
+                                                    <div className="h-full [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
+                                                        <KanbanMapPanel
+                                                            days={
+                                                                routeDay
+                                                                    ? [routeDay]
+                                                                    : []
+                                                            }
+                                                            places={[
+                                                                recommendationPlace,
+                                                            ]}
+                                                            activeDragId={null}
+                                                            previewDayId={null}
+                                                            hoveredItemId={null}
+                                                            onItemHoverChange={() =>
+                                                                undefined
+                                                            }
+                                                            focusedItemId={null}
+                                                            focusedPlaceId={
+                                                                recommendationPlace.id
+                                                            }
+                                                            onItemFocus={() =>
+                                                                undefined
+                                                            }
+                                                            onPlaceFocus={() =>
+                                                                undefined
+                                                            }
+                                                        />
+                                                    </div>
+                                                )
+                                            }}
                                             onReplanApplied={setItineraryDays}
                                         />
                                     ) : (

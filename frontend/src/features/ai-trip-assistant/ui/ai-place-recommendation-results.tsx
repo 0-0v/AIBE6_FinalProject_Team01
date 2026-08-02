@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
     CheckIcon,
     ExternalLinkIcon,
@@ -10,12 +10,6 @@ import {
     RotateCcwIcon,
     StarIcon,
 } from 'lucide-react'
-import {
-    AdvancedMarker,
-    Map as GoogleMap,
-    useApiIsLoaded,
-    useMap,
-} from '@vis.gl/react-google-maps'
 import { addTripPlace, type ItineraryItem } from '@/entities/trip'
 import {
     getApiErrorMessage,
@@ -27,11 +21,16 @@ type Props = {
     tripId: number
     recommendations: AiPlaceRecommendation[]
     routeContext: {
+        dayId: number
         dayNumber: number
         itineraryDate: string
         from: ItineraryItem
         to: ItineraryItem
     }
+    renderMap: (
+        recommendation: AiPlaceRecommendation,
+        routeContext: Props['routeContext'],
+    ) => ReactNode
     onReset: () => void
 }
 
@@ -39,62 +38,11 @@ function formatDistance(meters: number) {
     return meters < 1000 ? `${meters}m` : `${(meters / 1000).toFixed(1)}km`
 }
 
-function RecommendationMapViewport({
-    position,
-    fromPosition,
-    toPosition,
-}: {
-    position: { lat: number; lng: number }
-    fromPosition: { lat: number; lng: number }
-    toPosition: { lat: number; lng: number }
-}) {
-    const map = useMap()
-
-    useEffect(() => {
-        if (!map) return
-        const mapElement = map.getDiv()
-        let animationFrame = 0
-        const refreshViewport = () => {
-            cancelAnimationFrame(animationFrame)
-            animationFrame = requestAnimationFrame(() => {
-                const latitudes = [
-                    fromPosition.lat,
-                    position.lat,
-                    toPosition.lat,
-                ]
-                const longitudes = [
-                    fromPosition.lng,
-                    position.lng,
-                    toPosition.lng,
-                ]
-                map.fitBounds(
-                    {
-                        north: Math.max(...latitudes),
-                        south: Math.min(...latitudes),
-                        east: Math.max(...longitudes),
-                        west: Math.min(...longitudes),
-                    },
-                    54,
-                )
-            })
-        }
-        const resizeObserver = new ResizeObserver(refreshViewport)
-        resizeObserver.observe(mapElement)
-        refreshViewport()
-
-        return () => {
-            resizeObserver.disconnect()
-            cancelAnimationFrame(animationFrame)
-        }
-    }, [fromPosition, map, position, toPosition])
-
-    return null
-}
-
 export function AiPlaceRecommendationResults({
     tripId,
     recommendations,
     routeContext,
+    renderMap,
     onReset,
 }: Props) {
     const [selectedId, setSelectedId] = useState(
@@ -103,7 +51,6 @@ export function AiPlaceRecommendationResults({
     const [registeringId, setRegisteringId] = useState<string | null>(null)
     const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
-    const mapLoaded = useApiIsLoaded()
     const selected =
         recommendations.find(
             ({ place }) => place.googlePlaceId === selectedId,
@@ -130,18 +77,6 @@ export function AiPlaceRecommendationResults({
 
     if (!selected) return null
 
-    const mapPosition = {
-        lat: selected.place.latitude,
-        lng: selected.place.longitude,
-    }
-    const fromPosition = {
-        lat: routeContext.from.lat,
-        lng: routeContext.from.lng,
-    }
-    const toPosition = {
-        lat: routeContext.to.lat,
-        lng: routeContext.to.lng,
-    }
     const registered = registeredIds.has(selected.place.googlePlaceId)
     const registering = registeringId === selected.place.googlePlaceId
 
@@ -241,61 +176,13 @@ export function AiPlaceRecommendationResults({
                     <p className="text-[10px] font-black uppercase tracking-[0.12em] text-brand">
                         Day {routeContext.dayNumber} · {routeContext.itineraryDate}
                     </p>
-                    <div className="mt-1 flex min-w-0 items-center gap-2 text-xs font-extrabold text-slate-700">
-                        <span className="min-w-0 truncate">
-                            {routeContext.from.placeName ?? '출발 장소'}
-                        </span>
-                        <span className="shrink-0 text-brand">→</span>
-                        <span className="min-w-0 truncate text-brand">
-                            {selected.place.name}
-                        </span>
-                        <span className="shrink-0 text-brand">→</span>
-                        <span className="min-w-0 truncate">
-                            {routeContext.to.placeName ?? '도착 장소'}
-                        </span>
-                    </div>
+                    <p className="mt-1 truncate text-xs font-extrabold text-slate-700">
+                        {routeContext.from.placeName ?? '이전 일정'} →{' '}
+                        {routeContext.to.placeName ?? '다음 일정'} 사이 추천
+                    </p>
                 </div>
                 <div className="h-[280px] w-full overflow-hidden bg-slate-100 sm:h-[320px]">
-                        {mapLoaded ? (
-                            <GoogleMap
-                                key={selected.place.googlePlaceId}
-                                defaultCenter={mapPosition}
-                                defaultZoom={16}
-                                gestureHandling="cooperative"
-                                disableDefaultUI
-                                mapId={
-                                    process.env
-                                        .NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ??
-                                    'DEMO_MAP_ID'
-                                }
-                                className="h-full w-full"
-                            >
-                                <AdvancedMarker position={fromPosition}>
-                                    <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-700 text-[10px] font-black text-white shadow-md">
-                                        출
-                                    </span>
-                                </AdvancedMarker>
-                                <AdvancedMarker position={mapPosition}>
-                                    <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-brand text-[9px] font-black text-white shadow-lg">
-                                        추천
-                                    </span>
-                                </AdvancedMarker>
-                                <AdvancedMarker position={toPosition}>
-                                    <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-slate-700 text-[10px] font-black text-white shadow-md">
-                                        도
-                                    </span>
-                                </AdvancedMarker>
-                                <RecommendationMapViewport
-                                    position={mapPosition}
-                                    fromPosition={fromPosition}
-                                    toPosition={toPosition}
-                                />
-                            </GoogleMap>
-                        ) : (
-                            <div className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
-                                지도를 불러오는 중입니다.
-                            </div>
-                        )}
+                    {renderMap(selected, routeContext)}
                 </div>
 
                 <div className="p-5">
