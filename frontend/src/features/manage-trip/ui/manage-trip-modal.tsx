@@ -26,12 +26,11 @@ const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'FOOD', label: '맛집 먹거리' },
 ]
 
-function tomorrowDateInputValue() {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const year = tomorrow.getFullYear()
-    const month = String(tomorrow.getMonth() + 1).padStart(2, '0')
-    const day = String(tomorrow.getDate()).padStart(2, '0')
+function todayDateInputValue() {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
 }
 
@@ -51,7 +50,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
-    const minimumStartDate = tomorrowDateInputValue()
+    const minimumStartDate = todayDateInputValue()
     const datesLocked = Boolean(
         trip.startDate && trip.startDate < minimumStartDate,
     )

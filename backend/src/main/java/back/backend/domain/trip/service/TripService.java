@@ -174,8 +174,11 @@ public class TripService {
 
     private void validateUpdatedStartDate(Trip trip, TripRequest request) {
         if (request.startDate() != null
-                && !request.startDate().equals(trip.getStartDate())) {
-            validateStartDate(request);
+                && !request.startDate().equals(trip.getStartDate())
+                && request.startDate().isBefore(LocalDate.now(clock))) {
+            throw new IllegalArgumentException(
+                    "여행 시작일은 오늘부터 선택할 수 있습니다."
+            );
         }
     }
 
