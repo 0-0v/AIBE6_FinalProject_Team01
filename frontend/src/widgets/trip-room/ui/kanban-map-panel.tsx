@@ -463,6 +463,11 @@ function MapContent({
                     <AdvancedMarker
                         key={`saved-${place.id}`}
                         position={{ lat: place.lat, lng: place.lng }}
+                        className={
+                            highlightedPlaceId === String(place.id)
+                                ? 'outline-none focus:outline-none'
+                                : undefined
+                        }
                         onClick={() => onPlaceFocus(String(place.id))}
                         zIndex={
                             highlightedPlaceId === String(place.id)
@@ -476,32 +481,27 @@ function MapContent({
                             {focusedPlaceId === String(place.id) && (
                                 <FocusedSavedPlaceCard place={place} />
                             )}
-                            <ItineraryMapMarker
-                                color={
-                                    highlightedPlaceId === String(place.id)
-                                        ? '#e15b74'
-                                        : (place.categoryColor ?? '#64748b')
-                                }
-                                label={
-                                    highlightedPlaceId === String(place.id)
-                                        ? '추천'
-                                        : undefined
-                                }
-                                categoryIcon={
-                                    highlightedPlaceId === String(place.id)
-                                        ? null
-                                        : place.categoryIcon
-                                }
-                                categoryColor={place.categoryColor}
-                                categoryLabel={place.categoryName}
-                                selected={focusedPlaceId === String(place.id)}
-                                focused={
-                                    highlightedPlaceId === String(place.id)
-                                }
-                                borderless={
-                                    highlightedPlaceId === String(place.id)
-                                }
-                            />
+                            {highlightedPlaceId === String(place.id) ? (
+                                <div className="relative flex flex-col items-center outline-none">
+                                    <div className="relative z-10 flex size-9 items-center justify-center rounded-full bg-brand text-[10px] font-black text-white">
+                                        추천
+                                    </div>
+                                    <span
+                                        className="-mt-2 size-3 rotate-45 rounded-[2px] bg-brand"
+                                        aria-hidden
+                                    />
+                                </div>
+                            ) : (
+                                <ItineraryMapMarker
+                                    color={place.categoryColor ?? '#64748b'}
+                                    categoryIcon={place.categoryIcon}
+                                    categoryColor={place.categoryColor}
+                                    categoryLabel={place.categoryName}
+                                    selected={
+                                        focusedPlaceId === String(place.id)
+                                    }
+                                />
+                            )}
                         </div>
                     </AdvancedMarker>
                 ))}

@@ -11,7 +11,6 @@ type Props = {
     hovered?: boolean
     preview?: boolean
     focused?: boolean
-    borderless?: boolean
 }
 
 export function ItineraryMapMarker({
@@ -25,7 +24,6 @@ export function ItineraryMapMarker({
     hovered = false,
     preview = false,
     focused = false,
-    borderless = false,
 }: Props) {
     const emphasized = selected || hovered
     const sizeClass = selected ? 'size-10' : emphasized ? 'size-9' : focused ? 'size-9' : 'size-8'
@@ -38,14 +36,14 @@ export function ItineraryMapMarker({
             }`}
         >
             <div
-                className={`${sizeClass} relative flex items-center justify-center rounded-full transition-all ${borderless ? 'border-0 shadow-none outline-none' : 'border-[3px] border-white shadow-[0_5px_12px_rgba(15,23,42,0.24)]'} ${
-                    selected && !borderless ? 'ring-4 ring-white/70' : focused && !borderless ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgba(15,23,42,0.32)]' : ''
+                className={`${sizeClass} relative flex items-center justify-center rounded-full border-[3px] border-white shadow-[0_5px_12px_rgba(15,23,42,0.24)] transition-all ${
+                    selected ? 'ring-4 ring-white/70' : focused ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgba(15,23,42,0.32)]' : ''
                 } ${selected ? 'itinerary-marker-bounce' : ''} ${
                     preview ? 'animate-pulse' : ''
                 }`}
                 style={{ backgroundColor: color }}
             >
-                {selected && !borderless && (
+                {selected && (
                     <span
                         className="itinerary-marker-pulse pointer-events-none absolute -inset-1 z-0 rounded-full border-2"
                         style={{ borderColor: color }}
@@ -60,7 +58,7 @@ export function ItineraryMapMarker({
                     />
                 )}
                 <span
-                    className={`absolute -bottom-1.5 left-1/2 z-0 size-3 -translate-x-1/2 rotate-45 rounded-[2px] ${borderless ? '' : 'border-b-[3px] border-r-[3px] border-white'}`}
+                    className="absolute -bottom-1.5 left-1/2 z-0 size-3 -translate-x-1/2 rotate-45 rounded-[2px] border-b-[3px] border-r-[3px] border-white"
                     style={{ backgroundColor: color }}
                     aria-hidden
                 />
