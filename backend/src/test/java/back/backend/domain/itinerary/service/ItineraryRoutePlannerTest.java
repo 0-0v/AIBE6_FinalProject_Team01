@@ -719,4 +719,33 @@ class ItineraryRoutePlannerTest {
                 .extracting(item -> item.tripPlaceId())
                 .containsExactlyInAnyOrder(12L, 13L);
     }
+
+    @Test
+    @DisplayName("t22 저장 장소를 출발지로 선택하면 방문 일정에서는 제외한다")
+    void t22_selectedDeparturePlaceIsExcludedFromVisits() {
+        ItineraryDay itineraryDay = day(1L, 1);
+        itineraryDay.updateDeparture(
+                "TRIP_PLACE",
+                "센타라 그랜드 호텔",
+                BigDecimal.valueOf(34.67),
+                BigDecimal.valueOf(135.50),
+                10L
+        );
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "센타라 그랜드 호텔", PlaceCategoryType.LODGING, 34.67, 135.50),
+                tripPlace(11L, "도톤보리", PlaceCategoryType.ATTRACTION, 34.668, 135.501)
+        );
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(itineraryDay),
+                places,
+                Set.of(),
+                TripScheduleSettings.defaultSettings()
+        ).getFirst().plan();
+
+        assertThat(result.totalPlaceCount()).isEqualTo(1);
+        assertThat(result.days().getFirst().items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactly(11L);
+    }
 }

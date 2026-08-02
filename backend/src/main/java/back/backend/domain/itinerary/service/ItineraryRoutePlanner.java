@@ -113,11 +113,18 @@ public class ItineraryRoutePlanner {
         TripScheduleSettings effectiveSettings = settings != null
                 ? settings : TripScheduleSettings.defaultSettings();
         List<ItineraryDay> days = sortedDays(itineraryDays);
+        Set<Long> departurePlaceIds = days.stream()
+                .map(ItineraryDay::getDepartureTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<TripPlace> eligibleTripPlaces = tripPlaces.stream()
+                .filter(place -> !departurePlaceIds.contains(place.getId()))
+                .toList();
 
-        if (days.isEmpty() || tripPlaces.isEmpty()) {
+        if (days.isEmpty() || eligibleTripPlaces.isEmpty()) {
             log.debug("일정 또는 장소 없음 — 빈 지리 최적 코스 반환");
             return List.of(new RoutePlanOption("지리 최적 코스",
-                    emptyResponse(days, tripPlaces)));
+                    emptyResponse(days, eligibleTripPlaces)));
         }
 
         List<RoutePlanOption> options = new ArrayList<>();
@@ -125,16 +132,16 @@ public class ItineraryRoutePlanner {
         String replanExplanation = extractReplanExplanation(userRequest);
 
         // 지리 기반 클러스터링 + 제약 정렬 (ConstraintSorter는 buildResponseFromClusters 내부에서 적용)
-        List<List<TripPlace>> geoClusters = clusterByGeography(tripPlaces, days.size());
+        List<List<TripPlace>> geoClusters = clusterByGeography(eligibleTripPlaces, days.size());
         String defaultGeoSummary = String.format(
                 "저장한 장소 %d곳을 지역별로 묶어 %d일에 나눴어요.",
-                tripPlaces.size(),
+                eligibleTripPlaces.size(),
                 days.size()
         );
         RoutePlanPreviewResponse geoPlan = buildResponseFromClusters(
                 days,
                 geoClusters,
-                tripPlaces.size(),
+                eligibleTripPlaces.size(),
                 replanExplanation == null
                         ? defaultGeoSummary
                         : "변경 사유와 시작 시각 하한을 반영해 이후 일정을 다시 배치했습니다. "
@@ -147,19 +154,19 @@ public class ItineraryRoutePlanner {
                 userRequest == null || userRequest.isBlank()
                         ? openAiRouteAdvisor.recommend(
                                 days,
-                                tripPlaces,
+                                eligibleTripPlaces,
                                 travelStyles
                         )
                         : openAiRouteAdvisor.recommend(
                                 days,
-                                tripPlaces,
+                                eligibleTripPlaces,
                                 travelStyles,
                                 userRequest
                         );
         aiRecommendation
                 .map(recommendation -> buildAiPlan(
                         days,
-                        tripPlaces,
+                        eligibleTripPlaces,
                         recommendation,
                         effectiveSettings,
                         replanExplanation
@@ -176,7 +183,7 @@ public class ItineraryRoutePlanner {
         // 스타일별 코스 추가
         if (!travelStyles.isEmpty()) {
             log.info("카테고리 우선순위 기반 동선 계획 — 장소 {}개, {}일, 스타일 {}",
-                    tripPlaces.size(), days.size(), travelStyles);
+                    eligibleTripPlaces.size(), days.size(), travelStyles);
         }
         List<TravelStyle> orderedStyles = travelStyles.stream()
                 .sorted(Comparator.comparingInt(Enum::ordinal))
@@ -187,14 +194,14 @@ public class ItineraryRoutePlanner {
             String styleLabel = STYLE_LABEL.getOrDefault(style, style.name());
             String label = styleLabel + " 코스";
             List<List<TripPlace>> styleClusters =
-                    clusterByStylePriority(tripPlaces, days.size(), priority);
+                    clusterByStylePriority(eligibleTripPlaces, days.size(), priority);
             RoutePlanPreviewResponse stylePlan = buildResponseFromClusters(
                     days,
                     styleClusters,
-                    tripPlaces.size(),
+                    eligibleTripPlaces.size(),
                     buildStyleSummary(
                             styleLabel,
-                            tripPlaces.size(),
+                            eligibleTripPlaces.size(),
                             days.size(),
                             priority
                     ),
