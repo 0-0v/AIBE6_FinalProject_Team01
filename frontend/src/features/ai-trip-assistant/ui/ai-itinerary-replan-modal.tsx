@@ -51,6 +51,8 @@ const REPLAN_REASONS = [
     { key: 'FATIGUE', label: '체력·컨디션', hint: '최소 30분 여유 반영' },
 ] as const
 
+type ReplanReasonKey = (typeof REPLAN_REASONS)[number]['key']
+
 function localDateValue(date: Date) {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -174,9 +176,8 @@ export function AiItineraryReplanModal({
 }: Props) {
     const [openedAt] = useState(() => new Date())
     const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
-    const [selectedReasons, setSelectedReasons] = useState<Set<string>>(
-        new Set(),
-    )
+    const [selectedReason, setSelectedReason] =
+        useState<ReplanReasonKey | null>(null)
     const [options, setOptions] = useState<RouteOption[]>([])
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [loading, setLoading] = useState(false)
@@ -223,18 +224,13 @@ export function AiItineraryReplanModal({
         setError(null)
     }
 
-    function toggleReason(reason: string) {
-        setSelectedReasons((current) => {
-            const next = new Set(current)
-            if (next.has(reason)) next.delete(reason)
-            else next.add(reason)
-            return next
-        })
+    function selectReason(reason: ReplanReasonKey) {
+        setSelectedReason(reason)
         setError(null)
     }
 
     async function preview() {
-        if (selectedItemId === null || selectedReasons.size === 0) {
+        if (selectedItemId === null || selectedReason === null) {
             setError('재배치를 시작할 일정과 변경 사유를 선택해 주세요.')
             return
         }
@@ -244,7 +240,7 @@ export function AiItineraryReplanModal({
         try {
             const result = await previewAiItineraryReplan(tripId, {
                 itineraryItemId: selectedItemId,
-                reasons: [...selectedReasons],
+                reasons: [selectedReason],
             })
             setOptions(result)
             setSelectedIndex(0)
@@ -416,27 +412,27 @@ export function AiItineraryReplanModal({
                                     변경 사유
                                 </h3>
                                 <p className="mt-1 text-[11px] text-slate-400">
-                                    상황에 해당하는 사유를 모두 골라주세요.
+                                    가장 중요한 변경 사유 하나를 선택해 주세요.
                                 </p>
-                                <div className="mt-3 flex flex-wrap gap-2">
+                                <div className="mt-3 grid grid-cols-2 gap-2">
                                     {REPLAN_REASONS.map((reason) => {
-                                        const selected = selectedReasons.has(
-                                            reason.key,
-                                        )
+                                        const selected =
+                                            selectedReason === reason.key
                                         return (
                                             <button
                                                 key={reason.key}
                                                 type="button"
                                                 onClick={() =>
-                                                    toggleReason(reason.key)
+                                                    selectReason(reason.key)
                                                 }
-                                                className={`rounded-full border px-3 py-2 text-xs font-extrabold transition ${selected ? 'border-brand bg-brand text-white shadow-[0_6px_16px_rgba(225,91,116,0.2)]' : 'border-slate-200 bg-white text-slate-500 hover:border-rose-200'}`}
+                                                aria-pressed={selected}
+                                                className={`flex min-h-16 flex-col justify-center rounded-xl border px-3 py-2.5 text-left transition ${selected ? 'border-brand bg-brand text-white shadow-[0_6px_16px_rgba(225,91,116,0.2)]' : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50/40'}`}
                                             >
-                                                <span className="block">
+                                                <span className="block text-xs font-extrabold leading-4">
                                                     {reason.label}
                                                 </span>
                                                 <span
-                                                    className={`mt-0.5 block text-[9px] ${selected ? 'text-white/75' : 'text-slate-400'}`}
+                                                    className={`mt-1 block text-[9px] font-semibold leading-3.5 ${selected ? 'text-white/80' : 'text-slate-400'}`}
                                                 >
                                                     {reason.hint}
                                                 </span>
