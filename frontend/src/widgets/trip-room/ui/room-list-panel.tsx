@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
     ChevronDownIcon,
     ChevronLeftIcon,
@@ -6,7 +7,8 @@ import {
     PlusIcon,
 } from 'lucide-react'
 import { Room, RoomCard } from '@/entities/trip'
-import { CreateTripModal } from '@/features/manage-trip'
+import { CreateTripModal, updateTripVisibility } from '@/features/manage-trip'
+import { getApiErrorMessage } from '@/shared/api/client'
 
 const PAGE_SIZE = 6
 type TripFilter = 'all' | 'upcoming' | 'past'
@@ -15,7 +17,7 @@ type Props = {
     rooms: Room[]
     isLoading: boolean
     error: string | null
-    onRetry: () => void
+    onRetry: () => void | Promise<void>
     onSelectRoom: (roomId: string) => void
 }
 
@@ -31,6 +33,11 @@ export function RoomListPanel({
     const [filter, setFilter] = useState<TripFilter>('all')
     const [selectedYear, setSelectedYear] = useState<number | null>(null)
     const [yearMenuOpen, setYearMenuOpen] = useState(false)
+    const [visibilityRoom, setVisibilityRoom] = useState<Room | null>(null)
+    const [visibilityNoticeRoom, setVisibilityNoticeRoom] =
+        useState<Room | null>(null)
+    const [visibilityBusy, setVisibilityBusy] = useState(false)
+    const [visibilityError, setVisibilityError] = useState<string | null>(null)
     const pastYears = useMemo(
         () =>
             Array.from(
@@ -65,6 +72,28 @@ export function RoomListPanel({
         setPage(0)
         setYearMenuOpen(false)
         if (nextFilter !== 'past') setSelectedYear(null)
+    }
+
+    const toggleVisibility = async () => {
+        if (!visibilityRoom?.apiTripId) return
+        const nextVisibility =
+            visibilityRoom.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC'
+        setVisibilityBusy(true)
+        setVisibilityError(null)
+        try {
+            await updateTripVisibility(visibilityRoom.apiTripId, nextVisibility)
+            await onRetry()
+            setVisibilityRoom(null)
+        } catch (cause) {
+            setVisibilityError(
+                getApiErrorMessage(
+                    cause,
+                    '여행방 공개 상태를 변경하지 못했습니다.',
+                ),
+            )
+        } finally {
+            setVisibilityBusy(false)
+        }
     }
     return (
         <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-3.5 @min-[440px]:px-5 @min-[440px]:py-5 @min-[760px]:px-6">
@@ -182,6 +211,22 @@ export function RoomListPanel({
                         room={room}
                         compact
                         onOpen={() => onSelectRoom(room.id)}
+                        onToggleVisibility={
+                            room.lifecycleStatus === 'COMPLETED'
+                                ? () => {
+                                      setVisibilityError(null)
+                                      setVisibilityRoom(room)
+                                  }
+                                : undefined
+                        }
+                        onVisibilityUnavailable={
+                            room.lifecycleStatus !== 'COMPLETED'
+                                ? () => setVisibilityNoticeRoom(room)
+                                : undefined
+                        }
+                        visibilityBusy={
+                            visibilityBusy && visibilityRoom?.id === room.id
+                        }
                     />
                 ))}
             </div>
@@ -224,6 +269,145 @@ export function RoomListPanel({
                     }}
                 />
             )}
+
+            {visibilityRoom &&
+                createPortal(
+                    <VisibilityConfirmDialog
+                        room={visibilityRoom}
+                        busy={visibilityBusy}
+                        error={visibilityError}
+                        onCancel={() => {
+                            if (visibilityBusy) return
+                            setVisibilityRoom(null)
+                            setVisibilityError(null)
+                        }}
+                        onConfirm={() => void toggleVisibility()}
+                    />,
+                    document.body,
+                )}
+            {visibilityNoticeRoom &&
+                createPortal(
+                    <VisibilityUnavailableDialog
+                        onClose={() => setVisibilityNoticeRoom(null)}
+                    />,
+                    document.body,
+                )}
+        </div>
+    )
+}
+
+function VisibilityUnavailableDialog({ onClose }: { onClose: () => void }) {
+    return (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+            <section
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="visibility-unavailable-title"
+                aria-describedby="visibility-unavailable-description"
+                className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
+            >
+                <h2
+                    id="visibility-unavailable-title"
+                    className="text-lg font-black text-slate-900"
+                >
+                    공개 설정 안내
+                </h2>
+                <p
+                    id="visibility-unavailable-description"
+                    className="mt-3 text-sm leading-6 text-slate-600"
+                >
+                    이 여행방은 아직 공개할 수 없어요.
+                </p>
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                    여행이 끝나고 완료 상태가 되면 공개할 수 있으며, 공개된 여행
+                    기록은 둘러보기에 표시됩니다.
+                </p>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-6 w-full rounded-xl bg-[#213c51] py-3 text-sm font-extrabold text-white transition hover:bg-[#182f40]"
+                >
+                    확인
+                </button>
+            </section>
+        </div>
+    )
+}
+
+function VisibilityConfirmDialog({
+    room,
+    busy,
+    error,
+    onCancel,
+    onConfirm,
+}: {
+    room: Room
+    busy: boolean
+    error: string | null
+    onCancel: () => void
+    onConfirm: () => void
+}) {
+    const willBePublic = room.visibility === 'PRIVATE'
+
+    return (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+            <section
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="visibility-confirm-title"
+                aria-describedby="visibility-confirm-description"
+                className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
+            >
+                <h2
+                    id="visibility-confirm-title"
+                    className="text-lg font-black text-slate-900"
+                >
+                    공개 상태 변경
+                </h2>
+                <p
+                    id="visibility-confirm-description"
+                    className="mt-3 text-sm leading-6 text-slate-600"
+                >
+                    현재 {willBePublic ? '비공개' : '공개'} 상태입니다.{' '}
+                    <strong className="text-slate-900">
+                        {willBePublic ? '공개' : '비공개'} 상태로
+                    </strong>{' '}
+                    전환하시겠습니까?
+                </p>
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                    {willBePublic
+                        ? '공개하면 둘러보기에서 다른 사용자가 이 여행을 볼 수 있습니다.'
+                        : '비공개로 변경하면 둘러보기에서 더 이상 노출되지 않습니다.'}
+                </p>
+
+                {error && (
+                    <p
+                        role="alert"
+                        className="mt-4 rounded-xl bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-600"
+                    >
+                        {error}
+                    </p>
+                )}
+
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={busy}
+                        className="rounded-xl border border-slate-200 bg-white py-3 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                    >
+                        아니오
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={busy}
+                        className="rounded-xl bg-brand py-3 text-sm font-extrabold text-white transition hover:bg-brand-700 disabled:opacity-50"
+                    >
+                        {busy ? '변경 중...' : '네'}
+                    </button>
+                </div>
+            </section>
         </div>
     )
 }

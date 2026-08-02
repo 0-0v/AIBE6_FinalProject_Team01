@@ -13,9 +13,19 @@ type Props = {
     room: Room
     onOpen: () => void
     compact?: boolean
+    onToggleVisibility?: () => void
+    onVisibilityUnavailable?: () => void
+    visibilityBusy?: boolean
 }
 
-export function RoomCard({ room, onOpen, compact = false }: Props) {
+export function RoomCard({
+    room,
+    onOpen,
+    compact = false,
+    onToggleVisibility,
+    onVisibilityUnavailable,
+    visibilityBusy = false,
+}: Props) {
     if (compact) {
         return (
             <article
@@ -36,21 +46,33 @@ export function RoomCard({ room, onOpen, compact = false }: Props) {
                     >
                         {room.dday}
                     </span>
-                    <span
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation()
+                            if (onToggleVisibility) {
+                                onToggleVisibility()
+                                return
+                            }
+                            onVisibilityUnavailable?.()
+                        }}
+                        disabled={visibilityBusy}
                         className={`absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-[9px] border backdrop-blur-[10px] ${
                             room.visibility === 'PUBLIC'
                                 ? 'border-transparent bg-[#f2647c] text-white'
                                 : 'border-white/30 bg-[rgba(33,60,81,0.62)] text-white/90'
-                        }`}
+                        } transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
                         aria-label={
                             room.visibility === 'PUBLIC'
                                 ? '공개 여행방'
                                 : '비공개 여행방'
                         }
                         title={
-                            room.visibility === 'PUBLIC'
-                                ? '둘러보기에 공개된 여행방'
-                                : '비공개 여행방'
+                            onToggleVisibility
+                                ? room.visibility === 'PUBLIC'
+                                    ? '비공개로 전환'
+                                    : '공개로 전환'
+                                : '여행 완료 후 공개 설정을 변경할 수 있습니다.'
                         }
                     >
                         {room.visibility === 'PUBLIC' ? (
@@ -58,7 +80,7 @@ export function RoomCard({ room, onOpen, compact = false }: Props) {
                         ) : (
                             <LockIcon size={14} />
                         )}
-                    </span>
+                    </button>
 
                     <div className="absolute inset-x-0 bottom-0 px-4 pb-[15px] pt-[46px] text-white">
                         <h2 className="truncate text-[20px] font-bold leading-[1.25] tracking-[-0.03em] [text-shadow:0_1px_8px_rgba(15,29,40,0.4)] @min-[440px]:text-[22px]">
