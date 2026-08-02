@@ -498,6 +498,9 @@ function MapContent({
                                 focused={
                                     highlightedPlaceId === String(place.id)
                                 }
+                                borderless={
+                                    highlightedPlaceId === String(place.id)
+                                }
                             />
                         </div>
                     </AdvancedMarker>

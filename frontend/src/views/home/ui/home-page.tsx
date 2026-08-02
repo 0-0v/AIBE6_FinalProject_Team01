@@ -125,6 +125,8 @@ export function Home() {
     const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+    const [focusedRecommendationPlaceId, setFocusedRecommendationPlaceId] =
+        useState<string | null>(null)
     const [insightSlide, setInsightSlide] = useState(0)
     const [isTripSelectorOpen, setIsTripSelectorOpen] = useState(false)
     const tripSelectorRef = useRef<HTMLDivElement>(null)
@@ -1137,15 +1139,23 @@ export function Home() {
                                                                 undefined
                                                             }
                                                             focusedItemId={null}
-                                                            focusedPlaceId={null}
+                                                            focusedPlaceId={
+                                                                focusedRecommendationPlaceId
+                                                            }
                                                             highlightedPlaceId={
                                                                 recommendationPlace.id
                                                             }
                                                             onItemFocus={() =>
                                                                 undefined
                                                             }
-                                                            onPlaceFocus={() =>
-                                                                undefined
+                                                            onPlaceFocus={(id) =>
+                                                                setFocusedRecommendationPlaceId(
+                                                                    (current) =>
+                                                                        current ===
+                                                                        id
+                                                                            ? null
+                                                                            : id,
+                                                                )
                                                             }
                                                         />
                                                     </div>
