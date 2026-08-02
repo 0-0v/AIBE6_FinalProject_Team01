@@ -35,13 +35,14 @@ import {
     RoomDetailPanel,
     RoomListPanel,
     getNextSortOrder,
+    type TripRoomMode,
 } from '@/widgets/trip-room'
 import {
     REALTIME_EVENT_NAME,
     type RealtimeEvent,
 } from '@/widgets/realtime-sync'
 
-export function TripRoom() {
+export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const { roomId, inviteCode } = useParams<{
@@ -65,6 +66,7 @@ export function TripRoom() {
         resetTrips,
     } = useTripStore()
     const showRoomList = !inviteCode && !roomId
+    const isRecordMode = mode === 'record' && Boolean(roomId)
     const effectiveRoomId = roomId ?? activeTripId
     const room = inviteCode
         ? guestRoom
@@ -556,6 +558,8 @@ export function TripRoom() {
                         delay: room ? 0.08 : 0,
                     }}
                     className={`relative min-h-[360px] min-w-0 flex-1 overflow-hidden ${
+                        isRecordMode ? 'hidden' : ''
+                    } ${
                         room
                             ? 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]'
                             : ''
@@ -593,7 +597,11 @@ export function TripRoom() {
                         ease: [0.22, 1, 0.36, 1],
                         delay: room ? 0.13 : 0,
                     }}
-                    className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col overflow-hidden border border-slate-200 bg-white lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none ${
+                    className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col overflow-hidden border border-slate-200 bg-white ${
+                        isRecordMode
+                            ? 'lg:w-full lg:max-w-none lg:flex-1'
+                            : 'lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none'
+                    } ${
                         room
                             ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
                             : 'shadow-[-10px_0_28px_rgba(33,60,81,0.10)]'
@@ -608,44 +616,46 @@ export function TripRoom() {
                         } as CSSProperties
                     }
                 >
-                    <div
-                        role="separator"
-                        aria-label="여행방 패널 너비 조절"
-                        aria-orientation="vertical"
-                        tabIndex={0}
-                        onPointerDown={(event) => {
-                            if (event.button !== 0) return
-                            event.preventDefault()
-                            const currentWidth =
-                                workspacePanelRef.current?.getBoundingClientRect()
-                                    .width
-                            if (currentWidth != null) {
-                                setCustomPanelWidth(
-                                    clampPanelWidth(currentWidth),
-                                )
-                            }
-                            setIsResizingPanel(true)
-                        }}
-                        onDoubleClick={resetActivePanelWidth}
-                        onKeyDown={handlePanelResizeKeyDown}
-                        title="드래그해서 패널 너비 조절 · 더블클릭해서 초기화"
-                        className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center focus:outline-none lg:flex"
-                    >
-                        <span
-                            className={`absolute h-full transition-all duration-150 ${
-                                isResizingPanel
-                                    ? 'w-1 bg-brand shadow-[0_0_12px_rgba(235,94,119,0.35)]'
-                                    : 'w-px bg-transparent group-hover:bg-brand-200 group-focus:bg-brand-300'
-                            }`}
-                        />
-                        {isResizingPanel && (
-                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
-                                {customPanelWidth == null
-                                    ? '너비 조절 중'
-                                    : `${Math.round(customPanelWidth)}px`}
-                            </span>
-                        )}
-                    </div>
+                    {!isRecordMode && (
+                        <div
+                            role="separator"
+                            aria-label="여행방 패널 너비 조절"
+                            aria-orientation="vertical"
+                            tabIndex={0}
+                            onPointerDown={(event) => {
+                                if (event.button !== 0) return
+                                event.preventDefault()
+                                const currentWidth =
+                                    workspacePanelRef.current?.getBoundingClientRect()
+                                        .width
+                                if (currentWidth != null) {
+                                    setCustomPanelWidth(
+                                        clampPanelWidth(currentWidth),
+                                    )
+                                }
+                                setIsResizingPanel(true)
+                            }}
+                            onDoubleClick={resetActivePanelWidth}
+                            onKeyDown={handlePanelResizeKeyDown}
+                            title="드래그해서 패널 너비 조절 · 더블클릭해서 초기화"
+                            className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center focus:outline-none lg:flex"
+                        >
+                            <span
+                                className={`absolute h-full transition-all duration-150 ${
+                                    isResizingPanel
+                                        ? 'w-1 bg-brand shadow-[0_0_12px_rgba(235,94,119,0.35)]'
+                                        : 'w-px bg-transparent group-hover:bg-brand-200 group-focus:bg-brand-300'
+                                }`}
+                            />
+                            {isResizingPanel && (
+                                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-bold text-white shadow-lg">
+                                    {customPanelWidth == null
+                                        ? '너비 조절 중'
+                                        : `${Math.round(customPanelWidth)}px`}
+                                </span>
+                            )}
+                        </div>
+                    )}
                     <AnimatePresence mode="wait" initial={false}>
                         <motion.div
                             key={room ? `room-${room.id}` : 'room-list'}
@@ -699,13 +709,18 @@ export function TripRoom() {
                                             ? handleLoginChoice
                                             : undefined
                                     }
+                                    mode={mode}
+                                    onOpenPlanPlace={(placeId) => {
+                                        setSelectedId(placeId)
+                                        navigate(`/app/room/${room.id}`)
+                                    }}
                                 />
                             ) : (
                                 <RoomListPanel
                                     rooms={rooms}
                                     isLoading={isLoading}
                                     error={error}
-                                    onRetry={() => void loadTrips()}
+                                    onRetry={loadTrips}
                                     onSelectRoom={(id) => {
                                         selectTrip(id)
                                         navigate(`/app/room/${id}`)

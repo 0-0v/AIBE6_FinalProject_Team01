@@ -6,7 +6,6 @@ import {
     ListIcon,
     MapIcon,
     ReceiptTextIcon,
-    RefreshCcwIcon,
 } from 'lucide-react'
 import {
     Place,
@@ -53,7 +52,7 @@ function mapApiComment(comment: PlaceCommentResponse) {
     }
 }
 
-type Mode = 'plan' | 'record'
+export type TripRoomMode = 'plan' | 'record'
 type PlanTab = 'places' | 'itinerary' | 'schedule'
 type RecordTab = 'records' | 'expenses'
 export type TripRoomWorkspace = PlanTab | 'records' | 'expenses'
@@ -82,6 +81,8 @@ type Props = {
     onJoin?: () => void
     onWorkspaceChange?: (workspace: TripRoomWorkspace) => void
     headerContainer?: HTMLElement | null
+    mode?: TripRoomMode
+    onOpenPlanPlace?: (placeId: string) => void
 }
 
 export function RoomDetailPanel({
@@ -108,10 +109,9 @@ export function RoomDetailPanel({
     onJoin,
     onWorkspaceChange,
     headerContainer,
+    mode = 'plan',
+    onOpenPlanPlace,
 }: Props) {
-    const [mode, setMode] = useState<Mode>(
-        room.lifecycleStatus === 'COMPLETED' ? 'record' : 'plan',
-    )
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [recordTab, setRecordTab] = useState<RecordTab>('records')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -147,13 +147,11 @@ export function RoomDetailPanel({
                   title: 'Plan',
                   description:
                       '가고 싶은 장소를 찾고 함께 여행 계획을 준비해보세요.',
-                  nextModeLabel: 'Record로 전환',
               }
             : {
                   title: 'Record',
                   description:
                       '여행의 순간과 경비 내역을 한곳에서 관리해보세요.',
-                  nextModeLabel: 'Plan으로 전환',
               }
 
     useEffect(() => {
@@ -212,19 +210,6 @@ export function RoomDetailPanel({
     function refreshCollaborationData() {
         void loadActivityLogs(tripId)
         void loadNotifications()
-    }
-
-    function switchMode(nextMode: Mode) {
-        const alreadyAtDefaultTab =
-            nextMode === mode &&
-            ((nextMode === 'plan' && planTab === 'places') ||
-                (nextMode === 'record' && recordTab === 'records'))
-        if (alreadyAtDefaultTab) return
-        requestDiscardDateChanges(() => {
-            setMode(nextMode)
-            if (nextMode === 'plan') setPlanTab('places')
-            else setRecordTab('records')
-        })
     }
 
     function requestDiscardDateChanges(onDiscard: () => void) {
@@ -399,9 +384,10 @@ export function RoomDetailPanel({
     }
 
     function focusPlace(placeId: string) {
-        setMode('plan')
-        setPlanTab('places')
-
+        if (onOpenPlanPlace) {
+            onOpenPlanPlace(placeId)
+            return
+        }
         onSelectPlace(placeId)
     }
 
@@ -433,26 +419,6 @@ export function RoomDetailPanel({
             <div className="border-b border-slate-100 px-4 pb-3.5 pt-6">
                 <div className="mb-3.5 flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2">
-                        <div className="group/mode relative shrink-0">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    switchMode(
-                                        mode === 'plan' ? 'record' : 'plan',
-                                    )
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                                aria-label={modeInfo.nextModeLabel}
-                            >
-                                <RefreshCcwIcon size={15} />
-                            </button>
-                            <span
-                                role="tooltip"
-                                className="pointer-events-none absolute left-0 top-full z-50 mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[11px] font-bold text-white opacity-0 shadow-lg transition duration-150 group-hover/mode:opacity-100"
-                            >
-                                {modeInfo.nextModeLabel}
-                            </span>
-                        </div>
                         <div className="min-w-0">
                             <h2 className="text-[22px] font-black leading-8 tracking-tight text-slate-900">
                                 {modeInfo.title}
