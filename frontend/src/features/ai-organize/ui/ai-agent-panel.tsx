@@ -58,10 +58,6 @@ function RoutePlanView({
         (day) => Number(day.id) === selectedDay?.dayId,
     )?.departure
 
-    useEffect(() => {
-        setSelectedDayId(plan.days[0]?.dayId ?? null)
-    }, [plan])
-
     return (
         <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
             <aside className="space-y-3">
