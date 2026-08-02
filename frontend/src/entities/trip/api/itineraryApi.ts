@@ -31,9 +31,10 @@ export async function getItinerary(tripId: number): Promise<ItineraryDay[]> {
 
 export async function initializeItinerary(
     tripId: number,
+    options: { force?: boolean } = {},
 ): Promise<ItineraryDay[]> {
     const pendingRequest = itineraryInitializationRequests.get(tripId)
-    if (pendingRequest) return pendingRequest
+    if (pendingRequest && !options.force) return pendingRequest
 
     const request = apiClient
         .post<ApiResponse<ItineraryDay[]>>(
