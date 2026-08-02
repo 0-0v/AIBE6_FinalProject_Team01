@@ -2,9 +2,11 @@ package back.backend.domain.place.service;
 
 import back.backend.domain.place.dto.response.GooglePlacesApiResponse;
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
+import back.backend.domain.place.dto.response.PlaceOperationalDetails;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +28,10 @@ public class PlaceSearchService {
             "places.primaryType,places.types," +
             "places.rating,places.userRatingCount," +
             "places.currentOpeningHours.openNow";
+    private static final String DETAILS_FIELD_MASK =
+            "id,businessStatus,currentOpeningHours.openNow," +
+            "currentOpeningHours.nextOpenTime,currentOpeningHours.nextCloseTime," +
+            "currentOpeningHours.weekdayDescriptions,regularOpeningHours.weekdayDescriptions";
 
     private final RestClient restClient;
     @Autowired
@@ -45,8 +51,7 @@ public class PlaceSearchService {
     PlaceSearchService(RestClient.Builder builder, String apiKey, String referer) {
         RestClient.Builder configuredBuilder = builder
                 .baseUrl(GOOGLE_PLACES_BASE_URL)
-                .defaultHeader("X-Goog-Api-Key", apiKey)
-                .defaultHeader("X-Goog-FieldMask", FIELD_MASK);
+                .defaultHeader("X-Goog-Api-Key", apiKey);
         if (StringUtils.hasText(referer)) {
             configuredBuilder.defaultHeader("Referer", referer);
         }
@@ -112,6 +117,7 @@ public class PlaceSearchService {
         try {
             GooglePlacesApiResponse response = restClient.post()
                     .uri("/places:searchText")
+                    .header("X-Goog-FieldMask", FIELD_MASK)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
@@ -119,6 +125,45 @@ public class PlaceSearchService {
             return mapToResponses(response);
         } catch (RestClientException e) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+        }
+    }
+
+    public PlaceOperationalDetails getOperationalDetails(String googlePlaceId) {
+        try {
+            GooglePlacesApiResponse.Place place = restClient.get()
+                    .uri("/places/{placeId}", googlePlaceId)
+                    .header("X-Goog-FieldMask", DETAILS_FIELD_MASK)
+                    .retrieve()
+                    .body(GooglePlacesApiResponse.Place.class);
+            if (place == null) {
+                throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+            }
+            var current = place.currentOpeningHours();
+            List<String> descriptions = current != null
+                    && current.weekdayDescriptions() != null
+                    ? current.weekdayDescriptions()
+                    : place.regularOpeningHours() == null
+                    || place.regularOpeningHours().weekdayDescriptions() == null
+                    ? List.of()
+                    : place.regularOpeningHours().weekdayDescriptions();
+            return new PlaceOperationalDetails(
+                    place.businessStatus(),
+                    current == null ? null : current.openNow(),
+                    parseOffsetDateTime(current == null ? null : current.nextOpenTime()),
+                    parseOffsetDateTime(current == null ? null : current.nextCloseTime()),
+                    List.copyOf(descriptions)
+            );
+        } catch (RestClientException e) {
+            throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+        }
+    }
+
+    private OffsetDateTime parseOffsetDateTime(String value) {
+        if (!StringUtils.hasText(value)) return null;
+        try {
+            return OffsetDateTime.parse(value);
+        } catch (RuntimeException ignored) {
+            return null;
         }
     }
 

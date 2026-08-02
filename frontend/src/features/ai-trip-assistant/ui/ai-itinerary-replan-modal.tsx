@@ -31,12 +31,24 @@ type Props = {
 }
 
 const REPLAN_REASONS = [
-    { key: 'BUSINESS_HOURS', label: '영업시간 종료' },
-    { key: 'WEATHER', label: '날씨 문제' },
-    { key: 'TEMPORARY_CLOSURE', label: '임시 휴무' },
-    { key: 'SCHEDULE_DELAY', label: '일정 지연' },
-    { key: 'CROWD', label: '혼잡도 증가' },
-    { key: 'FATIGUE', label: '체력·컨디션' },
+    {
+        key: 'BUSINESS_HOURS',
+        label: '영업시간 변경',
+        hint: 'Google 운영시간 재확인',
+    },
+    { key: 'WEATHER', label: '날씨 문제', hint: '최소 60분 뒤로 조정' },
+    {
+        key: 'TEMPORARY_CLOSURE',
+        label: '임시 휴무',
+        hint: 'Google 영업 상태 재확인',
+    },
+    { key: 'SCHEDULE_DELAY', label: '일정 지연', hint: '최소 30분 뒤로 조정' },
+    {
+        key: 'USER_REPORTED_CROWD',
+        label: '현장 혼잡',
+        hint: '직접 확인 · 최소 60분 조정',
+    },
+    { key: 'FATIGUE', label: '체력·컨디션', hint: '최소 30분 여유 반영' },
 ] as const
 
 function localDateValue(date: Date) {
@@ -416,7 +428,14 @@ export function AiItineraryReplanModal({
                                                 }
                                                 className={`rounded-full border px-3 py-2 text-xs font-extrabold transition ${selected ? 'border-brand bg-brand text-white shadow-[0_6px_16px_rgba(225,91,116,0.2)]' : 'border-slate-200 bg-white text-slate-500 hover:border-rose-200'}`}
                                             >
-                                                {reason.label}
+                                                <span className="block">
+                                                    {reason.label}
+                                                </span>
+                                                <span
+                                                    className={`mt-0.5 block text-[9px] ${selected ? 'text-white/75' : 'text-slate-400'}`}
+                                                >
+                                                    {reason.hint}
+                                                </span>
                                             </button>
                                         )
                                     })}

@@ -503,7 +503,8 @@ public class ItineraryService {
                     start != null ? start : LocalTime.of(9, 0),
                     end   != null ? end   : LocalTime.of(21, 0),
                     pace  != null ? pace  : TravelPace.NORMAL,
-                    defaultTransportMode
+                    defaultTransportMode,
+                    Map.of()
             );
         }).orElse(TripScheduleSettings.defaultSettings());
 

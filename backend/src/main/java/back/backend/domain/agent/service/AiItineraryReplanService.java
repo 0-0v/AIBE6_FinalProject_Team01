@@ -1,6 +1,7 @@
 package back.backend.domain.agent.service;
 
 import back.backend.domain.agent.dto.request.AiItineraryReplanRequest;
+import back.backend.domain.agent.dto.request.AiReplanReason;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
@@ -17,6 +18,8 @@ import back.backend.domain.itinerary.service.TripScheduleSettings;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.place.service.PlaceSearchService;
+import back.backend.domain.place.dto.response.PlaceOperationalDetails;
 import back.backend.domain.trip.entity.TravelPace;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -51,6 +54,7 @@ public class AiItineraryReplanService {
     private final ItineraryService itineraryService;
     private final AiReplanCutoffPolicy cutoffPolicy;
     private final CollaborationEventService collaborationEventService;
+    private final PlaceSearchService placeSearchService;
 
     @Value("${app.ai.replan.allow-outside-trip:false}")
     private boolean allowOutsideTrip;
@@ -100,6 +104,36 @@ public class AiItineraryReplanService {
                 .orElseThrow(() -> new BusinessException(
                         ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
                 ));
+        ItineraryDay startingDay = days.stream()
+                .filter(day -> day.getItineraryDate().equals(startingDayDate))
+                .filter(day -> day.getItems().stream().anyMatch(item ->
+                        Objects.equals(item.getId(), request.itineraryItemId())))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+                ));
+        ItineraryItem startingItem = startingDay.getItems().stream()
+                .filter(item -> Objects.equals(
+                        item.getId(),
+                        request.itineraryItemId()
+                ))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+                ));
+        TripPlace startingTripPlace = tripPlaceById.get(
+                startingItem.getTripPlaceId()
+        );
+        if (startingTripPlace == null) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
+        PlaceOperationalDetails operationalDetails = requiresOperationalDetails(
+                request.reasons()
+        ) ? placeSearchService.getOperationalDetails(
+                startingTripPlace.getPlace().getGooglePlaceId()
+        ) : null;
         Set<Long> fixedPlaceIds = fixedPlaceIds(
                 days,
                 referenceTime,
@@ -124,21 +158,36 @@ public class AiItineraryReplanService {
             );
         }
 
+        LocalTime defaultDayStart = trip.getDayStartTime() == null
+                ? LocalTime.of(9, 0) : trip.getDayStartTime();
+        LocalTime replanStartTime = resolveReplanStartTime(
+                startingDay,
+                startingItem,
+                referenceTime,
+                defaultDayStart,
+                request.reasons(),
+                operationalDetails
+        );
+        String replanContext = buildReplanContext(
+                startingTripPlace,
+                startingItem,
+                request.reasons(),
+                operationalDetails,
+                replanStartTime
+        );
         TripScheduleSettings settings = TripScheduleSettings.of(
-                trip.getDayStartTime() == null
-                        ? LocalTime.of(9, 0) : trip.getDayStartTime(),
+                defaultDayStart,
                 trip.getDayEndTime() == null
                         ? LocalTime.of(21, 0) : trip.getDayEndTime(),
                 trip.getTravelPace() == null
                         ? TravelPace.NORMAL : trip.getTravelPace()
-        );
+        ).withDayStartOverride(startingDay.getId(), replanStartTime);
         return routePlanner.planMulti(
                         replannableDays,
                         movablePlaces,
                         trip.getTravelStyles(),
                         settings,
-                        "REPLAN_REMAINING_ITINERARY\n재배치 사유: "
-                                + String.join(", ", request.reasons())
+                        "REPLAN_REMAINING_ITINERARY\n" + replanContext
                 )
                 .stream()
                 .map(option -> new RoutePlanOption(
@@ -204,6 +253,76 @@ public class AiItineraryReplanService {
                 .map(ItineraryItem::getTripPlaceId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+    }
+
+    private LocalTime resolveReplanStartTime(
+            ItineraryDay startingDay,
+            ItineraryItem startingItem,
+            LocalDateTime now,
+            LocalTime defaultDayStart,
+            List<AiReplanReason> reasons,
+            PlaceOperationalDetails operationalDetails
+    ) {
+        LocalTime start = startingItem.getStartTime() == null
+                ? defaultDayStart : startingItem.getStartTime();
+        if (startingDay.getItineraryDate().equals(now.toLocalDate())
+                && now.toLocalTime().isAfter(start)) {
+            start = now.toLocalTime().withSecond(0).withNano(0);
+        }
+        if (start.isBefore(defaultDayStart)) start = defaultDayStart;
+        int delayMinutes = reasons.stream()
+                .mapToInt(AiReplanReason::minimumDelayMinutes)
+                .max()
+                .orElse(0);
+        start = start.plusMinutes(delayMinutes);
+        if (operationalDetails != null
+                && operationalDetails.nextOpenTime() != null
+                && operationalDetails.nextOpenTime().toLocalDate()
+                .equals(startingDay.getItineraryDate())) {
+            LocalTime nextOpen = operationalDetails.nextOpenTime().toLocalTime();
+            if (nextOpen.isAfter(start)) start = nextOpen;
+        }
+        return start;
+    }
+
+    private boolean requiresOperationalDetails(List<AiReplanReason> reasons) {
+        return reasons.contains(AiReplanReason.BUSINESS_HOURS)
+                || reasons.contains(AiReplanReason.TEMPORARY_CLOSURE);
+    }
+
+    private String buildReplanContext(
+            TripPlace startingPlace,
+            ItineraryItem startingItem,
+            List<AiReplanReason> reasons,
+            PlaceOperationalDetails details,
+            LocalTime replanStartTime
+    ) {
+        String labels = reasons.stream()
+                .map(AiReplanReason::label)
+                .distinct()
+                .collect(Collectors.joining(", "));
+        StringBuilder context = new StringBuilder()
+                .append("선택 장소: ")
+                .append(startingPlace.getPlace().getName())
+                .append(". 변경 사유: ")
+                .append(labels)
+                .append(". 기존 시작 시각: ")
+                .append(formatTime(startingItem.getStartTime()))
+                .append(". 재배치 시작 하한: ")
+                .append(replanStartTime)
+                .append(". 선택 장소를 누락하지 말고 이 시각 이후에 다시 배치하고, 이후 일정의 순서와 시간을 함께 조정할 것.");
+        if (details != null) {
+            context.append(" Google Places 운영 상태: ")
+                    .append(details.businessStatus())
+                    .append(", 현재 영업 여부: ")
+                    .append(details.openNow())
+                    .append(", 다음 개점: ")
+                    .append(details.nextOpenTime())
+                    .append(", 다음 폐점: ")
+                    .append(details.nextCloseTime())
+                    .append(".");
+        }
+        return context.toString();
     }
 
 

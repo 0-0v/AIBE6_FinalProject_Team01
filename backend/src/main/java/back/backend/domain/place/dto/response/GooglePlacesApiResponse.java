@@ -19,6 +19,7 @@ public record GooglePlacesApiResponse(
             List<Photo> photos,
             Double rating,
             Integer userRatingCount,
+            String businessStatus,
             CurrentOpeningHours currentOpeningHours,
             RegularOpeningHours regularOpeningHours,
             String nationalPhoneNumber,
@@ -29,7 +30,10 @@ public record GooglePlacesApiResponse(
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record CurrentOpeningHours(
-            Boolean openNow
+            Boolean openNow,
+            String nextOpenTime,
+            String nextCloseTime,
+            List<String> weekdayDescriptions
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

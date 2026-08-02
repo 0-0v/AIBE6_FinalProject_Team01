@@ -12,6 +12,7 @@ import back.backend.domain.place.dto.response.PlaceSearchResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.util.List;
+import java.time.LocalTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -213,6 +214,38 @@ class PlaceSearchServiceTest {
                 back.backend.domain.place.entity.PlaceCategoryType.ATTRACTION
         );
         assertThat(result.placeTypes()).containsExactly("castle", "tourist_attraction");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t10 장소 운영정보 조회 시 영업 상태와 다음 개점·폐점 시각을 반환한다")
+    void t10_operationalDetailsContainCurrentGoogleOpeningData() {
+        String responseJson = """
+                {
+                  "id":"ChIJhankyu",
+                  "businessStatus":"OPERATIONAL",
+                  "currentOpeningHours":{
+                    "openNow":false,
+                    "nextOpenTime":"2026-08-02T11:00:00+09:00",
+                    "nextCloseTime":"2026-08-02T20:00:00+09:00",
+                    "weekdayDescriptions":["일요일: 오전 11:00~오후 8:00"]
+                  }
+                }
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places/ChIJhankyu")))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(
+                        "X-Goog-FieldMask",
+                        org.hamcrest.Matchers.containsString("currentOpeningHours.nextOpenTime")
+                ))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        var result = service.getOperationalDetails("ChIJhankyu");
+
+        assertThat(result.businessStatus()).isEqualTo("OPERATIONAL");
+        assertThat(result.openNow()).isFalse();
+        assertThat(result.nextOpenTime().toLocalTime()).isEqualTo(LocalTime.of(11, 0));
+        assertThat(result.nextCloseTime().toLocalTime()).isEqualTo(LocalTime.of(20, 0));
         server.verify();
     }
 }

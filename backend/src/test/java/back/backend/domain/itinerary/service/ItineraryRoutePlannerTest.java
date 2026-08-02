@@ -20,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -492,5 +493,29 @@ class ItineraryRoutePlannerTest {
                 .isEqualTo("북쪽 장소");
         assertThat(result.days().get(1).items().getFirst().placeName())
                 .isEqualTo("남쪽 장소");
+    }
+
+    @Test
+    @DisplayName("t16 재배치 시작 Day는 선택 일정 시각부터 시작하고 다음 Day는 기본 시각을 사용한다")
+    void t16_replanUsesStartOverrideOnlyForSelectedDay() {
+        ItineraryDay day1 = day(1L, 1);
+        ItineraryDay day2 = day(2L, 2);
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "한큐 우메다", PlaceCategoryType.SHOPPING, 34.7028, 135.4985),
+                tripPlace(11L, "다음 장소", PlaceCategoryType.ATTRACTION, 34.7100, 135.5100)
+        );
+        TripScheduleSettings settings = TripScheduleSettings
+                .of(LocalTime.of(9, 0), LocalTime.of(21, 0), TravelPace.NORMAL)
+                .withDayStartOverride(1L, LocalTime.of(10, 46));
+
+        RoutePlanPreviewResponse result = planner.planMulti(
+                List.of(day1, day2),
+                places,
+                Set.of(),
+                settings
+        ).getFirst().plan();
+
+        assertThat(result.days().getFirst().items().getFirst().startTime())
+                .isEqualTo("10:46");
     }
 }
