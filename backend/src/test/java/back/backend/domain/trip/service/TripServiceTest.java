@@ -246,8 +246,8 @@ class TripServiceTest {
     }
 
     @Test
-    @DisplayName("t12 여행방 수정일이 과거이면 수정을 거부한다")
-    void t12_updateTripRejectsPastStartDate() {
+    @DisplayName("t12 여행방 수정일이 오늘 또는 과거이면 수정을 거부한다")
+    void t12_updateTripRejectsTodayOrPastStartDate() {
         Trip trip = trip("제주 여행");
         when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 2L, TripStatus.CANCELLED))
                 .thenReturn(Optional.of(trip));
@@ -256,7 +256,7 @@ class TripServiceTest {
                 CompanionType.FRIENDS,
                 Set.of(TravelStyle.FOOD),
                 "제주도",
-                LocalDate.of(2026, 7, 30),
+                LocalDate.of(2026, 7, 31),
                 LocalDate.of(2026, 8, 2),
                 TripVisibility.PRIVATE,
                 null,
@@ -289,31 +289,6 @@ class TripServiceTest {
         var response = tripService.update(2L, 10L, request);
 
         assertThat(response.title()).isEqualTo("수정 여행");
-    }
-
-    @Test
-    @DisplayName("t14 여행방 수정에서는 시작일을 오늘로 변경할 수 있다")
-    void t14_updateTripAllowsTodayAsStartDate() {
-        Trip trip = trip("제주 여행");
-        when(tripRepository.findByIdAndMemberIdAndStatusNot(
-                10L, 2L, TripStatus.CANCELLED
-        )).thenReturn(Optional.of(trip));
-        TripRequest request = new TripRequest(
-                "수정 여행",
-                CompanionType.FRIENDS,
-                Set.of(TravelStyle.FOOD),
-                "제주도",
-                LocalDate.of(2026, 7, 31),
-                LocalDate.of(2026, 8, 2),
-                TripVisibility.PRIVATE,
-                null,
-                null,
-                null
-        );
-
-        var response = tripService.update(2L, 10L, request);
-
-        assertThat(response.startDate()).isEqualTo(LocalDate.of(2026, 7, 31));
     }
 
     private TripRequest request(String title) {
