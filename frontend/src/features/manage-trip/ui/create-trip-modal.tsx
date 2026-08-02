@@ -97,7 +97,9 @@ export function CreateTripModal({
                     await createTrip({
                         title: normalizedTitle,
                         travelStyles,
-                        destination: destinationResult?.name ?? (destinationText.trim() || null),
+                        destination:
+                            destinationResult?.name ??
+                            (destinationText.trim() || null),
                         destinationLat: destinationResult?.lat ?? null,
                         destinationLng: destinationResult?.lng ?? null,
                         startDate: startDate || null,
@@ -120,9 +122,9 @@ export function CreateTripModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4">
             <form
                 onSubmit={submit}
-                className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl md:overflow-visible"
             >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 md:px-6">
                     <h2 className="text-xl font-extrabold">새 여행방</h2>
                     <button
                         type="button"
@@ -134,89 +136,102 @@ export function CreateTripModal({
                     </button>
                 </div>
 
-                <TripCoverImageField
-                    file={coverImage}
-                    disabled={isSubmitting}
-                    onFileChange={setCoverImage}
-                />
-
-                <label className="mt-5 block text-sm font-bold">
-                    여행방 이름 <span className="text-brand">*</span>
-                    <input
-                        value={title}
-                        onChange={(event) => setTitle(event.target.value)}
-                        maxLength={100}
-                        className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-brand"
-                        placeholder="예: 제주 가족 여행"
-                    />
-                </label>
-
-                <fieldset className="mt-4">
-                    <legend className="text-sm font-bold">여행 스타일</legend>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {STYLES.map((style) => (
-                            <button
-                                key={style.value}
-                                type="button"
-                                onClick={() => toggleStyle(style.value)}
-                                className={`rounded-full px-3 py-1.5 text-xs font-bold ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
-                            >
-                                {style.label}
-                            </button>
-                        ))}
+                <div className="grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                    <div className="bg-slate-50 p-5 md:rounded-bl-3xl md:p-6">
+                        <TripCoverImageField
+                            file={coverImage}
+                            disabled={isSubmitting}
+                            compact
+                            onFileChange={setCoverImage}
+                        />
                     </div>
-                </fieldset>
 
-                <label className="mt-4 block text-sm font-bold">
-                    어디로 떠나시나요?
-                    <DestinationAutocomplete
-                        value={destinationText}
-                        onChange={(result, text) => {
-                            setDestinationResult(result)
-                            setDestinationText(text)
-                        }}
-                    />
-                    <span className="mt-1.5 block text-xs font-normal text-slate-400">
-                        목적지를 선택하면 지도가 해당 위치로 맞춰져요.
-                    </span>
-                </label>
+                    <div className="p-5 md:p-6">
+                        <label className="block text-sm font-bold">
+                            여행방 이름 <span className="text-brand">*</span>
+                            <input
+                                value={title}
+                                onChange={(event) =>
+                                    setTitle(event.target.value)
+                                }
+                                maxLength={100}
+                                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-brand"
+                                placeholder="예: 제주 가족 여행"
+                            />
+                        </label>
 
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                    <label className="text-sm font-bold">
-                        시작일
-                        <input
-                            type="date"
-                            value={startDate}
-                            min={minimumStartDate}
-                            onChange={(event) =>
-                                setStartDate(event.target.value)
-                            }
-                            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                    <label className="text-sm font-bold">
-                        종료일
-                        <input
-                            type="date"
-                            value={endDate}
-                            min={startDate || minimumStartDate}
-                            onChange={(event) => setEndDate(event.target.value)}
-                            className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
-                        />
-                    </label>
+                        <fieldset className="mt-3.5">
+                            <legend className="text-sm font-bold">
+                                여행 스타일
+                            </legend>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {STYLES.map((style) => (
+                                    <button
+                                        key={style.value}
+                                        type="button"
+                                        onClick={() => toggleStyle(style.value)}
+                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
+                                    >
+                                        {style.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </fieldset>
+
+                        <label className="mt-3.5 block text-sm font-bold">
+                            어디로 떠나시나요?
+                            <DestinationAutocomplete
+                                value={destinationText}
+                                onChange={(result, text) => {
+                                    setDestinationResult(result)
+                                    setDestinationText(text)
+                                }}
+                            />
+                            <span className="mt-1 block text-[11px] font-normal text-slate-400">
+                                목적지를 선택하면 지도가 해당 위치로 맞춰져요.
+                            </span>
+                        </label>
+
+                        <div className="mt-3.5 grid grid-cols-2 gap-3">
+                            <label className="text-sm font-bold">
+                                시작일
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    min={minimumStartDate}
+                                    onChange={(event) =>
+                                        setStartDate(event.target.value)
+                                    }
+                                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
+                                />
+                            </label>
+                            <label className="text-sm font-bold">
+                                종료일
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    min={startDate || minimumStartDate}
+                                    onChange={(event) =>
+                                        setEndDate(event.target.value)
+                                    }
+                                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal"
+                                />
+                            </label>
+                        </div>
+
+                        {error && (
+                            <p className="mt-3 text-sm font-semibold text-red-500">
+                                {error}
+                            </p>
+                        )}
+                        <button
+                            disabled={isSubmitting}
+                            className="mt-4 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-60"
+                        >
+                            {isSubmitting ? '생성 중...' : '여행방 만들기'}
+                        </button>
+                    </div>
                 </div>
-
-                {error && (
-                    <p className="mt-4 text-sm font-semibold text-red-500">
-                        {error}
-                    </p>
-                )}
-                <button
-                    disabled={isSubmitting}
-                    className="mt-6 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-60"
-                >
-                    {isSubmitting ? '생성 중...' : '여행방 만들기'}
-                </button>
             </form>
         </div>
     )

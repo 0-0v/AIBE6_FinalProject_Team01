@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronRightIcon, HistoryIcon, ListIcon, MapIcon } from 'lucide-react'
 import {
@@ -44,6 +44,52 @@ function mapApiComment(comment: PlaceCommentResponse) {
         memberId: String(comment.memberId),
         text: comment.content,
         createdAt: comment.createdAt,
+    }
+}
+
+function median(values: number[]) {
+    const sorted = [...values].sort((a, b) => a - b)
+    const middle = Math.floor(sorted.length / 2)
+    return sorted.length % 2 === 0
+        ? (sorted[middle - 1] + sorted[middle]) / 2
+        : sorted[middle]
+}
+
+function resolvePlaceSearchCenter(room: Room, places: Place[]) {
+    const destinationLat = room.destinationLat
+    const destinationLng = room.destinationLng
+    if (
+        destinationLat != null &&
+        destinationLng != null &&
+        Number.isFinite(destinationLat) &&
+        Number.isFinite(destinationLng)
+    ) {
+        return {
+            latitude: destinationLat,
+            longitude: destinationLng,
+        }
+    }
+
+    const savedPlaces = places.filter(
+        (place) =>
+            place.status === 'saved' &&
+            Number.isFinite(place.lat) &&
+            Number.isFinite(place.lng),
+    )
+    const centerCandidates =
+        savedPlaces.length > 0
+            ? savedPlaces
+            : places.filter(
+                  (place) =>
+                      Number.isFinite(place.lat) && Number.isFinite(place.lng),
+              )
+    if (centerCandidates.length === 0) {
+        return { latitude: undefined, longitude: undefined }
+    }
+
+    return {
+        latitude: median(centerCandidates.map((place) => place.lat)),
+        longitude: median(centerCandidates.map((place) => place.lng)),
     }
 }
 
@@ -129,6 +175,29 @@ export function RoomDetailPanel({
         categoryState.tripId === tripId ? categoryState.items : []
     const categoriesLoading =
         categoryState.tripId !== tripId || categoryState.loading
+    const placeSearchCenter = useMemo(
+        () => resolvePlaceSearchCenter(room, places),
+        [room, places],
+    )
+
+    const handlePhotoResolved = useCallback(
+        (
+            placeId: string,
+            photoUrl: string,
+            attribution: string | null,
+            attributionUrl: string | null,
+            sourceUrl: string,
+        ) => {
+            onUpdatePlace(placeId, (place) => ({
+                ...place,
+                image: photoUrl,
+                photoAttribution: attribution,
+                photoAttributionUrl: attributionUrl,
+                photoSourceUrl: sourceUrl,
+            }))
+        },
+        [onUpdatePlace],
+    )
 
     const activeWorkspace: TripRoomWorkspace = planTab
 
@@ -323,7 +392,9 @@ export function RoomDetailPanel({
         setPlaceError(null)
         try {
             const tripPlace = await addTripPlace(tripId, result)
-            onAddPlace(fromApiToPlace(tripPlace, room.id))
+            const addedPlace = fromApiToPlace(tripPlace, room.id)
+            onAddPlace(addedPlace)
+            onSelectPlace(addedPlace.id)
             refreshCollaborationData()
         } catch (error) {
             setPlaceError(
@@ -513,6 +584,8 @@ export function RoomDetailPanel({
                             <PlaceSearch
                                 onAdd={handleAdd}
                                 location={room.location || undefined}
+                                latitude={placeSearchCenter.latitude}
+                                longitude={placeSearchCenter.longitude}
                                 existingGooglePlaceIds={
                                     new Set(
                                         places
@@ -587,6 +660,7 @@ export function RoomDetailPanel({
                                             categoryId,
                                         )
                                     }
+                                    onPhotoResolved={handlePhotoResolved}
                                 />
                             ))
                         )}
@@ -617,7 +691,6 @@ export function RoomDetailPanel({
                         roomId={room.id}
                         places={places}
                         canWrite={canPlanWrite}
-                        location={room.location || undefined}
                         onDaysLoaded={onItineraryDaysLoaded}
                         onPlaceFocus={onSelectPlace}
                     />

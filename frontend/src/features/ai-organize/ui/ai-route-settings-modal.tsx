@@ -133,10 +133,7 @@ export function AiRouteSettingsModal({
                 if (e.target === e.currentTarget) onClose()
             }}
         >
-            <div
-                className="flex w-full max-w-[480px] flex-col rounded-3xl bg-white shadow-2xl"
-                style={{ maxHeight: '85dvh' }}
-            >
+            <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
                 {/* 헤더 */}
                 <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
                     <div className="flex items-center gap-2.5">
@@ -168,10 +165,10 @@ export function AiRouteSettingsModal({
                 </header>
 
                 {/* 본문 */}
-                <div className="mp-scroll flex-1 space-y-4 overflow-y-auto p-5">
+                <div className="min-h-0 flex-1">
                     {/* 유효성 이슈 */}
                     {issues.length > 0 && (
-                        <div className="space-y-2">
+                        <div className="grid gap-2 p-4 md:grid-cols-2">
                             {issues.map((issue) => (
                                 <IssueItem key={issue.code} issue={issue} />
                             ))}
@@ -179,97 +176,104 @@ export function AiRouteSettingsModal({
                     )}
 
                     {!hasError && (
-                        <>
-                            <section>
-                                <p className="mb-2 text-xs font-bold text-slate-600">
-                                    하루 일정 시간
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex flex-1 flex-col gap-1">
-                                        <span className="text-[10px] font-semibold text-slate-400">
-                                            시작
-                                        </span>
-                                        <TimePicker
-                                            value={startTime}
-                                            onChange={setStartTime}
-                                        />
-                                    </div>
-                                    <span className="mt-4 text-xs text-slate-300">
-                                        ~
-                                    </span>
-                                    <div className="flex flex-1 flex-col gap-1">
-                                        <span className="text-[10px] font-semibold text-slate-400">
-                                            종료
-                                        </span>
-                                        <TimePicker
-                                            value={endTime}
-                                            onChange={setEndTime}
-                                        />
-                                    </div>
-                                </div>
-                                {hasInvalidTimeRange && (
-                                    <p className="mt-1.5 text-[10px] font-semibold text-red-500">
-                                        종료 시간은 시작 시간보다 늦게
-                                        설정해주세요.
+                        <div className="grid min-h-0 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                            <div className="space-y-4 bg-slate-50 p-4 md:p-5">
+                                <section>
+                                    <p className="mb-2 text-xs font-bold text-slate-700">
+                                        하루 일정 시간
                                     </p>
-                                )}
-                            </section>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                            <span className="text-[10px] font-semibold text-slate-400">
+                                                시작
+                                            </span>
+                                            <TimePicker
+                                                value={startTime}
+                                                onChange={setStartTime}
+                                            />
+                                        </div>
+                                        <span className="mt-4 text-xs text-slate-300">
+                                            ~
+                                        </span>
+                                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                            <span className="text-[10px] font-semibold text-slate-400">
+                                                종료
+                                            </span>
+                                            <TimePicker
+                                                value={endTime}
+                                                onChange={setEndTime}
+                                            />
+                                        </div>
+                                    </div>
+                                    {hasInvalidTimeRange && (
+                                        <p className="mt-1.5 text-[10px] font-semibold text-red-500">
+                                            종료 시간은 시작 시간보다 늦게
+                                            설정해주세요.
+                                        </p>
+                                    )}
+                                </section>
 
-                            <section>
-                                <p className="mb-2 text-xs font-bold text-slate-600">
-                                    여행 페이스
-                                </p>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {(
-                                        [
-                                            {
-                                                value: 'FAST',
-                                                label: '빠르게',
-                                                desc: '일정을 빽빽하게 채워요',
-                                            },
-                                            {
-                                                value: 'NORMAL',
-                                                label: '보통',
-                                                desc: '무난한 속도로 즐겨요',
-                                            },
-                                            {
-                                                value: 'RELAXED',
-                                                label: '여유롭게',
-                                                desc: '여유롭게 충분히 머물러요',
-                                            },
-                                        ] as const
-                                    ).map((p) => (
-                                        <button
-                                            key={p.value}
-                                            type="button"
-                                            onClick={() =>
-                                                setTravelPace(p.value)
-                                            }
-                                            className={`rounded-xl border px-2 py-2 text-center text-xs font-bold transition-colors ${travelPace === p.value ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-500'}`}
-                                        >
-                                            <div>{p.label}</div>
-                                            <div
-                                                className={`mt-0.5 text-[10px] font-normal ${travelPace === p.value ? 'text-white/80' : 'text-slate-400'}`}
+                                <section>
+                                    <p className="mb-2 text-xs font-bold text-slate-700">
+                                        여행 페이스
+                                    </p>
+                                    <div className="space-y-1.5">
+                                        {(
+                                            [
+                                                {
+                                                    value: 'FAST',
+                                                    label: '빠르게',
+                                                    desc: '일정을 빽빽하게 채워요',
+                                                },
+                                                {
+                                                    value: 'NORMAL',
+                                                    label: '보통',
+                                                    desc: '무난한 속도로 즐겨요',
+                                                },
+                                                {
+                                                    value: 'RELAXED',
+                                                    label: '여유롭게',
+                                                    desc: '여유롭게 충분히 머물러요',
+                                                },
+                                            ] as const
+                                        ).map((p) => (
+                                            <button
+                                                key={p.value}
+                                                type="button"
+                                                onClick={() =>
+                                                    setTravelPace(p.value)
+                                                }
+                                                className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-bold transition-colors ${travelPace === p.value ? 'border-brand bg-brand text-white' : 'border-slate-200 bg-white text-slate-600'}`}
                                             >
-                                                {p.desc}
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
+                                                <div>{p.label}</div>
+                                                <div
+                                                    className={`text-[10px] font-normal ${travelPace === p.value ? 'text-white/80' : 'text-slate-400'}`}
+                                                >
+                                                    {p.desc}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+                            </div>
 
                             {days.length > 0 && (
-                                <section>
-                                    <div className="mb-2 flex items-center gap-1.5">
-                                        <MapPinIcon
-                                            size={13}
-                                            className="text-slate-400"
-                                        />
-                                        <p className="text-xs font-bold text-slate-600">
-                                            날짜별 출발지
+                                <section className="p-4 md:p-5">
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <MapPinIcon
+                                                size={13}
+                                                className="text-slate-400"
+                                            />
+                                            <p className="text-xs font-bold text-slate-600">
+                                                날짜별 출발지
+                                            </p>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400">
+                                            첫 이동의 기준점이에요
                                         </p>
                                     </div>
-                                    <div className="space-y-1.5">
+                                    <div className="grid grid-cols-2 gap-2">
                                         {days.map((day) => {
                                             const isCustom =
                                                 departures[day.id] === 'custom'
@@ -301,14 +305,16 @@ export function AiRouteSettingsModal({
                                             return (
                                                 <div
                                                     key={day.id}
-                                                    className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
+                                                    className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-2.5"
                                                 >
-                                                    <span className="w-10 shrink-0 text-[11px] font-extrabold text-brand">
-                                                        Day {day.dayNumber}
-                                                    </span>
-                                                    <span className="w-16 shrink-0 text-[10px] text-slate-400">
-                                                        {day.itineraryDate}
-                                                    </span>
+                                                    <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
+                                                        <span className="text-[11px] font-extrabold text-brand">
+                                                            Day {day.dayNumber}
+                                                        </span>
+                                                        <span className="truncate text-[10px] text-slate-400">
+                                                            {day.itineraryDate}
+                                                        </span>
+                                                    </div>
                                                     <Select
                                                         aria-label={`Day ${day.dayNumber} 출발지`}
                                                         value={
@@ -328,24 +334,20 @@ export function AiRouteSettingsModal({
                                                         }
                                                         disabled={isCustom}
                                                         variant="form"
-                                                        className="min-w-0 flex-1"
+                                                        className="min-w-0"
                                                     />
                                                 </div>
                                             )
                                         })}
                                     </div>
-                                    <p className="mt-1.5 text-[10px] text-slate-400">
-                                        출발지는 동선 계산 시 첫 번째 이동
-                                        기준점이 돼요.
-                                    </p>
                                 </section>
                             )}
-                        </>
+                        </div>
                     )}
                 </div>
 
                 {/* 푸터 */}
-                <footer className="shrink-0 border-t border-slate-200 p-5">
+                <footer className="shrink-0 border-t border-slate-200 px-5 py-3.5">
                     {hasError ? (
                         <button
                             type="button"

@@ -31,7 +31,7 @@ public record TripPlaceResponse(
                 tripPlace.getPlace().getLatitude(),
                 tripPlace.getPlace().getLongitude(),
                 tripPlace.getPlace().getPlaceType(),
-                tripPlace.getPlace().getGooglePhotoName(),
+                null,
                 PlaceCategoryResponse.from(tripPlace.getCategory()),
                 tripPlace.getStatus(),
                 tripPlace.getAddedBy(),

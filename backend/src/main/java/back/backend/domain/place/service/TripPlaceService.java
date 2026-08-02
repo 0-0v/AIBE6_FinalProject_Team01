@@ -3,6 +3,7 @@ package back.backend.domain.place.service;
 import back.backend.domain.place.dto.request.AddTripPlaceRequest;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.service.CollaborationEventService;
+import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.place.dto.response.TripPlaceResponse;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategory;
@@ -35,6 +36,7 @@ public class TripPlaceService {
 
     private final PlaceRepository placeRepository;
     private final TripPlaceRepository tripPlaceRepository;
+    private final ItineraryDayRepository itineraryDayRepository;
     private final TripAccessRepository tripAccessRepository;
     private final PlaceCommentRepository placeCommentRepository;
     private final SecurityContextAccessor securityContextAccessor;
@@ -55,7 +57,6 @@ public class TripPlaceService {
                         .latitude(BigDecimal.valueOf(request.latitude()))
                         .longitude(BigDecimal.valueOf(request.longitude()))
                         .placeType(request.placeType())
-                        .googlePhotoName(request.photoName())
                         .build()));
 
         Optional<TripPlace> existingTripPlace =
@@ -184,6 +185,8 @@ public class TripPlaceService {
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         String placeName = tripPlace.getPlace().getName();
+        itineraryDayRepository.findAllByTripIdAndDepartureTripPlaceId(tripId, tripPlaceId)
+                .forEach(day -> day.clearDeparture());
         tripPlaceRepository.delete(tripPlace);
         collaborationEventService.record(
                 tripId,

@@ -106,7 +106,10 @@ public record GooglePlacesApiResponse(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Photo(
             String name,
-            int widthPx,
-            int heightPx
+            Integer widthPx,
+            Integer heightPx,
+            List<AuthorAttribution> authorAttributions,
+            String googleMapsUri
     ) {}
+
 }

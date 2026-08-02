@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,28 +89,33 @@ public class OpenAiRouteAdvisor {
         Map<String, Object> input = new LinkedHashMap<>();
         boolean replan = planningMode != null
                 && planningMode.startsWith("REPLAN_REMAINING_ITINERARY");
-        Map<Long, Double> styleScores = replan
-                ? placeStyleRelationService.resolveCompatibilities(
+        Map<Long, Double> resolvedScores =
+                placeStyleRelationService.resolveCompatibilities(
                         tripPlaces,
                         travelStyles
-                )
-                : Map.of();
-        input.put(
-                "days",
-                itineraryDays.stream()
-                        .map(day -> Map.of(
-                                "dayId", day.getId(),
-                                "dayNumber", day.getDayNumber(),
-                                "date", day.getItineraryDate().toString()
-                        ))
-                        .toList()
-        );
-        input.put(
-                "places",
-                tripPlaces.stream()
-                        .map(place -> placeContext(place, styleScores, replan))
-                        .toList()
-        );
+                );
+        Map<Long, Double> styleScores = resolvedScores == null
+                ? Map.of() : resolvedScores;
+        input.put("dayColumns", List.of(
+                "id",
+                "number",
+                "date",
+                "departureLat",
+                "departureLng"
+        ));
+        input.put("dayRows", itineraryDays.stream()
+                .map(this::dayContext)
+                .toList());
+        input.put("placeColumns", List.of(
+                "id",
+                "category",
+                "styleScore",
+                "latitude",
+                "longitude"
+        ));
+        input.put("placeRows", tripPlaces.stream()
+                .map(place -> placeContext(place, styleScores))
+                .toList());
         input.put(
                 "travelStyles",
                 travelStyles.stream()
@@ -130,10 +134,13 @@ public class OpenAiRouteAdvisor {
                 당신은 MySQL에서 검색된 여행 일정 컨텍스트를 근거로
                 장소 배치 순서를 제안하는 도우미입니다.
                 아래 JSON에 있는 Day와 장소만 사용하세요.
-                모든 tripPlaceId를 정확히 한 번씩 배치하고 새로운 ID를 만들지 마세요.
+                dayRows와 placeRows는 각 columns 순서의 압축 행입니다.
+                모든 장소 ID를 정확히 한 번씩 배치하고 새로운 ID를 만들지 마세요.
                 가까운 장소를 같은 Day에 묶되 카테고리와 여행 스타일의 균형도 고려하세요.
+                Day에 출발 좌표가 있으면 가까운 장소 묶음과 첫 방문지를 해당 Day에 우선 배치하세요.
                 planningMode이 REPLAN이면 이미 지난 일정은 입력에서 제외된 상태이며,
-                styleSuitability가 높은 장소 관계를 비슷한 동선 후보에서 우선하세요.
+                styleScore가 높은 장소 관계를 비슷한 동선 후보에서 우선하세요.
+                응답의 dayPlaceIds는 dayRows와 같은 Day 순서를 사용하세요.
                 장소명·주소·좌표·영업시간은 제공되지 않으므로 관련 사실을 추측하지 마세요.
                 summary는 한국어 한두 문장으로 작성하세요.
 
@@ -141,25 +148,28 @@ public class OpenAiRouteAdvisor {
                 """ + objectMapper.writeValueAsString(input);
     }
 
-    private Map<String, Object> placeContext(
+    private List<Object> dayContext(ItineraryDay day) {
+        List<Object> context = new java.util.ArrayList<>();
+        context.add(day.getId());
+        context.add(day.getDayNumber());
+        context.add(day.getItineraryDate().toString());
+        context.add(day.hasDeparture() ? day.getDepartureLat() : null);
+        context.add(day.hasDeparture() ? day.getDepartureLng() : null);
+        return context;
+    }
+
+    private List<Object> placeContext(
             TripPlace place,
-            Map<Long, Double> styleScores,
-            boolean includeStyleScore
+            Map<Long, Double> styleScores
     ) {
-        Map<String, Object> context = new LinkedHashMap<>();
-        context.put("tripPlaceId", place.getId());
-        context.put(
-                "category",
-                place.getCategory() == null ? "" : place.getCategory().getName()
+        return List.of(
+                place.getId(),
+                place.getCategory() == null
+                        ? "" : place.getCategory().getCategoryType().name(),
+                styleScores.getOrDefault(place.getId(), 0.0),
+                place.getPlace().getLatitude(),
+                place.getPlace().getLongitude()
         );
-        context.put("status", place.getStatus().name());
-        if (includeStyleScore) {
-            context.put(
-                    "styleSuitability",
-                    styleScores.getOrDefault(place.getId(), 0.0)
-            );
-        }
-        return Map.copyOf(context);
     }
 
     private Optional<Recommendation> validateAndConvert(
@@ -171,32 +181,21 @@ public class OpenAiRouteAdvisor {
                 || response.summary() == null
                 || response.summary().isBlank()
                 || response.summary().length() > MAX_SUMMARY_LENGTH
-                || response.days() == null
-                || response.days().size() != itineraryDays.size()) {
+                || response.dayPlaceIds() == null
+                || response.dayPlaceIds().size() != itineraryDays.size()) {
             return Optional.empty();
         }
 
-        Set<Long> expectedDayIds = itineraryDays.stream()
-                .map(ItineraryDay::getId)
-                .collect(java.util.stream.Collectors.toSet());
         Set<Long> expectedPlaceIds = tripPlaces.stream()
                 .map(TripPlace::getId)
                 .collect(java.util.stream.Collectors.toSet());
-        Map<Long, List<Long>> placeIdsByDay = new LinkedHashMap<>();
-        Set<Long> assignedPlaceIds = new HashSet<>();
+        Set<Long> assignedPlaceIds = new java.util.HashSet<>();
 
-        for (AiRouteDay day : response.days()) {
-            if (day == null
-                    || day.dayId() == null
-                    || day.tripPlaceIds() == null
-                    || !expectedDayIds.contains(day.dayId())
-                    || placeIdsByDay.putIfAbsent(
-                            day.dayId(),
-                            List.copyOf(day.tripPlaceIds())
-                    ) != null) {
+        for (List<Long> placeIds : response.dayPlaceIds()) {
+            if (placeIds == null) {
                 return Optional.empty();
             }
-            for (Long tripPlaceId : day.tripPlaceIds()) {
+            for (Long tripPlaceId : placeIds) {
                 if (tripPlaceId == null
                         || !expectedPlaceIds.contains(tripPlaceId)
                         || !assignedPlaceIds.add(tripPlaceId)) {
@@ -209,11 +208,8 @@ public class OpenAiRouteAdvisor {
             return Optional.empty();
         }
 
-        List<List<Long>> orderedIds = itineraryDays.stream()
-                .map(day -> placeIdsByDay.getOrDefault(
-                        day.getId(),
-                        List.of()
-                ))
+        List<List<Long>> orderedIds = response.dayPlaceIds().stream()
+                .map(List::copyOf)
                 .toList();
         return Optional.of(new Recommendation(
                 response.summary(),
@@ -222,29 +218,21 @@ public class OpenAiRouteAdvisor {
     }
 
     private static Map<String, Object> createResponseSchema() {
-        Map<String, Object> daySchema = Map.of(
-                "type", "object",
-                "additionalProperties", false,
-                "properties", Map.of(
-                        "dayId", Map.of("type", "integer"),
-                        "tripPlaceIds", Map.of(
-                                "type", "array",
-                                "items", Map.of("type", "integer")
-                        )
-                ),
-                "required", List.of("dayId", "tripPlaceIds")
+        Map<String, Object> dayPlacesSchema = Map.of(
+                "type", "array",
+                "items", Map.of("type", "integer")
         );
         return Map.of(
                 "type", "object",
                 "additionalProperties", false,
                 "properties", Map.of(
                         "summary", Map.of("type", "string"),
-                        "days", Map.of(
+                        "dayPlaceIds", Map.of(
                                 "type", "array",
-                                "items", daySchema
+                                "items", dayPlacesSchema
                         )
                 ),
-                "required", List.of("summary", "days")
+                "required", List.of("summary", "dayPlaceIds")
         );
     }
 
@@ -257,14 +245,7 @@ public class OpenAiRouteAdvisor {
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record AiRouteResponse(
             String summary,
-            List<AiRouteDay> days
-    ) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record AiRouteDay(
-            Long dayId,
-            List<Long> tripPlaceIds
+            List<List<Long>> dayPlaceIds
     ) {
     }
 

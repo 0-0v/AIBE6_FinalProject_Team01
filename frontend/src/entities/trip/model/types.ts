@@ -69,6 +69,9 @@ export type Place = {
     categoryIcon: PlaceMarkerIcon
     status: PlaceStatus
     image: string
+    photoAttribution?: string | null
+    photoAttributionUrl?: string | null
+    photoSourceUrl?: string | null
     lat: number
     lng: number
     addedBy: string

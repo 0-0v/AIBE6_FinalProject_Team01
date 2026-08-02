@@ -35,7 +35,12 @@ export type PlaceSearchCategory = {
         | 'shopping'
         | 'transport'
         | null
-    suggestions: string[]
+    suggestions: PlaceSearchSuggestion[]
+}
+
+export type PlaceSearchSuggestion = {
+    label: string
+    includedType: string | null
 }
 
 export type AiPlaceSearchRecommendation = {

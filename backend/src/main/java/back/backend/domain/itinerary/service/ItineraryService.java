@@ -582,7 +582,18 @@ public class ItineraryService {
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet()))
                 : findSavedTripPlaces(tripId);
-        validateRoutePlan(plan, days, expectedPlaces);
+        Set<Long> departurePlaceIds = days.stream()
+                .map(ItineraryDay::getDepartureTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        expectedPlaces = expectedPlaces.stream()
+                .filter(place -> !departurePlaceIds.contains(place.getId()))
+                .toList();
+        RoutePlanPreviewResponse effectivePlan = removeDepartureVisits(
+                plan,
+                departurePlaceIds
+        );
+        validateRoutePlan(effectivePlan, days, expectedPlaces);
         Map<Long, ItineraryDay> dayById = days.stream()
                 .collect(Collectors.toMap(ItineraryDay::getId, day -> day));
         List<ItineraryItem> existingItems = days.stream()
@@ -594,7 +605,7 @@ public class ItineraryService {
                         ItineraryItem::getTripPlaceId,
                         item -> item
                 ));
-        Set<Long> plannedTripPlaceIds = plan.days().stream()
+        Set<Long> plannedTripPlaceIds = effectivePlan.days().stream()
                 .flatMap(day -> day.items().stream())
                 .map(item -> item.tripPlaceId())
                 .collect(Collectors.toSet());
@@ -617,7 +628,7 @@ public class ItineraryService {
         }
 
         List<ItineraryItem> plannedItems = new ArrayList<>();
-        for (var plannedDay : plan.days()) {
+        for (var plannedDay : effectivePlan.days()) {
             ItineraryDay day = dayById.get(plannedDay.dayId());
             if (day == null) continue;
             for (int index = 0; index < plannedDay.items().size(); index++) {
@@ -656,6 +667,45 @@ public class ItineraryService {
         entityManager.clear();
         publishChanged(tripId, null);
         return buildDayResponses(tripId);
+    }
+
+    private RoutePlanPreviewResponse removeDepartureVisits(
+            RoutePlanPreviewResponse plan,
+            Set<Long> departurePlaceIds
+    ) {
+        if (plan == null || plan.days() == null || departurePlaceIds.isEmpty()) {
+            return plan;
+        }
+        List<RoutePlanDayResponse> sanitizedDays = plan.days().stream()
+                .map(day -> {
+                    if (day == null || day.items() == null) {
+                        return day;
+                    }
+                    List<RoutePlanItemResponse> visitItems = day.items().stream()
+                            .filter(item -> item == null
+                                    || !departurePlaceIds.contains(item.tripPlaceId()))
+                            .toList();
+                    return new RoutePlanDayResponse(
+                            day.dayId(),
+                            day.dayNumber(),
+                            day.itineraryDate(),
+                            day.totalDistanceMeters(),
+                            visitItems
+                    );
+                })
+                .toList();
+        int visitCount = sanitizedDays.stream()
+                .filter(Objects::nonNull)
+                .map(RoutePlanDayResponse::items)
+                .filter(Objects::nonNull)
+                .mapToInt(List::size)
+                .sum();
+        return new RoutePlanPreviewResponse(
+                plan.summary(),
+                visitCount,
+                plan.totalDistanceMeters(),
+                sanitizedDays
+        );
     }
 
     // ── private helpers ──────────────────────────────────────

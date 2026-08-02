@@ -26,6 +26,8 @@ import org.springframework.web.client.RestClientException;
 public class PlaceSearchService {
 
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
+    private static final double ROOM_SEARCH_RADIUS_METERS = 50_000.0;
+    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
     private static final String FIELD_MASK =
             "places.id,places.displayName,places.formattedAddress,places.location," +
             "places.primaryType,places.types," +
@@ -76,6 +78,16 @@ public class PlaceSearchService {
     }
 
     public List<PlaceSearchResponse> search(String query, String location, String includedType) {
+        return search(query, location, includedType, null, null);
+    }
+
+    public List<PlaceSearchResponse> search(
+            String query,
+            String location,
+            String includedType,
+            Double latitude,
+            Double longitude
+    ) {
         if (!StringUtils.hasText(query)) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
@@ -87,8 +99,22 @@ public class PlaceSearchService {
         requestBody.put("languageCode", "ko");
         if (StringUtils.hasText(includedType)) {
             requestBody.put("includedType", includedType);
+            requestBody.put("strictTypeFiltering", true);
         }
-        return callGooglePlacesApi(requestBody);
+        boolean hasRoomCenter = hasValidCoordinates(latitude, longitude);
+        if (hasRoomCenter) {
+            requestBody.put("locationBias", createLocationCircle(
+                    latitude, longitude, ROOM_SEARCH_RADIUS_METERS));
+        }
+        List<PlaceSearchResponse> results = callGooglePlacesApi(requestBody);
+        if (!hasRoomCenter) {
+            return results;
+        }
+        return results.stream()
+                .filter(place -> distanceMeters(
+                        latitude, longitude, place.latitude(), place.longitude())
+                        <= ROOM_SEARCH_RADIUS_METERS)
+                .toList();
     }
 
     public List<PlaceSearchResponse> searchNearby(
@@ -101,18 +127,54 @@ public class PlaceSearchService {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
         double safeRadius = Math.max(500, Math.min(radiusMeters, 20_000));
-        Map<String, Object> circle = Map.of(
+        return callGooglePlacesApi(Map.of(
+                "textQuery", query,
+                "languageCode", "ko",
+                "locationBias", createLocationCircle(latitude, longitude, safeRadius)
+        ));
+    }
+
+    private Map<String, Object> createLocationCircle(
+            double latitude,
+            double longitude,
+            double radiusMeters
+    ) {
+        return Map.of("circle", Map.of(
                 "center", Map.of(
                         "latitude", latitude,
                         "longitude", longitude
                 ),
-                "radius", safeRadius
-        );
-        return callGooglePlacesApi(Map.of(
-                "textQuery", query,
-                "languageCode", "ko",
-                "locationBias", Map.of("circle", circle)
+                "radius", radiusMeters
         ));
+    }
+
+    private boolean hasValidCoordinates(Double latitude, Double longitude) {
+        return latitude != null
+                && longitude != null
+                && Double.isFinite(latitude)
+                && Double.isFinite(longitude)
+                && latitude >= -90.0
+                && latitude <= 90.0
+                && longitude >= -180.0
+                && longitude <= 180.0;
+    }
+
+    private double distanceMeters(
+            double originLatitude,
+            double originLongitude,
+            double destinationLatitude,
+            double destinationLongitude
+    ) {
+        double latitudeDelta = Math.toRadians(destinationLatitude - originLatitude);
+        double longitudeDelta = Math.toRadians(destinationLongitude - originLongitude);
+        double originLatitudeRadians = Math.toRadians(originLatitude);
+        double destinationLatitudeRadians = Math.toRadians(destinationLatitude);
+        double haversine = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
+                + Math.cos(originLatitudeRadians) * Math.cos(destinationLatitudeRadians)
+                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+        double normalizedHaversine = Math.max(0.0, Math.min(1.0, haversine));
+        return EARTH_RADIUS_METERS * 2 * Math.atan2(
+                Math.sqrt(normalizedHaversine), Math.sqrt(1 - normalizedHaversine));
     }
 
     private List<PlaceSearchResponse> callGooglePlacesApi(

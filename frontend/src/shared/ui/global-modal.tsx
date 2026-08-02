@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { XIcon } from 'lucide-react'
+import { AlertTriangleIcon, XIcon } from 'lucide-react'
 import { useGlobalModalStore } from '@/shared/model'
 import { Button } from './button'
 
@@ -28,6 +28,8 @@ export function GlobalModal() {
         return null
     }
 
+    const isDanger = modal.tone === 'danger'
+
     async function handleConfirm() {
         try {
             setIsSubmitting(true)
@@ -53,11 +55,23 @@ export function GlobalModal() {
                 }
                 aria-labelledby="global-modal-title"
                 aria-modal="true"
-                className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+                className={`w-full rounded-2xl bg-white p-6 shadow-2xl ${
+                    isDanger ? 'max-w-md' : 'max-w-sm'
+                }`}
                 role="dialog"
             >
                 <div className="flex items-start justify-between gap-4">
-                    <div>
+                    <div className="min-w-0 flex-1">
+                        {isDanger && (
+                            <div className="mb-3 flex items-center gap-2 text-red-600">
+                                <span className="flex size-8 items-center justify-center rounded-full bg-red-50">
+                                    <AlertTriangleIcon size={17} aria-hidden />
+                                </span>
+                                <span className="text-xs font-extrabold">
+                                    되돌릴 수 없는 변경
+                                </span>
+                            </div>
+                        )}
                         <h2
                             className="text-lg font-bold text-slate-900"
                             id="global-modal-title"
@@ -66,7 +80,11 @@ export function GlobalModal() {
                         </h2>
                         {modal.description && (
                             <p
-                                className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600"
+                                className={`mt-3 whitespace-pre-line break-keep text-sm leading-6 ${
+                                    isDanger
+                                        ? 'rounded-xl border border-red-100 bg-red-50 px-4 py-3 font-medium text-red-700'
+                                        : 'text-slate-600'
+                                }`}
                                 id="global-modal-description"
                             >
                                 {modal.description}
@@ -99,6 +117,7 @@ export function GlobalModal() {
                         disabled={isSubmitting}
                         onClick={handleConfirm}
                         type="button"
+                        variant={isDanger ? 'danger' : 'default'}
                     >
                         {isSubmitting ? '처리 중...' : modal.confirmText}
                     </Button>

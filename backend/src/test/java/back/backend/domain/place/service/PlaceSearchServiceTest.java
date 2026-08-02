@@ -2,6 +2,7 @@ package back.backend.domain.place.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -255,6 +256,51 @@ class PlaceSearchServiceTest {
             assertThat(window.opensAt()).isEqualTo(LocalDateTime.of(2026, 8, 2, 11, 0));
             assertThat(window.closesAt()).isEqualTo(LocalDateTime.of(2026, 8, 2, 20, 0));
         });
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t11 여행지 좌표로 검색하면 지역 밖 장소를 제외하고 카테고리를 엄격히 적용한다")
+    void t11_roomLocationFiltersDistantResultsAndStrictlyAppliesCategory() {
+        String responseJson = """
+                {"places":[
+                  {
+                    "id":"ChIJosaka",
+                    "displayName":{"text":"오사카 카페"},
+                    "location":{"latitude":34.7000,"longitude":135.5000},
+                    "primaryType":"cafe",
+                    "types":["cafe","food"]
+                  },
+                  {
+                    "id":"ChIJtokyo",
+                    "displayName":{"text":"도쿄 카페"},
+                    "location":{"latitude":35.6762,"longitude":139.6503},
+                    "primaryType":"cafe",
+                    "types":["cafe","food"]
+                  }
+                ]}
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andExpect(content().json("""
+                        {
+                          "textQuery":"카페 오사카",
+                          "languageCode":"ko",
+                          "includedType":"cafe",
+                          "strictTypeFiltering":true,
+                          "locationBias":{"circle":{"center":{
+                            "latitude":34.6937,
+                            "longitude":135.5023
+                          },"radius":50000.0}}
+                        }
+                        """))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        List<PlaceSearchResponse> result = service.search(
+                "카페", "오사카", "cafe", 34.6937, 135.5023);
+
+        assertThat(result)
+                .extracting(PlaceSearchResponse::googlePlaceId)
+                .containsExactly("ChIJosaka");
         server.verify();
     }
 }

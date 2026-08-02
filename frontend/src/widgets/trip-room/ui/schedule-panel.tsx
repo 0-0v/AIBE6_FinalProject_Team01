@@ -124,7 +124,6 @@ type Props = {
     roomId?: string
     places: Place[]
     canWrite: boolean
-    location?: string
     onDaysLoaded?: (days: ItineraryDay[]) => void
     onPlaceFocus?: (placeId: string) => void
 }
@@ -134,7 +133,6 @@ export function SchedulePanel({
     roomId,
     places,
     canWrite,
-    location,
     onDaysLoaded,
     onPlaceFocus,
 }: Props) {
@@ -220,7 +218,6 @@ export function SchedulePanel({
                             isDragging={isDragging}
                             unscheduledPlaces={unscheduledPlaces}
                             allPlaces={places}
-                            location={location}
                             onAddPlace={(placeId) =>
                                 void addPlaceToDay(placeId, String(day.id))
                             }

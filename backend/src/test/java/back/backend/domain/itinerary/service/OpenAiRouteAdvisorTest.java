@@ -82,10 +82,7 @@ class OpenAiRouteAdvisorTest {
         )).thenReturn("""
                 {
                   "summary": "오전에는 명소, 오후에는 카페를 추천해요.",
-                  "days": [
-                    {"dayId": 1, "tripPlaceIds": [11, 10]},
-                    {"dayId": 2, "tripPlaceIds": [12]}
-                  ]
+                  "dayPlaceIds": [[11, 10], [12]]
                 }
                 """);
 
@@ -117,10 +114,7 @@ class OpenAiRouteAdvisorTest {
         )).thenReturn("""
                 {
                   "summary": "잘못된 추천",
-                  "days": [
-                    {"dayId": 1, "tripPlaceIds": [10, 10]},
-                    {"dayId": 2, "tripPlaceIds": []}
-                  ]
+                  "dayPlaceIds": [[10, 10], []]
                 }
                 """);
 
@@ -146,7 +140,7 @@ class OpenAiRouteAdvisorTest {
                 .thenReturn("""
                         {
                           "summary": "남은 일정을 다시 배치했어요.",
-                          "days": [{"dayId": 1, "tripPlaceIds": [10]}]
+                          "dayPlaceIds": [[10]]
                         }
                         """);
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
@@ -164,7 +158,83 @@ class OpenAiRouteAdvisorTest {
                 any()
         );
         assertThat(promptCaptor.getValue())
-                .contains("styleSuitability", "0.91", "REPLAN");
+                .contains("styleScore", "0.91", "REPLAN");
+    }
+
+    @Test
+    @DisplayName("t5 장소 관계 문맥은 반복 키를 제거한 압축 행 형식으로 전달한다")
+    void t5_relationContextUsesCompactRows() {
+        when(openAiClient.isConfigured()).thenReturn(true);
+        when(placeStyleRelationService.resolveCompatibilities(any(), any()))
+                .thenReturn(Map.of(10L, 0.82));
+        when(openAiClient.generateStructured(anyString(), anyString(), any()))
+                .thenReturn("""
+                        {
+                          "summary": "관계 점수를 반영했어요.",
+                          "dayPlaceIds": [[10]]
+                        }
+                        """);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        advisor.recommend(
+                List.of(day(1L, 1)),
+                List.of(tripPlace(10L, "장소 A")),
+                Set.of(TravelStyle.FOOD)
+        );
+
+        verify(openAiClient).generateStructured(
+                promptCaptor.capture(),
+                anyString(),
+                any()
+        );
+        assertThat(promptCaptor.getValue())
+                .contains("placeColumns", "placeRows", "0.82")
+                .doesNotContain("\"tripPlaceId\":", "\"status\":");
+    }
+
+    @Test
+    @DisplayName("t6 날짜별 출발지와 장소 좌표를 AI 동선 문맥에 포함한다")
+    void t6_promptIncludesDayDeparturesAndPlaceCoordinates() {
+        when(openAiClient.isConfigured()).thenReturn(true);
+        when(openAiClient.generateStructured(anyString(), anyString(), any()))
+                .thenReturn("""
+                        {
+                          "summary": "출발지를 반영했어요.",
+                          "dayPlaceIds": [[10]]
+                        }
+                        """);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        ItineraryDay itineraryDay = day(1L, 1);
+        itineraryDay.updateDeparture(
+                "CUSTOM",
+                "숙소",
+                BigDecimal.valueOf(37.61),
+                BigDecimal.valueOf(127.11),
+                null
+        );
+
+        advisor.recommend(
+                List.of(itineraryDay),
+                List.of(tripPlace(10L, "장소 A")),
+                Set.of()
+        );
+
+        verify(openAiClient).generateStructured(
+                promptCaptor.capture(),
+                anyString(),
+                any()
+        );
+        assertThat(promptCaptor.getValue())
+                .contains(
+                        "departureLat",
+                        "departureLng",
+                        "37.61",
+                        "127.11",
+                        "latitude",
+                        "longitude",
+                        "33.451",
+                        "126.501"
+                );
     }
 
     private ItineraryDay day(Long id, int number) {

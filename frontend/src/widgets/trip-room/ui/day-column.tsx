@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import {
     ArrowDownIcon,
     BusIcon,
@@ -12,9 +12,7 @@ import {
     ExternalLinkIcon,
     FootprintsIcon,
     MapPinIcon,
-    PencilIcon,
     PlusIcon,
-    SearchIcon,
     TrainFrontIcon,
     XIcon,
 } from 'lucide-react'
@@ -35,8 +33,6 @@ import type {
     ItineraryItem,
     Place,
 } from '@/entities/trip'
-import { searchPlaces } from '@/features/search-place'
-import type { PlaceSearchResult } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { ScheduleItemCard } from './schedule-item-card'
 import { getItineraryDayColor } from '../lib/itinerary-map'
@@ -54,12 +50,10 @@ import {
 type DeparturePickerProps = {
     lodgingPlaces: Place[]
     savedPlaces: Place[]
-    location?: string
     onSelect: (
         payload:
             | { type: 'TRIP_PLACE'; tripPlaceId: number; name: string }
-            | { type: 'CUSTOM'; name: string; latitude: number; longitude: number }
-            | { type: 'NONE' }
+            | { type: 'NONE' },
     ) => void
     onClose: () => void
 }
@@ -67,112 +61,28 @@ type DeparturePickerProps = {
 function DeparturePicker({
     lodgingPlaces,
     savedPlaces,
-    location,
     onSelect,
     onClose,
 }: DeparturePickerProps) {
-    const [searchQ, setSearchQ] = useState('')
-    const [searchResults, setSearchResults] = useState<PlaceSearchResult[]>([])
-    const [searching, setSearching] = useState(false)
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const requestIdRef = useRef(0)
-    const inputRef = useRef<HTMLInputElement>(null)
-
-    function handleSearchChange(value: string) {
-        setSearchQ(value)
-        if (debounceRef.current) clearTimeout(debounceRef.current)
-        const currentId = ++requestIdRef.current
-        if (value.trim().length < 2) {
-            setSearchResults([])
-            return
-        }
-        setSearching(true)
-        debounceRef.current = setTimeout(async () => {
-            try {
-                const results = await searchPlaces(value.trim(), { location })
-                if (requestIdRef.current === currentId) setSearchResults(results)
-            } catch {
-                /* ignore */
-            } finally {
-                if (requestIdRef.current === currentId) setSearching(false)
-            }
-        }, 300)
-    }
-
-    const nonLodgingPlaces = savedPlaces.filter(
-        (p) => p.category !== 'lodging',
-    )
+    const nonLodgingPlaces = savedPlaces.filter((p) => p.category !== 'lodging')
 
     return (
         <>
             {/* 배경 클릭 닫기 */}
             <div className="fixed inset-0 z-40" onClick={onClose} />
             <div className="absolute left-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-                {/* 장소 검색 */}
-                <div className="border-b border-slate-100 px-3 py-2">
-                    <div className="relative">
-                        <SearchIcon
-                            size={13}
-                            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-                        />
-                        <input
-                            ref={inputRef}
-                            value={searchQ}
-                            onChange={(e) => handleSearchChange(e.target.value)}
-                            placeholder="장소 검색..."
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-7 pr-7 text-xs outline-none focus:border-brand focus:bg-white"
-                            autoFocus
-                        />
-                        {searchQ && (
-                            <button
-                                onClick={() => { setSearchQ(''); setSearchResults([]) }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
-                            >
-                                <XIcon size={12} />
-                            </button>
-                        )}
-                    </div>
+                <div className="border-b border-slate-100 px-3 py-2.5">
+                    <p className="text-xs font-bold text-slate-700">
+                        저장된 장소에서 선택
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                        출발지로 사용할 장소를 선택해주세요.
+                    </p>
                 </div>
 
                 <div className="max-h-72 overflow-y-auto">
-                    {/* 검색 결과 */}
-                    {searchQ.trim().length >= 2 && (
-                        <div>
-                            <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                검색 결과
-                            </p>
-                            {searching && (
-                                <p className="px-3 py-2 text-xs text-slate-400">검색 중...</p>
-                            )}
-                            {!searching && searchResults.length === 0 && (
-                                <p className="px-3 py-2 text-xs text-slate-400">결과 없음</p>
-                            )}
-                            {searchResults.map((r) => (
-                                <button
-                                    key={r.googlePlaceId}
-                                    type="button"
-                                    onClick={() =>
-                                        onSelect({
-                                            type: 'CUSTOM',
-                                            name: r.name,
-                                            latitude: r.latitude,
-                                            longitude: r.longitude,
-                                        })
-                                    }
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
-                                >
-                                    <MapPinIcon size={12} className="shrink-0 text-slate-400" />
-                                    <div className="min-w-0">
-                                        <p className="truncate text-xs font-medium text-slate-700">{r.name}</p>
-                                        <p className="truncate text-[10px] text-slate-400">{r.address}</p>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
                     {/* 저장된 숙소 */}
-                    {searchQ.trim().length < 2 && lodgingPlaces.length > 0 && (
+                    {lodgingPlaces.length > 0 && (
                         <div>
                             <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                                 저장된 숙소
@@ -190,7 +100,11 @@ function DeparturePicker({
                                     }
                                     className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
                                 >
-                                    <span style={{ color: CATEGORY_META.lodging.color }}>
+                                    <span
+                                        style={{
+                                            color: CATEGORY_META.lodging.color,
+                                        }}
+                                    >
                                         <CategoryIcon icon="HOTEL" size={12} />
                                     </span>
                                     <span className="truncate text-xs font-medium text-slate-700">
@@ -202,7 +116,7 @@ function DeparturePicker({
                     )}
 
                     {/* 저장된 다른 장소 */}
-                    {searchQ.trim().length < 2 && nonLodgingPlaces.length > 0 && (
+                    {nonLodgingPlaces.length > 0 && (
                         <div>
                             <p className="border-t border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                                 저장된 장소
@@ -221,8 +135,17 @@ function DeparturePicker({
                                     className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
                                 >
                                     {place.categoryIcon && (
-                                        <span style={{ color: place.categoryColor ?? '#94a3b8' }}>
-                                            <CategoryIcon icon={place.categoryIcon} size={12} />
+                                        <span
+                                            style={{
+                                                color:
+                                                    place.categoryColor ??
+                                                    '#94a3b8',
+                                            }}
+                                        >
+                                            <CategoryIcon
+                                                icon={place.categoryIcon}
+                                                size={12}
+                                            />
                                         </span>
                                     )}
                                     <span className="truncate text-xs font-medium text-slate-700">
@@ -233,17 +156,21 @@ function DeparturePicker({
                         </div>
                     )}
 
-                    {/* 출발지 없음 */}
-                    {searchQ.trim().length < 2 && (
-                        <button
-                            type="button"
-                            onClick={() => onSelect({ type: 'NONE' })}
-                            className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-xs text-slate-400 hover:bg-slate-50"
-                        >
-                            <XIcon size={12} />
-                            출발지 없음
-                        </button>
+                    {savedPlaces.length === 0 && (
+                        <p className="px-3 py-4 text-center text-xs text-slate-400">
+                            저장된 장소가 없습니다.
+                        </p>
                     )}
+
+                    {/* 출발지 없음 */}
+                    <button
+                        type="button"
+                        onClick={() => onSelect({ type: 'NONE' })}
+                        className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-xs text-slate-400 hover:bg-slate-50"
+                    >
+                        <XIcon size={12} />
+                        출발지 없음
+                    </button>
                 </div>
             </div>
         </>
@@ -260,7 +187,6 @@ type DepartureRowProps = {
     canWrite: boolean
     lodgingPlaces: Place[]
     savedPlaces: Place[]
-    location?: string
     days: ItineraryDay[]
     onDaysChange: (days: ItineraryDay[]) => void
 }
@@ -272,7 +198,6 @@ function DepartureRow({
     canWrite,
     lodgingPlaces,
     savedPlaces,
-    location,
     days,
     onDaysChange,
 }: DepartureRowProps) {
@@ -282,17 +207,18 @@ function DepartureRow({
     async function handleSelect(
         payload:
             | { type: 'TRIP_PLACE'; tripPlaceId: number; name: string }
-            | { type: 'CUSTOM'; name: string; latitude: number; longitude: number }
-            | { type: 'NONE' }
+            | { type: 'NONE' },
     ) {
         setOpen(false)
         if (updating) return
         setUpdating(true)
         try {
-            const updated = await updateDayDeparture(tripId, Number(dayId), payload)
-            onDaysChange(
-                days.map((d) => (d.id === updated.id ? updated : d)),
+            const updated = await updateDayDeparture(
+                tripId,
+                Number(dayId),
+                payload,
             )
+            onDaysChange(days.map((d) => (d.id === updated.id ? updated : d)))
         } catch {
             /* ignore — 사용자 피드백은 상위에서 처리 */
         } finally {
@@ -300,11 +226,12 @@ function DepartureRow({
         }
     }
 
-    const timeText = departure?.travelMinutes != null
-        ? departure.travelMinutes < 60
-            ? `${departure.travelMinutes}분`
-            : `${Math.floor(departure.travelMinutes / 60)}시간${departure.travelMinutes % 60 > 0 ? ` ${departure.travelMinutes % 60}분` : ''}`
-        : null
+    const timeText =
+        departure?.travelMinutes != null
+            ? departure.travelMinutes < 60
+                ? `${departure.travelMinutes}분`
+                : `${Math.floor(departure.travelMinutes / 60)}시간${departure.travelMinutes % 60 > 0 ? ` ${departure.travelMinutes % 60}분` : ''}`
+            : null
 
     return (
         <div className="relative flex items-center gap-2 border-b border-slate-100 px-3 py-1.5">
@@ -332,17 +259,17 @@ function DepartureRow({
                     type="button"
                     disabled={updating}
                     onClick={() => setOpen((v) => !v)}
-                    className="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
-                    aria-label="출발지 변경"
+                    className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold text-brand transition hover:bg-brand/10 disabled:opacity-40"
+                    aria-label={departure ? '출발지 변경' : '출발지 선택'}
                 >
-                    <PencilIcon size={11} />
+                    <MapPinIcon size={11} aria-hidden />
+                    {departure ? '변경' : '출발지 선택'}
                 </button>
             )}
             {open && (
                 <DeparturePicker
                     lodgingPlaces={lodgingPlaces}
                     savedPlaces={savedPlaces}
-                    location={location}
                     onSelect={handleSelect}
                     onClose={() => setOpen(false)}
                 />
@@ -500,16 +427,13 @@ function TransportConnector({
                         </p>
                         {TRANSPORT_MODE_OPTIONS.map((option) => {
                             const Icon = option.icon
-                            const selected =
-                                option.value === currentPreference
+                            const selected = option.value === currentPreference
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     disabled={updating}
-                                    onClick={() =>
-                                        void applyMode(option.value)
-                                    }
+                                    onClick={() => void applyMode(option.value)}
                                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
                                         selected
                                             ? 'bg-brand/10 font-bold text-brand'
@@ -552,7 +476,6 @@ type Props = {
     isDragging: boolean
     unscheduledPlaces: Place[]
     allPlaces?: Place[]
-    location?: string
     onAddPlace: (placeId: string) => void
     onDaysChange: (days: ItineraryDay[]) => void
     hoveredItemId?: string | null
@@ -596,7 +519,6 @@ export function DayColumn({
     isDragging,
     unscheduledPlaces,
     allPlaces = [],
-    location,
     onAddPlace,
     onDaysChange,
     hoveredItemId,
@@ -785,9 +707,10 @@ export function DayColumn({
                 tripId={tripId}
                 dayId={String(day.id)}
                 canWrite={canWrite}
-                lodgingPlaces={allPlaces.filter((p) => p.category === 'lodging')}
+                lodgingPlaces={allPlaces.filter(
+                    (p) => p.category === 'lodging',
+                )}
                 savedPlaces={allPlaces}
-                location={location}
                 days={days}
                 onDaysChange={onDaysChange}
             />
@@ -834,7 +757,9 @@ export function DayColumn({
                                             days={days}
                                             currentDayId={String(day.id)}
                                             visitOrder={index + 1}
-                                            dayColor={getItineraryDayColor(day.dayNumber)}
+                                            dayColor={getItineraryDayColor(
+                                                day.dayNumber,
+                                            )}
                                             onDaysChange={onDaysChange}
                                             highlighted={
                                                 hoveredItemId ===

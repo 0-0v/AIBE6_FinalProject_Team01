@@ -132,6 +132,17 @@ public class ItineraryDay {
         this.departureTravelMode = travelMode;
     }
 
+    public void clearDeparture() {
+        this.departureType = null;
+        this.departureName = null;
+        this.departureLat = null;
+        this.departureLng = null;
+        this.departureTripPlaceId = null;
+        this.departureTravelMinutes = null;
+        this.departureTravelMeters = null;
+        this.departureTravelMode = null;
+    }
+
     public boolean hasDeparture() {
         return departureType != null
                 && departureLat != null

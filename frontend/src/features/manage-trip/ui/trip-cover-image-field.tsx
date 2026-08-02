@@ -6,6 +6,7 @@ type Props = {
     file: File | null
     currentImageUrl?: string | null
     disabled?: boolean
+    compact?: boolean
     onFileChange: (file: File | null) => void
 }
 
@@ -13,6 +14,7 @@ export function TripCoverImageField({
     file,
     currentImageUrl,
     disabled = false,
+    compact = false,
     onFileChange,
 }: Props) {
     const localPreviewUrl = useMemo(
@@ -31,13 +33,13 @@ export function TripCoverImageField({
         '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg'
 
     return (
-        <section className="mt-5">
+        <section className={compact ? '' : 'mt-5'}>
             <p className="text-sm font-bold">여행방 프로필 이미지</p>
             <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
                 <img
                     src={previewUrl}
                     alt="여행방 프로필 미리보기"
-                    className="h-40 w-full object-cover"
+                    className={`${compact ? 'h-52 md:h-64' : 'h-40'} w-full object-cover`}
                 />
             </div>
             <div className="mt-2 flex gap-2">

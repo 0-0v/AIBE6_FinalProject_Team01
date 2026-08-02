@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react'
 import { LogOutIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { errorMessage } from '@/shared/lib'
+import { globalModal } from '@/shared/model'
 import {
     deleteTrip,
     leaveTrip,
@@ -35,7 +36,11 @@ function tomorrowDateInputValue() {
     return `${year}-${month}-${day}`
 }
 
-type Props = { trip: TripResponse; onClose: () => void; onChanged: () => void }
+type Props = {
+    trip: TripResponse
+    onClose: () => void
+    onChanged: () => void | Promise<void>
+}
 
 export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [title, setTitle] = useState(trip.title)
@@ -64,19 +69,37 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
         )
     }
 
-    async function save(event: FormEvent) {
-        event.preventDefault()
-        if (!title.trim()) return setError('여행방 이름을 입력해 주세요.')
-        if ((startDate && !endDate) || (!startDate && endDate))
-            return setError('여행 기간을 함께 입력해 주세요.')
-        if (startDate && endDate < startDate)
-            return setError('종료일은 시작일보다 빠를 수 없습니다.')
+    function hasDateChanges() {
+        if (!trip.startDate || !trip.endDate) return false
+        return startDate !== trip.startDate || endDate !== trip.endDate
+    }
+
+    function validateForm(): boolean {
+        if (!title.trim()) {
+            setError('여행방 이름을 입력해 주세요.')
+            return false
+        }
+        if ((startDate && !endDate) || (!startDate && endDate)) {
+            setError('여행 기간을 함께 입력해 주세요.')
+            return false
+        }
+        if (startDate && endDate < startDate) {
+            setError('종료일은 시작일보다 빠를 수 없습니다.')
+            return false
+        }
         if (
             startDate &&
             startDate !== trip.startDate &&
             startDate < minimumStartDate
-        )
-            return setError('여행 시작일은 내일부터 선택할 수 있습니다.')
+        ) {
+            setError('여행 시작일은 내일부터 선택할 수 있습니다.')
+            return false
+        }
+
+        return true
+    }
+
+    async function persistChanges() {
         setBusy(true)
         setError(null)
         try {
@@ -96,12 +119,33 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             if (coverImage) {
                 await uploadTripCoverImage(trip.id, coverImage)
             }
-            onChanged()
+            await onChanged()
         } catch (caught) {
             setError(errorMessage(caught))
         } finally {
             setBusy(false)
         }
+    }
+
+    function save(event: FormEvent) {
+        event.preventDefault()
+        if (!validateForm()) return
+
+        if (trip.status !== 'COMPLETED' && hasDateChanges()) {
+            globalModal.open({
+                title: '여행 날짜를 정말 변경할까요?',
+                description:
+                    '기간에서 제외된 일정은 삭제되며 복구할 수 없습니다.',
+                tone: 'danger',
+                confirmText: '일정 삭제 후 변경',
+                cancelText: '날짜 다시 확인',
+                showCancel: true,
+                onConfirm: persistChanges,
+            })
+            return
+        }
+
+        void persistChanges()
     }
 
     const isOnlyMember = trip.memberCount === 1
@@ -126,146 +170,168 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4">
             <form
                 onSubmit={save}
-                className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+                className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl md:overflow-visible"
             >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 md:px-6">
                     <h2 className="text-xl font-extrabold">여행방 관리</h2>
-                    <button type="button" onClick={onClose} aria-label="닫기">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="닫기"
+                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+                    >
                         <XIcon size={19} />
                     </button>
                 </div>
-                <TripCoverImageField
-                    file={coverImage}
-                    currentImageUrl={trip.coverImageUrl}
-                    disabled={busy}
-                    onFileChange={setCoverImage}
-                />
-                <label className="mt-5 block text-sm font-bold">
-                    여행방 이름
-                    <input
-                        value={title}
-                        maxLength={100}
-                        onChange={(event) => setTitle(event.target.value)}
-                        className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
-                    />
-                </label>
-                <fieldset className="mt-4">
-                    <legend className="text-sm font-bold">여행 스타일</legend>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {STYLES.map((style) => (
-                            <button
-                                key={style.value}
-                                type="button"
-                                onClick={() => toggleStyle(style.value)}
-                                className={`rounded-full px-3 py-1.5 text-xs font-bold ${styles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
-                            >
-                                {style.label}
-                            </button>
-                        ))}
-                    </div>
-                </fieldset>
-                <label className="mt-4 block text-sm font-bold">
-                    여행 장소
-                    <DestinationAutocomplete
-                        value={destinationText}
-                        onChange={(result, text) => {
-                            setDestinationResult(result)
-                            setDestinationText(text)
-                        }}
-                        placeholder="예: 오사카, 제주도, 파리"
-                    />
-                </label>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                    <label className="text-sm font-bold">
-                        시작일
-                        <input
-                            type="date"
-                            value={startDate}
-                            min={minimumStartDate}
-                            disabled={datesLocked}
-                            onChange={(event) =>
-                                setStartDate(event.target.value)
-                            }
-                            className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
+                <div className="grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                    <div className="flex flex-col bg-slate-50 p-5 md:rounded-bl-3xl md:p-6">
+                        <TripCoverImageField
+                            file={coverImage}
+                            currentImageUrl={trip.coverImageUrl}
+                            disabled={busy}
+                            compact
+                            onFileChange={setCoverImage}
                         />
-                    </label>
-                    <label className="text-sm font-bold">
-                        종료일
-                        <input
-                            type="date"
-                            value={endDate}
-                            min={startDate || minimumStartDate}
-                            disabled={datesLocked}
-                            onChange={(event) => setEndDate(event.target.value)}
-                            className="mt-2 w-full rounded-xl border px-3 py-2.5 font-normal"
-                        />
-                    </label>
-                </div>
-                {datesLocked && (
-                    <p className="mt-2 text-xs font-medium text-slate-500">
-                        이미 시작된 여행의 기간은 변경할 수 없어요.
-                    </p>
-                )}
-                {error && (
-                    <p className="mt-4 text-sm font-semibold text-red-500">
-                        {error}
-                    </p>
-                )}
-                <button
-                    disabled={
-                        busy || (trip.status === 'COMPLETED' && !coverImage)
-                    }
-                    className="mt-5 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50"
-                >
-                    변경사항 저장
-                </button>
 
-                <section className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">
-                    {confirmExit ? (
-                        <div>
-                            <p className="text-xs font-bold leading-5 text-red-700">
-                                {isOnlyMember
-                                    ? '여행방을 삭제하면 장소와 여행 기록을 더 이상 볼 수 없습니다. 삭제하시겠습니까?'
-                                    : '여행방을 나가면 장소와 여행 기록을 더 이상 볼 수 없습니다. 나가시겠습니까?'}
-                            </p>
-                            <div className="mt-3 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setConfirmExit(false)}
-                                    disabled={busy}
-                                    className="text-xs font-bold text-slate-600"
-                                >
-                                    취소
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => void exitTrip()}
-                                    className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-                                >
-                                    {busy
-                                        ? '처리 중...'
-                                        : isOnlyMember
-                                          ? '여행 삭제'
-                                          : '여행 나가기'}
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => setConfirmExit(true)}
-                            className="flex items-center gap-2 text-xs font-bold text-red-600"
-                        >
-                            {isOnlyMember ? (
-                                <Trash2Icon size={14} />
+                        <section className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3.5 md:mt-auto">
+                            {confirmExit ? (
+                                <div>
+                                    <p className="break-keep text-xs font-bold leading-5 text-red-700">
+                                        {isOnlyMember
+                                            ? '여행방을 삭제하면 장소와 여행 기록을 더 이상 볼 수 없습니다.'
+                                            : '여행방을 나가면 장소와 여행 기록을 더 이상 볼 수 없습니다.'}
+                                    </p>
+                                    <div className="mt-2.5 flex justify-end gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setConfirmExit(false)
+                                            }
+                                            disabled={busy}
+                                            className="px-2 text-xs font-bold text-slate-600"
+                                        >
+                                            취소
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() => void exitTrip()}
+                                            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                                        >
+                                            {busy
+                                                ? '처리 중...'
+                                                : isOnlyMember
+                                                  ? '여행 삭제'
+                                                  : '여행 나가기'}
+                                        </button>
+                                    </div>
+                                </div>
                             ) : (
-                                <LogOutIcon size={14} />
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmExit(true)}
+                                    className="flex items-center gap-2 text-xs font-bold text-red-600"
+                                >
+                                    {isOnlyMember ? (
+                                        <Trash2Icon size={14} />
+                                    ) : (
+                                        <LogOutIcon size={14} />
+                                    )}
+                                    {isOnlyMember ? '여행 삭제' : '여행 나가기'}
+                                </button>
                             )}
-                            {isOnlyMember ? '여행 삭제' : '여행 나가기'}
+                        </section>
+                    </div>
+
+                    <div className="p-5 md:p-6">
+                        <label className="block text-sm font-bold">
+                            여행방 이름
+                            <input
+                                value={title}
+                                maxLength={100}
+                                onChange={(event) =>
+                                    setTitle(event.target.value)
+                                }
+                                className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
+                            />
+                        </label>
+                        <fieldset className="mt-3.5">
+                            <legend className="text-sm font-bold">
+                                여행 스타일
+                            </legend>
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {STYLES.map((style) => (
+                                    <button
+                                        key={style.value}
+                                        type="button"
+                                        onClick={() => toggleStyle(style.value)}
+                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold ${styles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
+                                    >
+                                        {style.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </fieldset>
+                        <label className="mt-3.5 block text-sm font-bold">
+                            여행 장소
+                            <DestinationAutocomplete
+                                value={destinationText}
+                                onChange={(result, text) => {
+                                    setDestinationResult(result)
+                                    setDestinationText(text)
+                                }}
+                                placeholder="예: 오사카, 제주도, 파리"
+                            />
+                        </label>
+                        <div className="mt-3.5 grid grid-cols-2 gap-3">
+                            <label className="text-sm font-bold">
+                                시작일
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    min={minimumStartDate}
+                                    disabled={datesLocked}
+                                    onChange={(event) =>
+                                        setStartDate(event.target.value)
+                                    }
+                                    className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
+                                />
+                            </label>
+                            <label className="text-sm font-bold">
+                                종료일
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    min={startDate || minimumStartDate}
+                                    disabled={datesLocked}
+                                    onChange={(event) =>
+                                        setEndDate(event.target.value)
+                                    }
+                                    className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
+                                />
+                            </label>
+                        </div>
+                        {datesLocked && (
+                            <p className="mt-2 text-xs font-medium text-slate-500">
+                                이미 시작된 여행의 기간은 변경할 수 없어요.
+                            </p>
+                        )}
+                        {error && (
+                            <p className="mt-3 text-sm font-semibold text-red-500">
+                                {error}
+                            </p>
+                        )}
+                        <button
+                            disabled={
+                                busy ||
+                                (trip.status === 'COMPLETED' && !coverImage)
+                            }
+                            className="mt-4 w-full rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:opacity-50"
+                        >
+                            변경사항 저장
                         </button>
-                    )}
-                </section>
+                    </div>
+                </div>
             </form>
         </div>
     )

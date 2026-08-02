@@ -986,4 +986,78 @@ class ItineraryServiceTest {
                 any()
         );
     }
+
+    @Test
+    @DisplayName("t37 기존 추천안에 출발지가 포함되어도 출발지는 제외하고 일정을 적용한다")
+    void t37_applyRoutePlanIgnoresDeparturePlaceFromLegacyPreview() {
+        day.updateDeparture(
+                "TRIP_PLACE",
+                "테스트 출발지",
+                new BigDecimal("37.5665"),
+                new BigDecimal("126.9780"),
+                TRIP_PLACE_ID
+        );
+        TripPlace visitPlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google-visit")
+                        .name("방문 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.5700"))
+                        .longitude(new BigDecimal("126.9800"))
+                        .build())
+                .category(mock(PlaceCategory.class))
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(visitPlace, "id", 301L);
+        RoutePlanPreviewResponse legacyPreview = new RoutePlanPreviewResponse(
+                "기존 추천",
+                2,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        0,
+                        List.of(
+                                routePlanItem(TRIP_PLACE_ID, "테스트 출발지"),
+                                routePlanItem(301L, "방문 장소")
+                        )
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
+                TRIP_ID,
+                TripPlaceStatus.SAVED
+        )).willReturn(List.of(savedTripPlace, visitPlace));
+        given(itemRepository.saveAllAndFlush(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        itineraryService.applyRoutePlan(TRIP_ID, legacyPreview);
+
+        then(itemRepository).should().saveAllAndFlush(argThat(items -> {
+            List<ItineraryItem> savedItems = new ArrayList<>();
+            items.forEach(savedItems::add);
+            return savedItems.size() == 1
+                    && savedItems.getFirst().getTripPlaceId().equals(301L);
+        }));
+    }
+
+    private RoutePlanItemResponse routePlanItem(Long tripPlaceId, String name) {
+        return new RoutePlanItemResponse(
+                tripPlaceId,
+                name,
+                "관광",
+                "#f97316",
+                "09:00",
+                "10:00",
+                null,
+                null,
+                null,
+                null,
+                "추천"
+        );
+    }
 }
