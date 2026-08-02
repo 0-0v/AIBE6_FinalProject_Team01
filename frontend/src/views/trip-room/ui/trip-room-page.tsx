@@ -771,10 +771,11 @@ export function TripRoom() {
                     <ManageTripModal
                         trip={trip}
                         onClose={() => setManageOpen(false)}
-                        onChanged={() => {
+                        onChanged={async () => {
+                            const currentTripId = String(trip.id)
                             setManageOpen(false)
-                            navigate('/app/room')
-                            void loadTrips()
+                            await loadTrips()
+                            selectTrip(currentTripId)
                         }}
                     />
                 )}
