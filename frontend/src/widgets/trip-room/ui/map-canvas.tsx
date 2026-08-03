@@ -29,18 +29,28 @@ import {
 } from '../lib/itinerary-map'
 import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
+import { getPlaceDetails } from '@/features/search-place'
+import type { PlaceSearchResult } from '@/features/search-place'
+import { MapPoiPopup } from './map-poi-popup'
+
+// POI 클릭 결과 세션 캐시 — 같은 장소 재클릭 시 API 호출 없음
+const resolvedPoiDetails = new Map<string, PlaceSearchResult>()
+const pendingPoiRequests = new Map<string, Promise<PlaceSearchResult>>()
 
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
 const DEFAULT_ZOOM = 10
 const DESTINATION_FOCUS_ZOOM = 12
 const SELECTED_PLACE_FOCUS_ZOOM = 16
 const CATEGORY_BADGE_MIN_ZOOM = 10
+const SELECTED_PLACE_VIEWPORT_PADDING = 16
 
 type Props = {
     places: Place[]
     initialLat?: number | null
     initialLng?: number | null
     selectedId: string | null
+    focusRequestVersion?: number
+    showSelectedPlacePhoto?: boolean
     onSelect: (id: string) => void
     onDeselect: () => void
     onPlacePhotoResolved?: (
@@ -55,6 +65,9 @@ type Props = {
     initialFocusedSegmentIndex?: number | null
     routeOverview?: boolean
     outlinedPlaceIds?: string[]
+    onAddFromPoi?: (result: PlaceSearchResult) => Promise<void>
+    existingGooglePlaceIds?: Set<string>
+    canWrite?: boolean
 }
 
 export function MapCanvas({
@@ -62,6 +75,8 @@ export function MapCanvas({
     initialLat,
     initialLng,
     selectedId,
+    focusRequestVersion = 0,
+    showSelectedPlacePhoto = false,
     onSelect,
     onDeselect,
     onPlacePhotoResolved,
@@ -70,6 +85,9 @@ export function MapCanvas({
     initialFocusedSegmentIndex,
     routeOverview = false,
     outlinedPlaceIds = [],
+    onAddFromPoi,
+    existingGooglePlaceIds,
+    canWrite,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -89,6 +107,8 @@ export function MapCanvas({
             initialLat={initialLat}
             initialLng={initialLng}
             selectedId={selectedId}
+            focusRequestVersion={focusRequestVersion}
+            showSelectedPlacePhoto={showSelectedPlacePhoto}
             onSelect={onSelect}
             onDeselect={onDeselect}
             onPlacePhotoResolved={onPlacePhotoResolved}
@@ -97,6 +117,9 @@ export function MapCanvas({
             initialFocusedSegmentIndex={initialFocusedSegmentIndex}
             routeOverview={routeOverview}
             outlinedPlaceIds={outlinedPlaceIds}
+            onAddFromPoi={onAddFromPoi}
+            existingGooglePlaceIds={existingGooglePlaceIds}
+            canWrite={canWrite}
         />
     )
 }
@@ -106,6 +129,8 @@ function GoogleMapCanvas({
     initialLat,
     initialLng,
     selectedId,
+    focusRequestVersion = 0,
+    showSelectedPlacePhoto,
     onSelect,
     onDeselect,
     onPlacePhotoResolved,
@@ -114,12 +139,17 @@ function GoogleMapCanvas({
     initialFocusedSegmentIndex,
     routeOverview,
     outlinedPlaceIds = [],
+    onAddFromPoi,
+    existingGooglePlaceIds,
+    canWrite = false,
 }: Pick<
     Props,
     | 'places'
     | 'initialLat'
     | 'initialLng'
     | 'selectedId'
+    | 'focusRequestVersion'
+    | 'showSelectedPlacePhoto'
     | 'onSelect'
     | 'onDeselect'
     | 'onPlacePhotoResolved'
@@ -128,6 +158,9 @@ function GoogleMapCanvas({
     | 'initialFocusedSegmentIndex'
     | 'routeOverview'
     | 'outlinedPlaceIds'
+    | 'onAddFromPoi'
+    | 'existingGooglePlaceIds'
+    | 'canWrite'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -150,6 +183,16 @@ function GoogleMapCanvas({
         : places.length > 0
           ? DEFAULT_ZOOM
           : DESTINATION_FOCUS_ZOOM
+    type PoiState = {
+        placeId: string
+        latLng: { lat: number; lng: number }
+        loading: boolean
+        result: PlaceSearchResult | null
+        error: string | null
+        saving: boolean
+    }
+
+    const [poiState, setPoiState] = useState<PoiState | null>(null)
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
         initialRouteDay ?? null,
@@ -159,6 +202,50 @@ function GoogleMapCanvas({
     >(initialFocusedSegmentIndex ?? null)
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
+
+    useEffect(() => {
+        if (!poiState?.loading || !poiState.placeId) return
+        let cancelled = false
+        const { placeId } = poiState
+
+        const pending = pendingPoiRequests.get(placeId)
+        const request = pending ?? getPlaceDetails(placeId)
+        if (!pending) {
+            pendingPoiRequests.set(placeId, request)
+            void request
+                .finally(() => {
+                    if (pendingPoiRequests.get(placeId) === request) {
+                        pendingPoiRequests.delete(placeId)
+                    }
+                })
+                .catch(() => {})
+        }
+
+        void request
+            .then((fetched) => {
+                resolvedPoiDetails.set(placeId, fetched)
+                if (!cancelled) {
+                    setPoiState((prev) =>
+                        prev?.placeId === placeId
+                            ? { ...prev, loading: false, result: fetched }
+                            : prev,
+                    )
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setPoiState((prev) =>
+                        prev?.placeId === placeId
+                            ? { ...prev, loading: false, error: '장소 정보를 불러오지 못했습니다.' }
+                            : prev,
+                    )
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [poiState?.placeId, poiState?.loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const scheduledPlaceDetailsMap = useMemo(() => {
         if (!days) {
@@ -337,9 +424,24 @@ function GoogleMapCanvas({
                         current === shouldShow ? current : shouldShow,
                     )
                 }}
-                onClick={() => {
+                onClick={(event) => {
+                    const clickedPlaceId = event.detail.placeId
+                    if (clickedPlaceId) {
+                        event.stop()
+                        const cached = resolvedPoiDetails.get(clickedPlaceId)
+                        setPoiState({
+                            placeId: clickedPlaceId,
+                            latLng: event.detail.latLng ?? { lat: 0, lng: 0 },
+                            loading: !cached,
+                            result: cached ?? null,
+                            error: null,
+                            saving: false,
+                        })
+                        return
+                    }
                     setHoveredId(null)
                     setFocusedSegmentIndex(null)
+                    setPoiState(null)
                     onDeselect()
                 }}
             >
@@ -349,6 +451,7 @@ function GoogleMapCanvas({
                     initialLng={initialLng}
                     selectedId={selectedId}
                     autoFitPlaces={!routeOverview}
+                    focusRequestVersion={focusRequestVersion}
                 />
                 <RouteFocusController
                     points={
@@ -362,6 +465,44 @@ function GoogleMapCanvas({
                     emphasized={activeRouteDay != null}
                     focusedSegment={focusedSegment}
                 />
+                {poiState && (
+                    <AdvancedMarker
+                        position={poiState.latLng}
+                        zIndex={200}
+                        clickable={false}
+                    >
+                        <div className="relative flex flex-col items-center">
+                            <MapPoiPopup
+                                loading={poiState.loading}
+                                result={poiState.result}
+                                error={poiState.error}
+                                isAlreadySaved={
+                                    poiState.result != null &&
+                                    (existingGooglePlaceIds?.has(poiState.result.googlePlaceId) ?? false)
+                                }
+                                canWrite={canWrite}
+                                saving={poiState.saving}
+                                onSave={async () => {
+                                    if (!poiState.result || !onAddFromPoi) return
+                                    setPoiState((prev) =>
+                                        prev ? { ...prev, saving: true } : null,
+                                    )
+                                    try {
+                                        await onAddFromPoi(poiState.result)
+                                        setPoiState(null)
+                                    } catch {
+                                        setPoiState((prev) =>
+                                            prev
+                                                ? { ...prev, saving: false, error: '저장에 실패했습니다.' }
+                                                : null,
+                                        )
+                                    }
+                                }}
+                                onClose={() => setPoiState(null)}
+                            />
+                        </div>
+                    </AdvancedMarker>
+                )}
                 {places.map((place) => {
                     const isSelected = place.id === selectedId
                     const isHovered = place.id === hoveredId
@@ -470,7 +611,10 @@ function GoogleMapCanvas({
                                     )}
                                 />
                                 {isSelected && (
-                                    <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
+                                    <div
+                                        data-selected-place-card
+                                        className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl"
+                                    >
                                         <button
                                             type="button"
                                             aria-label={`${place.name} 상세 정보 닫기`}
@@ -483,7 +627,8 @@ function GoogleMapCanvas({
                                         >
                                             <XIcon size={14} aria-hidden />
                                         </button>
-                                        {place.photoSourceUrl ? (
+                                        {showSelectedPlacePhoto &&
+                                        place.photoSourceUrl ? (
                                             <div className="relative bg-slate-100">
                                                 <img
                                                     src={place.image}
@@ -526,7 +671,8 @@ function GoogleMapCanvas({
                                                     </a>
                                                 </div>
                                             </div>
-                                        ) : place.googlePlaceId ? (
+                                        ) : showSelectedPlacePhoto &&
+                                          place.googlePlaceId ? (
                                             <LazyPlacePhoto
                                                 key={place.googlePlaceId}
                                                 placeId={place.id}
@@ -538,13 +684,13 @@ function GoogleMapCanvas({
                                                     onPlacePhotoResolved
                                                 }
                                             />
-                                        ) : (
+                                        ) : showSelectedPlacePhoto ? (
                                             <img
                                                 src={place.image}
                                                 alt={place.name}
                                                 className="h-20 w-full bg-slate-100 object-cover"
                                             />
-                                        )}
+                                        ) : null}
                                         <div className="space-y-2 px-3 pb-3 pt-2.5">
                                             <div>
                                                 <div className="flex items-start gap-2">
@@ -894,14 +1040,19 @@ function MapController({
     initialLng,
     selectedId,
     autoFitPlaces,
+    focusRequestVersion,
 }: {
     places: Place[]
     initialLat?: number | null
     initialLng?: number | null
     selectedId: string | null
     autoFitPlaces: boolean
+    focusRequestVersion: number
 }) {
     const map = useMap()
+    const selectedPlace = places.find((place) => place.id === selectedId)
+    const selectedLat = selectedPlace?.lat
+    const selectedLng = selectedPlace?.lng
 
     useEffect(() => {
         if (!map || !autoFitPlaces) return
@@ -924,13 +1075,53 @@ function MapController({
     }, [autoFitPlaces, initialLat, initialLng, map, places])
 
     useEffect(() => {
-        if (!map || !selectedId) return
-        const place = places.find((p) => p.id === selectedId)
-        if (place) {
-            map.panTo({ lat: place.lat, lng: place.lng })
-            map.setZoom(SELECTED_PLACE_FOCUS_ZOOM)
+        if (!map || selectedLat == null || selectedLng == null) return
+
+        let animationFrame: number | null = null
+        const idleListener = map.addListener('idle', () => {
+            idleListener.remove()
+            animationFrame = window.requestAnimationFrame(() => {
+                const mapRect = map.getDiv().getBoundingClientRect()
+                const card = map
+                    .getDiv()
+                    .querySelector<HTMLElement>('[data-selected-place-card]')
+                if (!card) return
+
+                const cardRect = card.getBoundingClientRect()
+                const minX = mapRect.left + SELECTED_PLACE_VIEWPORT_PADDING
+                const maxX = mapRect.right - SELECTED_PLACE_VIEWPORT_PADDING
+                const minY = mapRect.top + SELECTED_PLACE_VIEWPORT_PADDING
+                const maxY = mapRect.bottom - SELECTED_PLACE_VIEWPORT_PADDING
+                let contentShiftX = 0
+                let contentShiftY = 0
+
+                if (cardRect.left < minX) {
+                    contentShiftX = minX - cardRect.left
+                } else if (cardRect.right > maxX) {
+                    contentShiftX = maxX - cardRect.right
+                }
+                if (cardRect.top < minY) {
+                    contentShiftY = minY - cardRect.top
+                } else if (cardRect.bottom > maxY) {
+                    contentShiftY = maxY - cardRect.bottom
+                }
+
+                if (contentShiftX !== 0 || contentShiftY !== 0) {
+                    map.panBy(-contentShiftX, -contentShiftY)
+                }
+            })
+        })
+
+        map.panTo({ lat: selectedLat, lng: selectedLng })
+        map.setZoom(SELECTED_PLACE_FOCUS_ZOOM)
+
+        return () => {
+            idleListener.remove()
+            if (animationFrame != null) {
+                window.cancelAnimationFrame(animationFrame)
+            }
         }
-    }, [map, selectedId, places])
+    }, [focusRequestVersion, map, selectedLat, selectedLng])
 
     return null
 }
