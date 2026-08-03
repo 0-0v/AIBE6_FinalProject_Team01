@@ -136,4 +136,12 @@ class TripPlaceSecurityIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
     }
+
+    @Test
+    @DisplayName("t10 인증 정보 없이 Google 장소를 검색하면 401을 반환한다")
+    void t10_unauthenticatedPlaceSearchReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/places/search").param("query", "오사카"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("COMMON_401"));
+    }
 }

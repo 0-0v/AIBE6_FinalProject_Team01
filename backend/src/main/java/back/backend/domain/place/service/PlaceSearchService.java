@@ -198,47 +198,40 @@ public class PlaceSearchService {
     }
 
     public PlaceSearchResponse getPlaceDetails(String googlePlaceId) {
-        try {
-            GooglePlacesApiResponse.Place place = restClient.get()
-                    .uri("/places/{placeId}", googlePlaceId)
-                    .header("X-Goog-FieldMask", PLACE_DETAILS_FIELD_MASK)
-                    .retrieve()
-                    .body(GooglePlacesApiResponse.Place.class);
-            if (place == null) {
-                throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
-            }
-            return mapToResponse(place);
-        } catch (RestClientException e) {
-            throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
-        }
+        return mapToResponse(fetchPlaceById(googlePlaceId, PLACE_DETAILS_FIELD_MASK));
     }
 
     public PlaceOperationalDetails getOperationalDetails(String googlePlaceId) {
+        GooglePlacesApiResponse.Place place = fetchPlaceById(googlePlaceId, DETAILS_FIELD_MASK);
+        var current = place.currentOpeningHours();
+        List<String> descriptions = current != null
+                && current.weekdayDescriptions() != null
+                ? current.weekdayDescriptions()
+                : place.regularOpeningHours() == null
+                || place.regularOpeningHours().weekdayDescriptions() == null
+                ? List.of()
+                : place.regularOpeningHours().weekdayDescriptions();
+        return new PlaceOperationalDetails(
+                place.businessStatus(),
+                current == null ? null : current.openNow(),
+                parseOffsetDateTime(current == null ? null : current.nextOpenTime()),
+                parseOffsetDateTime(current == null ? null : current.nextCloseTime()),
+                List.copyOf(descriptions),
+                mapOpeningWindows(current)
+        );
+    }
+
+    private GooglePlacesApiResponse.Place fetchPlaceById(String googlePlaceId, String fieldMask) {
         try {
             GooglePlacesApiResponse.Place place = restClient.get()
                     .uri("/places/{placeId}", googlePlaceId)
-                    .header("X-Goog-FieldMask", DETAILS_FIELD_MASK)
+                    .header("X-Goog-FieldMask", fieldMask)
                     .retrieve()
                     .body(GooglePlacesApiResponse.Place.class);
             if (place == null) {
                 throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
             }
-            var current = place.currentOpeningHours();
-            List<String> descriptions = current != null
-                    && current.weekdayDescriptions() != null
-                    ? current.weekdayDescriptions()
-                    : place.regularOpeningHours() == null
-                    || place.regularOpeningHours().weekdayDescriptions() == null
-                    ? List.of()
-                    : place.regularOpeningHours().weekdayDescriptions();
-            return new PlaceOperationalDetails(
-                    place.businessStatus(),
-                    current == null ? null : current.openNow(),
-                    parseOffsetDateTime(current == null ? null : current.nextOpenTime()),
-                    parseOffsetDateTime(current == null ? null : current.nextCloseTime()),
-                    List.copyOf(descriptions),
-                    mapOpeningWindows(current)
-            );
+            return place;
         } catch (RestClientException e) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
         }

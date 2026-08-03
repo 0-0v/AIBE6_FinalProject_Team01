@@ -107,7 +107,7 @@ class PlaceControllerTest {
                 .andExpect(content().contentType(MediaType.IMAGE_JPEG))
                 .andExpect(content().bytes(new byte[]{1, 2, 3}))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=86400")));
     }
 
     @Test
@@ -132,7 +132,7 @@ class PlaceControllerTest {
                 .andExpect(jsonPath("$.data.authorAttributions[0].displayName")
                         .value("사진 제공자"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=3600")));
     }
 
     @Test
