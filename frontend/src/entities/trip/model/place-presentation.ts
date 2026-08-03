@@ -46,6 +46,12 @@ export const CATEGORY_META: Record<PlaceCategory, PlacePresentation> = {
         color: '#2563eb',
         icon: 'SHOPPING_BAG',
     },
+    convenience: {
+        category: 'convenience',
+        label: '편의점',
+        color: '#16a34a',
+        icon: 'STORE',
+    },
     activity: {
         category: 'activity',
         label: '액티비티',
@@ -74,6 +80,7 @@ const API_CATEGORY_MAP: Record<PlaceCategoryType, PlaceCategory> = {
     NATURE: 'nature',
     LODGING: 'lodging',
     SHOPPING: 'shopping',
+    CONVENIENCE: 'convenience',
     ACTIVITY: 'activity',
     TRANSPORT: 'transport',
     OTHER: 'other',
