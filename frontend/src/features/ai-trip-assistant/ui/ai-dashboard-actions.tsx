@@ -146,8 +146,7 @@ export function AiDashboardActions({
         ) {
             globalModal.open({
                 title: '여행 중에만 사용할 수 있어요',
-                description:
-                    'AI 일정 재배치는 여행 시작일부터 종료일까지 이용할 수 있습니다.',
+                description: '여행 시작일부터 종료일까지 사용할 수 있습니다.',
                 confirmText: '확인',
             })
             return
