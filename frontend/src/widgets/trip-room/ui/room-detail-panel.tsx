@@ -1,12 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import {
-    ChevronRightIcon,
-    HistoryIcon,
-    ListIcon,
-    MapIcon,
-    ReceiptTextIcon,
-} from 'lucide-react'
+import { ChevronRightIcon, HistoryIcon, ListIcon, MapIcon } from 'lucide-react'
 import {
     Place,
     Room,
@@ -25,7 +19,6 @@ import {
     type ItineraryDay,
 } from '@/entities/trip'
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
-import { ExpensePanel } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
@@ -42,7 +35,6 @@ import { useNotificationStore } from '@/features/manage-notification'
 import { DateVotePanel } from './date-vote-panel'
 import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
-import { RecordPanel } from './record-panel'
 import { RoomHeader } from './room-header'
 import type { PlaceCommentResponse } from '@/entities/trip'
 
@@ -103,8 +95,7 @@ function resolvePlaceSearchCenter(room: Room, places: Place[]) {
     }
 }
 type PlanTab = 'places' | 'itinerary' | 'schedule'
-type RecordTab = 'records' | 'expenses'
-export type TripRoomWorkspace = PlanTab | RecordTab
+export type TripRoomWorkspace = PlanTab
 
 type Props = {
     room: Room
@@ -130,8 +121,6 @@ type Props = {
     onJoin?: () => void
     onWorkspaceChange?: (workspace: TripRoomWorkspace) => void
     headerContainer?: HTMLElement | null
-    mode?: TripRoomMode
-    onOpenPlanPlace?: (placeId: string) => void
     aiPlaceRecommendations?: AiPlaceSearchRecommendation[] | null
 }
 
@@ -159,19 +148,16 @@ export function RoomDetailPanel({
     onJoin,
     onWorkspaceChange,
     headerContainer,
-    mode = 'plan',
-    onOpenPlanPlace,
     aiPlaceRecommendations,
 }: Props) {
     const [planTab, setPlanTab] = useState<PlanTab>('places')
-    const [recordTab, setRecordTab] = useState<RecordTab>('records')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [members, setMembers] = useState<TripMember[]>([])
 
-    const isPublic = room.visibility === 'PUBLIC'
+    const isPublic = room.visibility !== 'PRIVATE'
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
     )
@@ -195,20 +181,7 @@ export function RoomDetailPanel({
         [room, places],
     )
 
-    const activeWorkspace: TripRoomWorkspace =
-        mode === 'plan' ? planTab : recordTab
-    const modeInfo =
-        mode === 'plan'
-            ? {
-                  title: 'Plan',
-                  description:
-                      '가고 싶은 장소를 찾고 함께 여행 계획을 준비해보세요.',
-              }
-            : {
-                  title: 'Record',
-                  description:
-                      '여행의 순간과 경비 내역을 한곳에서 관리해보세요.',
-              }
+    const activeWorkspace: TripRoomWorkspace = planTab
 
     const handlePhotoResolved = useCallback(
         (
@@ -460,13 +433,6 @@ export function RoomDetailPanel({
         }
     }
 
-    function focusPlace(placeId: string) {
-        if (onOpenPlanPlace) {
-            onOpenPlanPlace(placeId)
-            return
-        }
-        onSelectPlace(placeId)
-    }
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
             {(() => {
@@ -497,10 +463,11 @@ export function RoomDetailPanel({
                     <div className="flex min-w-0 items-start gap-2">
                         <div className="min-w-0">
                             <h2 className="text-[22px] font-black leading-8 tracking-tight text-slate-900">
-                                {modeInfo.title}
+                                Plan
                             </h2>
                             <p className="mt-1 text-xs leading-5 text-slate-400">
-                                {modeInfo.description}
+                                가고 싶은 장소를 찾고 함께 여행 계획을
+                                준비해보세요.
                             </p>
                         </div>
                     </div>
@@ -516,57 +483,37 @@ export function RoomDetailPanel({
                     <div
                         className="flex min-w-0 flex-1 items-center gap-1"
                         role="tablist"
-                        aria-label={`${mode === 'plan' ? '계획' : '기록'} 화면`}
+                        aria-label="계획 화면"
                     >
-                        {(mode === 'plan'
-                            ? [
-                                  {
-                                      key: 'places' as const,
-                                      label: '장소',
-                                      icon: ListIcon,
-                                  },
-                                  {
-                                      key: 'schedule' as const,
-                                      label: '일정',
-                                      icon: MapIcon,
-                                  },
-                              ]
-                            : [
-                                  {
-                                      key: 'records' as const,
-                                      label: '기록',
-                                      icon: HistoryIcon,
-                                  },
-                                  {
-                                      key: 'expenses' as const,
-                                      label: '정산',
-                                      icon: ReceiptTextIcon,
-                                  },
-                              ]
-                        ).map((item) => {
+                        {[
+                            {
+                                key: 'places' as const,
+                                label: '장소',
+                                icon: ListIcon,
+                            },
+                            {
+                                key: 'schedule' as const,
+                                label: '일정',
+                                icon: MapIcon,
+                            },
+                        ].map((item) => {
                             const active =
-                                mode === 'plan'
-                                    ? item.key === 'schedule'
-                                        ? planTab === 'itinerary' ||
-                                          planTab === 'schedule'
-                                        : planTab === item.key
-                                    : recordTab === item.key
+                                item.key === 'schedule'
+                                    ? planTab === 'itinerary' ||
+                                      planTab === 'schedule'
+                                    : planTab === item.key
                             return (
                                 <button
                                     key={item.key}
                                     onClick={() => {
                                         if (active) return
                                         requestDiscardDateChanges(() => {
-                                            if (mode === 'plan') {
-                                                setPlanTab(
-                                                    item.key === 'schedule' &&
-                                                        !hasConfirmedDates
-                                                        ? 'itinerary'
-                                                        : (item.key as PlanTab),
-                                                )
-                                            } else {
-                                                setRecordTab(item.key as RecordTab)
-                                            }
+                                            setPlanTab(
+                                                item.key === 'schedule' &&
+                                                    !hasConfirmedDates
+                                                    ? 'itinerary'
+                                                    : item.key,
+                                            )
                                         })
                                     }}
                                     role="tab"
@@ -585,7 +532,7 @@ export function RoomDetailPanel({
                 </div>
             </div>
 
-            {mode === 'plan' && planTab !== 'places' && (
+            {planTab !== 'places' && (
                 <div className="border-b border-slate-100 px-6 py-4.5">
                     <nav
                         className="flex items-center gap-2 text-xs font-bold"
@@ -634,7 +581,7 @@ export function RoomDetailPanel({
                 </div>
             )}
 
-            {mode === 'plan' && planTab === 'places' && (
+            {planTab === 'places' && (
                 <>
                     <div className="border-b border-slate-100">
                         {canPlanWrite && (
@@ -724,7 +671,7 @@ export function RoomDetailPanel({
                     </div>
                 </>
             )}
-            {mode === 'plan' && planTab === 'itinerary' && (
+            {planTab === 'itinerary' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     <DateVotePanel
                         tripId={tripId}
@@ -740,7 +687,7 @@ export function RoomDetailPanel({
                     />
                 </div>
             )}
-            {mode === 'plan' && planTab === 'schedule' && (
+            {planTab === 'schedule' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     <SchedulePanel
                         key={`schedule-${itineraryVersion}-${realtimeVersion}`}
@@ -752,20 +699,6 @@ export function RoomDetailPanel({
                         onPlaceFocus={onSelectPlace}
                     />
                 </div>
-            )}
-            {mode === 'record' && recordTab === 'records' && (
-                <RecordPanel
-                    tripId={tripId}
-                    places={places}
-                    canWrite={canWrite}
-                    startDate={room.startDate}
-                    endDate={room.endDate}
-                    onPlaceClick={focusPlace}
-                    onChanged={refreshCollaborationData}
-                />
-            )}
-            {mode === 'record' && recordTab === 'expenses' && (
-                <ExpensePanel tripId={tripId} canWrite={canWrite} />
             )}
             {activityOpen && (
                 <div className="absolute inset-0 z-40 flex flex-col bg-white">

@@ -45,4 +45,8 @@ public class TravelRecord {
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public void updateContent(String memo) {
+        this.memo = memo;
+    }
 }

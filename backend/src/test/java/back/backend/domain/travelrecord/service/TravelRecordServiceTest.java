@@ -12,6 +12,7 @@ import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.travelrecord.dto.TravelRecordCreateRequest;
+import back.backend.domain.travelrecord.dto.TravelRecordUpdateRequest;
 import back.backend.domain.travelrecord.entity.TravelRecord;
 import back.backend.domain.travelrecord.exception.TravelRecordErrorCode;
 import back.backend.domain.travelrecord.port.TravelPhotoStorage;
@@ -133,5 +134,65 @@ class TravelRecordServiceTest {
             }
             return count == 2;
         }));
+    }
+
+    @Test
+    @DisplayName("t4 같은 여행 장소에 기록이 존재하면 새 기록을 만들 수 없다")
+    void t4_createDuplicatePlaceRecordThrowsException() {
+        Trip trip = Trip.create(
+                1L, "후쿠오카", null, Set.of(), "후쿠오카",
+                LocalDate.of(2026, 7, 23), LocalDate.of(2026, 7, 28)
+        );
+        Place place = mock(Place.class);
+        TripPlace tripPlace = mock(TripPlace.class);
+        given(accessChecker.requireEdit(1L)).willReturn(1L);
+        given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
+        given(tripPlaceRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(java.util.Optional.of(tripPlace));
+        given(tripPlace.getPlace()).willReturn(place);
+        given(place.getId()).willReturn(20L);
+        given(recordRepository.existsByTripIdAndPlaceId(1L, 20L)).willReturn(true);
+
+        assertThatThrownBy(() -> service.create(1L, new TravelRecordCreateRequest(
+                10L, null, LocalDateTime.of(2026, 7, 24, 10, 0), "기록", List.of()
+        )))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(TravelRecordErrorCode.DUPLICATE_PLACE_RECORD);
+    }
+
+    @Test
+    @DisplayName("t5 여행방 편집 멤버는 공동 기록의 메모와 사진을 수정할 수 있다")
+    void t5_updateSharedRecordReplacesContent() {
+        Trip trip = Trip.create(
+                1L, "후쿠오카", null, Set.of(), "후쿠오카",
+                LocalDate.of(2026, 7, 23), LocalDate.of(2026, 7, 28)
+        );
+        TravelRecord record = mock(TravelRecord.class);
+        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
+        given(recordRepository.findByIdAndTripId(30L, 1L)).willReturn(java.util.Optional.of(record));
+        given(record.getRecordedBy()).willReturn(1L);
+        given(record.getVisitedAt()).willReturn(LocalDateTime.of(2026, 7, 24, 10, 0));
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
+
+        service.update(1L, 30L, new TravelRecordUpdateRequest("함께 수정한 메모", List.of("/photo.png")));
+
+        verify(record).updateContent("함께 수정한 메모");
+        verify(photoRepository).deleteAllByTravelRecordId(30L);
+        verify(photoRepository).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("t6 여행방 편집 멤버는 공동 기록을 삭제할 수 있다")
+    void t6_deleteSharedRecordRemovesRecordAndPhotos() {
+        TravelRecord record = mock(TravelRecord.class);
+        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(recordRepository.findByIdAndTripId(30L, 1L)).willReturn(java.util.Optional.of(record));
+
+        service.delete(1L, 30L);
+
+        verify(photoRepository).deleteAllByTravelRecordId(30L);
+        verify(recordRepository).delete(record);
     }
 }

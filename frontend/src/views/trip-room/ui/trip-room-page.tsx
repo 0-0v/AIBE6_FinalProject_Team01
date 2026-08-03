@@ -36,6 +36,7 @@ import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import {
     MapCanvas,
+    RecordRoomPanel,
     RoomDetailPanel,
     RoomListPanel,
     type TripRoomMode,
@@ -322,7 +323,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     useEffect(() => {
         if (!tripId) return
         let active = true
-        getItinerary(tripId)
+        const loadItinerary = inviteCode ? getItinerary : initializeItinerary
+        loadItinerary(tripId)
             .then((days) => {
                 if (active) setItineraryState({ tripId, days })
             })
@@ -333,7 +335,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         return () => {
             active = false
         }
-    }, [realtimeVersion, tripId])
+    }, [inviteCode, realtimeVersion, tripId])
 
     const displayedPlaces = useMemo(
         () =>
@@ -637,14 +639,16 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         ease: [0.22, 1, 0.36, 1],
                         delay: room ? 0.13 : 0,
                     }}
-                    className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col overflow-hidden border border-slate-200 bg-white ${
+                    className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col ${
                         isRecordMode
-                            ? 'lg:w-full lg:max-w-none lg:flex-1'
-                            : 'lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none'
+                            ? 'overflow-visible bg-transparent lg:w-full lg:max-w-none lg:flex-1'
+                            : 'overflow-hidden border border-slate-200 bg-white lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none'
                     } ${
-                        room
+                        room && !isRecordMode
                             ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
-                            : 'shadow-[-10px_0_28px_rgba(33,60,81,0.10)]'
+                            : !room
+                              ? 'shadow-[-10px_0_28px_rgba(33,60,81,0.10)]'
+                              : ''
                     } ${
                         isResizingPanel
                             ? ''
@@ -708,7 +712,31 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                 ease: [0.22, 1, 0.36, 1],
                             }}
                         >
-                            {room ? (
+                            {room && isRecordMode ? (
+                                <RecordRoomPanel
+                                    room={room}
+                                    places={displayedPlaces}
+                                    itineraryDays={itineraryDays}
+                                    tripId={tripId!}
+                                    canManage={!inviteCode && canManagePlaces}
+                                    guestView={Boolean(inviteCode)}
+                                    headerContainer={headerContainer}
+                                    onJoin={
+                                        inviteCode
+                                            ? handleLoginChoice
+                                            : undefined
+                                    }
+                                    onBack={() => navigate('/app/room')}
+                                    onManage={() => setManageOpen(true)}
+                                    onVisibilityManage={() =>
+                                        setVisibilityOpen(true)
+                                    }
+                                    onOpenPlanPlace={(placeId) => {
+                                        setSelectedId(placeId)
+                                        navigate(`/app/room/${room.id}`)
+                                    }}
+                                />
+                            ) : room ? (
                                 <RoomDetailPanel
                                     key={`${room.id}-${pendingAiAction?.kind === 'place-recommendations' ? (pendingAiAction.recommendations[0]?.place.googlePlaceId ?? 'ai') : 'default'}`}
                                     room={room}
@@ -749,11 +777,6 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                             ? handleLoginChoice
                                             : undefined
                                     }
-                                    mode={mode}
-                                    onOpenPlanPlace={(placeId) => {
-                                        setSelectedId(placeId)
-                                        navigate(`/app/room/${room.id}`)
-                                    }}
                                     aiPlaceRecommendations={
                                         pendingAiAction?.kind ===
                                         'place-recommendations'

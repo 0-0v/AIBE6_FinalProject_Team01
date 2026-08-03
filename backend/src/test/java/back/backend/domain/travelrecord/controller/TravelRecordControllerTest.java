@@ -129,4 +129,30 @@ class TravelRecordControllerTest {
                 .andExpect(jsonPath("$.data.imageUrl")
                         .value("https://cdn.example.com/travel-records/1/photo.png"));
     }
+
+    @Test
+    @DisplayName("t7 공동 여행 기록을 수정하면 변경된 기록을 반환한다")
+    void t7_updateTravelRecordReturnsUpdatedRecord() throws Exception {
+        given(travelRecordService.update(eq(1L), eq(10L), any())).willReturn(
+                new TravelRecordResponse(
+                        10L, 1L, "지현", 20L, null, 1,
+                        LocalDateTime.of(2026, 7, 23, 10, 0), "수정된 기록",
+                        List.of(), LocalDateTime.of(2026, 7, 23, 10, 1))
+        );
+
+        mockMvc.perform(put("/api/trips/1/travel-records/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"memo":"수정된 기록","imageUrls":[]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memo").value("수정된 기록"));
+    }
+
+    @Test
+    @DisplayName("t8 공동 여행 기록을 삭제하면 성공 응답을 반환한다")
+    void t8_deleteTravelRecordReturnsSuccess() throws Exception {
+        mockMvc.perform(delete("/api/trips/1/travel-records/10"))
+                .andExpect(status().isOk());
+    }
 }

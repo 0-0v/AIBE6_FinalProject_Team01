@@ -11,6 +11,7 @@ type Props = {
     hovered?: boolean
     preview?: boolean
     focused?: boolean
+    outlined?: boolean
 }
 
 export function ItineraryMapMarker({
@@ -24,9 +25,16 @@ export function ItineraryMapMarker({
     hovered = false,
     preview = false,
     focused = false,
+    outlined = false,
 }: Props) {
     const emphasized = selected || hovered
-    const sizeClass = selected ? 'size-10' : emphasized ? 'size-9' : focused ? 'size-9' : 'size-8'
+    const sizeClass = selected
+        ? 'size-10'
+        : emphasized
+          ? 'size-9'
+          : focused
+            ? 'size-9'
+            : 'size-8'
     const hasOrderLabel = label != null
 
     return (
@@ -36,12 +44,24 @@ export function ItineraryMapMarker({
             }`}
         >
             <div
-                className={`${sizeClass} relative flex items-center justify-center rounded-full border-[3px] border-white shadow-[0_5px_12px_rgba(15,23,42,0.24)] transition-all ${
-                    selected ? 'ring-4 ring-white/70' : focused ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgba(15,23,42,0.32)]' : ''
+                className={`${sizeClass} relative flex items-center justify-center rounded-full border-[3px] transition-all ${
+                    outlined
+                        ? 'border-dashed bg-white shadow-sm'
+                        : 'border-white shadow-[0_5px_12px_rgba(15,23,42,0.24)]'
+                } ${
+                    selected
+                        ? 'ring-4 ring-white/70'
+                        : focused
+                          ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgba(15,23,42,0.32)]'
+                          : ''
                 } ${selected ? 'itinerary-marker-bounce' : ''} ${
                     preview ? 'animate-pulse' : ''
                 }`}
-                style={{ backgroundColor: color }}
+                style={
+                    outlined
+                        ? { borderColor: color }
+                        : { backgroundColor: color }
+                }
             >
                 {selected && (
                     <span
@@ -57,11 +77,13 @@ export function ItineraryMapMarker({
                         aria-hidden
                     />
                 )}
-                <span
-                    className="absolute -bottom-1.5 left-1/2 z-0 size-3 -translate-x-1/2 rotate-45 rounded-[2px] border-b-[3px] border-r-[3px] border-white"
-                    style={{ backgroundColor: color }}
-                    aria-hidden
-                />
+                {!outlined && (
+                    <span
+                        className="absolute -bottom-1.5 left-1/2 z-0 size-3 -translate-x-1/2 rotate-45 rounded-[2px] border-b-[3px] border-r-[3px] border-white"
+                        style={{ backgroundColor: color }}
+                        aria-hidden
+                    />
+                )}
                 <span className="relative z-10 flex items-center justify-center font-extrabold text-white">
                     {!hasOrderLabel && categoryIcon ? (
                         <CategoryIcon
@@ -70,7 +92,9 @@ export function ItineraryMapMarker({
                             strokeWidth={2.5}
                         />
                     ) : (
-                        <span className={selected ? 'text-sm' : 'text-xs'}>
+                        <span
+                            className={`${selected ? 'text-sm' : 'text-xs'} ${outlined ? 'text-slate-400' : 'text-white'}`}
+                        >
                             {label ?? '·'}
                         </span>
                     )}
