@@ -54,6 +54,7 @@ export function DestinationAutocomplete({
     const [open, setOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
     const mountedRef = useRef(true)
+    const cacheRef = useRef<Map<string, PlacePrediction[]>>(new Map())
     useEffect(() => {
         mountedRef.current = true
         return () => { mountedRef.current = false }
@@ -73,6 +74,13 @@ export function DestinationAutocomplete({
 
     const fetchSuggestions = useDebounce((text: string) => {
         if (!placesLib) return
+        const key = text.trim().toLowerCase()
+        if (cacheRef.current.has(key)) {
+            const cached = cacheRef.current.get(key)!
+            setSuggestions(cached)
+            setOpen(cached.length > 0)
+            return
+        }
         const lib = placesLib as unknown as {
             AutocompleteSuggestion: AutocompleteSuggestionLib
         }
@@ -85,6 +93,7 @@ export function DestinationAutocomplete({
                 const predictions = results
                     .map((s) => s.placePrediction)
                     .filter((p): p is PlacePrediction => p !== null)
+                cacheRef.current.set(key, predictions)
                 setSuggestions(predictions)
                 setOpen(predictions.length > 0)
             })
@@ -93,11 +102,11 @@ export function DestinationAutocomplete({
                 setSuggestions([])
                 setOpen(false)
             })
-    }, 250)
+    }, 400)
 
     function handleInputChange(text: string) {
         onChange(null, text)
-        if (!text.trim() || !placesLib) {
+        if (text.trim().length < 2 || !placesLib) {
             setSuggestions([])
             setOpen(false)
             return
