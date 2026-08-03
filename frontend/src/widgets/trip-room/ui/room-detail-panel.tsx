@@ -543,36 +543,36 @@ export function RoomDetailPanel({
             </div>
 
             {planTab !== 'places' && (
-                <div className="border-b border-slate-100 px-6 py-2">
+                <div className="border-b border-slate-100 px-6 py-2.5">
                     <nav
-                        className="flex items-center gap-2 text-xs font-bold"
+                        className="flex items-center gap-2"
                         aria-label="일정 준비 단계"
                     >
                         <button
                             type="button"
                             onClick={() => setPlanTab('itinerary')}
-                            className={`outline-none ${
+                            className={`outline-none transition-all duration-150 ${
                                 planTab === 'itinerary'
-                                    ? 'text-brand-700'
-                                    : 'text-slate-400 hover:text-slate-700'
+                                    ? 'text-lg font-extrabold text-brand-700'
+                                    : 'text-xs font-bold text-slate-400 hover:text-slate-600'
                             }`}
                         >
                             날짜
                         </button>
                         <ChevronRightIcon
                             size={14}
-                            className="text-slate-300"
+                            className="shrink-0 text-slate-300"
                         />
                         <button
                             type="button"
                             disabled={!hasConfirmedDates}
                             onClick={() => setPlanTab('schedule')}
-                            className={`outline-none ${
+                            className={`outline-none transition-all duration-150 ${
                                 planTab === 'schedule'
-                                    ? 'text-brand-700'
+                                    ? 'text-lg font-extrabold text-brand-700'
                                     : hasConfirmedDates
-                                      ? 'text-slate-400 hover:text-slate-700'
-                                      : 'cursor-not-allowed text-slate-200'
+                                      ? 'text-xs font-bold text-slate-400 hover:text-slate-600'
+                                      : 'cursor-not-allowed text-xs font-bold text-slate-200'
                             }`}
                         >
                             일정
