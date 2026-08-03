@@ -164,4 +164,32 @@ class PlaceControllerTest {
                 .andExpect(jsonPath("$.data.englishName").value("Hwaseong"))
                 .andExpect(jsonPath("$.data.countryCode").value("KR"));
     }
+
+    @Test
+    @DisplayName("t8 유효한 placeId로 요청하면 장소 단건 정보를 반환한다")
+    void t8_getDetailsReturnsPlaceSearchResponse() throws Exception {
+        PlaceSearchResponse response = new PlaceSearchResponse(
+                "ChIJdetail", "스타벅스 강남점",
+                "서울 강남구 테헤란로 123",
+                37.498, 127.027,
+                "cafe", List.of("cafe", "food"),
+                PlaceCategoryType.CAFE, null,
+                4.2, 1203, null, null, null, null, null, null, null, null, null
+        );
+        given(placeSearchService.getPlaceDetails("ChIJdetail")).willReturn(response);
+
+        mockMvc.perform(get("/api/places/details").param("placeId", "ChIJdetail"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.googlePlaceId").value("ChIJdetail"))
+                .andExpect(jsonPath("$.data.name").value("스타벅스 강남점"))
+                .andExpect(jsonPath("$.data.rating").value(4.2));
+    }
+
+    @Test
+    @DisplayName("t9 placeId 없이 요청하면 400을 반환한다")
+    void t9_getDetailsWithoutPlaceIdReturns400() throws Exception {
+        mockMvc.perform(get("/api/places/details"))
+                .andExpect(status().isBadRequest());
+    }
 }
