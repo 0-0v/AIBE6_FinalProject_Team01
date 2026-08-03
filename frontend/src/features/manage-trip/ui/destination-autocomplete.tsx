@@ -12,8 +12,10 @@ export type DestinationResult = {
 }
 
 // Places API (New) 타입 정의
+type SessionToken = object
+
 type NewPlace = {
-    fetchFields: (options: { fields: string[] }) => Promise<void>
+    fetchFields: (options: { fields: string[]; sessionToken?: SessionToken }) => Promise<void>
     location?: { lat: () => number; lng: () => number }
 }
 
@@ -33,6 +35,7 @@ type AutocompleteSuggestionLib = {
     fetchAutocompleteSuggestions: (request: {
         input: string
         includedPrimaryTypes?: string[]
+        sessionToken?: SessionToken
     }) => Promise<{ suggestions: PlaceSuggestion[] }>
 }
 
@@ -55,6 +58,8 @@ export function DestinationAutocomplete({
     const containerRef = useRef<HTMLDivElement>(null)
     const mountedRef = useRef(true)
     const cacheRef = useRef<Map<string, PlacePrediction[]>>(new Map())
+    // 자동완성 세션 토큰: 타이핑 시작 ~ 장소 선택까지를 하나의 과금 단위로 묶음
+    const sessionTokenRef = useRef<SessionToken | null>(null)
     useEffect(() => {
         mountedRef.current = true
         return () => { mountedRef.current = false }
@@ -83,10 +88,16 @@ export function DestinationAutocomplete({
         }
         const lib = placesLib as unknown as {
             AutocompleteSuggestion: AutocompleteSuggestionLib
+            AutocompleteSessionToken: new () => SessionToken
+        }
+        // 세션 토큰이 없으면 새로 생성 (타이핑 세션 시작)
+        if (!sessionTokenRef.current && lib.AutocompleteSessionToken) {
+            sessionTokenRef.current = new lib.AutocompleteSessionToken()
         }
         void lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
             input: text,
             includedPrimaryTypes: ['locality', 'administrative_area_level_1'],
+            sessionToken: sessionTokenRef.current ?? undefined,
         })
             .then(({ suggestions: results }) => {
                 if (!mountedRef.current) return
@@ -118,9 +129,14 @@ export function DestinationAutocomplete({
         setOpen(false)
         setSuggestions([])
 
+        // 선택 시 세션 토큰을 fetchFields에 포함 → 세션 종료 후 토큰 초기화
+        const token = sessionTokenRef.current
+        sessionTokenRef.current = null
+        cacheRef.current.clear()
+
         try {
             const place = prediction.toPlace()
-            await place.fetchFields({ fields: ['location'] })
+            await place.fetchFields({ fields: ['location'], sessionToken: token ?? undefined })
 
             const loc = place.location
             if (!loc) return
