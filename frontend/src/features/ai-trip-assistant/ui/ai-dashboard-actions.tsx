@@ -13,6 +13,7 @@ import type { ItineraryDay } from '@/entities/trip'
 import { PLACE_SEARCH_CATEGORIES } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { globalModal } from '@/shared/model'
+import { Select } from '@/shared/ui'
 import { recommendPlacesAlongRoute } from '../api/ai-trip-api'
 import type { AiPlaceRecommendation } from '../model/types'
 import { AiBrandMark } from './ai-brand-mark'
@@ -90,6 +91,9 @@ export function AiDashboardActions({
     const [selectedSegmentKey, setSelectedSegmentKey] = useState<string | null>(
         null,
     )
+    const [selectedRouteDayId, setSelectedRouteDayId] = useState<number | null>(
+        selectedDayId,
+    )
     const [recommendationReferenceTime, setRecommendationReferenceTime] =
         useState<Date | null>(null)
     const [loading, setLoading] = useState(false)
@@ -129,9 +133,33 @@ export function AiDashboardActions({
                 ),
             )
     })
-    const defaultSegment =
-        routeSegments.find((segment) => segment.dayId === selectedDayId) ??
-        routeSegments[0]
+    const routeDays = Array.from(
+        new Map(
+            routeSegments.map((segment) => [
+                segment.dayId,
+                {
+                    dayId: segment.dayId,
+                    dayNumber: segment.dayNumber,
+                    itineraryDate: segment.itineraryDate,
+                },
+            ]),
+        ).values(),
+    )
+    const activeRouteDayId = routeDays.some(
+        (day) => day.dayId === selectedRouteDayId,
+    )
+        ? selectedRouteDayId
+        : routeDays.some((day) => day.dayId === selectedDayId)
+          ? selectedDayId
+          : (routeDays[0]?.dayId ?? null)
+    const visibleRouteSegments = routeSegments.filter(
+        (segment) => segment.dayId === activeRouteDayId,
+    )
+    const routeDayOptions = routeDays.map((day) => ({
+        value: String(day.dayId),
+        label: `Day ${day.dayNumber} · ${day.itineraryDate} · ${routeSegments.filter((segment) => segment.dayId === day.dayId).length}개 구간`,
+    }))
+    const defaultSegment = visibleRouteSegments[0]
     const selectedSegment =
         routeSegments.find((segment) => segment.key === selectedSegmentKey) ??
         defaultSegment
@@ -146,8 +174,7 @@ export function AiDashboardActions({
         ) {
             globalModal.open({
                 title: '여행 중에만 사용할 수 있어요',
-                description:
-                    'AI 일정 재배치는 여행 시작일부터 종료일까지 이용할 수 있습니다.',
+                description: '여행 시작일부터 종료일까지 사용할 수 있습니다.',
                 confirmText: '확인',
             })
             return
@@ -204,6 +231,7 @@ export function AiDashboardActions({
         setMode('place')
         setPrompt('')
         setSelectedSegmentKey(null)
+        setSelectedRouteDayId(selectedDayId)
         setRecommendationReferenceTime(new Date())
         setLoading(false)
         setError(null)
@@ -309,8 +337,26 @@ export function AiDashboardActions({
                                     </div>
 
                                     {routeSegments.length > 0 ? (
-                                        <div className="mt-3 grid gap-2 md:grid-cols-2">
-                                            {routeSegments.map((segment) => {
+                                        <div className="mt-3 rounded-2xl border border-slate-200 p-3">
+                                            <Select
+                                                aria-label="장소 추천 Day 선택"
+                                                value={String(
+                                                    activeRouteDayId ?? '',
+                                                )}
+                                                options={routeDayOptions}
+                                                onChange={(value) => {
+                                                    setSelectedRouteDayId(
+                                                        Number(value),
+                                                    )
+                                                    setSelectedSegmentKey(null)
+                                                    setError(null)
+                                                    setEmptyResult(false)
+                                                }}
+                                                variant="form"
+                                                className="w-full"
+                                            />
+                                            <div className="mp-scroll mt-3 grid max-h-[268px] gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+                                            {visibleRouteSegments.map((segment) => {
                                                 const isSelected =
                                                     selectedSegment?.key ===
                                                     segment.key
@@ -386,6 +432,13 @@ export function AiDashboardActions({
                                                     </button>
                                                 )
                                             })}
+                                            </div>
+                                            {visibleRouteSegments.length >
+                                                6 && (
+                                                <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">
+                                                    아래로 스크롤해 나머지 동선을 확인하세요.
+                                                </p>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="mt-3 rounded-2xl border border-dashed border-amber-200 bg-amber-50 px-4 py-4 text-center">
