@@ -17,7 +17,6 @@ import type {
     RoutePlanPreview,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
-import { Select } from '@/shared/ui'
 import {
     applyAiItineraryReplan,
     previewAiItineraryReplan,
@@ -197,23 +196,6 @@ export function AiItineraryReplanModal({
                 .filter((day) => day.items.length > 0),
         [days],
     )
-    const [selectedDayId, setSelectedDayId] = useState(() =>
-        String(
-            days.find((day) =>
-                day.items.some((item) => item.tripPlaceId !== null),
-            )?.id ?? '',
-        ),
-    )
-    const selectedDisplayDay =
-        displayDays.find((day) => String(day.id) === selectedDayId) ??
-        displayDays[0] ??
-        null
-    const selectedDayValue =
-        selectedDisplayDay == null ? '' : String(selectedDisplayDay.id)
-    const dayOptions = displayDays.map((day) => ({
-        value: String(day.id),
-        label: `Day ${day.dayNumber} · ${day.itineraryDate} · ${day.items.length}개 일정`,
-    }))
     const remainingItems = useMemo(
         () =>
             displayDays.flatMap((day) =>
@@ -362,30 +344,25 @@ export function AiItineraryReplanModal({
                                             없습니다.
                                         </div>
                                     ) : (
-                                        <section className="rounded-2xl border border-slate-200 p-3">
-                                            <Select
-                                                aria-label="재배치 일자 선택"
-                                                value={selectedDayValue}
-                                                options={dayOptions}
-                                                onChange={(value) => {
-                                                    setSelectedDayId(value)
-                                                    setSelectedItemId(null)
-                                                    setError(null)
-                                                }}
-                                                variant="form"
-                                                className="w-full"
-                                                menuClassName="font-semibold"
-                                            />
-                                            {selectedDisplayDay && (
-                                                <div className="mp-scroll mt-3 grid max-h-[228px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                                                    {selectedDisplayDay.items.map(
-                                                        (item) => {
+                                        displayDays.map((day) => (
+                                            <section
+                                                key={day.id}
+                                                className="rounded-2xl border border-slate-200 p-3"
+                                            >
+                                                <p className="mb-2 text-[11px] font-black text-brand">
+                                                    Day {day.dayNumber}{' '}
+                                                    <span className="font-medium text-slate-400">
+                                                        {day.itineraryDate}
+                                                    </span>
+                                                </p>
+                                                <div className="grid gap-2 sm:grid-cols-2">
+                                                    {day.items.map((item) => {
                                                         const itemId = Number(
                                                             item.id,
                                                         )
                                                         const selectable =
                                                             isRemainingItem(
-                                                                selectedDisplayDay.itineraryDate,
+                                                                day.itineraryDate,
                                                                 item,
                                                                 openedAt,
                                                             )
@@ -436,18 +413,10 @@ export function AiItineraryReplanModal({
                                                                 </span>
                                                             </button>
                                                         )
-                                                        },
-                                                    )}
+                                                    })}
                                                 </div>
-                                            )}
-                                            {selectedDisplayDay &&
-                                                selectedDisplayDay.items
-                                                    .length > 6 && (
-                                                    <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">
-                                                        아래로 스크롤해 나머지 일정을 확인하세요.
-                                                    </p>
-                                                )}
-                                        </section>
+                                            </section>
+                                        ))
                                     )}
                                 </div>
                             </div>
