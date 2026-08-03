@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ExternalLinkIcon, ImageOffIcon } from 'lucide-react'
 import { getPlacePhotoMetadata, type PlacePhotoMetadata } from '@/entities/trip'
 import { resolveGooglePlacePhotoUrl } from '@/shared/api/client'
+
+// 같은 googlePlaceId에 대한 중복 API 호출 방지 (페이지 세션 내 인메모리 캐시)
+const photoMetadataCache = new Map<string, Promise<PlacePhotoMetadata>>()
 
 type Props = {
     placeId: string
@@ -28,12 +31,19 @@ export function LazyPlacePhoto({
 }: Props) {
     const [metadata, setMetadata] = useState<PlacePhotoMetadata | null>(null)
     const [failed, setFailed] = useState(false)
+    const onPhotoResolvedRef = useRef(onPhotoResolved)
+    onPhotoResolvedRef.current = onPhotoResolved
 
     useEffect(() => {
-        const controller = new AbortController()
+        let cancelled = false
 
-        void getPlacePhotoMetadata(googlePlaceId, controller.signal)
+        const cached = photoMetadataCache.get(googlePlaceId)
+        const request = cached ?? getPlacePhotoMetadata(googlePlaceId)
+        if (!cached) photoMetadataCache.set(googlePlaceId, request)
+
+        void request
             .then((nextMetadata) => {
+                if (cancelled) return
                 setMetadata(nextMetadata)
                 const photoUrl = resolveGooglePlacePhotoUrl(
                     nextMetadata.photoName,
@@ -42,7 +52,7 @@ export function LazyPlacePhoto({
                     (candidate) => candidate.displayName,
                 )
                 if (photoUrl && nextMetadata.googleMapsUri) {
-                    onPhotoResolved?.(
+                    onPhotoResolvedRef.current?.(
                         placeId,
                         photoUrl,
                         firstAuthor?.displayName ?? null,
@@ -52,11 +62,14 @@ export function LazyPlacePhoto({
                 }
             })
             .catch(() => {
-                if (!controller.signal.aborted) setFailed(true)
+                if (!cancelled) {
+                    photoMetadataCache.delete(googlePlaceId)
+                    setFailed(true)
+                }
             })
 
-        return () => controller.abort()
-    }, [googlePlaceId, onPhotoResolved, placeId])
+        return () => { cancelled = true }
+    }, [googlePlaceId, placeId])
 
     const googlePhotoUrl = resolveGooglePlacePhotoUrl(metadata?.photoName)
     const author = metadata?.authorAttributions.find(
