@@ -3,13 +3,16 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+    defaultDropAnimationSideEffects,
     DndContext,
     DragOverlay,
     useDraggable,
     useDroppable,
+    type DropAnimation,
 } from '@dnd-kit/core'
 import { CategoryIcon } from '@/entities/trip'
-import type { ItineraryDay, Place } from '@/entities/trip'
+import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
+import { formatTimeRange } from '../lib/itinerary-time'
 import {
     itineraryCollisionDetection,
     UNSCHEDULED_DROP_ZONE_ID,
@@ -21,6 +24,46 @@ import {
     ItineraryBoardFeedback,
     ItineraryBoardGuide,
 } from './itinerary-board-feedback'
+
+// ────────────────────────────────────────────────────────────
+// DragOverlay 드롭 애니메이션
+const dropAnimation: DropAnimation = {
+    sideEffects: defaultDropAnimationSideEffects({
+        styles: { active: { opacity: '0' } },
+    }),
+}
+
+// 드래그 중 커서에 표시되는 일정 카드 미니 복제본
+function ScheduleItemDragOverlay({ item }: { item: ItineraryItem }) {
+    return (
+        <div className="flex w-64 cursor-grabbing items-stretch rounded-lg border border-brand/40 bg-white shadow-2xl ring-2 ring-brand/20">
+            <div
+                className="w-1.5 shrink-0 rounded-l-lg"
+                style={{ backgroundColor: item.categoryColor ?? '#e2e8f0' }}
+            />
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5">
+                {item.categoryIcon && (
+                    <span
+                        className="shrink-0"
+                        style={{ color: item.categoryColor ?? '#94a3b8' }}
+                    >
+                        <CategoryIcon
+                            icon={item.categoryIcon}
+                            size={12}
+                            strokeWidth={2.5}
+                        />
+                    </span>
+                )}
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+                    {item.placeName ?? '(제목 없음)'}
+                </span>
+                <span className="shrink-0 text-xs text-slate-400">
+                    {formatTimeRange(item.startTime, item.endTime)}
+                </span>
+            </div>
+        </div>
+    )
+}
 
 // ────────────────────────────────────────────────────────────
 // Draggable place chip (드래그 + 클릭으로 Day 선택)
@@ -124,6 +167,7 @@ type Props = {
     roomId?: string
     places: Place[]
     canWrite: boolean
+    realtimeVersion?: number
     onDaysLoaded?: (days: ItineraryDay[]) => void
     onPlaceFocus?: (placeId: string) => void
 }
@@ -133,6 +177,7 @@ export function SchedulePanel({
     roomId,
     places,
     canWrite,
+    realtimeVersion = 0,
     onDaysLoaded,
     onPlaceFocus,
 }: Props) {
@@ -152,12 +197,13 @@ export function SchedulePanel({
         undoLastAction,
         unscheduledPlaces,
         activePlaceForOverlay,
+        activeScheduledItemForOverlay,
         addPlaceToDay,
         handleDragStart,
         handleDragOver,
         handleDragCancel,
         handleDragEnd,
-    } = useItineraryBoard(tripId, places, canWrite)
+    } = useItineraryBoard(tripId, places, canWrite, realtimeVersion)
 
     useEffect(() => {
         if (!loading) onDaysLoaded?.(days)
@@ -194,10 +240,15 @@ export function SchedulePanel({
         <DndContext
             sensors={sensors}
             collisionDetection={itineraryCollisionDetection}
+            autoScroll={{ threshold: { x: 0.1, y: 0.08 }, acceleration: 6 }}
+            accessibility={{ restoreFocus: false }}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragCancel={handleDragCancel}
-            onDragEnd={(e) => void handleDragEnd(e)}
+            onDragEnd={(e) => {
+                void handleDragEnd(e)
+                ;(document.activeElement as HTMLElement | null)?.blur()
+            }}
         >
             <div className="relative flex min-h-0 flex-1 flex-col">
                 <ItineraryBoardGuide />
@@ -341,10 +392,14 @@ export function SchedulePanel({
                 />
             </div>
 
-            <DragOverlay>
-                {activePlaceForOverlay ? (
+            <DragOverlay dropAnimation={dropAnimation}>
+                {activeScheduledItemForOverlay ? (
+                    <ScheduleItemDragOverlay
+                        item={activeScheduledItemForOverlay}
+                    />
+                ) : activePlaceForOverlay ? (
                     <div
-                        className="cursor-grabbing rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-lg"
+                        className="flex cursor-grabbing items-center gap-1 rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-xl ring-1 ring-brand/20"
                         style={
                             activePlaceForOverlay.categoryColor
                                 ? {
@@ -355,6 +410,13 @@ export function SchedulePanel({
                                 : undefined
                         }
                     >
+                        {activePlaceForOverlay.categoryIcon && (
+                            <CategoryIcon
+                                icon={activePlaceForOverlay.categoryIcon}
+                                size={11}
+                                strokeWidth={2.5}
+                            />
+                        )}
                         {activePlaceForOverlay.name}
                     </div>
                 ) : null}

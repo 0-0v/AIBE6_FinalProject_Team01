@@ -60,8 +60,9 @@ export function useItineraryBoard(
     tripId: number,
     places: Place[],
     canWrite: boolean,
+    refreshVersion = 0,
 ) {
-    const itinerary = useItineraryDays(tripId, canWrite)
+    const itinerary = useItineraryDays(tripId, canWrite, refreshVersion)
     const { days, setDays, refresh } = itinerary
     const [dndError, setDndError] = useState<string | null>(null)
     const [activePlaceId, setActivePlaceId] = useState<string | null>(null)
@@ -77,11 +78,11 @@ export function useItineraryBoard(
         useState(false)
     const sensors = useSensors(
         useSensor(MouseSensor, {
-            activationConstraint: { distance: 6 },
+            activationConstraint: { distance: 10 },
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 180,
+                delay: 200,
                 tolerance: 8,
             },
         }),
@@ -123,8 +124,16 @@ export function useItineraryBoard(
                 .map(String),
         ),
     )
+    const departureTripPlaceIds = new Set(
+        days
+            .map((day) => day.departure?.tripPlaceId)
+            .filter((id) => id != null)
+            .map(String),
+    )
     const unscheduledPlaces = savedPlaces.filter(
-        (place) => !scheduledTripPlaceIds.has(String(place.id)),
+        (place) =>
+            !scheduledTripPlaceIds.has(String(place.id)) &&
+            !departureTripPlaceIds.has(String(place.id)),
     )
 
     async function addPlaceToDay(
@@ -146,7 +155,11 @@ export function useItineraryBoard(
                 Number(placeId),
                 insertionIndex ?? getNextSortOrder(targetDay.items),
             )
-            setDays(await getItinerary(tripId))
+            setDays((current) =>
+                current.map((d) =>
+                    String(d.id) === String(created.id) ? created : d,
+                ),
+            )
             const createdItem = created.items.find(
                 (item) => String(item.tripPlaceId) === placeId,
             )
@@ -281,19 +294,25 @@ export function useItineraryBoard(
             )
             try {
                 await removeItineraryItem(tripId, Number(activeId))
-                setDays(await getItinerary(tripId))
+                // 낙관적 업데이트로 충분 — 추가 getItinerary 불필요
                 setFeedback({
                     message: '장소를 저장된 장소로 되돌렸어요.',
                     undo:
                         sourceDay != null && movingItem?.tripPlaceId != null
                             ? async () => {
-                                  await addItineraryItem(
+                                  const reAdded = await addItineraryItem(
                                       tripId,
                                       Number(sourceDay.id),
                                       Number(movingItem.tripPlaceId),
                                       movingItem.sortOrder,
                                   )
-                                  setDays(await getItinerary(tripId))
+                                  setDays((current) =>
+                                      current.map((d) =>
+                                          String(d.id) === String(reAdded.id)
+                                              ? reAdded
+                                              : d,
+                                      ),
+                                  )
                               }
                             : undefined,
                 })
@@ -359,7 +378,7 @@ export function useItineraryBoard(
                     Number(targetDayId),
                     insertionIndex,
                 )
-                setDays(await getItinerary(tripId))
+                // 낙관적 업데이트로 위치는 확정 — 이동 시간은 백그라운드에서 갱신
                 setFeedback({
                     message: `${targetDay.title ?? `Day ${targetDay.dayNumber}`}로 장소를 이동했어요.`,
                     undo: async () => {
@@ -377,6 +396,12 @@ export function useItineraryBoard(
                         setDays(await getItinerary(tripId))
                     },
                 })
+                // 두 Day의 이동 시간만 조용히 갱신 (1초 후, 사용자 시선이 멀어진 뒤)
+                setTimeout(() => {
+                    void getItinerary(tripId)
+                        .then(setDays)
+                        .catch(() => {})
+                }, 1000)
             } catch (error) {
                 const refreshError =
                     await restoreAfterMutationFailure(previousDays)
@@ -398,12 +423,19 @@ export function useItineraryBoard(
         const dropZone = parseItineraryDropZoneId(overId)
         const newIndex =
             dropZone == null
-                ? getSameDayInsertionIndex(
-                      sourceDay.items,
-                      activeId,
-                      overId,
-                      isPlacedAfterOverItem(event),
-                  )
+                ? overId === sourceDayId
+                    ? // 포인터가 모든 아이템 아래 컨테이너 영역에 있음 → 맨 끝에 삽입
+                      getSameDayInsertionIndexAtBoundary(
+                          sourceDay.items,
+                          activeId,
+                          sourceDay.items.length,
+                      )
+                    : getSameDayInsertionIndex(
+                          sourceDay.items,
+                          activeId,
+                          overId,
+                          isPlacedAfterOverItem(event),
+                      )
                 : getSameDayInsertionIndexAtBoundary(
                       sourceDay.items,
                       activeId,
@@ -425,21 +457,32 @@ export function useItineraryBoard(
             ),
         )
         try {
-            await reorderItineraryItems(
+            const updatedDay = await reorderItineraryItems(
                 tripId,
                 Number(sourceDayId),
                 reorderedItems.map((item) => Number(item.id)),
             )
-            setDays(await getItinerary(tripId))
+            // API 응답(이동 시간 포함)으로 해당 Day만 교체 — 다른 Day 불변
+            setDays((current) =>
+                current.map((d) =>
+                    String(d.id) === String(updatedDay.id) ? updatedDay : d,
+                ),
+            )
             setFeedback({
                 message: `Day ${sourceDay.dayNumber}의 방문 순서를 변경했어요.`,
                 undo: async () => {
-                    await reorderItineraryItems(
+                    const restoredDay = await reorderItineraryItems(
                         tripId,
                         Number(sourceDayId),
                         previousOrder,
                     )
-                    setDays(await getItinerary(tripId))
+                    setDays((current) =>
+                        current.map((d) =>
+                            String(d.id) === String(restoredDay.id)
+                                ? restoredDay
+                                : d,
+                        ),
+                    )
                 },
             })
         } catch (error) {
@@ -484,6 +527,12 @@ export function useItineraryBoard(
         activePlaceForOverlay: activePlaceId
             ? (places.find((place) => place.id === activePlaceId) ?? null)
             : null,
+        activeScheduledItemForOverlay:
+            isDraggingScheduledItem && activeDragId
+                ? (days
+                      .flatMap((day) => day.items)
+                      .find((item) => String(item.id) === activeDragId) ?? null)
+                : null,
         addPlaceToDay,
         handleDragStart,
         handleDragOver,

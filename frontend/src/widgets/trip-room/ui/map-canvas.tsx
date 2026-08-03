@@ -426,12 +426,12 @@ function GoogleMapCanvas({
                 }}
                 onClick={(event) => {
                     const clickedPlaceId = event.detail.placeId
-                    if (clickedPlaceId) {
+                    if (clickedPlaceId && event.detail.latLng) {
                         event.stop()
                         const cached = resolvedPoiDetails.get(clickedPlaceId)
                         setPoiState({
                             placeId: clickedPlaceId,
-                            latLng: event.detail.latLng ?? { lat: 0, lng: 0 },
+                            latLng: event.detail.latLng,
                             loading: !cached,
                             result: cached ?? null,
                             error: null,
@@ -469,7 +469,7 @@ function GoogleMapCanvas({
                     <AdvancedMarker
                         position={poiState.latLng}
                         zIndex={200}
-                        clickable={false}
+                        onClick={() => {}}
                     >
                         <div className="relative flex flex-col items-center">
                             <MapPoiPopup

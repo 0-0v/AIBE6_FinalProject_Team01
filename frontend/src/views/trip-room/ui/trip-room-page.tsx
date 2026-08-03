@@ -8,7 +8,7 @@ import React, {
     useState,
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { SparklesIcon } from 'lucide-react'
+import { MapIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
     Place,
@@ -101,7 +101,6 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const handleAiRouteApplied = useCallback(
         (days: ItineraryDay[]) => {
             setItineraryState({ tripId, days })
-            setItineraryVersion((current) => current + 1)
         },
         [tripId],
     )
@@ -639,7 +638,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 >
                     <MapCanvas
                         key={`map-${tripId ?? 'none'}-${pendingAiAction?.routeContext?.dayId ?? 'all'}-${pendingAiAction?.routeContext?.segmentIndex ?? 'all'}`}
-                        places={mapPlaces}
+                        places={showRoomList ? [] : mapPlaces}
                         initialLat={room?.destinationLat}
                         initialLng={room?.destinationLng}
                         selectedId={selectedId}
@@ -661,6 +660,14 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         existingGooglePlaceIds={existingGooglePlaceIds}
                         canWrite={!inviteCode && canManagePlaces}
                     />
+                    {showRoomList && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/55 backdrop-blur-[3px]">
+                            <MapIcon size={36} className="mb-3 text-slate-300" />
+                            <p className="text-sm font-semibold text-slate-500">
+                                여행방을 선택하면 저장된 장소가 표시됩니다
+                            </p>
+                        </div>
+                    )}
                     {!inviteCode && canManagePlaces && (
                         <button
                             onClick={() => setAiOpen(true)}

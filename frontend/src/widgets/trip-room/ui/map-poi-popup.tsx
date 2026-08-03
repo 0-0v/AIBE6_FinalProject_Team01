@@ -23,6 +23,10 @@ export function MapPoiPopup({
     onSave,
     onClose,
 }: Props) {
+    const presentation = result
+        ? resolvePlaceCategoryPresentation(result.recommendedCategoryType)
+        : null
+
     return (
         <div
             className="relative flex w-64 flex-col rounded-xl bg-white shadow-lg"
@@ -50,31 +54,24 @@ export function MapPoiPopup({
                     <p className="py-2 text-sm text-rose-500">{error}</p>
                 )}
 
-                {!loading && !error && result && (
+                {!loading && !error && result && presentation && (
                     <>
                         {/* 카테고리 배지 */}
-                        {(() => {
-                            const presentation = resolvePlaceCategoryPresentation(
-                                result.recommendedCategoryType,
-                            )
-                            return (
-                                <span
-                                    className="mb-1.5 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                                    style={{
-                                        backgroundColor: `${presentation.color}18`,
-                                        color: presentation.color,
-                                    }}
-                                >
-                                    <CategoryIcon
-                                        icon={presentation.icon}
-                                        size={9}
-                                        className="mr-0.5 inline"
-                                        aria-hidden
-                                    />
-                                    {presentation.label}
-                                </span>
-                            )
-                        })()}
+                        <span
+                            className="mb-1.5 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                            style={{
+                                backgroundColor: `${presentation.color}18`,
+                                color: presentation.color,
+                            }}
+                        >
+                            <CategoryIcon
+                                icon={presentation.icon}
+                                size={9}
+                                className="mr-0.5 inline"
+                                aria-hidden
+                            />
+                            {presentation.label}
+                        </span>
 
                         {/* 장소 이름 */}
                         <h3 className="truncate pr-4 text-sm font-extrabold text-slate-900">

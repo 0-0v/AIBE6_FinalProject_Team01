@@ -14,7 +14,10 @@ import { useCommentStore } from '@/features/comment-place'
 import { useTripStore } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
-import { KanbanSchedulePanel, TimetableSchedulePanel } from '@/widgets/trip-room'
+import {
+    KanbanSchedulePanel,
+    TimetableSchedulePanel,
+} from '@/widgets/trip-room'
 import {
     REALTIME_EVENT_NAME,
     type RealtimeEvent,
@@ -24,7 +27,9 @@ export function ScheduleKanbanPage() {
     const { roomId } = useParams<{ roomId: string }>()
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const isUserInitialized = useCurrentUserStore((state) => state.isInitialized)
+    const isUserInitialized = useCurrentUserStore(
+        (state) => state.isInitialized,
+    )
     const { rooms, isLoading, loadTrips, selectTrip } = useTripStore()
 
     const room = rooms.find((r) => r.id === roomId)
@@ -76,11 +81,14 @@ export function ScheduleKanbanPage() {
                 const votesByPlaceId = new Map(
                     voteSummaries.map((vote) => [vote.tripPlaceId, vote]),
                 )
-                const cachedComments = useCommentStore.getState().commentsByPlaceId
+                const cachedComments =
+                    useCommentStore.getState().commentsByPlaceId
                 setPlaces(
                     tripPlaces
                         .filter(
-                            (tp) => votesByPlaceId.get(tp.tripPlaceId)?.placeStatus !== 'REJECTED',
+                            (tp) =>
+                                votesByPlaceId.get(tp.tripPlaceId)
+                                    ?.placeStatus !== 'REJECTED',
                         )
                         .map((tp) => {
                             const place = fromApiToPlace(
@@ -90,7 +98,8 @@ export function ScheduleKanbanPage() {
                             )
                             return {
                                 ...place,
-                                comments: cachedComments[place.id] ?? place.comments,
+                                comments:
+                                    cachedComments[place.id] ?? place.comments,
                             }
                         }),
                 )
@@ -99,7 +108,9 @@ export function ScheduleKanbanPage() {
                 if (controller.signal.aborted) return
                 setPlaces([])
                 setCanManage(false)
-                setPlacesError(getApiErrorMessage(err, '장소를 불러오지 못했습니다.'))
+                setPlacesError(
+                    getApiErrorMessage(err, '장소를 불러오지 못했습니다.'),
+                )
             })
         return () => controller.abort()
     }, [realtimeVersion, room?.id, tripId])
@@ -119,7 +130,9 @@ export function ScheduleKanbanPage() {
     if (!room || !tripId) {
         return (
             <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-white">
-                <p className="text-sm text-slate-400">여행방을 찾을 수 없습니다.</p>
+                <p className="text-sm text-slate-400">
+                    여행방을 찾을 수 없습니다.
+                </p>
                 <button
                     type="button"
                     onClick={() => navigate(`/app/room/${roomId ?? ''}`)}
@@ -144,7 +157,9 @@ export function ScheduleKanbanPage() {
                     돌아가기
                 </button>
                 <div className="h-4 w-px bg-slate-200" />
-                <h1 className="truncate text-sm font-bold text-slate-800">{room.title}</h1>
+                <h1 className="truncate text-sm font-bold text-slate-800">
+                    {room.title}
+                </h1>
                 <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-xs font-bold text-brand">
                     일정 보드
                 </span>
@@ -183,10 +198,11 @@ export function ScheduleKanbanPage() {
             {/* 뷰 패널 */}
             {view === 'kanban' ? (
                 <KanbanSchedulePanel
-                    key={`kanban-${tripId}-${realtimeVersion}`}
+                    key={`kanban-${tripId}`}
                     tripId={tripId}
                     places={places}
                     canWrite={canPlanWrite}
+                    realtimeVersion={realtimeVersion}
                 />
             ) : (
                 <TimetableSchedulePanel

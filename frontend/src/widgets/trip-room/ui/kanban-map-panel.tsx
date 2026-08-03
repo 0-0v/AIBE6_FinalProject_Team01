@@ -31,6 +31,7 @@ import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 
 const DEFAULT_CENTER = { lat: 33.489, lng: 126.4983 }
 const CATEGORY_BADGE_MIN_ZOOM = 10
+const FOCUSED_CARD_VIEWPORT_PADDING = 12
 
 function FocusedItineraryItemCard({
     dayNumber,
@@ -46,7 +47,10 @@ function FocusedItineraryItemCard({
     place?: Place
 }) {
     return (
-        <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl">
+        <div
+            data-focused-map-card
+            className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl"
+        >
             <div className="flex items-start gap-2">
                 <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">
                     {item.placeName ?? '장소'}
@@ -97,7 +101,10 @@ function FocusedItineraryItemCard({
 
 function FocusedSavedPlaceCard({ place }: { place: Place }) {
     return (
-        <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-52 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl">
+        <div
+            data-focused-map-card
+            className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-52 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl"
+        >
             <p className="truncate text-xs font-bold text-slate-800">
                 {place.name}
             </p>
@@ -129,6 +136,7 @@ type Props = {
     onItemHoverChange: (itemId: string | null) => void
     focusedItemId: string | null
     focusedPlaceId: string | null
+    focusRequestVersion?: number
     highlightedPlaceId?: string | null
     onItemFocus: (itemId: string | null) => void
     onPlaceFocus: (placeId: string | null) => void
@@ -137,9 +145,11 @@ type Props = {
 function MapFocusController({
     lat,
     lng,
+    focusRequestVersion,
 }: {
     lat: number | null
     lng: number | null
+    focusRequestVersion: number
 }) {
     const map = useMap()
 
@@ -151,16 +161,37 @@ function MapFocusController({
         }
 
         const animationFrame = window.requestAnimationFrame(() => {
-            const mapHeight = map.getDiv().clientHeight
-            const focusOffset = Math.min(
-                96,
-                Math.max(48, mapHeight * 0.25),
-            )
-            map.panBy(0, -focusOffset)
+            const mapRect = map.getDiv().getBoundingClientRect()
+            const card = map
+                .getDiv()
+                .querySelector<HTMLElement>('[data-focused-map-card]')
+            if (!card) return
+
+            const cardRect = card.getBoundingClientRect()
+            const minX = mapRect.left + FOCUSED_CARD_VIEWPORT_PADDING
+            const maxX = mapRect.right - FOCUSED_CARD_VIEWPORT_PADDING
+            const minY = mapRect.top + FOCUSED_CARD_VIEWPORT_PADDING
+            const maxY = mapRect.bottom - FOCUSED_CARD_VIEWPORT_PADDING
+            const contentShiftX =
+                cardRect.left < minX
+                    ? minX - cardRect.left
+                    : cardRect.right > maxX
+                      ? maxX - cardRect.right
+                      : 0
+            const contentShiftY =
+                cardRect.top < minY
+                    ? minY - cardRect.top
+                    : cardRect.bottom > maxY
+                      ? maxY - cardRect.bottom
+                      : 0
+
+            if (contentShiftX !== 0 || contentShiftY !== 0) {
+                map.panBy(-contentShiftX, -contentShiftY)
+            }
         })
 
         return () => window.cancelAnimationFrame(animationFrame)
-    }, [lat, lng, map])
+    }, [focusRequestVersion, lat, lng, map])
 
     return null
 }
@@ -175,6 +206,7 @@ function MapContent({
     focusedItemId,
     focusedPlaceId,
     highlightedPlaceId = null,
+    focusRequestVersion = 0,
     onItemFocus,
     onPlaceFocus,
 }: Props) {
@@ -341,6 +373,7 @@ function MapContent({
                 <MapFocusController
                     lat={activeFocusPosition?.lat ?? null}
                     lng={activeFocusPosition?.lng ?? null}
+                    focusRequestVersion={focusRequestVersion}
                 />
                 {segments.map((segment) => {
                     const isFocusMode = effectiveFocusedItemId != null
