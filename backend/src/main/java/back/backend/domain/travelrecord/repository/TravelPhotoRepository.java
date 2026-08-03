@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TravelPhotoRepository extends JpaRepository<TravelPhoto, Long> {
     List<TravelPhoto> findAllByTravelRecordIdInOrderBySortOrderAsc(Collection<Long> recordIds);
+    void deleteAllByTravelRecordId(Long travelRecordId);
 }

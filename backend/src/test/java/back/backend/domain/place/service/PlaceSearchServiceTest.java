@@ -303,4 +303,29 @@ class PlaceSearchServiceTest {
                 .containsExactly("ChIJosaka");
         server.verify();
     }
+
+    @Test
+    @DisplayName("t12 장소 상세를 영문으로 조회하면 목적지 영문명과 국가 코드를 반환한다")
+    void t12_destinationMetadataUsesEnglishPlaceDetails() {
+        String responseJson = """
+                {
+                  "displayName":{"text":"Hwaseong","languageCode":"en"},
+                  "addressComponents":[
+                    {"longText":"South Korea","shortText":"KR","types":["country"]}
+                  ]
+                }
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("/places/place-1"),
+                        org.hamcrest.Matchers.containsString("languageCode=en"))))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-Goog-FieldMask", "displayName,addressComponents"))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        var result = service.getDestinationMetadata("place-1");
+
+        assertThat(result.englishName()).isEqualTo("Hwaseong");
+        assertThat(result.countryCode()).isEqualTo("KR");
+        server.verify();
+    }
 }

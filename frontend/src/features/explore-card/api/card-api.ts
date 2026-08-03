@@ -11,6 +11,7 @@ export type PublicCard = {
     summary: string | null
     destination: string | null
     coverImageUrl: string | null
+    travelStyles: string[]
     tags: string[]
     bookmarkCount: number
     commentCount: number
@@ -51,15 +52,40 @@ export type PublicCardDetail = {
     coverImageUrl: string | null
     startDate: string | null
     endDate: string | null
+    visibility: 'PUBLIC_ROUTE' | 'PUBLIC_RECORD'
     itinerary: ItineraryDay[]
+    records: PublicCardRecord[]
 }
-export async function fetchPublicCards(page: number, sort: CardSort, query: string) {
-    const params = new URLSearchParams({ page: String(page), size: '9', sort })
+export type PublicCardRecord = {
+    id: number
+    tripPlaceId: number | null
+    placeName: string
+    categoryName: string | null
+    address: string | null
+    memo: string | null
+    imageUrls: string[]
+    recordedByNickname: string
+    visitedAt: string
+}
+export async function fetchPublicCards(
+    page: number,
+    sort: CardSort,
+    query: string,
+    travelStyle: string | null,
+) {
+    const params = new URLSearchParams({ page: String(page), size: '6', sort })
     if (query.trim()) params.set('query', query.trim())
-    return (await apiClient.get<ApiResponse<PublicCardPage>>(`/api/cards/public?${params}`)).data
+    if (travelStyle) params.set('travelStyle', travelStyle)
+    return (
+        await apiClient.get<ApiResponse<PublicCardPage>>(
+            `/api/cards/public?${params}`,
+        )
+    ).data
 }
 export async function fetchBookmarkedCards() {
-    return (await apiClient.get<ApiResponse<PublicCard[]>>('/api/cards/bookmarks')).data
+    return (
+        await apiClient.get<ApiResponse<PublicCard[]>>('/api/cards/bookmarks')
+    ).data
 }
 export async function fetchPublicCardDetail(cardId: number) {
     return (
@@ -75,17 +101,28 @@ export async function removeBookmark(cardId: number) {
     await apiClient.delete(`/api/cards/${cardId}/bookmarks`)
 }
 export async function fetchCardComments(cardId: number) {
-    return (await apiClient.get<ApiResponse<CardComment[]>>(`/api/cards/${cardId}/comments`)).data
+    return (
+        await apiClient.get<ApiResponse<CardComment[]>>(
+            `/api/cards/${cardId}/comments`,
+        )
+    ).data
 }
 export async function addCardComment(cardId: number, content: string) {
-    return (await apiClient.post<ApiResponse<CardComment>>(`/api/cards/${cardId}/comments`, { content })).data
+    return (
+        await apiClient.post<ApiResponse<CardComment>>(
+            `/api/cards/${cardId}/comments`,
+            { content },
+        )
+    ).data
 }
 export async function deleteCardComment(cardId: number, commentId: number) {
     await apiClient.delete(`/api/cards/${cardId}/comments/${commentId}`)
 }
 export async function fetchCopyTargets() {
     return (
-        await apiClient.get<ApiResponse<CopyTarget[]>>('/api/cards/copy-targets')
+        await apiClient.get<ApiResponse<CopyTarget[]>>(
+            '/api/cards/copy-targets',
+        )
     ).data
 }
 export async function copyCardItinerary(

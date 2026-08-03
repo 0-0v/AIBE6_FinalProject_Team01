@@ -91,14 +91,18 @@ export type Room = {
     location: string
     destinationLat: number | null
     destinationLng: number | null
+    destinationEnglishName: string | null
+    destinationCountryCode: string | null
     dday: string
     members: number
     cover: string
     status: string
     lifecycleStatus:
         'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-    visibility: 'PRIVATE' | 'PUBLIC'
+    visibility: 'PRIVATE' | 'PUBLIC_ROUTE' | 'PUBLIC_RECORD'
     color: string
+    companionLabel?: string
+    travelStyleLabels?: string[]
 }
 
 export type Expense = {

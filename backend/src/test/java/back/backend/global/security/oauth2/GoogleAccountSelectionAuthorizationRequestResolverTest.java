@@ -10,8 +10,8 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 class GoogleAccountSelectionAuthorizationRequestResolverTest {
 
     @Test
-    @DisplayName("t1 Google 인증 요청에는 계정 선택 파라미터를 추가한다")
-    void t1_googleAuthorizationRequestIncludesSelectAccountPrompt() {
+    @DisplayName("t1 Google 인증 요청에는 계정 선택과 재동의 및 오프라인 접근 파라미터를 추가한다")
+    void t1_googleAuthorizationRequestIncludesOfflineConsentParameters() {
         OAuth2AuthorizationRequest request = authorizationRequest();
 
         OAuth2AuthorizationRequest customized =
@@ -21,7 +21,8 @@ class GoogleAccountSelectionAuthorizationRequestResolverTest {
                 );
 
         assertThat(customized.getAdditionalParameters())
-                .containsEntry("prompt", "select_account");
+                .containsEntry("prompt", "consent select_account")
+                .containsEntry("access_type", "offline");
     }
 
     @Test
@@ -36,6 +37,7 @@ class GoogleAccountSelectionAuthorizationRequestResolverTest {
                 );
 
         assertThat(customized.getAdditionalParameters()).doesNotContainKey("prompt");
+        assertThat(customized.getAdditionalParameters()).doesNotContainKey("access_type");
     }
 
     private OAuth2AuthorizationRequest authorizationRequest() {

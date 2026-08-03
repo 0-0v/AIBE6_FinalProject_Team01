@@ -1,20 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
-    CalendarDaysIcon,
     BookmarkIcon,
     CheckCircle2Icon,
     ChevronDownIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     CreditCardIcon,
+    EllipsisVerticalIcon,
     MapIcon,
-    MapPinIcon,
     MessageCircleIcon,
     PlaneIcon,
     PlusIcon,
     ThumbsUpIcon,
 } from 'lucide-react'
+
 import { motion } from 'framer-motion'
 import {
     getItinerary,
@@ -24,6 +25,7 @@ import {
     type Place,
 } from '@/entities/trip'
 import {
+    ExpensePanel,
     fetchExpenseData,
     type ExpenseResponse,
     type SettlementSummary,
@@ -45,6 +47,17 @@ import { useCurrentUserStore } from '@/shared/model'
 import { Avatar } from '@/shared/ui'
 import { KanbanMapPanel } from '@/widgets/trip-room'
 import { TravelRooms } from '@/widgets/travel-rooms'
+
+const PUBLIC_CARD_STYLE_LABELS: Record<string, string> = {
+    ACTIVITY: '액티비티',
+    SNS_HOT_PLACE: 'SNS 핫플레이스',
+    NATURE: '자연과 함께',
+    FAMOUS_ATTRACTIONS: '유명관광지 필수',
+    RELAXATION: '여유롭게 힐링',
+    CULTURE_ART_HISTORY: '문화/예술/역사',
+    SHOPPING: '쇼핑',
+    FOOD: '맛집 먹거리',
+}
 
 type SurfaceId =
     | 'travel'
@@ -115,6 +128,7 @@ export function Home() {
         toDateKey(new Date()),
     )
     const [createTripOpen, setCreateTripOpen] = useState(false)
+    const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
     const [pendingVoteCount, setPendingVoteCount] = useState(0)
     const [openPlaceVotes, setOpenPlaceVotes] = useState<OpenPlaceVote[]>([])
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
@@ -309,8 +323,9 @@ export function Home() {
             : selectedItineraryDay?.items[0] != null
               ? String(selectedItineraryDay.items[0].id)
               : null
-    const insightSlideCount = logs.length > 0 ? 2 : 1
+    const insightSlideCount = logs.length > 0 ? 3 : 2
     const visibleInsightSlide = insightSlide % insightSlideCount
+    const settlementSlideIndex = logs.length > 0 ? 2 : 1
     const bookmarkPageSize = 4
     const bookmarkPageCount = Math.max(
         1,
@@ -395,16 +410,16 @@ export function Home() {
                                 onClick={() =>
                                     setIsTripSelectorOpen((open) => !open)
                                 }
-                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-lg px-2 text-left transition hover:bg-rose-50/70 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-xl bg-[#fdeef1] px-3 py-1.5 text-left transition hover:bg-[#f2647c] hover:shadow-[0_10px_24px_rgba(242,100,124,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <span className="min-w-0 break-keep font-['JejuStoneWall'] text-2xl font-normal tracking-[-0.02em] text-[#c94c63] [text-shadow:0_3px_10px_rgba(201,76,99,0.2)] sm:text-[28px]">
+                                <span className="min-w-0 break-keep text-xl font-extrabold tracking-[-0.02em] text-[#c94c63] transition-colors group-hover:text-white sm:text-2xl">
                                     {rooms.length > 0
                                         ? activeTrip.location
                                         : '아직 미정'}
                                 </span>
                                 <ChevronDownIcon
                                     size={17}
-                                    className={`shrink-0 text-[#cc788a] transition-transform group-hover:text-[#c94c63] ${
+                                    className={`shrink-0 text-[#c94c63] transition-transform group-hover:text-white ${
                                         isTripSelectorOpen ? 'rotate-180' : ''
                                     }`}
                                 />
@@ -455,9 +470,6 @@ export function Home() {
                     </div>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-5 xl:justify-end">
-                    <strong className="min-w-32 text-center text-3xl font-black tracking-[-0.06em] text-[#c94c63] [text-shadow:0_4px_14px_rgba(201,76,99,0.24)] sm:text-4xl">
-                        {tripCountdownLabel}
-                    </strong>
                     <button
                         onClick={() => setCreateTripOpen(true)}
                         className="flamingo-gradient flamingo-glow hidden items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 sm:flex"
@@ -564,16 +576,35 @@ export function Home() {
                                                         '여행지 미정'}{' '}
                                                     · {card.authorNickname}
                                                 </p>
-                                                {card.tags.length > 0 && (
+                                                {(card.travelStyles.length >
+                                                    0 ||
+                                                    card.tags.length > 0) && (
                                                     <div className="mt-2 flex min-w-0 gap-1 overflow-hidden">
-                                                        {card.tags
+                                                        {[
+                                                            ...card.travelStyles.map(
+                                                                (style) => ({
+                                                                    label:
+                                                                        PUBLIC_CARD_STYLE_LABELS[
+                                                                            style
+                                                                        ] ??
+                                                                        style,
+                                                                    style: true,
+                                                                }),
+                                                            ),
+                                                            ...card.tags.map(
+                                                                (tag) => ({
+                                                                    label: tag,
+                                                                    style: false,
+                                                                }),
+                                                            ),
+                                                        ]
                                                             .slice(0, 2)
                                                             .map((tag) => (
                                                                 <span
-                                                                    key={tag}
-                                                                    className="max-w-24 truncate rounded-full bg-brand-50 px-2 py-1 text-[10px] font-bold text-brand-700"
+                                                                    key={`${tag.style}-${tag.label}`}
+                                                                    className={`max-w-24 truncate rounded-full px-2 py-1 text-[10px] font-bold ${tag.style ? 'bg-[#213C51]/10 text-[#213C51]' : 'bg-brand-50 text-brand-700'}`}
                                                                 >
-                                                                    #{tag}
+                                                                    #{tag.label}
                                                                 </span>
                                                             ))}
                                                     </div>
@@ -644,7 +675,7 @@ export function Home() {
                 <>
                     <main className="mx-auto mt-6 grid max-w-[1440px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                         <div className="min-w-0 space-y-4">
-                            <div className="grid items-start gap-4 lg:h-[360px] lg:grid-cols-[minmax(0,1fr)_290px] lg:items-stretch">
+                            <div className="grid items-start gap-4 lg:h-[300px] lg:grid-cols-[minmax(0,1fr)_290px] lg:items-stretch">
                                 {editable(
                                     'travel',
                                     '여행 현황',
@@ -652,13 +683,21 @@ export function Home() {
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.32 }}
-                                        className="relative h-auto overflow-hidden rounded-[22px] border border-[#29485E] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] p-6 shadow-[0_12px_30px_rgba(15,23,42,0.12)] lg:h-full"
+                                        className="relative h-auto overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] shadow-[0_12px_30px_rgba(15,23,42,0.12)] lg:h-full"
                                     >
-                                        <div className="relative">
-                                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                                <p className="font-['JejuStoneWall'] text-2xl font-normal uppercase tracking-[0.08em] text-[#eeeeee] sm:text-3xl">
-                                                    Upcoming trip
-                                                </p>
+                                        <span className="absolute right-[60px] top-0 z-10 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f9fafb] sm:right-[80px]" />
+                                        <span className="absolute right-[60px] bottom-0 z-10 h-6 w-6 translate-y-1/2 rounded-full bg-[#f9fafb] sm:right-[80px]" />
+                                        <div className="relative flex h-full flex-col pb-6 pr-[72px] sm:pr-[92px]">
+                                            <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-6">
+                                                <div className="flex items-center gap-3">
+                                                    <p className="font-['Inter'] text-xs font-bold uppercase tracking-[0.24em] text-[#9bbbd1]">
+                                                        Boarding pass
+                                                    </p>
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-300 px-2.5 py-1 text-[10px] font-black text-[#213C51]">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-[#213C51]" />
+                                                        {activeTrip.status}
+                                                    </span>
+                                                </div>
                                                 <button
                                                     type="button"
                                                     onClick={() =>
@@ -667,7 +706,7 @@ export function Home() {
                                                         )
                                                     }
                                                     disabled={!activeTrip.id}
-                                                    className="flex items-center gap-1 rounded-full border border-[#EEEEEE]/35 bg-[#EEEEEE]/10 px-3 py-2 text-xs font-extrabold text-[#EEEEEE] transition hover:bg-[#EEEEEE]/20 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    className="flex items-center gap-1 rounded-full bg-[#EEEEEE]/10 px-3 py-2 text-xs font-extrabold text-[#EEEEEE] transition hover:bg-[#EEEEEE]/20 disabled:cursor-not-allowed disabled:opacity-40"
                                                 >
                                                     여행방 열기
                                                     <ChevronRightIcon
@@ -676,52 +715,59 @@ export function Home() {
                                                 </button>
                                             </div>
 
-                                            <div className="mt-7">
-                                                <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.2em] text-[#EEEEEE]/70">
-                                                    Your destination
-                                                </p>
-                                                <h2 className="mt-2 flex flex-wrap items-center text-4xl font-black tracking-[-0.06em] text-[#EEEEEE] sm:text-5xl xl:text-[58px]">
-                                                    <span>ICN</span>
-                                                    <span
-                                                        className="mx-4 inline-flex items-center gap-2"
+                                            <div className="mt-5 px-6">
+                                                <div className="grid grid-cols-[auto_minmax(90px,1fr)_auto] gap-3">
+                                                    <p className="font-['Inter'] text-[10px] font-bold uppercase tracking-[0.2em] text-[#9bbbd1]">
+                                                        From
+                                                    </p>
+                                                    <span />
+                                                    <p className="text-right font-['Inter'] text-[10px] font-bold uppercase tracking-[0.2em] text-[#9bbbd1]">
+                                                        To
+                                                    </p>
+                                                </div>
+                                                <div className="mt-1 grid grid-cols-[auto_minmax(90px,1fr)_auto] items-center gap-3">
+                                                    <strong className="block font-['Inter'] text-4xl font-black tracking-[-0.04em] text-[#EEEEEE] sm:text-5xl">
+                                                        {getOriginCode(
+                                                            activeTrip,
+                                                        )}
+                                                    </strong>
+                                                    <div
+                                                        className="relative flex items-center"
                                                         aria-hidden="true"
                                                     >
-                                                        <span className="w-7 border-t-2 border-dotted border-[#EEEEEE]/65 sm:w-10" />
-                                                        <PlaneIcon
-                                                            size={30}
-                                                            className="rotate-45 text-[#E7657A]"
-                                                            strokeWidth={2.4}
-                                                        />
-                                                        <span className="w-7 border-t-2 border-dotted border-[#EEEEEE]/65 sm:w-10" />
-                                                    </span>
-                                                    <span>
-                                                        {getDestinationCode(
+                                                        <span className="mx-auto w-full max-w-[60%] border-t-2 border-dashed border-[#6f93ad]/55" />
+                                                        <span className="absolute left-1/2 flex h-8 w-10 -translate-x-1/2 items-center justify-center bg-[#29485E]">
+                                                            <PlaneIcon
+                                                                size={30}
+                                                                className="rotate-45 text-[#F2647C]"
+                                                            />
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        {isDestinationSet(
                                                             activeTrip.location,
+                                                        ) ? (
+                                                            <strong className="block font-['Inter'] text-4xl font-black tracking-[-0.04em] text-[#EEEEEE] sm:text-5xl">
+                                                                {getTicketDestinationCode(
+                                                                    activeTrip,
+                                                                )}
+                                                            </strong>
+                                                        ) : (
+                                                            <strong className="inline-flex rounded-xl border-2 border-dashed border-[#6f93ad]/70 px-3 py-1 font-['Inter'] text-3xl font-black tracking-[0.08em] text-[#9bbbd1] sm:text-4xl">
+                                                                ???
+                                                            </strong>
                                                         )}
-                                                    </span>
-                                                </h2>
-                                                <p className="mt-3 flex items-center gap-2 text-base font-extrabold text-[#EEEEEE]">
-                                                    <MapPinIcon
-                                                        size={18}
-                                                        className="text-[#E7657A]"
-                                                    />
-                                                    {activeTrip.location}
-                                                    <span className="text-[#EEEEEE]/45">
-                                                        ·
-                                                    </span>
-                                                    <span className="truncate text-[#EEEEEE]/80">
-                                                        {activeTrip.title}
-                                                    </span>
-                                                </p>
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            <div className="mt-8 grid gap-6 border-t border-[#EEEEEE]/25 pt-5 sm:grid-cols-[minmax(150px,0.65fr)_minmax(260px,1.35fr)] sm:items-end">
+                                            <div className="mx-6 mt-auto grid gap-4 border-t border-dashed border-[#6f93ad]/55 pt-4 sm:grid-cols-[0.9fr_1.25fr] sm:items-end">
                                                 <div>
-                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
-                                                        People
+                                                    <p className="font-['Inter'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#9bbbd1]">
+                                                        Traveler
                                                     </p>
-                                                    <div className="mt-3 flex items-center">
-                                                        <span className="rounded-full bg-[#EEEEEE] p-1 shadow-sm">
+                                                    <div className="mt-2 flex items-center">
+                                                        <span className="rounded-full bg-[#EEEEEE] p-0.5 shadow-sm">
                                                             <Avatar
                                                                 name={
                                                                     currentUser?.nickname ??
@@ -731,33 +777,29 @@ export function Home() {
                                                                 imageUrl={resolveMediaUrl(
                                                                     currentUser?.profileImageUrl,
                                                                 )}
-                                                                size={42}
+                                                                size={30}
                                                             />
                                                         </span>
-                                                        <span className="ml-3 text-sm font-extrabold text-[#EEEEEE]">
-                                                            {activeTrip.members}
+                                                        <span className="ml-2 truncate text-xs font-extrabold text-[#EEEEEE]">
+                                                            {currentUser?.nickname ??
+                                                                '여행자'}{' '}
+                                                            외{' '}
+                                                            {Math.max(
+                                                                activeTrip.members -
+                                                                    1,
+                                                                0,
+                                                            )}
                                                             명
                                                         </span>
                                                     </div>
                                                 </div>
 
-                                                <div className="sm:border-l sm:border-[#EEEEEE]/25 sm:pl-8">
-                                                    <p className="font-['JejuStoneWall'] text-xs font-normal uppercase tracking-[0.16em] text-[#EEEEEE]">
+                                                <div>
+                                                    <p className="font-['Inter'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#9bbbd1]">
                                                         Travel date
                                                     </p>
-                                                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEEEEE]/10 text-[#EEEEEE]">
-                                                            <CalendarDaysIcon
-                                                                size={20}
-                                                            />
-                                                        </span>
-                                                        <strong className="text-2xl font-black text-[#EEEEEE]">
-                                                            {getTripScheduleLabel(
-                                                                activeTripData?.startDate,
-                                                                activeTripData?.endDate,
-                                                            )}
-                                                        </strong>
-                                                        <span className="text-sm font-bold text-[#EEEEEE]/80">
+                                                    <div className="mt-2">
+                                                        <span className="text-sm font-black text-[#EEEEEE]">
                                                             {formatTripDateRange(
                                                                 activeTripData?.startDate,
                                                                 activeTripData?.endDate,
@@ -765,6 +807,15 @@ export function Home() {
                                                         </span>
                                                     </div>
                                                 </div>
+                                            </div>
+                                            <div className="absolute bottom-0 right-0 top-0 flex w-[72px] flex-col items-center justify-between border-l-2 border-dashed border-[#6f93ad]/65 py-7 sm:w-[92px]">
+                                                <span className="font-['Inter'] text-[9px] font-bold uppercase tracking-[0.2em] text-[#9bbbd1] [writing-mode:vertical-rl]">
+                                                    Departure
+                                                </span>
+                                                <strong className="font-['Inter'] text-2xl font-black text-[#F2647C] [writing-mode:vertical-rl] sm:text-3xl">
+                                                    {tripCountdownLabel}
+                                                </strong>
+                                                <span aria-hidden="true" />
                                             </div>
                                         </div>
                                     </motion.section>,
@@ -1017,6 +1068,126 @@ export function Home() {
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                <div
+                                                    aria-hidden={
+                                                        visibleInsightSlide !==
+                                                        settlementSlideIndex
+                                                    }
+                                                    className={`flex w-full shrink-0 flex-col overflow-hidden transition-opacity duration-300 ${
+                                                        visibleInsightSlide ===
+                                                        settlementSlideIndex
+                                                            ? 'opacity-100'
+                                                            : 'pointer-events-none opacity-0'
+                                                    }`}
+                                                >
+                                                    <div className="relative flex min-h-0 flex-1 flex-col">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                navigate(
+                                                                    `/app/room/${activeTrip.id}/record`,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                !activeTrip.id
+                                                            }
+                                                            className="absolute right-0 top-0 inline-flex items-center gap-0.5 text-[10px] font-black text-[#213C51] transition-colors hover:text-[#e7657a] disabled:opacity-40"
+                                                        >
+                                                            정산 내역
+                                                            <ChevronRightIcon
+                                                                size={12}
+                                                            />
+                                                        </button>
+                                                        <div className="text-center">
+                                                            <p className="font-['Inter'] text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">
+                                                                Receipt
+                                                            </p>
+                                                            <p className="mt-0.5 truncate text-xs font-black text-slate-800">
+                                                                {
+                                                                    activeTrip.title
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        <div className="my-2 border-t border-dashed border-slate-300" />
+                                                        <div className="flex-1 space-y-2">
+                                                            {expenses.length ===
+                                                            0 ? (
+                                                                <p className="py-3 text-center text-[11px] font-semibold text-slate-400">
+                                                                    등록된
+                                                                    지출이 아직
+                                                                    없어요.
+                                                                </p>
+                                                            ) : (
+                                                                expenses
+                                                                    .slice(-3)
+                                                                    .reverse()
+                                                                    .map(
+                                                                        (
+                                                                            expense,
+                                                                        ) => (
+                                                                            <div
+                                                                                key={
+                                                                                    expense.id
+                                                                                }
+                                                                                className="flex items-center justify-between gap-3 text-[11px]"
+                                                                            >
+                                                                                <span className="min-w-0 truncate font-bold text-slate-600">
+                                                                                    {
+                                                                                        expense.title
+                                                                                    }
+                                                                                </span>
+                                                                                <strong className="shrink-0 font-black text-slate-800">
+                                                                                    {currency(
+                                                                                        expense.totalAmount,
+                                                                                    )}
+                                                                                </strong>
+                                                                            </div>
+                                                                        ),
+                                                                    )
+                                                            )}
+                                                        </div>
+                                                        {expenses.length >=
+                                                            3 && (
+                                                            <div
+                                                                className="flex h-4 shrink-0 items-center justify-center text-slate-400"
+                                                                aria-label="추가 정산 내역이 있습니다"
+                                                            >
+                                                                <EllipsisVerticalIcon
+                                                                    size={15}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        <div className="mt-2 flex items-end justify-between border-t border-dashed border-slate-300 pt-2">
+                                                            <span className="font-['Inter'] text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                                                Total
+                                                            </span>
+                                                            <strong className="text-lg font-black text-slate-900">
+                                                                {currency(
+                                                                    settlement?.totalExpense ??
+                                                                        0,
+                                                                )}
+                                                            </strong>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setExpenseComposerOpen(
+                                                                    true,
+                                                                )
+                                                            }
+                                                            disabled={
+                                                                !activeTrip.apiTripId
+                                                            }
+                                                            className="mt-2 inline-flex h-8 w-full shrink-0 items-center justify-center gap-1 rounded-xl bg-[#213C51] text-[11px] font-black text-white transition-colors hover:bg-[#172d3d] disabled:cursor-not-allowed disabled:opacity-40"
+                                                        >
+                                                            <PlusIcon
+                                                                size={13}
+                                                            />
+                                                            지출 추가
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -1024,7 +1195,7 @@ export function Home() {
                                             <div
                                                 className="mt-3 flex justify-center gap-2"
                                                 role="tablist"
-                                                aria-label="투표 및 활동 슬라이드"
+                                                aria-label="투표, 활동 및 정산 슬라이드"
                                             >
                                                 {Array.from({
                                                     length: insightSlideCount,
@@ -1089,32 +1260,34 @@ export function Home() {
                                                 recommendation,
                                                 context,
                                             ) => {
-                                                const recommendationPlace: Place = {
-                                                    id: `ai-recommendation-${recommendation.place.googlePlaceId}`,
-                                                    googlePlaceId:
-                                                        recommendation.place
-                                                            .googlePlaceId,
-                                                    roomId: activeTrip.id,
-                                                    name: recommendation.place
-                                                        .name,
-                                                    address:
-                                                        recommendation.place
-                                                            .address ?? '',
-                                                    category: 'other',
-                                                    categoryId: null,
-                                                    categoryName: 'AI 추천',
-                                                    categoryColor: '#e7657a',
-                                                    categoryIcon: 'HEART',
-                                                    status: 'hold',
-                                                    image: '',
-                                                    lat: recommendation.place
-                                                        .latitude,
-                                                    lng: recommendation.place
-                                                        .longitude,
-                                                    addedBy: 'PLAMINGO AI',
-                                                    comments: [],
-                                                    commentCount: 0,
-                                                }
+                                                const recommendationPlace: Place =
+                                                    {
+                                                        id: `ai-recommendation-${recommendation.place.googlePlaceId}`,
+                                                        googlePlaceId:
+                                                            recommendation.place
+                                                                .googlePlaceId,
+                                                        roomId: activeTrip.id,
+                                                        name: recommendation
+                                                            .place.name,
+                                                        address:
+                                                            recommendation.place
+                                                                .address ?? '',
+                                                        category: 'other',
+                                                        categoryId: null,
+                                                        categoryName: 'AI 추천',
+                                                        categoryColor:
+                                                            '#e7657a',
+                                                        categoryIcon: 'HEART',
+                                                        status: 'hold',
+                                                        image: '',
+                                                        lat: recommendation
+                                                            .place.latitude,
+                                                        lng: recommendation
+                                                            .place.longitude,
+                                                        addedBy: 'PLAMINGO AI',
+                                                        comments: [],
+                                                        commentCount: 0,
+                                                    }
                                                 const routeDay =
                                                     itineraryDays.find(
                                                         (day) =>
@@ -1148,9 +1321,13 @@ export function Home() {
                                                             onItemFocus={() =>
                                                                 undefined
                                                             }
-                                                            onPlaceFocus={(id) =>
+                                                            onPlaceFocus={(
+                                                                id,
+                                                            ) =>
                                                                 setFocusedRecommendationPlaceId(
-                                                                    (current) =>
+                                                                    (
+                                                                        current,
+                                                                    ) =>
                                                                         current ===
                                                                         id
                                                                             ? null
@@ -1705,6 +1882,30 @@ export function Home() {
                     }}
                 />
             )}
+            {expenseComposerOpen &&
+                activeTrip.apiTripId != null &&
+                typeof document !== 'undefined' &&
+                createPortal(
+                    <ExpensePanel
+                        tripId={activeTrip.apiTripId}
+                        canWrite
+                        composerOnly
+                        initialComposerOpen
+                        onComposerClose={() => setExpenseComposerOpen(false)}
+                        onChanged={() => {
+                            const tripId = activeTrip.apiTripId
+                            if (tripId == null) return
+
+                            void fetchExpenseData(tripId).then(
+                                (expenseData) => {
+                                    setExpenses(expenseData.expenses)
+                                    setSettlement(expenseData.settlement)
+                                },
+                            )
+                        }}
+                    />,
+                    document.body,
+                )}
         </div>
     )
 }
@@ -1764,9 +1965,9 @@ function getTripCountdownLabel(
     status: string | null | undefined,
     todayDateKey: string,
 ) {
-    if (!startDate || !endDate) return '날짜 미정'
-    if (status === 'COMPLETED' || todayDateKey > endDate) return '여행 끝'
-    if (todayDateKey >= startDate) return '여행 중'
+    if (!startDate || !endDate) return 'UNDEFINED'
+    if (status === 'COMPLETED' || todayDateKey > endDate) return 'COMPLETED'
+    if (todayDateKey >= startDate) return 'ONGOING'
 
     const remainingDays = Math.ceil(
         (parseLocalDate(startDate).getTime() -
@@ -1824,20 +2025,6 @@ function createDashboardTasks({
     return tasks
 }
 
-function getTripScheduleLabel(
-    startDate: string | null | undefined,
-    endDate: string | null | undefined,
-) {
-    if (!startDate || !endDate) return '미정'
-    const days =
-        Math.round(
-            (parseLocalDate(endDate).getTime() -
-                parseLocalDate(startDate).getTime()) /
-                86_400_000,
-        ) + 1
-    return `${days}일`
-}
-
 function formatTripDateRange(
     startDate: string | null | undefined,
     endDate: string | null | undefined,
@@ -1851,8 +2038,14 @@ function getDestinationCode(destination: string | null | undefined) {
 
     const normalized = destination.replaceAll(' ', '').toLowerCase()
     const destinationCodes: Record<string, string> = {
-        제주: 'JEJU',
-        제주도: 'JEJU',
+        제주도: 'CJU',
+        제주: 'CJU',
+        화성시: 'HWASEONG',
+        화성: 'HWASEONG',
+        수원시: 'SUWON',
+        수원: 'SUWON',
+        대전광역시: 'DAEJEON',
+        대전: 'DAEJEON',
         부산: 'PUS',
         서울: 'SEL',
         도쿄: 'TYO',
@@ -1867,7 +2060,69 @@ function getDestinationCode(destination: string | null | undefined) {
         뉴욕: 'NYC',
     }
 
-    return destinationCodes[normalized] ?? destination.trim().toUpperCase()
+    const matchedDestination = Object.entries(destinationCodes).find(([name]) =>
+        normalized.includes(name),
+    )
+
+    return matchedDestination?.[1] ?? destination.trim().toUpperCase()
+}
+
+type TicketDestination = {
+    location: string
+    destinationEnglishName: string | null
+    destinationCountryCode: string | null
+}
+
+function getOriginCode(destination: TicketDestination) {
+    if (destination.destinationCountryCode) {
+        return destination.destinationCountryCode === 'KR' ? 'HOME' : 'KOR'
+    }
+
+    return [
+        '괌',
+        '도쿄',
+        '오사카',
+        '후쿠오카',
+        '다낭',
+        '방콕',
+        '파리',
+        '런던',
+        '로마',
+        '뉴욕',
+    ].some((name) => destination.location.includes(name))
+        ? 'KOR'
+        : 'HOME'
+}
+
+function getTicketDestinationCode(destination: TicketDestination) {
+    const countryCode = destination.destinationCountryCode
+    if (countryCode && countryCode !== 'KR') return countryCode
+
+    if (countryCode === 'KR' && destination.destinationEnglishName) {
+        const domesticAirportCodes: Record<string, string> = {
+            jeju: 'CJU',
+            busan: 'PUS',
+            seoul: 'SEL',
+        }
+        const englishName = destination.destinationEnglishName
+            .trim()
+            .replace(/[-\s]+si$/i, '')
+        if (/[가-힣]/.test(englishName)) {
+            return getDestinationCode(destination.location)
+        }
+        return (
+            domesticAirportCodes[englishName.toLowerCase()] ??
+            englishName.replaceAll(' ', '').toUpperCase()
+        )
+    }
+
+    return getDestinationCode(destination.location)
+}
+
+function isDestinationSet(destination: string | null | undefined) {
+    if (!destination?.trim()) return false
+
+    return !['장소 미정', '미정'].includes(destination.trim())
 }
 
 function currency(value: number) {

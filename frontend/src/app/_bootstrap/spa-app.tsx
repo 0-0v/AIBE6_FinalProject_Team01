@@ -102,6 +102,10 @@ function AppShell() {
                         path="room/:roomId/schedule"
                         element={<ScheduleKanbanPage />}
                     />
+                    <Route
+                        path="room/:roomId/record"
+                        element={<TripRoom mode="record" />}
+                    />
                     <Route path="room/:roomId?" element={<TripRoom />} />
                     <Route
                         path="room/invite/:inviteCode"

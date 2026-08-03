@@ -21,6 +21,11 @@ export type TravelRecordCreateBody = {
     imageUrls: string[]
 }
 
+export type TravelRecordUpdateBody = Pick<
+    TravelRecordCreateBody,
+    'memo' | 'imageUrls'
+>
+
 export type Retrospective = {
     id: number
     memberId: number
@@ -52,6 +57,22 @@ export async function createTravelRecord(
         body,
     )
     return response.data
+}
+
+export async function updateTravelRecord(
+    tripId: number,
+    recordId: number,
+    body: TravelRecordUpdateBody,
+) {
+    const response = await apiClient.put<ApiResponse<TravelRecord>>(
+        `/api/trips/${tripId}/travel-records/${recordId}`,
+        body,
+    )
+    return response.data
+}
+
+export async function deleteTravelRecord(tripId: number, recordId: number) {
+    await apiClient.delete(`/api/trips/${tripId}/travel-records/${recordId}`)
 }
 
 export async function uploadTravelPhoto(tripId: number, file: File) {

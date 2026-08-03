@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
     BellIcon,
+    CameraIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     CompassIcon,
     HomeIcon,
     LogOutIcon,
     MapIcon,
+    NotebookTabsIcon,
 } from 'lucide-react'
+import { useTripStore } from '@/features/manage-trip'
 import { useNotificationStore } from '@/features/manage-notification'
 import { logout, resolveMediaUrl } from '@/shared/api/client'
 import { Avatar, BrandLogo, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
@@ -23,8 +26,18 @@ const nav = [
 
 export function Sidebar() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [isExpanded, setIsExpanded] = useState(true)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const rooms = useTripStore((state) => state.rooms)
+    const roomRoute = location.pathname.match(
+        /^\/app\/room\/(\d+)(?:\/(record|schedule))?$/,
+    )
+    const selectedRoom = roomRoute
+        ? rooms.find((room) => room.id === roomRoute[1])
+        : undefined
+    const selectedRoomId = selectedRoom?.id
+    const recordActive = roomRoute?.[2] === 'record'
     const unreadCount = useNotificationStore((state) => state.unreadCount)
     const loadUnreadCount = useNotificationStore(
         (state) => state.loadUnreadCount,
@@ -98,50 +111,82 @@ export function Sidebar() {
                 {nav.map((item) => {
                     const badge = item.to === '/app/updates' ? unreadCount : 0
                     return (
-                        <NavLink
-                            key={item.to}
-                            to={item.to}
-                            end={item.end}
-                            title={item.label}
-                            aria-label={
-                                badge > 0
-                                    ? `${item.label}, 읽지 않은 알림 ${badge}개`
-                                    : item.label
-                            }
-                            className={({ isActive }) =>
-                                `relative flex h-12 items-center rounded-2xl transition-all ${
-                                    isExpanded
-                                        ? 'w-full gap-3 overflow-hidden px-4'
-                                        : 'w-12 justify-center self-center overflow-visible'
-                                } ${
-                                    isActive
-                                        ? 'flamingo-gradient text-white shadow-[0_10px_22px_rgba(231,101,122,0.24)]'
-                                        : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'
-                                }`
-                            }
-                        >
-                            <item.icon
-                                className="shrink-0"
-                                size={21}
-                                strokeWidth={2.2}
-                            />
-                            {isExpanded && (
-                                <span className="whitespace-nowrap text-sm font-bold">
-                                    {item.label}
-                                </span>
-                            )}
-                            {badge > 0 ? (
-                                <span
-                                    className={`flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-extrabold text-white ring-2 ring-white ${
+                        <React.Fragment key={item.to}>
+                            <NavLink
+                                to={item.to}
+                                end={item.end}
+                                title={item.label}
+                                aria-label={
+                                    badge > 0
+                                        ? `${item.label}, 읽지 않은 알림 ${badge}개`
+                                        : item.label
+                                }
+                                className={({ isActive }) =>
+                                    `relative flex h-12 items-center rounded-2xl transition-all ${
                                         isExpanded
-                                            ? 'ml-auto'
-                                            : 'absolute -right-1 -top-1 z-10'
-                                    }`}
+                                            ? 'w-full gap-3 overflow-hidden px-4'
+                                            : 'w-12 justify-center self-center overflow-visible'
+                                    } ${
+                                        isActive
+                                            ? 'flamingo-gradient text-white shadow-[0_10px_22px_rgba(231,101,122,0.24)]'
+                                            : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'
+                                    }`
+                                }
+                            >
+                                <item.icon
+                                    className="shrink-0"
+                                    size={21}
+                                    strokeWidth={2.2}
+                                />
+                                {isExpanded && (
+                                    <span className="whitespace-nowrap text-sm font-bold">
+                                        {item.label}
+                                    </span>
+                                )}
+                                {badge > 0 ? (
+                                    <span
+                                        className={`flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-extrabold text-white ring-2 ring-white ${
+                                            isExpanded
+                                                ? 'ml-auto'
+                                                : 'absolute -right-1 -top-1 z-10'
+                                        }`}
+                                    >
+                                        {badge > 99 ? '99+' : badge}
+                                    </span>
+                                ) : null}
+                            </NavLink>
+                            {item.to === '/app/room' && selectedRoomId && (
+                                <div
+                                    className={`-mt-1 mb-1 flex flex-col gap-1 ${isExpanded ? 'ml-3 border-l border-slate-200 pl-3' : 'items-center'}`}
+                                    aria-label={`${selectedRoom.title} 작업 메뉴`}
                                 >
-                                    {badge > 99 ? '99+' : badge}
-                                </span>
-                            ) : null}
-                        </NavLink>
+                                    {isExpanded && (
+                                        <p className="mb-1 max-w-[150px] truncate px-2 text-[11px] font-extrabold text-slate-400">
+                                            {selectedRoom.title}
+                                        </p>
+                                    )}
+                                    <NavLink
+                                        to={`/app/room/${selectedRoomId}`}
+                                        end
+                                        title="Plan"
+                                        aria-label={`${selectedRoom.title} Plan`}
+                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${!recordActive ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'}`}
+                                    >
+                                        <NotebookTabsIcon size={16} />
+                                        {isExpanded && <span>Plan</span>}
+                                    </NavLink>
+                                    <NavLink
+                                        to={`/app/room/${selectedRoomId}/record`}
+                                        title="Record"
+                                        aria-label={`${selectedRoom.title} Record`}
+                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${recordActive ? 'bg-brand text-white shadow-[0_8px_18px_rgba(231,101,122,0.22)]' : 'text-slate-400 hover:bg-brand-50 hover:text-brand-700'}`}
+                                    >
+                                        <CameraIcon size={16} />
+                                        {isExpanded && <span>Record</span>}
+                                    </NavLink>
+                                </div>
+                            )}
+                        </React.Fragment>
                     )
                 })}
             </nav>

@@ -46,6 +46,21 @@ public class TravelRecordController {
         return ApiResponse.success(travelRecordService.getRecords(tripId));
     }
 
+    @PutMapping("/travel-records/{recordId}")
+    public ApiResponse<TravelRecordResponse> update(
+            @PathVariable Long tripId,
+            @PathVariable Long recordId,
+            @Valid @RequestBody TravelRecordUpdateRequest request
+    ) {
+        return ApiResponse.success(travelRecordService.update(tripId, recordId, request));
+    }
+
+    @DeleteMapping("/travel-records/{recordId}")
+    public ApiResponse<Void> delete(@PathVariable Long tripId, @PathVariable Long recordId) {
+        travelRecordService.delete(tripId, recordId);
+        return ApiResponse.success(null);
+    }
+
     @PutMapping("/retrospective")
     public ApiResponse<RetrospectiveResponse> saveRetrospective(
             @PathVariable Long tripId,

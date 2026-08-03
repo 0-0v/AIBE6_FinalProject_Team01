@@ -53,6 +53,8 @@ type Props = {
     days?: ItineraryDay[]
     initialRouteDay?: number | null
     initialFocusedSegmentIndex?: number | null
+    routeOverview?: boolean
+    outlinedPlaceIds?: string[]
 }
 
 export function MapCanvas({
@@ -66,6 +68,8 @@ export function MapCanvas({
     days,
     initialRouteDay,
     initialFocusedSegmentIndex,
+    routeOverview = false,
+    outlinedPlaceIds = [],
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -91,6 +95,8 @@ export function MapCanvas({
             days={days}
             initialRouteDay={initialRouteDay}
             initialFocusedSegmentIndex={initialFocusedSegmentIndex}
+            routeOverview={routeOverview}
+            outlinedPlaceIds={outlinedPlaceIds}
         />
     )
 }
@@ -106,6 +112,8 @@ function GoogleMapCanvas({
     days,
     initialRouteDay,
     initialFocusedSegmentIndex,
+    routeOverview,
+    outlinedPlaceIds = [],
 }: Pick<
     Props,
     | 'places'
@@ -118,6 +126,8 @@ function GoogleMapCanvas({
     | 'days'
     | 'initialRouteDay'
     | 'initialFocusedSegmentIndex'
+    | 'routeOverview'
+    | 'outlinedPlaceIds'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -221,12 +231,15 @@ function GoogleMapCanvas({
         itineraryRoutes.some((route) => route.dayNumber === selectedRouteDay)
             ? selectedRouteDay
             : null
-    const visibleRoutes =
-        activeRouteDay == null
-            ? itineraryRoutes
-            : itineraryRoutes.filter(
-                  (route) => route.dayNumber === activeRouteDay,
-              )
+    const visibleRoutes = useMemo(
+        () =>
+            activeRouteDay == null
+                ? itineraryRoutes
+                : itineraryRoutes.filter(
+                      (route) => route.dayNumber === activeRouteDay,
+                  ),
+        [activeRouteDay, itineraryRoutes],
+    )
 
     // 현재 선택된 Day의 좌표 목록 (구간 네비게이션용)
     const activeDayPoints = useMemo(
@@ -280,6 +293,9 @@ function GoogleMapCanvas({
     }, [focusedSegmentIndex, activeDayPoints])
 
     const selectedRoutePoints = useMemo(() => {
+        if (routeOverview) {
+            return visibleRoutes.flatMap((route) => route.points)
+        }
         if (activeRouteDay != null) {
             return itineraryRoutes
                 .filter((route) => route.dayNumber === activeRouteDay)
@@ -288,7 +304,7 @@ function GoogleMapCanvas({
         // 전체 일정: Day 1 첫 번째 장소만 → panTo + zoom 으로 확대
         const firstDayPoints = itineraryRoutes[0]?.points ?? []
         return firstDayPoints.slice(0, 1)
-    }, [activeRouteDay, itineraryRoutes])
+    }, [activeRouteDay, itineraryRoutes, routeOverview, visibleRoutes])
     if (!isLoaded) {
         return (
             <div className="flex h-full w-full items-center justify-center bg-slate-100">
@@ -310,6 +326,7 @@ function GoogleMapCanvas({
                 mapId={mapId}
                 mapTypeId={mapDisplayType}
                 mapTypeControl={false}
+                fullscreenControl={!routeOverview}
                 gestureHandling="greedy"
                 streetViewControl={false}
                 style={{ width: '100%', height: '100%' }}
@@ -331,11 +348,13 @@ function GoogleMapCanvas({
                     initialLat={initialLat}
                     initialLng={initialLng}
                     selectedId={selectedId}
+                    autoFitPlaces={!routeOverview}
                 />
                 <RouteFocusController
                     points={
                         focusedSegmentIndex == null ? selectedRoutePoints : []
                     }
+                    padding={routeOverview ? 8 : 96}
                 />
                 <SegmentPanController points={focusedSegmentPoints} />
                 <RouteLayer
@@ -375,6 +394,7 @@ function GoogleMapCanvas({
                                 onSelect(place.id)
                                 // 현재 Day 소속 마커 클릭 → 해당 구간으로 이동
                                 if (
+                                    !routeOverview &&
                                     activeRouteDay != null &&
                                     scheduled?.dayNumber === activeRouteDay
                                 ) {
@@ -445,6 +465,9 @@ function GoogleMapCanvas({
                                     selected={isSelected}
                                     hovered={isHovered}
                                     focused={isFromPlace}
+                                    outlined={outlinedPlaceIds.includes(
+                                        place.id,
+                                    )}
                                 />
                                 {isSelected && (
                                     <div className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl">
@@ -628,11 +651,13 @@ function GoogleMapCanvas({
                 })}
             </GoogleMap>
 
-            <MapTypeToggle
-                value={mapDisplayType}
-                onChange={setMapDisplayType}
-            />
-            {itineraryRoutes.length > 0 && (
+            {!routeOverview && (
+                <MapTypeToggle
+                    value={mapDisplayType}
+                    onChange={setMapDisplayType}
+                />
+            )}
+            {!routeOverview && itineraryRoutes.length > 0 && (
                 <MapRouteFilter
                     routes={itineraryRoutes}
                     selectedDay={activeRouteDay}
@@ -681,7 +706,7 @@ function GoogleMapCanvas({
                     </div>
                 )}
 
-            {itineraryRoutes.length > 0 && (
+            {!routeOverview && itineraryRoutes.length > 0 && (
                 <p className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-medium text-slate-500 shadow">
                     예상 직선 동선 · 화살표에 마우스를 올려 이동 정보 확인
                 </p>
@@ -836,8 +861,10 @@ function fitBoundsToPoints(
 
 function RouteFocusController({
     points,
+    padding = 96,
 }: {
     points: Array<{ lat: number; lng: number }>
+    padding?: number
 }) {
     const map = useMap()
 
@@ -849,13 +876,13 @@ function RouteFocusController({
             return
         }
 
-        fitBoundsToPoints(map, points, 96)
+        fitBoundsToPoints(map, points, padding)
         const listener = map.addListener('idle', () => {
             if ((map.getZoom() ?? 0) > 15) map.setZoom(15)
             listener.remove()
         })
         return () => listener.remove()
-    }, [map, points])
+    }, [map, padding, points])
 
     return null
 }
@@ -866,16 +893,18 @@ function MapController({
     initialLat,
     initialLng,
     selectedId,
+    autoFitPlaces,
 }: {
     places: Place[]
     initialLat?: number | null
     initialLng?: number | null
     selectedId: string | null
+    autoFitPlaces: boolean
 }) {
     const map = useMap()
 
     useEffect(() => {
-        if (!map) return
+        if (!map || !autoFitPlaces) return
 
         if (places.length === 0) {
             if (initialLat != null && initialLng != null) {
@@ -892,7 +921,7 @@ function MapController({
         }
 
         fitBoundsToPoints(map, places)
-    }, [initialLat, initialLng, map, places])
+    }, [autoFitPlaces, initialLat, initialLng, map, places])
 
     useEffect(() => {
         if (!map || !selectedId) return

@@ -23,7 +23,14 @@ import type {
     SettlementSummary,
 } from '../api/expense-api'
 
-type Props = { tripId: number; canWrite: boolean }
+type Props = {
+    tripId: number
+    canWrite: boolean
+    composerOnly?: boolean
+    initialComposerOpen?: boolean
+    onComposerClose?: () => void
+    onChanged?: () => void
+}
 
 const EMPTY_SETTLEMENT: SettlementSummary = {
     totalExpense: 0,
@@ -37,11 +44,18 @@ const EMPTY_CONTEXT: ExpenseContext = {
     scheduleConfirmed: false,
 }
 
-export function ExpensePanel({ tripId, canWrite }: Props) {
+export function ExpensePanel({
+    tripId,
+    canWrite,
+    composerOnly = false,
+    initialComposerOpen = false,
+    onComposerClose,
+    onChanged,
+}: Props) {
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
     const [context, setContext] = useState(EMPTY_CONTEXT)
     const [settlement, setSettlement] = useState(EMPTY_SETTLEMENT)
-    const [composerOpen, setComposerOpen] = useState(false)
+    const [composerOpen, setComposerOpen] = useState(initialComposerOpen)
     const [title, setTitle] = useState('')
     const [amount, setAmount] = useState('')
     const [expenseDate, setExpenseDate] = useState('')
@@ -155,10 +169,12 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
                 memo: null,
             })
             await load()
+            onChanged?.()
             setTitle('')
             setAmount('')
             setExpenseDate('')
             setComposerOpen(false)
+            onComposerClose?.()
         } catch (requestError) {
             setError(
                 requestError instanceof Error
@@ -170,12 +186,18 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
         }
     }
 
+    function closeComposer() {
+        setComposerOpen(false)
+        onComposerClose?.()
+    }
+
     async function completeTransfer(receiverId: number) {
         setCompletingReceiverId(receiverId)
         setError(null)
         try {
             await completeSettlementTransfer(tripId, receiverId)
             await load()
+            onChanged?.()
         } catch (requestError) {
             setError(
                 requestError instanceof Error
@@ -189,7 +211,9 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
 
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
-            <div className="mp-scroll flex-1 overflow-y-auto p-4 pb-24">
+            <div
+                className={`mp-scroll flex-1 overflow-y-auto p-4 pb-24 ${composerOnly ? 'invisible' : ''}`}
+            >
                 <section className="rounded-[22px] bg-[#213C51]/5 p-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
@@ -295,7 +319,7 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
                     </div>
                 </section>
             </div>
-            {canWrite && scheduleConfirmed && (
+            {!composerOnly && canWrite && scheduleConfirmed && (
                 <button
                     onClick={() => setComposerOpen(true)}
                     className="absolute bottom-4 left-4 right-4 flex items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white"
@@ -303,15 +327,15 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
                     <PlusIcon size={17} /> 지출 추가
                 </button>
             )}
-            {canWrite && !scheduleConfirmed && (
+            {!composerOnly && canWrite && !scheduleConfirmed && (
                 <p className="absolute bottom-4 left-4 right-4 rounded-xl bg-amber-50 p-3 text-center text-xs font-bold text-amber-700">
                     여행 일정을 먼저 정하면 DAY별 지출을 등록할 수 있습니다.
                 </p>
             )}
             {composerOpen && (
                 <div
-                    className="absolute inset-0 z-[100] flex items-end bg-slate-950/35 p-3 sm:items-center sm:justify-center"
-                    onClick={() => setComposerOpen(false)}
+                    className="fixed inset-0 z-[100] flex items-end bg-slate-950/35 p-3 backdrop-blur-[2px] sm:items-center sm:justify-center"
+                    onClick={closeComposer}
                 >
                     <div
                         className="relative z-[101] max-h-[calc(100%-1.5rem)] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl"
@@ -324,7 +348,7 @@ export function ExpensePanel({ tripId, canWrite }: Props) {
                             </h3>
                             <button
                                 type="button"
-                                onClick={() => setComposerOpen(false)}
+                                onClick={closeComposer}
                                 aria-label="지출 추가 닫기"
                                 className="relative z-30 flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-[#213C51]"
                             >

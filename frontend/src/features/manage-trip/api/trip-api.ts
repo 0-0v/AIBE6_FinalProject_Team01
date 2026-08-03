@@ -24,12 +24,14 @@ export type TripResponse = {
     destination: string | null
     destinationLat: number | null
     destinationLng: number | null
+    destinationEnglishName: string | null
+    destinationCountryCode: string | null
     startDate: string | null
     endDate: string | null
     coverImageUrl: string | null
     memberCount: number
     status: 'PLANNING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-    visibility: 'PRIVATE' | 'PUBLIC'
+    visibility: 'PRIVATE' | 'PUBLIC_ROUTE' | 'PUBLIC_RECORD'
     completionConfirmed: boolean
     createdAt: string
     updatedAt: string
@@ -39,8 +41,12 @@ export type TripResponse = {
 }
 
 export type TripVisibilitySettings = {
-    visibility: 'PRIVATE' | 'PUBLIC'
+    visibility: 'PRIVATE' | 'PUBLIC_ROUTE' | 'PUBLIC_RECORD'
     tags: string[]
+    description: string | null
+    placeCount: number
+    photoCount: number
+    recordCount: number
 }
 
 export type TripRequest = {
@@ -50,6 +56,8 @@ export type TripRequest = {
     destination?: string | null
     destinationLat?: number | null
     destinationLng?: number | null
+    destinationEnglishName?: string | null
+    destinationCountryCode?: string | null
     startDate?: string | null
     endDate?: string | null
     dayStartTime?: string | null
@@ -66,7 +74,8 @@ export type TripMember = {
 type ApiResponse<T> = { success: boolean; message: string; data: T }
 
 export async function fetchTrips() {
-    const response = await apiClient.get<ApiResponse<TripResponse[]>>('/api/trips')
+    const response =
+        await apiClient.get<ApiResponse<TripResponse[]>>('/api/trips')
     return response.data
 }
 
@@ -95,7 +104,7 @@ export async function updateTrip(id: number, request: TripRequest) {
 
 export async function updateTripVisibility(
     id: number,
-    visibility: 'PRIVATE' | 'PUBLIC',
+    visibility: 'PRIVATE' | 'PUBLIC_ROUTE' | 'PUBLIC_RECORD',
 ) {
     const response = await apiClient.patch<ApiResponse<TripResponse>>(
         `/api/trips/${id}/visibility`,
@@ -106,12 +115,13 @@ export async function updateTripVisibility(
 
 export async function confirmTripCompletion(
     id: number,
-    visibility: 'PRIVATE' | 'PUBLIC',
+    visibility: 'PRIVATE' | 'PUBLIC_ROUTE' | 'PUBLIC_RECORD',
     tags: string[],
+    description: string,
 ) {
     const response = await apiClient.post<ApiResponse<TripResponse>>(
         `/api/trips/${id}/completion-confirmation`,
-        { visibility, tags },
+        { visibility, tags, description },
     )
     return response.data
 }

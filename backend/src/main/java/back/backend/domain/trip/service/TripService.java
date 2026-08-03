@@ -22,7 +22,6 @@ import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.domain.place.service.TripAccessChecker;
 import java.time.Clock;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -106,11 +105,12 @@ public class TripService {
     public TripResponse update(Long memberId, Long tripId, TripRequest request) {
         Trip trip = findJoinedTripWithoutLock(memberId, tripId);
         try {
-            validateUpdatedStartDate(trip, request);
             trip.update(request.title(), request.companionType(), request.normalizedTravelStyles(),
                     request.destination(), request.destinationLat(), request.destinationLng(),
                     request.startDate(), request.endDate(),
                     request.dayStartTime(), request.dayEndTime(), request.travelPace());
+            trip.updateDestinationMetadata(
+                    request.destinationEnglishName(), request.destinationCountryCode());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         } catch (IllegalStateException exception) {
@@ -155,27 +155,15 @@ public class TripService {
 
     private Trip saveValidTrip(Long memberId, TripRequest request) {
         try {
-            validateStartDate(request);
-            return tripRepository.save(Trip.create(memberId, request.title(), request.companionType(),
+            Trip trip = Trip.create(memberId, request.title(), request.companionType(),
                     request.normalizedTravelStyles(), request.destination(),
                     request.destinationLat(), request.destinationLng(),
-                    request.startDate(), request.endDate()));
+                    request.startDate(), request.endDate());
+            trip.updateDestinationMetadata(
+                    request.destinationEnglishName(), request.destinationCountryCode());
+            return tripRepository.save(trip);
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
-        }
-    }
-
-    private void validateStartDate(TripRequest request) {
-        if (request.startDate() != null
-                && !request.startDate().isAfter(LocalDate.now(clock))) {
-            throw new IllegalArgumentException("여행 시작일은 내일부터 선택할 수 있습니다.");
-        }
-    }
-
-    private void validateUpdatedStartDate(Trip trip, TripRequest request) {
-        if (request.startDate() != null
-                && !request.startDate().equals(trip.getStartDate())) {
-            validateStartDate(request);
         }
     }
 

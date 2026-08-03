@@ -73,6 +73,9 @@ public class TravelRecordService {
         List<String> imageUrls = normalizeImageUrls(request.imageUrls());
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(request.tripPlaceId(), tripId)
                 .orElseThrow(() -> new BusinessException(TravelRecordErrorCode.TRIP_PLACE_NOT_FOUND));
+        if (recordRepository.existsByTripIdAndPlaceId(tripId, tripPlace.getPlace().getId())) {
+            throw new BusinessException(TravelRecordErrorCode.DUPLICATE_PLACE_RECORD);
+        }
 
         TravelRecord record = recordRepository.save(TravelRecord.builder()
                 .tripId(tripId)
@@ -105,6 +108,56 @@ public class TravelRecordService {
                 Map.of("dayNumber", dayNumber, "photoCount", photos.size())
         ));
         return toResponse(record, request.tripPlaceId(), dayNumber, imageUrls, memberNickname(memberId));
+    }
+
+    @Transactional
+    public TravelRecordResponse update(Long tripId, Long recordId, TravelRecordUpdateRequest request) {
+        Long memberId = accessChecker.requireEdit(tripId);
+        Trip trip = getTrip(tripId);
+        validateContent(request.memo(), request.imageUrls());
+        List<String> imageUrls = normalizeImageUrls(request.imageUrls());
+        TravelRecord record = recordRepository.findByIdAndTripId(recordId, tripId)
+                .orElseThrow(() -> new BusinessException(TravelRecordErrorCode.RECORD_NOT_FOUND));
+
+        record.updateContent(normalize(request.memo()));
+        photoRepository.deleteAllByTravelRecordId(recordId);
+        List<TravelPhoto> photos = new ArrayList<>();
+        for (int index = 0; index < imageUrls.size(); index++) {
+            photos.add(TravelPhoto.builder()
+                    .travelRecordId(recordId)
+                    .uploadedBy(memberId)
+                    .imageUrl(imageUrls.get(index))
+                    .sortOrder(index)
+                    .build());
+        }
+        if (!photos.isEmpty()) {
+            photoRepository.saveAll(photos);
+        }
+
+        Long tripPlaceId = tripPlaceRepository.findAllOrderedByTripId(tripId).stream()
+                .filter(tripPlace -> tripPlace.getPlace().getId().equals(record.getPlaceId()))
+                .map(TripPlace::getId)
+                .findFirst()
+                .orElse(null);
+        int dayNumber = calculateDayNumber(trip, record.getVisitedAt().toLocalDate());
+        activityLogService.create(new ActivityLogCreateCommand(
+                tripId, memberId, null, "TRAVEL_RECORD_UPDATED", "TRAVEL_RECORD", recordId,
+                "DAY " + dayNumber + " 공동 여행 기록을 수정했습니다.", Map.of()
+        ));
+        return toResponse(record, tripPlaceId, dayNumber, imageUrls, memberNickname(record.getRecordedBy()));
+    }
+
+    @Transactional
+    public void delete(Long tripId, Long recordId) {
+        Long memberId = accessChecker.requireEdit(tripId);
+        TravelRecord record = recordRepository.findByIdAndTripId(recordId, tripId)
+                .orElseThrow(() -> new BusinessException(TravelRecordErrorCode.RECORD_NOT_FOUND));
+        photoRepository.deleteAllByTravelRecordId(recordId);
+        recordRepository.delete(record);
+        activityLogService.create(new ActivityLogCreateCommand(
+                tripId, memberId, null, "TRAVEL_RECORD_DELETED", "TRAVEL_RECORD", recordId,
+                "공동 여행 기록을 삭제했습니다.", Map.of()
+        ));
     }
 
     public List<TravelRecordResponse> getRecords(Long tripId) {

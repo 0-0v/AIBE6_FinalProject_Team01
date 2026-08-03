@@ -5,6 +5,7 @@ import back.backend.domain.card.entity.*;
 import back.backend.domain.card.repository.*;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.entity.TripVisibility;
+import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -40,12 +41,15 @@ public class PublicCardService {
         this.eventPublisher = eventPublisher;
     }
 
-    public PublicCardPageResponse getPublicCards(Long memberId, int page, int size, CardSort sort, String query) {
+    public PublicCardPageResponse getPublicCards(
+            Long memberId, int page, int size, CardSort sort, String query,
+            TravelStyle travelStyle) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 50);
         String keyword = query == null ? "" : query.trim().toLowerCase();
-        List<PublicCardResponse> cards = cardRepository.findAllByVisibility(TripVisibility.PUBLIC).stream()
+        List<PublicCardResponse> cards = cardRepository.findAllByVisibilityNot(TripVisibility.PRIVATE).stream()
                 .map(card -> toResponse(card, memberId))
+                .filter(card -> travelStyle == null || card.travelStyles().contains(travelStyle))
                 .filter(card -> keyword.isEmpty() || matches(card, keyword))
                 .sorted(comparator(sort))
                 .toList();
@@ -54,12 +58,15 @@ public class PublicCardService {
         return new PublicCardPageResponse(cards.subList(from, to), safePage, safeSize, cards.size(),
                 (int) Math.ceil((double) cards.size() / safeSize));
     }
+    public PublicCardPageResponse getPublicCards(Long memberId, int page, int size, CardSort sort, String query) {
+        return getPublicCards(memberId, page, size, sort, query, null);
+    }
 
     public List<PublicCardResponse> getBookmarks(Long memberId) {
         return savedRepository.findAllByMemberIdOrderByIdDesc(memberId).stream()
                 .map(saved -> cardRepository.findByTripId(saved.getTripId()).orElse(null))
                 .filter(Objects::nonNull)
-                .filter(card -> card.getVisibility() == TripVisibility.PUBLIC)
+                .filter(card -> card.getVisibility() != TripVisibility.PRIVATE)
                 .map(card -> toResponse(card, memberId)).toList();
     }
 
@@ -107,7 +114,7 @@ public class PublicCardService {
 
     private PlanCard requirePublic(Long cardId) {
         return cardRepository.findById(cardId)
-                .filter(card -> card.getVisibility() == TripVisibility.PUBLIC)
+                .filter(card -> card.getVisibility() != TripVisibility.PRIVATE)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
     }
     private boolean matches(PublicCardResponse card, String keyword) {
@@ -137,7 +144,7 @@ public class PublicCardService {
                 && savedRepository.findByMemberIdAndTripId(memberId, card.getTripId()).isPresent();
         return new PublicCardResponse(card.getId(), card.getTripId(), card.getCreatedBy(), author, card.getTitle(),
                 card.getSummary(), trip.getDestination(), card.getCoverImageUrl() != null
-                ? card.getCoverImageUrl() : trip.getCoverImageUrl(), tags,
+                ? card.getCoverImageUrl() : trip.getCoverImageUrl(), trip.getTravelStyles(), tags,
                 savedRepository.countByTripId(card.getTripId()), commentRepository.countByPlanCardId(card.getId()),
                 bookmarked, ownCard, card.getCreatedAt());
     }

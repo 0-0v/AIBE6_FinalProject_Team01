@@ -48,6 +48,24 @@ macOS와 Linux에서는 `./gradlew bootRun`을 사용합니다.
 실제 비밀번호와 API 키는 YAML에 작성하지 않고 `backend/.env` 또는 운영 환경변수로 주입합니다.
 기본 로컬 실행은 `local` 프로파일만 사용하며 OAuth 키 없이도 실행됩니다. 소셜 로그인 개발 시 OAuth 키를 입력하고 `--spring.profiles.active=local,oauth`를 추가합니다.
 
+소셜 로그인 토큰 저장과 회원 탈퇴 시 제공자 연결 해제에는 다음 설정이 필요합니다.
+
+```env
+OAUTH_TOKEN_ENCRYPTION_KEY=
+OAUTH_TOKEN_RETENTION=3650d
+KAKAO_ADMIN_KEY=
+```
+
+`OAUTH_TOKEN_ENCRYPTION_KEY`에는 Base64로 인코딩한 32바이트 AES 키를 사용합니다.
+
+```bash
+openssl rand -base64 32
+```
+
+실제 키는 `backend/.env` 또는 운영 Secret Manager에만 저장합니다. `KAKAO_ADMIN_KEY`를
+사용하려면 Kakao Developers에서 해당 Admin Key의 Kakao Login > Unlink API 호출 권한을
+허용해야 합니다.
+
 자체 회원가입 이메일 인증에는 Brevo SMTP 설정이 필요합니다.
 
 ```env

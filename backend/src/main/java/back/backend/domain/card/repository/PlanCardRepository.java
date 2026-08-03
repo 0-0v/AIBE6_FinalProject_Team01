@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PlanCardRepository extends JpaRepository<PlanCard, Long> {
     boolean existsByTripId(Long tripId);
     Optional<PlanCard> findByTripId(Long tripId);
-    List<PlanCard> findAllByVisibility(TripVisibility visibility);
+    List<PlanCard> findAllByVisibilityNot(TripVisibility visibility);
 }

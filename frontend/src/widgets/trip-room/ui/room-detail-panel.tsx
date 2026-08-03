@@ -47,6 +47,8 @@ function mapApiComment(comment: PlaceCommentResponse) {
     }
 }
 
+export type TripRoomMode = 'plan' | 'record'
+
 function median(values: number[]) {
     const sorted = [...values].sort((a, b) => a - b)
     const middle = Math.floor(sorted.length / 2)
@@ -92,7 +94,6 @@ function resolvePlaceSearchCenter(room: Room, places: Place[]) {
         longitude: median(centerCandidates.map((place) => place.lng)),
     }
 }
-
 type PlanTab = 'places' | 'itinerary' | 'schedule'
 export type TripRoomWorkspace = PlanTab
 
@@ -156,7 +157,7 @@ export function RoomDetailPanel({
     const [inviteOpen, setInviteOpen] = useState(false)
     const [members, setMembers] = useState<TripMember[]>([])
 
-    const isPublic = room.visibility === 'PUBLIC'
+    const isPublic = room.visibility !== 'PRIVATE'
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
     )
@@ -180,6 +181,8 @@ export function RoomDetailPanel({
         [room, places],
     )
 
+    const activeWorkspace: TripRoomWorkspace = planTab
+
     const handlePhotoResolved = useCallback(
         (
             placeId: string,
@@ -198,8 +201,6 @@ export function RoomDetailPanel({
         },
         [onUpdatePlace],
     )
-
-    const activeWorkspace: TripRoomWorkspace = planTab
 
     useEffect(() => {
         onWorkspaceChange?.(activeWorkspace)
@@ -459,13 +460,16 @@ export function RoomDetailPanel({
             })()}
             <div className="border-b border-slate-100 px-4 pb-3.5 pt-6">
                 <div className="mb-3.5 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <h2 className="text-[22px] font-black leading-8 tracking-tight text-slate-900">
-                            Plan
-                        </h2>
-                        <p className="mt-1 text-xs leading-5 text-slate-400">
-                            가고 싶은 장소를 찾고 함께 여행 계획을 준비해보세요.
-                        </p>
+                    <div className="flex min-w-0 items-start gap-2">
+                        <div className="min-w-0">
+                            <h2 className="text-[22px] font-black leading-8 tracking-tight text-slate-900">
+                                Plan
+                            </h2>
+                            <p className="mt-1 text-xs leading-5 text-slate-400">
+                                가고 싶은 장소를 찾고 함께 여행 계획을
+                                준비해보세요.
+                            </p>
+                        </div>
                     </div>
                     <button
                         onClick={() => setActivityOpen((value) => !value)}

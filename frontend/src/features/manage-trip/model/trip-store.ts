@@ -34,6 +34,27 @@ export function toRoom(trip: TripResponse): Room {
         CANCELLED: '취소',
     }[trip.status]
     const dday = calculateDday(trip.startDate, trip.endDate)
+    const companionLabel = {
+        ALONE: '나 혼자',
+        FRIENDS: '친구와 함께',
+        COUPLE: '연인과 함께',
+        SPOUSE: '배우자와 함께',
+        CHILDREN: '아이와 함께',
+        PARENTS: '부모님과 함께',
+    }[trip.companionType ?? 'ALONE']
+    const travelStyleLabels = trip.travelStyles.map(
+        (style) =>
+            ({
+                ACTIVITY: '액티비티',
+                SNS_HOT_PLACE: 'SNS 핫플',
+                NATURE: '자연과 함께',
+                FAMOUS_ATTRACTIONS: '유명관광지 필수',
+                RELAXATION: '여유롭게 힐링',
+                CULTURE_ART_HISTORY: '문화·예술·역사',
+                SHOPPING: '쇼핑',
+                FOOD: '맛집 먹거리',
+            })[style],
+    )
 
     return {
         id: String(trip.id),
@@ -45,6 +66,8 @@ export function toRoom(trip: TripResponse): Room {
         location: trip.destination ?? '장소 미정',
         destinationLat: trip.destinationLat ?? null,
         destinationLng: trip.destinationLng ?? null,
+        destinationEnglishName: trip.destinationEnglishName ?? null,
+        destinationCountryCode: trip.destinationCountryCode ?? null,
         dday,
         members: trip.memberCount,
         cover:
@@ -54,6 +77,8 @@ export function toRoom(trip: TripResponse): Room {
         lifecycleStatus: trip.status,
         visibility: trip.visibility,
         color: '#e7657a',
+        companionLabel,
+        travelStyleLabels,
     }
 }
 

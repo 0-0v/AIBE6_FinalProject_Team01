@@ -9,7 +9,8 @@ public enum MemberErrorCode implements ErrorCode {
     EMPTY_PROFILE_IMAGE(HttpStatus.BAD_REQUEST, "MEMBER_PROFILE_IMAGE_400_EMPTY", "업로드할 이미지 파일이 비어 있습니다."),
     INVALID_PROFILE_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "MEMBER_PROFILE_IMAGE_400_TYPE", "이미지 파일(jpg, jpeg, png, webp)만 업로드할 수 있습니다."),
     PROFILE_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "MEMBER_PROFILE_IMAGE_400_SIZE", "이미지 파일은 5MB 이하만 업로드할 수 있습니다."),
-    PROFILE_IMAGE_STORAGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "MEMBER_PROFILE_IMAGE_500", "프로필 이미지 저장에 실패했습니다.");
+    PROFILE_IMAGE_STORAGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "MEMBER_PROFILE_IMAGE_500", "프로필 이미지 저장에 실패했습니다."),
+    SOCIAL_UNLINK_FAILED(HttpStatus.BAD_GATEWAY, "MEMBER_SOCIAL_UNLINK_502", "소셜 계정 연결 해제에 실패했습니다. 잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus status;
     private final String code;

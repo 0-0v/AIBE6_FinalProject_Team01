@@ -53,7 +53,7 @@ class PublicCardCopyServiceTest {
         PublicCardCopyService service = new PublicCardCopyService(
                 cardRepository, tripRepository, tripPlaceRepository,
                 dayRepository, itemRepository, categoryService);
-        PlanCard card = PlanCard.create(100L, "원본", TripVisibility.PUBLIC, 9L);
+        PlanCard card = PlanCard.create(100L, "원본", TripVisibility.PUBLIC_ROUTE, 9L);
         ReflectionTestUtils.setField(card, "id", 20L);
         Trip target = Trip.create(
                 1L, "대상", null, Set.of(), "도쿄",

@@ -4,6 +4,7 @@ import back.backend.global.config.FrontendProperties;
 import back.backend.global.security.jwt.JwtAuthenticationFilter;
 import back.backend.global.security.oauth2.CustomOAuth2UserService;
 import back.backend.global.security.oauth2.GoogleAccountSelectionAuthorizationRequestResolver;
+import back.backend.global.security.oauth2.OAuth2TokenProperties;
 import back.backend.global.security.oauth2.OAuth2LoginFailureHandler;
 import back.backend.global.security.oauth2.OAuth2LoginSuccessHandler;
 import java.util.List;
@@ -27,7 +28,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({CorsProperties.class, FrontendProperties.class})
+@EnableConfigurationProperties({CorsProperties.class, FrontendProperties.class, OAuth2TokenProperties.class})
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {

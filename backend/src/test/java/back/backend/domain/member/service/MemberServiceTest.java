@@ -10,6 +10,7 @@ import back.backend.domain.member.config.MemberWithdrawalProperties;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.port.ProfileImageStorage;
+import back.backend.domain.member.port.SocialAccountConnector;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.security.jwt.RefreshTokenRepository;
@@ -39,6 +40,9 @@ class MemberServiceTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Mock
+    private SocialAccountConnector socialAccountConnector;
+
     private MemberService memberService;
     private MemberWithdrawalProperties withdrawalProperties;
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 29, 12, 0);
@@ -51,6 +55,7 @@ class MemberServiceTest {
                 memberRepository,
                 profileImageStorage,
                 refreshTokenRepository,
+                socialAccountConnector,
                 withdrawalProperties,
                 Clock.fixed(NOW.atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul")));
     }
@@ -142,6 +147,7 @@ class MemberServiceTest {
         assertThat(member.getEmail()).isEqualTo("withdraw@example.com");
         verify(refreshTokenRepository).deleteByMemberId(7L);
         verify(memberRepository, org.mockito.Mockito.never()).delete(member);
+        verify(socialAccountConnector, org.mockito.Mockito.never()).unlink(member);
     }
 
     @Test
@@ -182,5 +188,38 @@ class MemberServiceTest {
         assertThat(member.getProviderId()).isEqualTo("withdrawn-9");
         assertThat(member.getPersonalInfoDeletedAt()).isEqualTo(NOW);
         verify(profileImageStorage).delete("/uploads/profile-images/9.png");
+    }
+
+    @Test
+    @DisplayName("t10 소셜 회원 탈퇴 시 제공자 연결을 해제한 뒤 회원 상태와 세션을 정리한다")
+    void t10_withdrawSocialMemberUnlinksProviderBeforeWithdrawal() {
+        Member member = Member.create(
+                "social@example.com", "소셜회원", null, AuthProvider.GOOGLE, "google-10");
+        ReflectionTestUtils.setField(member, "id", 10L);
+        when(memberRepository.findById(10L)).thenReturn(Optional.of(member));
+
+        memberService.withdraw(10L);
+
+        var inOrder = org.mockito.Mockito.inOrder(socialAccountConnector, refreshTokenRepository);
+        inOrder.verify(socialAccountConnector).unlink(member);
+        inOrder.verify(refreshTokenRepository).deleteByMemberId(10L);
+        assertThat(member.getStatus()).isEqualTo(back.backend.domain.member.entity.MemberStatus.WITHDRAWN);
+    }
+
+    @Test
+    @DisplayName("t11 소셜 제공자 연결 해제에 실패하면 회원 상태와 서비스 세션을 변경하지 않는다")
+    void t11_withdrawSocialMemberDoesNotWithdrawWhenUnlinkFails() {
+        Member member = Member.create(
+                "social-fail@example.com", "소셜회원", null, AuthProvider.KAKAO, "kakao-11");
+        ReflectionTestUtils.setField(member, "id", 11L);
+        when(memberRepository.findById(11L)).thenReturn(Optional.of(member));
+        org.mockito.Mockito.doThrow(new IllegalStateException("unlink failed"))
+                .when(socialAccountConnector).unlink(member);
+
+        assertThatThrownBy(() -> memberService.withdraw(11L))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(member.getStatus()).isEqualTo(back.backend.domain.member.entity.MemberStatus.ACTIVE);
+        verify(refreshTokenRepository, org.mockito.Mockito.never()).deleteByMemberId(11L);
     }
 }

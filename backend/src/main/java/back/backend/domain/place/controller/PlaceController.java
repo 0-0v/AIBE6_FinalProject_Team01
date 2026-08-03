@@ -1,6 +1,7 @@
 package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
+import back.backend.domain.place.dto.response.DestinationMetadataResponse;
 import back.backend.domain.place.service.PlaceSearchService;
 import back.backend.domain.place.service.PlacePhotoService;
 import back.backend.global.response.ApiResponse;
@@ -42,6 +43,13 @@ public class PlaceController {
                 .contentType(photo.contentType())
                 .cacheControl(CacheControl.noStore())
                 .body(photo.bytes());
+    }
+
+    @GetMapping("/destination-metadata")
+    public ApiResponse<DestinationMetadataResponse> getDestinationMetadata(
+            @RequestParam String placeId
+    ) {
+        return ApiResponse.success(placeSearchService.getDestinationMetadata(placeId));
     }
 
     @GetMapping("/photo/metadata")

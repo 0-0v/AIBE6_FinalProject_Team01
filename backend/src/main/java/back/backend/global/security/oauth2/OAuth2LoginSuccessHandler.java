@@ -23,17 +23,20 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
     private final FrontendProperties frontendProperties;
+    private final OAuth2TokenCaptureService oAuth2TokenCaptureService;
 
     public OAuth2LoginSuccessHandler(
             JwtProvider jwtProvider,
             RefreshTokenRepository refreshTokenRepository,
             RefreshTokenCookieProvider refreshTokenCookieProvider,
-            FrontendProperties frontendProperties
+            FrontendProperties frontendProperties,
+            OAuth2TokenCaptureService oAuth2TokenCaptureService
     ) {
         this.jwtProvider = jwtProvider;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenCookieProvider = refreshTokenCookieProvider;
         this.frontendProperties = frontendProperties;
+        this.oAuth2TokenCaptureService = oAuth2TokenCaptureService;
     }
 
     @Override
@@ -43,6 +46,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication
     ) throws IOException {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        oAuth2TokenCaptureService.capture(authentication, principal.getMemberId());
         String accessToken = jwtProvider.createAccessToken(principal.getMemberId(), principal.getUsername());
         String refreshToken = jwtProvider.createRefreshToken(principal.getMemberId());
         refreshTokenRepository.save(principal.getMemberId(), refreshToken);

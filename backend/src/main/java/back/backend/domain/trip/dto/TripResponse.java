@@ -30,8 +30,25 @@ public record TripResponse(
         LocalDateTime updatedAt,
         String dayStartTime,
         String dayEndTime,
-        String travelPace
+        String travelPace,
+        String destinationEnglishName,
+        String destinationCountryCode
 ) {
+    public TripResponse(
+            Long id, Long ownerId, String title, CompanionType companionType,
+            Set<TravelStyle> travelStyles, String destination, Double destinationLat,
+            Double destinationLng, LocalDate startDate, LocalDate endDate,
+            String coverImageUrl, long memberCount, TripStatus status,
+            TripVisibility visibility, boolean completionConfirmed,
+            LocalDateTime createdAt, LocalDateTime updatedAt, String dayStartTime,
+            String dayEndTime, String travelPace
+    ) {
+        this(id, ownerId, title, companionType, travelStyles, destination,
+                destinationLat, destinationLng, startDate, endDate, coverImageUrl,
+                memberCount, status, visibility, completionConfirmed, createdAt,
+                updatedAt, dayStartTime, dayEndTime, travelPace, null, null);
+    }
+
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     public TripResponse(
@@ -56,7 +73,8 @@ public record TripResponse(
     ) {
         this(id, ownerId, title, companionType, travelStyles, destination, null, null,
                 startDate, endDate, coverImageUrl, memberCount, status, visibility,
-                completionConfirmed, createdAt, updatedAt, dayStartTime, dayEndTime, travelPace);
+                completionConfirmed, createdAt, updatedAt, dayStartTime, dayEndTime, travelPace,
+                null, null);
     }
 
     public static TripResponse from(Trip trip, long memberCount) {
@@ -67,6 +85,7 @@ public record TripResponse(
                 trip.isCompletionConfirmed(), trip.getCreatedAt(), trip.getUpdatedAt(),
                 trip.getDayStartTime().format(TIME_FMT),
                 trip.getDayEndTime().format(TIME_FMT),
-                trip.getTravelPace().name());
+                trip.getTravelPace().name(), trip.getDestinationEnglishName(),
+                trip.getDestinationCountryCode());
     }
 }

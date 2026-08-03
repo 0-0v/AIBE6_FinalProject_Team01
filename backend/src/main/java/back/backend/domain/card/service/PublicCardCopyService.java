@@ -72,7 +72,7 @@ public class PublicCardCopyService {
     @Transactional
     public void copy(Long memberId, Long cardId, CopyItineraryRequest request) {
         PlanCard card = cardRepository.findById(cardId)
-                .filter(value -> value.getVisibility() == TripVisibility.PUBLIC)
+                .filter(value -> value.getVisibility() != TripVisibility.PRIVATE)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
         Trip target = tripRepository.findByIdAndMemberIdAndStatusNot(
                         request.targetTripId(), memberId, TripStatus.CANCELLED)

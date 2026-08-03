@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import back.backend.domain.member.repository.MemberRepository;
@@ -124,7 +125,7 @@ class TripServiceTest {
 
         TripRequest request = new TripRequest(
                 "제주 여행", CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
-                null, null, TripVisibility.PUBLIC, null, null, null);
+                null, null, TripVisibility.PUBLIC_ROUTE, null, null, null);
 
         var response = tripService.create(1L, request);
 
@@ -145,10 +146,10 @@ class TripServiceTest {
         when(planCardRepository.findByTripId(10L)).thenReturn(Optional.of(card));
 
         var response = tripService.updateVisibility(
-                1L, 10L, new TripVisibilityRequest(TripVisibility.PUBLIC));
+                1L, 10L, new TripVisibilityRequest(TripVisibility.PUBLIC_ROUTE));
 
-        assertThat(response.visibility()).isEqualTo(TripVisibility.PUBLIC);
-        assertThat(card.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
+        assertThat(response.visibility()).isEqualTo(TripVisibility.PUBLIC_ROUTE);
+        assertThat(card.getVisibility()).isEqualTo(TripVisibility.PUBLIC_ROUTE);
         verify(activityLogService).create(any());
         verify(notificationService).create(any());
     }
@@ -161,7 +162,7 @@ class TripServiceTest {
                 .thenReturn(Optional.of(trip));
 
         assertThatThrownBy(() -> tripService.updateVisibility(
-                1L, 10L, new TripVisibilityRequest(TripVisibility.PUBLIC)))
+                1L, 10L, new TripVisibilityRequest(TripVisibility.PUBLIC_ROUTE)))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
                                 .isEqualTo(TripErrorCode.TRIP_VISIBILITY_NOT_AVAILABLE));
@@ -216,9 +217,10 @@ class TripServiceTest {
     }
 
     @Test
-    @DisplayName("t11 여행방 생성일이 오늘 또는 과거이면 생성을 거부한다")
-    void t11_createTripRejectsTodayOrPastStartDate() {
+    @DisplayName("t11 여행방 생성 시 오늘 또는 과거 시작일을 허용한다")
+    void t11_createTripAllowsTodayOrPastStartDate() {
         when(memberRepository.existsById(1L)).thenReturn(true);
+        when(tripRepository.save(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         for (LocalDate startDate : List.of(
                 LocalDate.of(2026, 7, 30),
@@ -236,18 +238,17 @@ class TripServiceTest {
                     null
             );
 
-            assertThatThrownBy(() -> tripService.create(1L, request))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            exception -> assertThat(exception.getErrorCode())
-                                    .isEqualTo(TripErrorCode.INVALID_TRIP));
+            var response = tripService.create(1L, request);
+
+            assertThat(response.startDate()).isEqualTo(startDate);
         }
 
-        verify(tripRepository, never()).save(any());
+        verify(tripRepository, times(2)).save(any());
     }
 
     @Test
-    @DisplayName("t12 여행방 수정일이 오늘 또는 과거이면 수정을 거부한다")
-    void t12_updateTripRejectsTodayOrPastStartDate() {
+    @DisplayName("t12 여행방 수정 시 오늘 또는 과거 시작일을 허용한다")
+    void t12_updateTripAllowsTodayOrPastStartDate() {
         Trip trip = trip("제주 여행");
         when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 2L, TripStatus.CANCELLED))
                 .thenReturn(Optional.of(trip));
@@ -264,10 +265,10 @@ class TripServiceTest {
                 null
         );
 
-        assertThatThrownBy(() -> tripService.update(2L, 10L, request))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode())
-                                .isEqualTo(TripErrorCode.INVALID_TRIP));
+        var response = tripService.update(2L, 10L, request);
+
+        assertThat(response.startDate()).isEqualTo(LocalDate.of(2026, 7, 31));
+        assertThat(response.endDate()).isEqualTo(LocalDate.of(2026, 8, 2));
     }
 
     @Test
@@ -294,6 +295,22 @@ class TripServiceTest {
     private TripRequest request(String title) {
         return new TripRequest(title, CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
                 LocalDate.of(2026, 8, 12), LocalDate.of(2026, 8, 15), TripVisibility.PRIVATE, null, null, null);
+    }
+
+    @Test
+    @DisplayName("t14 여행방 생성 시 목적지 영문명과 국가 코드를 보존한다")
+    void t14_createTripPreservesDestinationMetadata() {
+        when(memberRepository.existsById(1L)).thenReturn(true);
+        when(tripRepository.save(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TripRequest request = new TripRequest(
+                "괌 여행", null, Set.of(), "괌", 13.4443, 144.7937,
+                null, null, null, null, null, null, "Guam", "GU");
+
+        var response = tripService.create(1L, request);
+
+        assertThat(response.destinationEnglishName()).isEqualTo("Guam");
+        assertThat(response.destinationCountryCode()).isEqualTo("GU");
     }
 
     private Trip trip(String title) {
