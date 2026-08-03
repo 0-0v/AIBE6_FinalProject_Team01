@@ -39,6 +39,7 @@ public class ItineraryRoutePlanner {
                     Map.entry(PlaceCategoryType.NATURE,     120),
                     Map.entry(PlaceCategoryType.LODGING,     30),
                     Map.entry(PlaceCategoryType.SHOPPING,    60),
+                    Map.entry(PlaceCategoryType.CONVENIENCE, 15),
                     Map.entry(PlaceCategoryType.ACTIVITY,   120),
                     Map.entry(PlaceCategoryType.TRANSPORT,   15),
                     Map.entry(PlaceCategoryType.OTHER,       60)

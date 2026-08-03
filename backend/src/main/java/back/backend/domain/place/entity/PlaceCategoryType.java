@@ -8,6 +8,7 @@ public enum PlaceCategoryType {
     NATURE,
     LODGING,
     SHOPPING,
+    CONVENIENCE,
     ACTIVITY,
     TRANSPORT,
     OTHER,
