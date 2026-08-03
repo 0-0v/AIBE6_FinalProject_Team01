@@ -27,15 +27,6 @@ const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'FOOD', label: '맛집 먹거리' },
 ]
 
-function tomorrowDateInputValue() {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const year = tomorrow.getFullYear()
-    const month = String(tomorrow.getMonth() + 1).padStart(2, '0')
-    const day = String(tomorrow.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-}
-
 type Props = {
     trip: TripResponse
     onClose: () => void
@@ -56,11 +47,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
-    const minimumStartDate = tomorrowDateInputValue()
-    const datesLocked = Boolean(
-        trip.startDate && trip.startDate < minimumStartDate,
-    )
-
     function toggleStyle(style: TravelStyle) {
         setStyles((current) =>
             current.includes(style)
@@ -87,15 +73,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             setError('종료일은 시작일보다 빠를 수 없습니다.')
             return false
         }
-        if (
-            startDate &&
-            startDate !== trip.startDate &&
-            startDate < minimumStartDate
-        ) {
-            setError('여행 시작일은 내일부터 선택할 수 있습니다.')
-            return false
-        }
-
         return true
     }
 
@@ -110,8 +87,26 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                     destination:
                         destinationResult?.name ??
                         (destinationText.trim() || null),
-                    destinationLat: destinationResult?.lat ?? null,
-                    destinationLng: destinationResult?.lng ?? null,
+                    destinationLat:
+                        destinationResult?.lat ??
+                        (destinationText === trip.destination
+                            ? trip.destinationLat
+                            : null),
+                    destinationLng:
+                        destinationResult?.lng ??
+                        (destinationText === trip.destination
+                            ? trip.destinationLng
+                            : null),
+                    destinationEnglishName:
+                        destinationResult?.englishName ??
+                        (destinationText === trip.destination
+                            ? trip.destinationEnglishName
+                            : null),
+                    destinationCountryCode:
+                        destinationResult?.countryCode ??
+                        (destinationText === trip.destination
+                            ? trip.destinationCountryCode
+                            : null),
                     startDate: startDate || null,
                     endDate: endDate || null,
                 })
@@ -289,8 +284,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                 <input
                                     type="date"
                                     value={startDate}
-                                    min={minimumStartDate}
-                                    disabled={datesLocked}
                                     onChange={(event) =>
                                         setStartDate(event.target.value)
                                     }
@@ -302,8 +295,7 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                 <input
                                     type="date"
                                     value={endDate}
-                                    min={startDate || minimumStartDate}
-                                    disabled={datesLocked}
+                                    min={startDate || undefined}
                                     onChange={(event) =>
                                         setEndDate(event.target.value)
                                     }
@@ -311,11 +303,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                 />
                             </label>
                         </div>
-                        {datesLocked && (
-                            <p className="mt-2 text-xs font-medium text-slate-500">
-                                이미 시작된 여행의 기간은 변경할 수 없어요.
-                            </p>
-                        )}
                         {error && (
                             <p className="mt-3 text-sm font-semibold text-red-500">
                                 {error}

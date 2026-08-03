@@ -53,6 +53,12 @@ public class Trip {
     @Column(name = "destination_lng")
     private Double destinationLng;
 
+    @Column(name = "destination_english_name", length = 100)
+    private String destinationEnglishName;
+
+    @Column(name = "destination_country_code", length = 2)
+    private String destinationCountryCode;
+
     @Column(name = "start_date")
     private LocalDate startDate;
 
@@ -236,6 +242,14 @@ public class Trip {
         if (travelPace   != null) this.travelPace   = travelPace;
     }
 
+    public void updateDestinationMetadata(String englishName, String countryCode) {
+        this.destinationEnglishName = normalizeNullable(englishName);
+        String normalizedCountryCode = normalizeNullable(countryCode);
+        this.destinationCountryCode = normalizedCountryCode == null
+                ? null
+                : normalizedCountryCode.toUpperCase();
+    }
+
     public void completeAutomatically(LocalDate today) {
         ensureMutable();
         if (endDate == null || !endDate.isBefore(Objects.requireNonNull(today, "today must not be null"))) {
@@ -330,8 +344,14 @@ public class Trip {
         return description;
     }
 
+    public void updateDescription(String description) {
+        this.description = normalizeNullable(description);
+    }
+
     public Double getDestinationLat() { return destinationLat; }
     public Double getDestinationLng() { return destinationLng; }
+    public String getDestinationEnglishName() { return destinationEnglishName; }
+    public String getDestinationCountryCode() { return destinationCountryCode; }
 
     public String getDestination() {
         return destination;

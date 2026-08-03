@@ -12,15 +12,6 @@ import {
     type DestinationResult,
 } from './destination-autocomplete'
 
-function tomorrowDateInputValue() {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const year = tomorrow.getFullYear()
-    const month = String(tomorrow.getMonth() + 1).padStart(2, '0')
-    const day = String(tomorrow.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-}
-
 const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'ACTIVITY', label: '액티비티' },
     { value: 'SNS_HOT_PLACE', label: 'SNS 핫플레이스' },
@@ -54,8 +45,6 @@ export function CreateTripModal({
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
     const [createdTripId, setCreatedTripId] = useState<number | null>(null)
-    const minimumStartDate = tomorrowDateInputValue()
-
     function toggleStyle(style: TravelStyle) {
         setTravelStyles((current) =>
             current.includes(style)
@@ -83,11 +72,6 @@ export function CreateTripModal({
             setError('종료일은 시작일보다 빠를 수 없습니다.')
             return
         }
-        if (startDate && startDate < minimumStartDate) {
-            setError('여행 시작일은 내일부터 선택할 수 있습니다.')
-            return
-        }
-
         setIsSubmitting(true)
         setError(null)
         try {
@@ -102,6 +86,10 @@ export function CreateTripModal({
                             (destinationText.trim() || null),
                         destinationLat: destinationResult?.lat ?? null,
                         destinationLng: destinationResult?.lng ?? null,
+                        destinationEnglishName:
+                            destinationResult?.englishName ?? null,
+                        destinationCountryCode:
+                            destinationResult?.countryCode ?? null,
                         startDate: startDate || null,
                         endDate: endDate || null,
                     })
@@ -198,7 +186,6 @@ export function CreateTripModal({
                                 <input
                                     type="date"
                                     value={startDate}
-                                    min={minimumStartDate}
                                     onChange={(event) =>
                                         setStartDate(event.target.value)
                                     }
@@ -210,7 +197,7 @@ export function CreateTripModal({
                                 <input
                                     type="date"
                                     value={endDate}
-                                    min={startDate || minimumStartDate}
+                                    min={startDate || undefined}
                                     onChange={(event) =>
                                         setEndDate(event.target.value)
                                     }

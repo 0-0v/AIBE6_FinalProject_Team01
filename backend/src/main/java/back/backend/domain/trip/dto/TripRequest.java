@@ -27,8 +27,22 @@ public record TripRequest(
         TripVisibility visibility,
         LocalTime dayStartTime,
         LocalTime dayEndTime,
-        TravelPace travelPace
+        TravelPace travelPace,
+        @Size(max = 100, message = "목적지 영문명은 100자 이하여야 합니다.")
+        String destinationEnglishName,
+        @Size(max = 2, message = "목적지 국가 코드는 2자 이하여야 합니다.")
+        String destinationCountryCode
 ) {
+    public TripRequest(
+            String title, CompanionType companionType, Set<TravelStyle> travelStyles,
+            String destination, Double destinationLat, Double destinationLng,
+            LocalDate startDate, LocalDate endDate, TripVisibility visibility,
+            LocalTime dayStartTime, LocalTime dayEndTime, TravelPace travelPace
+    ) {
+        this(title, companionType, travelStyles, destination, destinationLat, destinationLng,
+                startDate, endDate, visibility, dayStartTime, dayEndTime, travelPace, null, null);
+    }
+
     public TripRequest(
             String title,
             CompanionType companionType,
@@ -42,7 +56,7 @@ public record TripRequest(
             TravelPace travelPace
     ) {
         this(title, companionType, travelStyles, destination, null, null, startDate, endDate,
-                visibility, dayStartTime, dayEndTime, travelPace);
+                visibility, dayStartTime, dayEndTime, travelPace, null, null);
     }
 
     public Set<TravelStyle> normalizedTravelStyles() {

@@ -3,6 +3,7 @@ package back.backend.domain.place.service;
 import back.backend.domain.place.dto.response.GooglePlacesApiResponse;
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
 import back.backend.domain.place.dto.response.PlaceOperationalDetails;
+import back.backend.domain.place.dto.response.DestinationMetadataResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
 import java.time.Duration;
@@ -220,6 +221,38 @@ public class PlaceSearchService {
                     List.copyOf(descriptions),
                     mapOpeningWindows(current)
             );
+        } catch (RestClientException e) {
+            throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+        }
+    }
+
+    public DestinationMetadataResponse getDestinationMetadata(String googlePlaceId) {
+        if (!StringUtils.hasText(googlePlaceId)) {
+            throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
+        }
+        try {
+            GooglePlacesApiResponse.Place place = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/places/{placeId}")
+                            .queryParam("languageCode", "en")
+                            .build(googlePlaceId))
+                    .header("X-Goog-FieldMask", "displayName,addressComponents")
+                    .retrieve()
+                    .body(GooglePlacesApiResponse.Place.class);
+            if (place == null || place.displayName() == null) {
+                throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+            }
+            String countryCode = place.addressComponents() == null
+                    ? null
+                    : place.addressComponents().stream()
+                    .filter(component -> component.types() != null
+                            && component.types().contains("country"))
+                    .map(GooglePlacesApiResponse.AddressComponent::shortText)
+                    .filter(StringUtils::hasText)
+                    .findFirst()
+                    .map(String::toUpperCase)
+                    .orElse(null);
+            return new DestinationMetadataResponse(place.displayName().text(), countryCode);
         } catch (RestClientException e) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
         }

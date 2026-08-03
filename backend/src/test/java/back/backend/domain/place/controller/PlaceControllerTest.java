@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
+import back.backend.domain.place.dto.response.DestinationMetadataResponse;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.service.PlaceSearchService;
@@ -149,5 +150,18 @@ class PlaceControllerTest {
                         .param("longitude", "135.5023"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @DisplayName("t7 장소 ID로 목적지 메타데이터를 요청하면 영문명과 국가 코드를 반환한다")
+    void t7_destinationMetadataReturnsEnglishNameAndCountryCode() throws Exception {
+        given(placeSearchService.getDestinationMetadata("place-1"))
+                .willReturn(new DestinationMetadataResponse("Hwaseong", "KR"));
+
+        mockMvc.perform(get("/api/places/destination-metadata")
+                        .param("placeId", "place-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.englishName").value("Hwaseong"))
+                .andExpect(jsonPath("$.data.countryCode").value("KR"));
     }
 }

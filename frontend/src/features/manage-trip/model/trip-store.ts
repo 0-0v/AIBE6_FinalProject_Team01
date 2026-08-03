@@ -66,6 +66,8 @@ export function toRoom(trip: TripResponse): Room {
         location: trip.destination ?? '장소 미정',
         destinationLat: trip.destinationLat ?? null,
         destinationLng: trip.destinationLng ?? null,
+        destinationEnglishName: trip.destinationEnglishName ?? null,
+        destinationCountryCode: trip.destinationCountryCode ?? null,
         dday,
         members: trip.memberCount,
         cover:

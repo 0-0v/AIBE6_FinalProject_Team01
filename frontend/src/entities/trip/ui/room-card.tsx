@@ -58,24 +58,24 @@ export function RoomCard({
                         }}
                         disabled={visibilityBusy}
                         className={`absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-[9px] border backdrop-blur-[10px] ${
-                            room.visibility === 'PUBLIC'
+                            room.visibility !== 'PRIVATE'
                                 ? 'border-transparent bg-[#f2647c] text-white'
                                 : 'border-white/30 bg-[rgba(33,60,81,0.62)] text-white/90'
                         } transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
                         aria-label={
-                            room.visibility === 'PUBLIC'
+                            room.visibility !== 'PRIVATE'
                                 ? '공개 여행방'
                                 : '비공개 여행방'
                         }
                         title={
                             onToggleVisibility
-                                ? room.visibility === 'PUBLIC'
+                                ? room.visibility !== 'PRIVATE'
                                     ? '비공개로 전환'
                                     : '공개로 전환'
                                 : '여행 완료 후 공개 설정을 변경할 수 있습니다.'
                         }
                     >
-                        {room.visibility === 'PUBLIC' ? (
+                        {room.visibility !== 'PRIVATE' ? (
                             <UnlockIcon size={14} />
                         ) : (
                             <LockIcon size={14} />
@@ -113,7 +113,7 @@ export function RoomCard({
                                                 key={label}
                                                 className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[9px] border border-white/30 bg-white/20 px-2.5 py-[5px] text-[12px] font-semibold text-white backdrop-blur-[6px]"
                                             >
-                                                {label}
+                                                #{label}
                                             </span>
                                         ))}
                                     {room.travelStyleLabels.length > 2 && (

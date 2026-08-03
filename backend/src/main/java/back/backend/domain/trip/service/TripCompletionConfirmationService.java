@@ -8,6 +8,10 @@ import back.backend.domain.card.repository.PlanCardTagRepository;
 import back.backend.domain.card.repository.TripTagRepository;
 import back.backend.domain.collaboration.activitylog.dto.ActivityLogCreateCommand;
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
+import back.backend.domain.place.repository.TripPlaceRepository;
+import back.backend.domain.travelrecord.entity.TravelRecord;
+import back.backend.domain.travelrecord.repository.TravelPhotoRepository;
+import back.backend.domain.travelrecord.repository.TravelRecordRepository;
 import back.backend.domain.trip.dto.TripCompletionConfirmationRequest;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.TripVisibilitySettingsResponse;
@@ -34,6 +38,9 @@ public class TripCompletionConfirmationService {
     private final PlanCardRepository planCardRepository;
     private final TripTagRepository tripTagRepository;
     private final PlanCardTagRepository planCardTagRepository;
+    private final TripPlaceRepository tripPlaceRepository;
+    private final TravelRecordRepository travelRecordRepository;
+    private final TravelPhotoRepository travelPhotoRepository;
     private final ActivityLogService activityLogService;
     private final Clock clock;
 
@@ -43,6 +50,9 @@ public class TripCompletionConfirmationService {
             PlanCardRepository planCardRepository,
             TripTagRepository tripTagRepository,
             PlanCardTagRepository planCardTagRepository,
+            TripPlaceRepository tripPlaceRepository,
+            TravelRecordRepository travelRecordRepository,
+            TravelPhotoRepository travelPhotoRepository,
             ActivityLogService activityLogService,
             Clock clock
     ) {
@@ -51,6 +61,9 @@ public class TripCompletionConfirmationService {
         this.planCardRepository = planCardRepository;
         this.tripTagRepository = tripTagRepository;
         this.planCardTagRepository = planCardTagRepository;
+        this.tripPlaceRepository = tripPlaceRepository;
+        this.travelRecordRepository = travelRecordRepository;
+        this.travelPhotoRepository = travelPhotoRepository;
         this.activityLogService = activityLogService;
         this.clock = clock;
     }
@@ -62,13 +75,15 @@ public class TripCompletionConfirmationService {
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
         PlanCard card = planCardRepository.findByTripId(tripId)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_CARD_NOT_FOUND));
-        List<String> tags = normalizeTags(request);
+        List<String> tags = normalizeTags(request, trip);
         try {
             trip.confirmCompletion(request.visibility(), LocalDateTime.now(clock));
         } catch (IllegalStateException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         }
         card.changeVisibility(request.visibility());
+        trip.updateDescription(request.description());
+        card.updateSummary(request.description());
         replaceTags(trip, card, tags);
         activityLogService.create(new ActivityLogCreateCommand(
                 tripId, memberId, null, "TRIP_COMPLETION_CONFIRMED", "TRIP", tripId,
@@ -91,10 +106,17 @@ public class TripCompletionConfirmationService {
                 .stream()
                 .map(TripTag::getName)
                 .toList();
-        return new TripVisibilitySettingsResponse(trip.getVisibility(), tags);
+        int placeCount = tripPlaceRepository.findAllOrderedByTripId(tripId).size();
+        List<TravelRecord> records = travelRecordRepository.findAllByTripIdOrderByVisitedAtDescIdDesc(tripId);
+        int photoCount = travelPhotoRepository
+                .findAllByTravelRecordIdInOrderBySortOrderAsc(records.stream().map(TravelRecord::getId).toList())
+                .size();
+        return new TripVisibilitySettingsResponse(
+                trip.getVisibility(), tags, trip.getDescription(),
+                placeCount, photoCount, records.size());
     }
 
-    private List<String> normalizeTags(TripCompletionConfirmationRequest request) {
+    private List<String> normalizeTags(TripCompletionConfirmationRequest request, Trip trip) {
         if (request.visibility() == TripVisibility.PRIVATE) {
             return List.of();
         }
@@ -107,7 +129,7 @@ public class TripCompletionConfirmationService {
                     .filter(tag -> !tag.isBlank())
                     .forEach(tags::add);
         }
-        if (tags.isEmpty()) {
+        if (tags.isEmpty() && trip.getTravelStyles().isEmpty()) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, "공개 여행방은 태그를 한 개 이상 입력해야 합니다.");
         }
         return List.copyOf(tags);

@@ -25,7 +25,15 @@ public record GooglePlacesApiResponse(
             String nationalPhoneNumber,
             String websiteUri,
             EditorialSummary editorialSummary,
-            List<Review> reviews
+            List<Review> reviews,
+            List<AddressComponent> addressComponents
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record AddressComponent(
+            String longText,
+            String shortText,
+            List<String> types
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)

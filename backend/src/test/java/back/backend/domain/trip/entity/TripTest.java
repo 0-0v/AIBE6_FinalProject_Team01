@@ -115,9 +115,9 @@ class TripTest {
                 LocalDate.of(2026, 7, 28), LocalDate.of(2026, 7, 31));
         trip.completeAutomatically(LocalDate.of(2026, 8, 1));
 
-        trip.changeVisibility(TripVisibility.PUBLIC);
+        trip.changeVisibility(TripVisibility.PUBLIC_ROUTE);
 
         assertThat(trip.getStatus()).isEqualTo(TripStatus.COMPLETED);
-        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PUBLIC);
+        assertThat(trip.getVisibility()).isEqualTo(TripVisibility.PUBLIC_ROUTE);
     }
 }

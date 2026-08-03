@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from 'react'
 import { MapPinIcon } from 'lucide-react'
 import { useMapsLibrary } from '@vis.gl/react-google-maps'
 import { useDebounce } from '@/shared/lib/use-debounce'
+import { fetchDestinationMetadata } from '../api/destination-api'
 
 export type DestinationResult = {
     name: string
+    englishName: string
+    countryCode: string | null
     lat: number
     lng: number
 }
@@ -15,6 +18,10 @@ export type DestinationResult = {
 type NewPlace = {
     fetchFields: (options: { fields: string[] }) => Promise<void>
     location?: { lat: () => number; lng: () => number }
+    addressComponents?: Array<{
+        shortText: string
+        types: string[]
+    }>
 }
 
 type PlacePrediction = {
@@ -33,6 +40,7 @@ type AutocompleteSuggestionLib = {
     fetchAutocompleteSuggestions: (request: {
         input: string
         includedPrimaryTypes?: string[]
+        language?: string
     }) => Promise<{ suggestions: PlaceSuggestion[] }>
 }
 
@@ -56,7 +64,9 @@ export function DestinationAutocomplete({
     const mountedRef = useRef(true)
     useEffect(() => {
         mountedRef.current = true
-        return () => { mountedRef.current = false }
+        return () => {
+            mountedRef.current = false
+        }
     }, [])
 
     // 외부 클릭 시 닫기
@@ -79,6 +89,7 @@ export function DestinationAutocomplete({
         void lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
             input: text,
             includedPrimaryTypes: ['locality', 'administrative_area_level_1'],
+            language: 'en',
         })
             .then(({ suggestions: results }) => {
                 if (!mountedRef.current) return
@@ -111,18 +122,32 @@ export function DestinationAutocomplete({
 
         try {
             const place = prediction.toPlace()
-            await place.fetchFields({ fields: ['location'] })
+            await place.fetchFields({
+                fields: ['location', 'addressComponents'],
+            })
 
             const loc = place.location
             if (!loc) return
+            const countryCode = place.addressComponents?.find((component) =>
+                component.types.includes('country'),
+            )?.shortText
+            const metadata = await fetchDestinationMetadata(
+                prediction.placeId,
+            ).catch(() => null)
 
             onChange(
                 {
-                    name: prediction.mainText.text,
+                    name: value.trim() || prediction.mainText.text,
+                    englishName:
+                        metadata?.englishName ?? prediction.mainText.text,
+                    countryCode:
+                        metadata?.countryCode ??
+                        countryCode?.toUpperCase() ??
+                        null,
                     lat: loc.lat(),
                     lng: loc.lng(),
                 },
-                prediction.mainText.text,
+                value.trim() || prediction.mainText.text,
             )
         } catch {
             onChange(null, prediction.mainText.text)

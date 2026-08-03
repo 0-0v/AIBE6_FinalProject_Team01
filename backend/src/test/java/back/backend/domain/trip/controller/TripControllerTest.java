@@ -141,7 +141,7 @@ class TripControllerTest {
         mockMvc.perform(post("/api/trips/{tripId}/completion-confirmation", 10L)
                         .contentType("application/json")
                         .content("""
-                                {"visibility":"PUBLIC","tags":["둘이서"]}
+                                {"visibility":"PUBLIC_ROUTE","tags":["둘이서"]}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(10));
@@ -164,12 +164,12 @@ class TripControllerTest {
         when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
         when(tripCompletionConfirmationService.getSettings(1L, 10L))
                 .thenReturn(new TripVisibilitySettingsResponse(
-                        TripVisibility.PUBLIC,
-                        List.of("친구와", "액티비티")));
+                        TripVisibility.PUBLIC_ROUTE,
+                        List.of("친구와", "액티비티"), null, 5, 12, 5));
 
         mockMvc.perform(get("/api/trips/{tripId}/visibility-settings", 10L))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.visibility").value("PUBLIC"))
+                .andExpect(jsonPath("$.data.visibility").value("PUBLIC_ROUTE"))
                 .andExpect(jsonPath("$.data.tags[0]").value("친구와"))
                 .andExpect(jsonPath("$.data.tags[1]").value("액티비티"));
     }
