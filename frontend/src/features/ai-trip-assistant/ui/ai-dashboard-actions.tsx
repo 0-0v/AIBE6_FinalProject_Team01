@@ -355,7 +355,7 @@ export function AiDashboardActions({
                                                 variant="form"
                                                 className="w-full"
                                             />
-                                            <div className="mp-scroll mt-3 grid max-h-[228px] gap-2 overflow-y-auto pr-1 md:grid-cols-2">
+                                            <div className="mp-scroll mt-3 grid max-h-[268px] gap-2 overflow-y-auto pr-1 md:grid-cols-2">
                                             {visibleRouteSegments.map((segment) => {
                                                 const isSelected =
                                                     selectedSegment?.key ===
