@@ -10,6 +10,7 @@ import back.backend.domain.card.repository.*;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.entity.Trip;
+import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -40,7 +41,7 @@ class PublicCardServiceTest {
     @Test
     @DisplayName("t1 본인이 만든 공개 카드를 북마크하면 권한 예외가 발생한다")
     void t1_bookmarkRejectsOwnCard() {
-        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC, 1L);
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC_ROUTE, 1L);
         ReflectionTestUtils.setField(card, "id", 20L);
         when(cardRepository.findById(20L)).thenReturn(Optional.of(card));
         PublicCardService service = new PublicCardService(
@@ -56,7 +57,7 @@ class PublicCardServiceTest {
     @Test
     @DisplayName("t2 여행에 참여했던 멤버가 공개 카드를 북마크하면 권한 예외가 발생한다")
     void t2_bookmarkRejectsTripParticipantCard() {
-        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC, 1L);
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC_ROUTE, 1L);
         ReflectionTestUtils.setField(card, "id", 20L);
         when(cardRepository.findById(20L)).thenReturn(Optional.of(card));
         when(tripMemberRepository.existsByTripIdAndMemberId(10L, 2L)).thenReturn(true);
@@ -73,11 +74,11 @@ class PublicCardServiceTest {
     @Test
     @DisplayName("t3 여행에 참여했던 멤버에게 공개 카드를 내 카드로 응답한다")
     void t3_publicCardMarksTripParticipantAsOwnCard() {
-        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC, 1L);
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC_ROUTE, 1L);
         ReflectionTestUtils.setField(card, "id", 20L);
-        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), "제주", null, null);
+        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(TravelStyle.FOOD), "제주", null, null);
         ReflectionTestUtils.setField(trip, "id", 10L);
-        when(cardRepository.findAllByVisibility(TripVisibility.PUBLIC)).thenReturn(List.of(card));
+        when(cardRepository.findAllByVisibilityNot(TripVisibility.PRIVATE)).thenReturn(List.of(card));
         when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
         when(memberRepository.findById(1L)).thenReturn(Optional.empty());
         when(cardTagRepository.findAllByPlanCardId(20L)).thenReturn(List.of());
@@ -89,7 +90,31 @@ class PublicCardServiceTest {
         var response = service.getPublicCards(2L, 0, 9, CardSort.LATEST, "");
 
         assertThat(response.content()).singleElement()
-                .extracting(cardResponse -> cardResponse.ownCard())
-                .isEqualTo(true);
+                .satisfies(cardResponse -> {
+                    assertThat(cardResponse.ownCard()).isTrue();
+                    assertThat(cardResponse.travelStyles()).containsExactly(TravelStyle.FOOD);
+                });
+    }
+
+    @Test
+    @DisplayName("t4 여행 스타일을 선택하면 해당 스타일의 공개 카드만 반환한다")
+    void t4_getPublicCardsFiltersByTravelStyle() {
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC_ROUTE, 1L);
+        ReflectionTestUtils.setField(card, "id", 20L);
+        Trip trip = Trip.create(1L, "제주 여행", null, Set.of(TravelStyle.FOOD), "제주", null, null);
+        ReflectionTestUtils.setField(trip, "id", 10L);
+        when(cardRepository.findAllByVisibilityNot(TripVisibility.PRIVATE)).thenReturn(List.of(card));
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(memberRepository.findById(1L)).thenReturn(Optional.empty());
+        when(cardTagRepository.findAllByPlanCardId(20L)).thenReturn(List.of());
+        PublicCardService service = new PublicCardService(
+                cardRepository, savedRepository, commentRepository, cardTagRepository,
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher);
+
+        var response = service.getPublicCards(
+                null, 0, 9, CardSort.LATEST, "", TravelStyle.NATURE);
+
+        assertThat(response.content()).isEmpty();
+        assertThat(response.totalElements()).isZero();
     }
 }

@@ -7,7 +7,14 @@ import {
     PlusIcon,
 } from 'lucide-react'
 import { Room, RoomCard } from '@/entities/trip'
-import { CreateTripModal, updateTripVisibility } from '@/features/manage-trip'
+import {
+    CreateTripModal,
+    PublicScopeModal,
+    fetchTripVisibilitySettings,
+    updateTripVisibility,
+    type PublicScope,
+    type TripVisibilitySettings,
+} from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 
 const PAGE_SIZE = 6
@@ -38,6 +45,12 @@ export function RoomListPanel({
         useState<Room | null>(null)
     const [visibilityBusy, setVisibilityBusy] = useState(false)
     const [visibilityError, setVisibilityError] = useState<string | null>(null)
+    const [scopeRoom, setScopeRoom] = useState<Room | null>(null)
+    const [scopeSettings, setScopeSettings] =
+        useState<TripVisibilitySettings | null>(null)
+    const [scopeLoading, setScopeLoading] = useState(false)
+    const [scopeBusy, setScopeBusy] = useState(false)
+    const [scopeError, setScopeError] = useState<string | null>(null)
     const pastYears = useMemo(
         () =>
             Array.from(
@@ -76,12 +89,10 @@ export function RoomListPanel({
 
     const toggleVisibility = async () => {
         if (!visibilityRoom?.apiTripId) return
-        const nextVisibility =
-            visibilityRoom.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC'
         setVisibilityBusy(true)
         setVisibilityError(null)
         try {
-            await updateTripVisibility(visibilityRoom.apiTripId, nextVisibility)
+            await updateTripVisibility(visibilityRoom.apiTripId, 'PRIVATE')
             await onRetry()
             setVisibilityRoom(null)
         } catch (cause) {
@@ -93,6 +104,46 @@ export function RoomListPanel({
             )
         } finally {
             setVisibilityBusy(false)
+        }
+    }
+
+    const openPublicScope = async (room: Room) => {
+        setScopeError(null)
+        setScopeRoom(room)
+        setScopeLoading(true)
+        try {
+            if (room.apiTripId) {
+                setScopeSettings(
+                    await fetchTripVisibilitySettings(room.apiTripId),
+                )
+            }
+        } catch (cause) {
+            setScopeError(
+                getApiErrorMessage(cause, '공개 범위 정보를 불러오지 못했습니다.'),
+            )
+        } finally {
+            setScopeLoading(false)
+        }
+    }
+
+    const selectPublicScope = async (scope: PublicScope) => {
+        if (!scopeRoom?.apiTripId) return
+        setScopeBusy(true)
+        setScopeError(null)
+        try {
+            await updateTripVisibility(scopeRoom.apiTripId, scope)
+            await onRetry()
+            setScopeRoom(null)
+            setScopeSettings(null)
+        } catch (cause) {
+            setScopeError(
+                getApiErrorMessage(
+                    cause,
+                    '여행방 공개 상태를 변경하지 못했습니다.',
+                ),
+            )
+        } finally {
+            setScopeBusy(false)
         }
     }
     return (
@@ -214,6 +265,10 @@ export function RoomListPanel({
                         onToggleVisibility={
                             room.lifecycleStatus === 'COMPLETED'
                                 ? () => {
+                                      if (room.visibility === 'PRIVATE') {
+                                          void openPublicScope(room)
+                                          return
+                                      }
                                       setVisibilityError(null)
                                       setVisibilityRoom(room)
                                   }

@@ -60,4 +60,7 @@ public class PlanCard {
     public void changeVisibility(TripVisibility visibility) {
         this.visibility = java.util.Objects.requireNonNull(visibility, "visibility must not be null");
     }
+    public void updateSummary(String summary) {
+        this.summary = summary == null || summary.isBlank() ? null : summary.trim();
+    }
 }

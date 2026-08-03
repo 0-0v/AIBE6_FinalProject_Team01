@@ -17,7 +17,12 @@ type ExploreCardState = {
     isLoading: boolean
     commentsLoading: boolean
     error: string | null
-    loadCards: (page: number, sort: CardSort, query: string) => Promise<void>
+    loadCards: (
+        page: number,
+        sort: CardSort,
+        query: string,
+        travelStyle: string | null,
+    ) => Promise<void>
     toggleBookmark: (cardId: number) => Promise<void>
     loadComments: (cardId: number) => Promise<void>
     createComment: (cardId: number, content: string) => Promise<boolean>
@@ -56,10 +61,10 @@ export const useExploreCardStore = create<ExploreCardState>((set, get) => ({
     commentsLoading: false,
     error: null,
 
-    loadCards: async (page, sort, query) => {
+    loadCards: async (page, sort, query, travelStyle) => {
         set({ isLoading: true, error: null })
         try {
-            const data = await fetchPublicCards(page, sort, query)
+            const data = await fetchPublicCards(page, sort, query, travelStyle)
             set({ data, isLoading: false })
         } catch (error) {
             set({ error: messageOf(error), isLoading: false })

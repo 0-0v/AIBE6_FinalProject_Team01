@@ -7,6 +7,7 @@ import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import jakarta.validation.Valid;
 import java.util.List;
+import back.backend.domain.trip.entity.TravelStyle;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,9 +34,11 @@ public class PublicCardController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "9") int size,
             @RequestParam(defaultValue = "LATEST") CardSort sort,
-            @RequestParam(required = false) String query) {
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) TravelStyle travelStyle) {
         Long memberId = security.getCurrentPrincipal().map(principal -> principal.getMemberId()).orElse(null);
-        return ApiResponse.success(service.getPublicCards(memberId, page, size, sort, query));
+        return ApiResponse.success(service.getPublicCards(
+                memberId, page, size, sort, query, travelStyle));
     }
     @GetMapping("/bookmarks")
     public ApiResponse<List<PublicCardResponse>> getBookmarks() {
