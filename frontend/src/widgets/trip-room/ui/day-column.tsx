@@ -37,6 +37,7 @@ import { getApiErrorMessage } from '@/shared/api/client'
 import { ScheduleItemCard } from './schedule-item-card'
 import { getItineraryDayColor } from '../lib/itinerary-map'
 import { buildGoogleMapsDirectionsUrl } from '../lib/google-maps-directions'
+import { buildItineraryDropZoneId } from '../lib/itinerary-drop-position'
 import {
     isSelectedTransportMode,
     resolveSelectableTransportMode,
@@ -466,6 +467,36 @@ function TransportConnector({
     )
 }
 
+// 아이템 사이 / 맨 앞 / 맨 끝에 놓는 전용 드롭존 — 정렬 아이템의 히트박스와
+// 경합하지 않도록 별도 타겟을 두어 사용자가 원하는 위치에 정확히 놓을 수 있게 한다.
+function ItineraryDropZone({
+    dayId,
+    insertionIndex,
+    visible,
+}: {
+    dayId: string
+    insertionIndex: number
+    visible: boolean
+}) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: buildItineraryDropZoneId(dayId, insertionIndex),
+        data: { type: 'itinerary-drop-zone' },
+    })
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={`relative transition-[height] duration-150 ${
+                !visible ? 'h-1' : isOver ? 'h-9' : 'h-5'
+            }`}
+        >
+            {isOver && (
+                <div className="absolute inset-x-1 top-1/2 h-1 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_0_3px_white]" />
+            )}
+        </div>
+    )
+}
+
 type Props = {
     day: ItineraryDay
     tripId: number
@@ -715,6 +746,11 @@ export function DayColumn({
                             </div>
                         ) : (
                             <>
+                                <ItineraryDropZone
+                                    dayId={String(day.id)}
+                                    insertionIndex={0}
+                                    visible={isDragging}
+                                />
                                 {day.items.map((item, index) => (
                                     <React.Fragment key={item.id}>
                                         <ScheduleItemCard
@@ -735,7 +771,8 @@ export function DayColumn({
                                             onHoverChange={onItemHoverChange}
                                             onFocusItem={onItemFocus}
                                         />
-                                        {index < day.items.length - 1 && !isDragging && (
+                                        {index < day.items.length - 1 &&
+                                        !isDragging ? (
                                             <TransportConnector
                                                 item={item}
                                                 nextItem={day.items[index + 1]}
@@ -743,6 +780,12 @@ export function DayColumn({
                                                 canWrite={canWrite}
                                                 days={days}
                                                 onDaysChange={onDaysChange}
+                                            />
+                                        ) : (
+                                            <ItineraryDropZone
+                                                dayId={String(day.id)}
+                                                insertionIndex={index + 1}
+                                                visible={isDragging}
                                             />
                                         )}
                                     </React.Fragment>
