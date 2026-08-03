@@ -10,6 +10,7 @@ import { ScrollProgressBar } from '@/shared/ui/scroll-progress-bar'
 import { WordRotate } from '@/shared/ui/word-rotate'
 import { useCurrentUserStore } from '@/shared/model'
 import { BrandLogo } from '@/shared/ui'
+import { HeroGlobe } from './hero-globe'
 
 const LANDING_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
@@ -767,18 +768,7 @@ export function Landing() {
                         }}
                     >
                         <div style={heroFlamingoStyle}>
-                            <img
-                                src="/assets/plamingo2-hero-v2.png"
-                                alt="Plamingo 캐릭터"
-                                style={{
-                                    width: 280,
-                                    height: 'auto',
-                                    display: 'block',
-                                    filter: 'drop-shadow(0 26px 30px rgba(255,122,89,0.3))',
-                                    animation:
-                                        'pl-heroBag 4.6s ease-in-out infinite 0.25s',
-                                }}
-                            />
+                            <HeroGlobe />
                             <div
                                 style={{
                                     position: 'absolute',
