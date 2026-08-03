@@ -584,17 +584,17 @@ export function DayColumn({
                 >
                     <span className="shrink-0 text-slate-400">
                         {collapsed ? (
-                            <ChevronRightIcon size={13} />
+                            <ChevronRightIcon size={15} />
                         ) : (
-                            <ChevronDownIcon size={13} />
+                            <ChevronDownIcon size={15} />
                         )}
                     </span>
                     <span
-                        className={`shrink-0 text-sm font-extrabold ${isConfirmed ? 'text-green-600' : 'text-brand'}`}
+                        className={`shrink-0 text-base font-extrabold ${isConfirmed ? 'text-green-600' : 'text-brand'}`}
                     >
                         Day {day.dayNumber}
                     </span>
-                    <span className="truncate text-sm font-medium text-slate-500">
+                    <span className="truncate text-base font-medium text-slate-500">
                         {dateLabel}
                     </span>
                     {isConfirmed && (
