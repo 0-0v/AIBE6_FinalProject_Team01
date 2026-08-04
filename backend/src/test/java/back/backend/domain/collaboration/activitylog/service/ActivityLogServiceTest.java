@@ -100,7 +100,6 @@ class ActivityLogServiceTest {
         return new ActivityLogCreateCommand(
                 1L,
                 2L,
-                null,
                 "PLACE_ADDED",
                 "TRIP_PLACE",
                 20L,
@@ -113,7 +112,6 @@ class ActivityLogServiceTest {
         ActivityLog activityLog = ActivityLog.create(
                 1L,
                 2L,
-                null,
                 "PLACE_ADDED",
                 "TRIP_PLACE",
                 20L,

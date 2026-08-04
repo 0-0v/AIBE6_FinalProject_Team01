@@ -224,7 +224,7 @@ public class TripService {
 
     private void recordEvent(Trip trip, Long actorId, String actionType, String description) {
         activityLogService.create(new ActivityLogCreateCommand(
-                trip.getId(), actorId, null, actionType, "TRIP", trip.getId(), description,
+                trip.getId(), actorId, actionType, "TRIP", trip.getId(), description,
                 Map.of("title", trip.getTitle(), "status", trip.getStatus().name())));
 
         List<Long> recipients = tripMemberRepository.findMemberIdsByTripId(trip.getId());

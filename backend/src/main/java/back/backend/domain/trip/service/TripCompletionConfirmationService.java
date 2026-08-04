@@ -86,7 +86,7 @@ public class TripCompletionConfirmationService {
         card.updateSummary(request.description());
         replaceTags(trip, card, tags);
         activityLogService.create(new ActivityLogCreateCommand(
-                tripId, memberId, null, "TRIP_COMPLETION_CONFIRMED", "TRIP", tripId,
+                tripId, memberId, "TRIP_COMPLETION_CONFIRMED", "TRIP", tripId,
                 "여행방 완료와 공개 설정을 확인했습니다.",
                 Map.of("visibility", request.visibility().name(), "tags", tags)
         ));

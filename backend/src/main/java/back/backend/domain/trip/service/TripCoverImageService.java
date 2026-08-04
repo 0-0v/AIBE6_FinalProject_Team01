@@ -45,7 +45,6 @@ public class TripCoverImageService {
         activityLogService.create(new ActivityLogCreateCommand(
                 tripId,
                 memberId,
-                null,
                 "TRIP_COVER_UPDATED",
                 "TRIP",
                 tripId,
