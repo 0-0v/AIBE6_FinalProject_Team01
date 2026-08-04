@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ItineraryDay, Place, Room } from '@/entities/trip'
-import { ExpensePanel } from '@/features/manage-expense'
+import { ExpensePanel, type ExpenseResponse } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
 import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
 import { RecordPanel } from './record-panel'
@@ -38,6 +38,9 @@ export function RecordRoomPanel({
 }: Props) {
     const [inviteOpen, setInviteOpen] = useState(false)
     const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
+    const [editingExpense, setEditingExpense] = useState<ExpenseResponse | null>(
+        null,
+    )
     const [expenseRevision, setExpenseRevision] = useState(0)
     const [members, setMembers] = useState<TripMember[]>([])
 
@@ -88,7 +91,14 @@ export function RecordRoomPanel({
                 startDate={room.startDate}
                 endDate={room.endDate}
                 onPlaceClick={onOpenPlanPlace}
-                onOpenExpenses={() => setExpenseComposerOpen(true)}
+                onOpenExpenses={() => {
+                    setEditingExpense(null)
+                    setExpenseComposerOpen(true)
+                }}
+                onEditExpense={(expense) => {
+                    setEditingExpense(expense)
+                    setExpenseComposerOpen(true)
+                }}
                 expenseRevision={expenseRevision}
             />
 
@@ -100,7 +110,11 @@ export function RecordRoomPanel({
                         canWrite={canManage}
                         composerOnly
                         initialComposerOpen
-                        onComposerClose={() => setExpenseComposerOpen(false)}
+                        initialEditingExpense={editingExpense}
+                        onComposerClose={() => {
+                            setExpenseComposerOpen(false)
+                            setEditingExpense(null)
+                        }}
                         onChanged={() =>
                             setExpenseRevision((revision) => revision + 1)
                         }

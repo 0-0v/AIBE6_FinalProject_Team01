@@ -1,41 +1,45 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-    ArrowRightIcon,
     CalendarDaysIcon,
-    CheckCircle2Icon,
     CircleDollarSignIcon,
     FileTextIcon,
+    PencilIcon,
     PlusIcon,
     ReceiptTextIcon,
-    SendIcon,
     XIcon,
 } from 'lucide-react'
 import { resolveMediaUrl } from '@/shared/api/client'
+import { useCurrentUserStore } from '@/shared/model'
 import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
 import {
-    completeSettlementTransfer,
+    completeExpenseParticipant,
     createExpense,
     fetchExpenseData,
+    updateExpense,
 } from '../api/expense-api'
 import type {
     ExpenseContext,
     ExpenseResponse,
     SettlementSummary,
 } from '../api/expense-api'
+import { ExpenseSettlementCard, isExpenseSettled } from './expense-settlement-card'
 
 type Props = {
     tripId: number
     canWrite: boolean
     composerOnly?: boolean
     initialComposerOpen?: boolean
+    initialEditingExpense?: ExpenseResponse | null
     onComposerClose?: () => void
     onChanged?: () => void
 }
 
 const EMPTY_SETTLEMENT: SettlementSummary = {
     totalExpense: 0,
-    members: [],
-    transfers: [],
+    myReceivable: 0,
+    myPayable: 0,
+    pendingExpenseCount: 0,
+    completedExpenseCount: 0,
 }
 const EMPTY_CONTEXT: ExpenseContext = {
     startDate: null,
@@ -49,23 +53,48 @@ export function ExpensePanel({
     canWrite,
     composerOnly = false,
     initialComposerOpen = false,
+    initialEditingExpense = null,
     onComposerClose,
     onChanged,
 }: Props) {
+    const currentMemberId = useCurrentUserStore(
+        (state) => state.currentUser?.id ?? null,
+    )
+    const isEditingRef = useRef(initialEditingExpense != null)
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
     const [context, setContext] = useState(EMPTY_CONTEXT)
     const [settlement, setSettlement] = useState(EMPTY_SETTLEMENT)
     const [composerOpen, setComposerOpen] = useState(initialComposerOpen)
-    const [title, setTitle] = useState('')
-    const [amount, setAmount] = useState('')
-    const [expenseDate, setExpenseDate] = useState('')
-    const [payerId, setPayerId] = useState<number | null>(null)
-    const [participantIds, setParticipantIds] = useState<number[]>([])
+    const [editingExpenseId, setEditingExpenseId] = useState<number | null>(
+        initialEditingExpense?.id ?? null,
+    )
+    const [title, setTitle] = useState(initialEditingExpense?.title ?? '')
+    const [category, setCategory] = useState(
+        initialEditingExpense?.category ?? 'ETC',
+    )
+    const [amount, setAmount] = useState(
+        initialEditingExpense
+            ? String(initialEditingExpense.totalAmount)
+            : '',
+    )
+    const [expenseDate, setExpenseDate] = useState(
+        initialEditingExpense?.expenseDate ?? '',
+    )
+    const [payerId, setPayerId] = useState<number | null>(
+        initialEditingExpense?.payerId ?? null,
+    )
+    const [participantIds, setParticipantIds] = useState<number[]>(
+        initialEditingExpense?.participants.map(
+            (participant) => participant.memberId,
+        ) ?? [],
+    )
     const [error, setError] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
-    const [completingReceiverId, setCompletingReceiverId] = useState<
-        number | null
-    >(null)
+    const [scopeView, setScopeView] = useState<'all' | 'mine'>('all')
+    const [statusView, setStatusView] = useState<'pending' | 'completed'>(
+        'pending',
+    )
+    const [completingKey, setCompletingKey] = useState<string | null>(null)
     const members = context.members
     const scheduleConfirmed = Boolean(context.startDate && context.endDate)
     const dayOptions = useMemo(
@@ -86,12 +115,22 @@ export function ExpensePanel({
             ).sort(([left], [right]) => Number(left) - Number(right)),
         [expenses],
     )
-    const pendingTransfers = settlement.transfers.filter(
-        (transfer) => transfer.status === 'PENDING',
+    const scopedExpenses = useMemo(() => {
+        if (scopeView === 'all') return expenses
+        return expenses.filter(
+            (expense) =>
+                expense.payerId === currentMemberId ||
+                expense.participants.some(
+                    (participant) => participant.memberId === currentMemberId,
+                ),
+        )
+    }, [currentMemberId, expenses, scopeView])
+    const pendingExpenses = scopedExpenses.filter(
+        (expense) => !isExpenseSettled(expense),
     )
-    const completedTransfers = settlement.transfers.filter(
-        (transfer) => transfer.status === 'COMPLETED',
-    )
+    const completedExpenses = scopedExpenses.filter(isExpenseSettled)
+    const visibleExpenses =
+        statusView === 'pending' ? pendingExpenses : completedExpenses
 
     async function load() {
         try {
@@ -99,13 +138,15 @@ export function ExpensePanel({
             setExpenses(data.expenses)
             setContext(data.context)
             setSettlement(data.settlement)
-            setPayerId(
-                (current) =>
-                    current ?? data.context.members[0]?.memberId ?? null,
-            )
-            setParticipantIds(
-                data.context.members.map((member) => member.memberId),
-            )
+            if (editingExpenseId == null) {
+                setPayerId(
+                    (current) =>
+                        current ?? data.context.members[0]?.memberId ?? null,
+                )
+                setParticipantIds(
+                    data.context.members.map((member) => member.memberId),
+                )
+            }
             setError(null)
         } catch (requestError) {
             setError(
@@ -124,10 +165,12 @@ export function ExpensePanel({
                 setExpenses(data.expenses)
                 setContext(data.context)
                 setSettlement(data.settlement)
-                setPayerId(data.context.members[0]?.memberId ?? null)
-                setParticipantIds(
-                    data.context.members.map((member) => member.memberId),
-                )
+                if (!isEditingRef.current) {
+                    setPayerId(data.context.members[0]?.memberId ?? null)
+                    setParticipantIds(
+                        data.context.members.map((member) => member.memberId),
+                    )
+                }
                 setError(null)
             })
             .catch((requestError: unknown) => {
@@ -144,6 +187,19 @@ export function ExpensePanel({
         }
     }, [tripId])
 
+    function startEditing(expense: ExpenseResponse) {
+        setEditingExpenseId(expense.id)
+        setTitle(expense.title)
+        setCategory(expense.category)
+        setAmount(String(expense.totalAmount))
+        setExpenseDate(expense.expenseDate)
+        setPayerId(expense.payerId)
+        setParticipantIds(
+            expense.participants.map((participant) => participant.memberId),
+        )
+        setComposerOpen(true)
+    }
+
     async function submit() {
         const totalAmount = Number(amount)
         const selected = participantIds
@@ -157,29 +213,38 @@ export function ExpensePanel({
             return
         setSaving(true)
         try {
-            await createExpense(tripId, {
+            const body = {
                 title: title.trim(),
-                category: 'ETC',
+                category,
                 totalAmount,
                 expenseDate,
                 payerId,
-                splitType: 'EQUAL',
+                splitType: 'EQUAL' as const,
                 participantIds: selected,
                 customShares: null,
                 memo: null,
-            })
+            }
+            if (editingExpenseId != null) {
+                await updateExpense(tripId, editingExpenseId, body)
+            } else {
+                await createExpense(tripId, body)
+            }
             await load()
             onChanged?.()
             setTitle('')
             setAmount('')
             setExpenseDate('')
+            setCategory('ETC')
+            setEditingExpenseId(null)
             setComposerOpen(false)
             onComposerClose?.()
         } catch (requestError) {
             setError(
                 requestError instanceof Error
                     ? requestError.message
-                    : '지출 등록에 실패했습니다.',
+                    : editingExpenseId != null
+                      ? '지출 수정에 실패했습니다.'
+                      : '지출 등록에 실패했습니다.',
             )
         } finally {
             setSaving(false)
@@ -188,14 +253,15 @@ export function ExpensePanel({
 
     function closeComposer() {
         setComposerOpen(false)
+        setEditingExpenseId(null)
         onComposerClose?.()
     }
 
-    async function completeTransfer(receiverId: number) {
-        setCompletingReceiverId(receiverId)
+    async function completeParticipant(expenseId: number, memberId: number) {
+        setCompletingKey(`${expenseId}:${memberId}`)
         setError(null)
         try {
-            await completeSettlementTransfer(tripId, receiverId)
+            await completeExpenseParticipant(tripId, expenseId, memberId)
             await load()
             onChanged?.()
         } catch (requestError) {
@@ -205,7 +271,7 @@ export function ExpensePanel({
                     : '정산 완료 처리에 실패했습니다.',
             )
         } finally {
-            setCompletingReceiverId(null)
+            setCompletingKey(null)
         }
     }
 
@@ -216,57 +282,95 @@ export function ExpensePanel({
             >
                 <section className="rounded-[22px] bg-[#213C51]/5 p-4">
                     <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <h3 className="text-sm font-extrabold text-[#213C51]">
-                                더치페이 현황
-                            </h3>
-                            <p className="mt-1 text-[10px] text-slate-400">
-                                송금 관계와 완료 여부를 확인해 보세요.
+                        <h3 className="text-sm font-extrabold text-[#213C51]">
+                            더치페이 현황
+                        </h3>
+                        <div className="flex items-center rounded-full bg-white p-0.5 text-[10px] font-extrabold">
+                            <button
+                                type="button"
+                                onClick={() => setScopeView('all')}
+                                className={`rounded-full px-2.5 py-1 transition ${scopeView === 'all' ? 'bg-[#213C51] text-white' : 'text-slate-400'}`}
+                            >
+                                전체
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setScopeView('mine')}
+                                className={`rounded-full px-2.5 py-1 transition ${scopeView === 'mine' ? 'bg-[#213C51] text-white' : 'text-slate-400'}`}
+                            >
+                                내 몫
+                            </button>
+                        </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-white p-3">
+                            <p className="text-[10px] text-slate-400">
+                                총 지출
                             </p>
+                            <b className="text-sm">
+                                {currency(settlement.totalExpense)}
+                            </b>
                         </div>
-                        <div className="flex gap-1.5 text-[10px] font-extrabold">
-                            <span className="rounded-full bg-brand-50 px-2.5 py-1 text-brand-700">
-                                진행 중 {pendingTransfers.length}
-                            </span>
-                            <span className="rounded-full bg-white px-2.5 py-1 text-[#213C51]">
-                                완료 {completedTransfers.length}
-                            </span>
+                        <div className="rounded-xl bg-white p-3">
+                            <p className="text-[10px] text-slate-400">
+                                내가 받을 돈 · 보낼 돈
+                            </p>
+                            <b className="text-sm text-brand-700">
+                                +{currency(settlement.myReceivable)}
+                            </b>
+                            <span className="mx-1 text-slate-300">/</span>
+                            <b className="text-sm text-slate-700">
+                                {currency(settlement.myPayable)}
+                            </b>
                         </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-center">
-                        <Summary
-                            label="총 지출"
-                            value={settlement.totalExpense}
-                        />
-                        <Summary
-                            label="더치페이"
-                            value={settlement.transfers.length}
-                            count
-                        />
+                    <div className="mt-3 flex items-center gap-4 border-b border-white text-xs font-extrabold text-[#213C51]">
+                        <button
+                            type="button"
+                            onClick={() => setStatusView('pending')}
+                            className={`relative pb-2 ${statusView === 'pending' ? '' : 'opacity-40'}`}
+                        >
+                            정산 대기 {pendingExpenses.length}
+                            {statusView === 'pending' && (
+                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-[#213C51]" />
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStatusView('completed')}
+                            className={`relative pb-2 ${statusView === 'completed' ? '' : 'opacity-40'}`}
+                        >
+                            정산 완료 {completedExpenses.length}
+                            {statusView === 'completed' && (
+                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-[#213C51]" />
+                            )}
+                        </button>
                     </div>
-                    <TransferSection
-                        title="진행 중"
-                        transfers={pendingTransfers}
-                        completingReceiverId={completingReceiverId}
-                        onComplete={(receiverId) =>
-                            void completeTransfer(receiverId)
-                        }
-                    />
-                    <TransferSection
-                        title="완료"
-                        transfers={completedTransfers}
-                        completingReceiverId={completingReceiverId}
-                        onComplete={(receiverId) =>
-                            void completeTransfer(receiverId)
-                        }
-                    />
-                    {settlement.transfers.length === 0 &&
-                        settlement.totalExpense > 0 && (
-                            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-white py-5 text-xs font-extrabold text-[#213C51]">
-                                <CheckCircle2Icon size={17} />
-                                모든 정산이 완료됐어요
-                            </div>
+                    <div className="mt-3 space-y-2">
+                        {visibleExpenses.length === 0 && (
+                            <p className="rounded-xl bg-white py-5 text-center text-[10px] font-bold text-slate-400">
+                                {statusView === 'pending'
+                                    ? '정산 대기 중인 지출이 없습니다.'
+                                    : '정산 완료된 지출이 없습니다.'}
+                            </p>
                         )}
+                        {visibleExpenses.map((expense) => (
+                            <ExpenseSettlementCard
+                                key={expense.id}
+                                expense={expense}
+                                currentMemberId={currentMemberId}
+                                canWrite={canWrite}
+                                completingKey={completingKey}
+                                onComplete={(memberId) =>
+                                    void completeParticipant(
+                                        expense.id,
+                                        memberId,
+                                    )
+                                }
+                                onEdit={() => startEditing(expense)}
+                            />
+                        ))}
+                    </div>
                 </section>
                 {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
                 <section className="mt-6">
@@ -305,11 +409,29 @@ export function ExpensePanel({
                                                         명 더치
                                                     </p>
                                                 </div>
-                                                <b className="text-sm">
-                                                    {currency(
-                                                        expense.totalAmount,
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    <b className="text-sm">
+                                                        {currency(
+                                                            expense.totalAmount,
+                                                        )}
+                                                    </b>
+                                                    {canWrite && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                startEditing(
+                                                                    expense,
+                                                                )
+                                                            }
+                                                            aria-label="지출 내역 수정"
+                                                            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                                        >
+                                                            <PencilIcon
+                                                                size={13}
+                                                            />
+                                                        </button>
                                                     )}
-                                                </b>
+                                                </div>
                                             </div>
                                         </article>
                                     ))}
@@ -344,7 +466,9 @@ export function ExpensePanel({
                         <div className="sticky top-0 z-20 grid grid-cols-[2rem_1fr_2rem] items-center bg-white pb-2">
                             <span aria-hidden="true" />
                             <h3 className="text-center text-sm font-extrabold">
-                                1/N 더치페이
+                                {editingExpenseId != null
+                                    ? '지출 수정'
+                                    : '1/N 더치페이'}
                             </h3>
                             <button
                                 type="button"
@@ -544,7 +668,11 @@ export function ExpensePanel({
                             className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3.5 text-sm font-extrabold text-white shadow-lg shadow-brand/20 transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:shadow-none"
                         >
                             <ReceiptTextIcon size={16} />
-                            {saving ? '저장 중...' : '지출 저장'}
+                            {saving
+                                ? '저장 중...'
+                                : editingExpenseId != null
+                                  ? '수정 내용 저장'
+                                  : '지출 저장'}
                         </button>
                     </div>
                 </div>
@@ -573,117 +701,6 @@ function ExpenseField({
     )
 }
 
-function TransferSection({
-    title,
-    transfers,
-    completingReceiverId,
-    onComplete,
-}: {
-    title: string
-    transfers: SettlementSummary['transfers']
-    completingReceiverId: number | null
-    onComplete: (receiverId: number) => void
-}) {
-    if (transfers.length === 0) return null
-    const completed = title === '완료'
-    return (
-        <div className="mt-4">
-            <p className="mb-2 text-[10px] font-extrabold text-slate-400">
-                {title}
-            </p>
-            <div className="space-y-2">
-                {transfers.map((transfer) => (
-                    <div
-                        key={`${transfer.senderId}-${transfer.receiverId}`}
-                        className={`rounded-2xl border bg-white p-3 ${
-                            completed
-                                ? 'border-slate-100 opacity-65'
-                                : 'border-brand-100'
-                        }`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <MemberAvatar name={transfer.senderNickname} />
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700">
-                                    <span className="truncate">
-                                        {transfer.senderNickname}
-                                    </span>
-                                    <ArrowRightIcon
-                                        size={12}
-                                        className="shrink-0 text-slate-300"
-                                    />
-                                    <span className="truncate">
-                                        {transfer.receiverNickname}
-                                    </span>
-                                </div>
-                                <b className="mt-1 block text-sm text-[#213C51]">
-                                    {currency(transfer.amount)}
-                                </b>
-                            </div>
-                            {completed ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-500">
-                                    <CheckCircle2Icon size={12} />
-                                    완료
-                                </span>
-                            ) : transfer.canComplete ? (
-                                <button
-                                    type="button"
-                                    disabled={
-                                        completingReceiverId ===
-                                        transfer.receiverId
-                                    }
-                                    onClick={() =>
-                                        onComplete(transfer.receiverId)
-                                    }
-                                    className="inline-flex items-center gap-1 rounded-lg bg-brand px-2.5 py-2 text-[10px] font-extrabold text-white disabled:opacity-50"
-                                >
-                                    <SendIcon size={12} />
-                                    {completingReceiverId ===
-                                    transfer.receiverId
-                                        ? '처리 중'
-                                        : '보냈어요'}
-                                </button>
-                            ) : (
-                                <span className="rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
-                                    진행 중
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    )
-}
-
-function MemberAvatar({ name }: { name: string }) {
-    return (
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#213C51]/10 text-xs font-black text-[#213C51]">
-            {initial(name)}
-        </span>
-    )
-}
-
-function initial(name: string) {
-    return name.trim().slice(0, 1) || '?'
-}
-
-function Summary({
-    label,
-    value,
-    count = false,
-}: {
-    label: string
-    value: number
-    count?: boolean
-}) {
-    return (
-        <div className="rounded-xl bg-white p-3">
-            <p className="text-[10px] text-slate-400">{label}</p>
-            <b className="text-sm">{count ? `${value}건` : currency(value)}</b>
-        </div>
-    )
-}
 function currency(value: number) {
     return `${Number(value).toLocaleString('ko-KR')}원`
 }

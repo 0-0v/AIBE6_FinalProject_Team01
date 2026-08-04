@@ -34,4 +34,17 @@ public class Expense {
         createdAt = LocalDateTime.now();
         updatedAt = createdAt;
     }
+
+    public void update(
+            String title, String category, BigDecimal totalAmount, LocalDate expenseDate,
+            Long payerId, SplitType splitType, String memo) {
+        this.title = title;
+        this.category = category;
+        this.totalAmount = totalAmount;
+        this.expenseDate = expenseDate;
+        this.payerId = payerId;
+        this.splitType = splitType;
+        this.memo = memo;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

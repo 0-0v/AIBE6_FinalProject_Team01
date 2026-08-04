@@ -2,27 +2,27 @@ package back.backend.domain.expense.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willReturn;
-import static org.mockito.Mockito.spy;
 
 import back.backend.domain.collaboration.service.CollaborationEventService;
-import back.backend.domain.expense.dto.SettlementSummaryResponse;
-import back.backend.domain.expense.entity.Settlement;
+import back.backend.domain.expense.dto.ExpenseUpdateRequest;
+import back.backend.domain.expense.entity.Expense;
+import back.backend.domain.expense.entity.ExpenseParticipant;
+import back.backend.domain.expense.entity.ParticipantSettlementStatus;
+import back.backend.domain.expense.entity.SplitType;
 import back.backend.domain.expense.exception.ExpenseErrorCode;
 import back.backend.domain.expense.repository.ExpenseParticipantRepository;
 import back.backend.domain.expense.repository.ExpenseRepository;
-import back.backend.domain.expense.repository.SettlementRepository;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.place.service.TripAccessChecker;
-import back.backend.domain.settlement.service.SettlementCalculator;
+import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
-import back.backend.domain.trip.entity.Trip;
 import back.backend.global.exception.BusinessException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,59 +36,128 @@ class ExpenseServiceTest {
 
     @Mock ExpenseRepository expenseRepository;
     @Mock ExpenseParticipantRepository participantRepository;
-    @Mock SettlementRepository settlementRepository;
     @Mock TripMemberRepository tripMemberRepository;
     @Mock TripRepository tripRepository;
     @Mock MemberRepository memberRepository;
     @Mock TripAccessChecker accessChecker;
-    @Mock SettlementCalculator settlementCalculator;
     @Mock CollaborationEventService collaborationEventService;
 
     private ExpenseService expenseService;
 
     @BeforeEach
     void setUp() {
-        expenseService = spy(new ExpenseService(
-                expenseRepository, participantRepository, settlementRepository,
+        expenseService = new ExpenseService(
+                expenseRepository, participantRepository,
                 tripMemberRepository, tripRepository, memberRepository,
-                accessChecker, settlementCalculator, collaborationEventService));
+                accessChecker, collaborationEventService);
+    }
+
+    private Expense expense(Long id, Long tripId, Long payerId) {
+        return Expense.builder()
+                .id(id).tripId(tripId).payerId(payerId).title("성심당 본점").category("FOOD")
+                .totalAmount(new BigDecimal("48600.00")).currency("KRW")
+                .expenseDate(LocalDate.of(2026, 8, 3)).splitType(SplitType.EQUAL)
+                .createdBy(payerId).build();
+    }
+
+    private ExpenseParticipant participant(Long expenseId, Long memberId, ParticipantSettlementStatus status) {
+        return ExpenseParticipant.builder()
+                .expenseId(expenseId).memberId(memberId).shareAmount(new BigDecimal("16200.00"))
+                .status(status).build();
     }
 
     @Test
-    @DisplayName("t1 송금자는 자신이 보내야 하는 정산을 완료할 수 있다")
-    void t1_senderCanCompleteOwnSettlement() {
-        Trip trip = org.mockito.Mockito.mock(Trip.class);
-        given(accessChecker.requireEdit(1L)).willReturn(2L);
-        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
-        given(trip.getCurrency()).willReturn("KRW");
-        willReturn(List.of(
-                new SettlementSummaryResponse.Transfer(
-                        2L, "민수", 3L, "지현", new BigDecimal("15000.00"))))
-                .given(expenseService).calculateTransfers(1L);
-        given(settlementRepository.findTopByTripIdAndSenderIdAndReceiverIdOrderByUpdatedAtDesc(1L, 2L, 3L))
-                .willReturn(Optional.empty());
-        given(settlementRepository.save(org.mockito.ArgumentMatchers.any(Settlement.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+    @DisplayName("t1 참여자 본인이 자신의 몫을 완료 처리하면 상태가 COMPLETED로 바뀐다")
+    void t1_participantCanCompleteOwnShare() {
+        Expense expense = expense(10L, 1L, 2L);
+        ExpenseParticipant participant = participant(10L, 3L, ParticipantSettlementStatus.PENDING);
+        given(accessChecker.requireEdit(1L)).willReturn(3L);
+        given(tripRepository.findById(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(Trip.class)));
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+        given(participantRepository.findByExpenseIdAndMemberId(10L, 3L)).willReturn(Optional.of(participant));
+        given(participantRepository.save(participant)).willReturn(participant);
+        given(participantRepository.findAllByExpenseId(10L)).willReturn(List.of(participant));
+        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(2L, 3L));
+        given(memberRepository.findAllById(anyList())).willReturn(List.of());
 
-        var result = expenseService.completeTransfer(1L, 3L);
+        var result = expenseService.completeParticipant(1L, 10L, 3L);
 
-        assertThat(result.status()).isEqualTo("COMPLETED");
-        assertThat(result.senderId()).isEqualTo(2L);
-        assertThat(result.receiverId()).isEqualTo(3L);
+        assertThat(participant.getStatus()).isEqualTo(ParticipantSettlementStatus.COMPLETED);
+        assertThat(participant.getSettledAt()).isNotNull();
+        assertThat(result.participants()).hasSize(1);
     }
 
     @Test
-    @DisplayName("t2 송금 관계가 없는 사용자는 다른 사람의 정산을 완료할 수 없다")
-    void t2_memberCannotCompleteAnotherSendersSettlement() {
-        given(accessChecker.requireEdit(1L)).willReturn(2L);
-        willReturn(List.of(
-                new SettlementSummaryResponse.Transfer(
-                        4L, "영희", 3L, "지현", new BigDecimal("15000.00"))))
-                .given(expenseService).calculateTransfers(1L);
+    @DisplayName("t2 다른 사람은 타인의 정산 몫을 완료 처리할 수 없다")
+    void t2_memberCannotCompleteAnotherMembersShare() {
+        given(accessChecker.requireEdit(1L)).willReturn(4L);
 
-        assertThatThrownBy(() -> expenseService.completeTransfer(1L, 3L))
+        assertThatThrownBy(() -> expenseService.completeParticipant(1L, 10L, 3L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(ExpenseErrorCode.SETTLEMENT_TRANSFER_NOT_FOUND);
+                .isEqualTo(ExpenseErrorCode.SETTLEMENT_FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("t3 결제자는 자신의 몫을 정산 완료 처리할 수 없다")
+    void t3_payerCannotCompleteOwnPayerShare() {
+        Expense expense = expense(10L, 1L, 2L);
+        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(tripRepository.findById(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(Trip.class)));
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+
+        assertThatThrownBy(() -> expenseService.completeParticipant(1L, 10L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ExpenseErrorCode.CANNOT_SETTLE_PAYER_SHARE);
+    }
+
+    @Test
+    @DisplayName("t4 정산 요약은 지출별 참여자 완료 상태를 기준으로 받을 돈과 보낼 돈을 계산한다")
+    void t4_settlementSummarizesByParticipantStatus() {
+        Expense payerExpense = expense(10L, 1L, 2L);
+        Expense otherExpense = expense(11L, 1L, 3L);
+        given(accessChecker.requireView(1L)).willReturn(2L);
+        given(expenseRepository.findAllByTripIdOrderByExpenseDateAscCreatedAtAscIdAsc(1L))
+                .willReturn(List.of(payerExpense, otherExpense));
+        given(participantRepository.findAllByExpenseIdIn(List.of(10L, 11L))).willReturn(List.of(
+                participant(10L, 2L, ParticipantSettlementStatus.COMPLETED),
+                participant(10L, 3L, ParticipantSettlementStatus.PENDING),
+                participant(11L, 3L, ParticipantSettlementStatus.COMPLETED),
+                participant(11L, 2L, ParticipantSettlementStatus.PENDING)));
+
+        var result = expenseService.getSettlement(1L);
+
+        assertThat(result.totalExpense()).isEqualByComparingTo("97200.00");
+        assertThat(result.myReceivable()).isEqualByComparingTo("16200.00");
+        assertThat(result.myPayable()).isEqualByComparingTo("16200.00");
+        assertThat(result.pendingExpenseCount()).isEqualTo(2);
+        assertThat(result.completedExpenseCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("t5 지출을 수정하면 참여자 정산 상태가 초기화되고 결제자 몫은 완료로 처리된다")
+    void t5_updateResetsParticipantSettlementStatus() {
+        Expense expense = expense(10L, 1L, 2L);
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 5));
+        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(2L, 3L));
+        given(participantRepository.saveAll(anyList())).willAnswer(invocation -> invocation.getArgument(0));
+        given(memberRepository.findAllById(anyList())).willReturn(List.of());
+
+        var request = new ExpenseUpdateRequest(
+                "성심당 본점", "FOOD", new BigDecimal("40000"), LocalDate.of(2026, 8, 3), 2L,
+                SplitType.EQUAL, List.of(2L, 3L), null, null);
+
+        var result = expenseService.update(1L, 10L, request);
+
+        assertThat(result.totalAmount()).isEqualByComparingTo("40000.00");
+        assertThat(result.participants()).extracting("status")
+                .containsExactlyInAnyOrder(
+                        ParticipantSettlementStatus.COMPLETED, ParticipantSettlementStatus.PENDING);
     }
 }
