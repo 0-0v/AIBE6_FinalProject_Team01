@@ -522,16 +522,18 @@ export function Landing() {
                     </h1>
                     <p
                         style={{
-                            fontSize: 'clamp(16px,1.7vw,20px)',
-                            lineHeight: 1.6,
+                            fontSize: 'clamp(20px,2.2vw,26px)',
+                            lineHeight: 1.5,
                             color: '#5B5F7E',
-                            fontWeight: 500,
+                            fontWeight: 700,
                             margin: '0 0 24px',
                             maxWidth: 520,
                             animation: fadeUpIn(200),
                         }}
                     >
-                        흩어진 장소랑 의견, 한곳에 모으고
+                        흩어진 장소랑 의견,
+                        <br />
+                        한곳에 모으고
                         <br />
                         AI가 정리까지 싹 다 해드려요.
                     </p>
