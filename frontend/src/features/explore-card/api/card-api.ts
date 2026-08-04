@@ -55,6 +55,8 @@ export type PublicCardDetail = {
     visibility: 'PUBLIC_ROUTE' | 'PUBLIC_RECORD'
     itinerary: ItineraryDay[]
     records: PublicCardRecord[]
+    travelStyles: string[]
+    tags: string[]
 }
 export type PublicCardRecord = {
     id: number

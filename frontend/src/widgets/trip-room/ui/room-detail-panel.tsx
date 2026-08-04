@@ -215,7 +215,7 @@ export function RoomDetailPanel({
     }, [tripId])
 
     const canWrite = canManage
-    const canPlanWrite = canWrite && room.lifecycleStatus !== 'COMPLETED'
+    const canPlanWrite = canWrite
     const hasConfirmedDates = Boolean(room.startDate && room.endDate)
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null

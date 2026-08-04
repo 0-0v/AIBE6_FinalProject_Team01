@@ -11,10 +11,11 @@ import {
     XIcon,
 } from 'lucide-react'
 import {
-    completeSettlementTransfer,
+    completeExpenseParticipant,
+    ExpenseSettlementCard,
     fetchExpenseData,
+    isExpenseSettled,
     type ExpenseResponse,
-    type SettlementSummary,
 } from '@/features/manage-expense'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
 import {
@@ -26,16 +27,11 @@ import {
     updateTravelRecord,
 } from '@/entities/travel-record'
 import { getApiErrorMessage, resolveMediaUrl } from '@/shared/api/client'
+import { useCurrentUserStore } from '@/shared/model'
 import {
     mergeTravelRecordPhotoUrls,
     uploadTravelRecordPhotos,
 } from '../lib/travel-record-photos'
-import {
-    addMonths,
-    createCalendarDays,
-    formatLocalDate,
-    parseLocalDate,
-} from '../lib/date-availability'
 import { MapCanvas } from './map-canvas'
 
 type Props = {
@@ -48,6 +44,7 @@ type Props = {
     onPlaceClick: (placeId: string) => void
     onChanged?: () => void
     onOpenExpenses?: () => void
+    onEditExpense?: (expense: ExpenseResponse) => void
     expenseRevision?: number
 }
 
@@ -68,8 +65,12 @@ export function RecordPanel({
     onPlaceClick,
     onChanged,
     onOpenExpenses,
+    onEditExpense,
     expenseRevision = 0,
 }: Props) {
+    const currentMemberId = useCurrentUserStore(
+        (state) => state.currentUser?.id ?? null,
+    )
     const [records, setRecords] = useState<TravelRecord[]>([])
     const [selectedDay, setSelectedDay] = useState(1)
     const [composerOpen, setComposerOpen] = useState(false)
@@ -90,18 +91,22 @@ export function RecordPanel({
     const [mapSelectedPlaceId, setMapSelectedPlaceId] = useState<string | null>(
         null,
     )
-    const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
-    const [completingReceiverId, setCompletingReceiverId] = useState<
-        number | null
-    >(null)
+    const [completingKey, setCompletingKey] = useState<string | null>(null)
 
     const days = useMemo(
-        () => createDays(startDate, endDate),
-        [startDate, endDate],
+        () =>
+            [...itineraryDays]
+                .sort((left, right) => left.dayNumber - right.dayNumber)
+                .map((day) => ({ day: day.dayNumber, date: day.itineraryDate })),
+        [itineraryDays],
     )
     const effectiveSelectedDay =
-        selectedDay === 0 ? 0 : selectedDay <= days.length ? selectedDay : 1
+        selectedDay === 0
+            ? 0
+            : days.some((day) => day.day === selectedDay)
+              ? selectedDay
+              : (days[0]?.day ?? 1)
     const dayRecords = useMemo(() => {
         const filtered =
             effectiveSelectedDay === 0
@@ -193,12 +198,10 @@ export function RecordPanel({
         fetchExpenseData(tripId)
             .then((data) => {
                 if (!active) return
-                setSettlement(data.settlement)
                 setExpenses(data.expenses)
             })
             .catch(() => {
                 if (!active) return
-                setSettlement(null)
                 setExpenses([])
             })
         return () => {
@@ -206,14 +209,14 @@ export function RecordPanel({
         }
     }, [expenseRevision, tripId])
 
-    async function completeTransfer(receiverId: number) {
-        setCompletingReceiverId(receiverId)
+    async function completeParticipant(expenseId: number, memberId: number) {
+        setCompletingKey(`${expenseId}:${memberId}`)
         setError(null)
         try {
-            await completeSettlementTransfer(tripId, receiverId)
+            await completeExpenseParticipant(tripId, expenseId, memberId)
             const data = await fetchExpenseData(tripId)
-            setSettlement(data.settlement)
             setExpenses(data.expenses)
+            onChanged?.()
         } catch (requestError) {
             setError(
                 getApiErrorMessage(
@@ -222,7 +225,7 @@ export function RecordPanel({
                 ),
             )
         } finally {
-            setCompletingReceiverId(null)
+            setCompletingKey(null)
         }
     }
 
@@ -370,7 +373,7 @@ export function RecordPanel({
                 </p>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
                 <div className="mp-scroll min-h-0 overflow-y-auto rounded-[22px] bg-white shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
                     <div className="flex items-center justify-between gap-4 px-10 pt-7 pb-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -399,7 +402,23 @@ export function RecordPanel({
                             곳 기록
                         </span>
                     </div>
-                    <div className="mx-10 mt-5 h-44 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
+                    <div className="flex items-center gap-2 overflow-x-auto px-10 pb-2">
+                        {days.map((day) => (
+                            <button
+                                key={day.day}
+                                type="button"
+                                onClick={() => setSelectedDay(day.day)}
+                                className={`shrink-0 rounded-full px-4 py-2 text-sm font-extrabold transition ${
+                                    day.day === effectiveSelectedDay
+                                        ? 'bg-brand text-white shadow-sm'
+                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                }`}
+                            >
+                                Day {day.day}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="mx-10 mt-3 h-44 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
                         <MapCanvas
                             key={`record-route-${effectiveSelectedDay}`}
                             places={places.filter(
@@ -460,15 +479,14 @@ export function RecordPanel({
                 </div>
                 <RecordSummary
                     days={days}
-                    selectedDay={effectiveSelectedDay}
-                    records={records}
                     expenses={expenses}
-                    settlement={settlement}
-                    completingReceiverId={completingReceiverId}
-                    onSelectDay={setSelectedDay}
+                    currentMemberId={currentMemberId}
+                    canWrite={canWrite}
+                    completingKey={completingKey}
                     onOpenExpenses={onOpenExpenses}
-                    onCompleteTransfer={(receiverId) =>
-                        void completeTransfer(receiverId)
+                    onEditExpense={onEditExpense}
+                    onCompleteParticipant={(expenseId, memberId) =>
+                        void completeParticipant(expenseId, memberId)
                     }
                 />
             </div>
@@ -716,327 +734,171 @@ function ScheduleRecordTimeline({
 
 function RecordSummary({
     days,
-    selectedDay,
-    records,
     expenses,
-    settlement,
-    completingReceiverId,
-    onSelectDay,
+    currentMemberId,
+    canWrite,
+    completingKey,
     onOpenExpenses,
-    onCompleteTransfer,
+    onEditExpense,
+    onCompleteParticipant,
 }: {
     days: Array<{ day: number; date: string }>
-    selectedDay: number
-    records: TravelRecord[]
     expenses: ExpenseResponse[]
-    settlement: SettlementSummary | null
-    completingReceiverId: number | null
-    onSelectDay: (day: number) => void
+    currentMemberId: number | null
+    canWrite: boolean
+    completingKey: string | null
     onOpenExpenses?: () => void
-    onCompleteTransfer: (receiverId: number) => void
+    onEditExpense?: (expense: ExpenseResponse) => void
+    onCompleteParticipant: (expenseId: number, memberId: number) => void
 }) {
-    const [summaryView, setSummaryView] = useState<
-        'expenses' | 'pending' | 'completed'
-    >('expenses')
-    const selectedDate =
-        days.find((day) => day.day === selectedDay)?.date ?? days[0]?.date
-    const [calendarMonth, setCalendarMonth] = useState(() =>
-        selectedDate ? parseLocalDate(selectedDate) : new Date(),
+    const [scopeMode, setScopeMode] = useState<'all' | 'byDay'>('all')
+    const [selectedScopeDay, setSelectedScopeDay] = useState(
+        () => days[0]?.day ?? 1,
     )
-    const pendingCount =
-        settlement?.transfers.filter(
-            (transfer) => transfer.status === 'PENDING',
-        ).length ?? 0
-    const completedCount =
-        settlement?.transfers.filter(
-            (transfer) => transfer.status === 'COMPLETED',
-        ).length ?? 0
-    const visibleTransfers =
-        settlement?.transfers.filter((transfer) =>
-            summaryView === 'pending'
-                ? transfer.status === 'PENDING'
-                : summaryView === 'completed'
-                  ? transfer.status === 'COMPLETED'
-                  : false,
-        ) ?? []
+    const [statusView, setStatusView] = useState<'pending' | 'completed'>(
+        'pending',
+    )
+
+    const scopedExpenses = useMemo(() => {
+        if (scopeMode === 'all') return expenses
+        return expenses.filter(
+            (expense) => expense.dayNumber === selectedScopeDay,
+        )
+    }, [expenses, scopeMode, selectedScopeDay])
+    const pendingExpenses = scopedExpenses.filter(
+        (expense) => !isExpenseSettled(expense),
+    )
+    const completedExpenses = scopedExpenses.filter(isExpenseSettled)
+    const visibleExpenses =
+        scopeMode === 'byDay'
+            ? scopedExpenses
+            : statusView === 'pending'
+              ? pendingExpenses
+              : completedExpenses
+    const { totalExpense, myReceivable, myPayable } = useMemo(
+        () => summarizeExpenses(scopedExpenses, currentMemberId),
+        [currentMemberId, scopedExpenses],
+    )
 
     return (
         <aside className="hidden min-h-0 flex-col gap-3 overflow-hidden lg:flex">
-            <section className="shrink-0 rounded-[22px] bg-white p-4 shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
-                <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-extrabold tracking-tight text-slate-900">
-                        {calendarMonth.getFullYear()}년{' '}
-                        {calendarMonth.getMonth() + 1}월
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
+                <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-extrabold text-slate-900">
+                        정산
                     </h3>
-                    <div className="flex gap-1">
+                    <div className="flex items-center rounded-full bg-slate-100 p-0.5 text-[10px] font-extrabold">
                         <button
                             type="button"
-                            onClick={() =>
-                                setCalendarMonth((current) =>
-                                    addMonths(current, -1),
-                                )
-                            }
-                            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-brand-700 transition hover:bg-slate-50"
-                            aria-label="이전 달"
+                            onClick={() => setScopeMode('all')}
+                            className={`rounded-full px-2.5 py-1 transition ${scopeMode === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
                         >
-                            ‹
+                            전체
                         </button>
                         <button
                             type="button"
-                            onClick={() =>
-                                setCalendarMonth((current) =>
-                                    addMonths(current, 1),
-                                )
-                            }
-                            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-brand-700 transition hover:bg-slate-50"
-                            aria-label="다음 달"
+                            onClick={() => setScopeMode('byDay')}
+                            className={`rounded-full px-2.5 py-1 transition ${scopeMode === 'byDay' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
                         >
-                            ›
+                            Day별
                         </button>
                     </div>
                 </div>
-                <div className="mt-4 grid grid-cols-7 gap-y-2 text-center text-[10px] font-bold text-slate-400">
-                    {['일', '월', '화', '수', '목', '금', '토'].map((label) => (
-                        <span key={label}>{label}</span>
-                    ))}
-                    {createCalendarDays(calendarMonth).map((date) => {
-                        const dateKey = formatLocalDate(date)
-                        const tripDay = days.find((day) => day.date === dateKey)
-                        const active = tripDay?.day === selectedDay
-                        const recordCount = tripDay
-                            ? records.filter(
-                                  (record) => record.dayNumber === tripDay.day,
-                              ).length
-                            : 0
-                        return (
+                {scopeMode === 'byDay' && (
+                    <div className="mp-scroll mt-2 flex items-center gap-1.5 overflow-x-auto pb-1">
+                        {days.map((day) => (
                             <button
-                                key={dateKey}
+                                key={day.day}
                                 type="button"
-                                disabled={!tripDay}
-                                onClick={() =>
-                                    tripDay && onSelectDay(tripDay.day)
-                                }
-                                className={`relative mx-auto flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition ${
-                                    active
-                                        ? 'bg-brand text-white shadow-sm'
-                                        : tripDay
-                                          ? 'bg-brand-50 text-brand-700 hover:bg-brand-100'
-                                          : date.getMonth() ===
-                                              calendarMonth.getMonth()
-                                            ? 'text-slate-400'
-                                            : 'text-slate-200'
-                                } disabled:cursor-default`}
-                                aria-label={`${dateKey}${tripDay ? ` DAY ${tripDay.day} 선택` : ''}`}
+                                onClick={() => setSelectedScopeDay(day.day)}
+                                className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold transition ${selectedScopeDay === day.day ? 'bg-brand text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                             >
-                                {date.getDate()}
-                                {recordCount > 0 && (
-                                    <span
-                                        className={`absolute -bottom-0.5 h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-brand'}`}
-                                    />
-                                )}
+                                Day {day.day}
                             </button>
-                        )
-                    })}
-                </div>
-            </section>
+                        ))}
+                    </div>
+                )}
 
-            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
-                <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-extrabold text-slate-800">
-                        정산 요약
-                    </h3>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => setSummaryView('expenses')}
-                    className={`mt-3 rounded-2xl p-3 text-left transition ${summaryView === 'expenses' ? 'bg-[#213C51] text-white shadow-sm' : 'bg-slate-50 hover:bg-slate-100'}`}
-                >
-                    <p
-                        className={`text-[10px] font-bold ${summaryView === 'expenses' ? 'text-white/70' : 'text-slate-400'}`}
-                    >
-                        총 지출
-                    </p>
-                    <strong
-                        className={`mt-1 block text-xl font-black ${summaryView === 'expenses' ? 'text-white' : 'text-slate-900'}`}
-                    >
-                        {(settlement?.totalExpense ?? 0).toLocaleString(
-                            'ko-KR',
-                        )}
-                        <span className="ml-0.5 text-[10px] text-slate-400">
-                            원
-                        </span>
-                    </strong>
-                </button>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setSummaryView('pending')}
-                        className={`rounded-xl p-3 text-left transition ${summaryView === 'pending' ? 'bg-brand text-white shadow-sm' : 'bg-brand-50 hover:bg-brand-100'}`}
-                    >
-                        <p
-                            className={`text-[10px] font-bold ${summaryView === 'pending' ? 'text-white/75' : 'text-brand-500'}`}
-                        >
-                            진행 중
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-2xl bg-[#213C51] p-3">
+                        <p className="text-[10px] font-bold text-white/60">
+                            총 지출
                         </p>
-                        <b
-                            className={`mt-1 block text-base ${summaryView === 'pending' ? 'text-white' : 'text-brand-700'}`}
-                        >
-                            {pendingCount}건
-                        </b>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setSummaryView('completed')}
-                        className={`rounded-xl p-3 text-left transition ${summaryView === 'completed' ? 'bg-[#213C51] text-white shadow-sm' : 'bg-slate-50 hover:bg-slate-100'}`}
-                    >
-                        <p
-                            className={`text-[10px] font-bold ${summaryView === 'completed' ? 'text-white/70' : 'text-slate-400'}`}
-                        >
-                            완료
-                        </p>
-                        <b
-                            className={`mt-1 block text-base ${summaryView === 'completed' ? 'text-white' : 'text-slate-700'}`}
-                        >
-                            {completedCount}건
-                        </b>
-                    </button>
-                </div>
-                <div className="mp-scroll mt-3 min-h-0 flex-1 overflow-y-auto border-t border-slate-100 pr-1 pt-3">
-                    {summaryView === 'expenses' && expenses.length > 0 && (
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <p className="text-[10px] font-extrabold text-slate-500">
-                                    지출 내역
-                                </p>
-                                <span className="text-[9px] font-bold text-slate-400">
-                                    {expenses.length}건
-                                </span>
-                            </div>
-                            <div className="mt-2 space-y-2">
-                                {expenses.map((expense) => (
-                                    <article
-                                        key={expense.id}
-                                        className="rounded-xl border border-slate-100 bg-white px-3 py-2.5"
-                                    >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="min-w-0">
-                                                <p className="truncate text-[11px] font-extrabold text-slate-800">
-                                                    {expense.title}
-                                                </p>
-                                                <p className="mt-0.5 text-[9px] font-bold text-slate-400">
-                                                    {expense.dayNumber
-                                                        ? `DAY ${expense.dayNumber} · `
-                                                        : ''}
-                                                    {expense.expenseDate.replaceAll(
-                                                        '-',
-                                                        '.',
-                                                    )}{' '}
-                                                    · {expense.payerNickname}{' '}
-                                                    결제
-                                                </p>
-                                            </div>
-                                            <b className="shrink-0 text-[11px] text-[#213C51]">
-                                                {expense.totalAmount.toLocaleString(
-                                                    'ko-KR',
-                                                )}
-                                                원
-                                            </b>
-                                        </div>
-                                        <p className="mt-2 text-[9px] leading-4 text-slate-500">
-                                            <span className="font-extrabold text-slate-600">
-                                                돈 낼 사람
-                                            </span>{' '}
-                                            {expense.participants
-                                                .map(
-                                                    (participant) =>
-                                                        `${participant.nickname} ${participant.shareAmount.toLocaleString('ko-KR')}원`,
-                                                )
-                                                .join(' · ')}
-                                        </p>
-                                    </article>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {summaryView === 'expenses' && expenses.length === 0 && (
-                        <p className="py-6 text-center text-[10px] font-bold text-slate-400">
-                            등록된 지출이 없습니다.
-                        </p>
-                    )}
-                    {summaryView !== 'expenses' &&
-                        visibleTransfers.length > 0 && (
-                            <div>
-                                <p className="text-[10px] font-extrabold text-slate-500">
-                                    정산 내역
-                                </p>
-                                <div className="mt-2 space-y-2">
-                                    {visibleTransfers.map((transfer) => (
-                                        <div
-                                            key={`${transfer.senderId}-${transfer.receiverId}`}
-                                            className="rounded-xl bg-slate-50 px-3 py-2.5"
-                                        >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <span className="min-w-0 truncate text-[11px] font-extrabold text-slate-700">
-                                                    {transfer.senderNickname}
-                                                    <span className="mx-1 text-slate-300">
-                                                        →
-                                                    </span>
-                                                    {transfer.receiverNickname}
-                                                </span>
-                                                <b className="shrink-0 text-[11px] text-brand-700">
-                                                    {transfer.amount.toLocaleString(
-                                                        'ko-KR',
-                                                    )}
-                                                    원
-                                                </b>
-                                            </div>
-                                            <div className="mt-1 flex items-center justify-between gap-2">
-                                                <span
-                                                    className={`text-[9px] font-bold ${transfer.status === 'COMPLETED' ? 'text-slate-400' : 'text-brand'}`}
-                                                >
-                                                    {transfer.status ===
-                                                    'COMPLETED'
-                                                        ? '정산 완료'
-                                                        : transfer.canComplete
-                                                          ? '내가 보낼 금액'
-                                                          : '송금 대기'}
-                                                </span>
-                                                {transfer.status ===
-                                                    'PENDING' &&
-                                                    transfer.canComplete && (
-                                                        <button
-                                                            type="button"
-                                                            disabled={
-                                                                completingReceiverId ===
-                                                                transfer.receiverId
-                                                            }
-                                                            onClick={() =>
-                                                                onCompleteTransfer(
-                                                                    transfer.receiverId,
-                                                                )
-                                                            }
-                                                            className="rounded-lg bg-brand px-2 py-1 text-[9px] font-extrabold text-white transition hover:bg-brand-700 disabled:opacity-50"
-                                                        >
-                                                            {completingReceiverId ===
-                                                            transfer.receiverId
-                                                                ? '처리 중'
-                                                                : '보냈어요 ✓'}
-                                                        </button>
-                                                    )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    {summaryView !== 'expenses' &&
-                        visibleTransfers.length === 0 && (
-                            <p className="py-6 text-center text-[10px] font-bold text-slate-400">
-                                {summaryView === 'pending'
-                                    ? '진행 중인 정산이 없습니다.'
-                                    : '완료된 정산이 없습니다.'}
+                        <strong className="mt-1 block text-lg font-black text-white">
+                            {totalExpense.toLocaleString('ko-KR')}
+                            <span className="ml-0.5 text-[10px] text-white/60">
+                                원
+                            </span>
+                        </strong>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <div className="rounded-xl bg-brand-50 px-3 py-2">
+                            <p className="text-[9px] font-bold text-brand-500">
+                                내가 받을 돈
                             </p>
-                        )}
+                            <b className="mt-0.5 block text-sm text-brand-700">
+                                +{myReceivable.toLocaleString('ko-KR')}
+                            </b>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 px-3 py-2">
+                            <p className="text-[9px] font-bold text-slate-400">
+                                내가 보낼 돈
+                            </p>
+                            <b className="mt-0.5 block text-sm text-slate-700">
+                                {myPayable.toLocaleString('ko-KR')}
+                            </b>
+                        </div>
+                    </div>
+                </div>
+
+                {scopeMode === 'all' && (
+                    <div className="mt-3 flex items-center gap-4 border-b border-slate-100 text-xs font-extrabold">
+                        <button
+                            type="button"
+                            onClick={() => setStatusView('pending')}
+                            className={`relative pb-2 ${statusView === 'pending' ? 'text-slate-900' : 'text-slate-400'}`}
+                        >
+                            정산 대기 {pendingExpenses.length}
+                            {statusView === 'pending' && (
+                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-brand" />
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStatusView('completed')}
+                            className={`relative pb-2 ${statusView === 'completed' ? 'text-slate-900' : 'text-slate-400'}`}
+                        >
+                            정산 완료 {completedExpenses.length}
+                            {statusView === 'completed' && (
+                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-brand" />
+                            )}
+                        </button>
+                    </div>
+                )}
+
+                <div className="mp-scroll mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                    {visibleExpenses.length === 0 && (
+                        <p className="py-6 text-center text-[10px] font-bold text-slate-400">
+                            {scopeMode === 'byDay'
+                                ? '등록된 지출이 없습니다.'
+                                : statusView === 'pending'
+                                  ? '정산 대기 중인 지출이 없습니다.'
+                                  : '정산 완료된 지출이 없습니다.'}
+                        </p>
+                    )}
+                    {visibleExpenses.map((expense) => (
+                        <ExpenseSettlementCard
+                            key={expense.id}
+                            expense={expense}
+                            currentMemberId={currentMemberId}
+                            canWrite={canWrite}
+                            completingKey={completingKey}
+                            onComplete={(memberId) =>
+                                onCompleteParticipant(expense.id, memberId)
+                            }
+                            onEdit={() => onEditExpense?.(expense)}
+                        />
+                    ))}
                 </div>
             </section>
             {onOpenExpenses && (
@@ -1448,25 +1310,6 @@ function EmptyState({
     )
 }
 
-function createDays(startDate: string | null, endDate: string | null) {
-    if (!startDate || !endDate) return []
-    const start = new Date(`${startDate}T00:00:00`)
-    const end = new Date(`${endDate}T00:00:00`)
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
-    const days: Array<{ day: number; date: string }> = []
-    const current = new Date(start)
-    while (current <= end) {
-        days.push({
-            day: days.length + 1,
-            date: `${current.getFullYear()}-${String(
-                current.getMonth() + 1,
-            ).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`,
-        })
-        current.setDate(current.getDate() + 1)
-    }
-    return days
-}
-
 function compactAddress(value: string | null | undefined) {
     if (!value) return '주소 미정'
     const parts = value
@@ -1484,4 +1327,31 @@ function displayImageUrl(imageUrl: string) {
 
 function isVisitedAtRangeMessage(message: string) {
     return message === '방문 일시는 여행 기간 안이어야 합니다.'
+}
+
+function summarizeExpenses(
+    expenses: ExpenseResponse[],
+    currentMemberId: number | null,
+) {
+    let totalExpense = 0
+    let myReceivable = 0
+    let myPayable = 0
+    for (const expense of expenses) {
+        totalExpense += expense.totalAmount
+        if (expense.payerId === currentMemberId) {
+            myReceivable += expense.participants
+                .filter(
+                    (participant) =>
+                        participant.memberId !== expense.payerId &&
+                        participant.status === 'PENDING',
+                )
+                .reduce((sum, participant) => sum + participant.shareAmount, 0)
+        } else {
+            const mine = expense.participants.find(
+                (participant) => participant.memberId === currentMemberId,
+            )
+            if (mine && mine.status === 'PENDING') myPayable += mine.shareAmount
+        }
+    }
+    return { totalExpense, myReceivable, myPayable }
 }

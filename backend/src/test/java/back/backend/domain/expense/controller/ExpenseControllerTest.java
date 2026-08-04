@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,6 +14,7 @@ import back.backend.domain.expense.dto.ExpenseResponse;
 import back.backend.domain.expense.dto.ExpenseContextResponse;
 import back.backend.domain.expense.dto.ExpenseMemberResponse;
 import back.backend.domain.expense.dto.SettlementSummaryResponse;
+import back.backend.domain.expense.entity.ParticipantSettlementStatus;
 import back.backend.domain.expense.entity.SplitType;
 import back.backend.domain.expense.service.ExpenseService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,8 +49,12 @@ class ExpenseControllerTest {
                 1L, "렌터카", "TRANSPORT", new BigDecimal("30000.00"), "KRW",
                 null, null, 1L, "지현", SplitType.EQUAL,
                 List.of(
-                        new ExpenseResponse.ParticipantShareResponse(1L, "지현", new BigDecimal("15000.00")),
-                        new ExpenseResponse.ParticipantShareResponse(2L, "민수", new BigDecimal("15000.00"))
+                        new ExpenseResponse.ParticipantShareResponse(
+                                1L, "지현", new BigDecimal("15000.00"),
+                                ParticipantSettlementStatus.COMPLETED, null),
+                        new ExpenseResponse.ParticipantShareResponse(
+                                2L, "민수", new BigDecimal("15000.00"),
+                                ParticipantSettlementStatus.PENDING, null)
                 ), null);
         given(expenseService.create(eq(1L), any())).willReturn(response);
 
@@ -64,17 +70,25 @@ class ExpenseControllerTest {
     }
 
     @Test
-    @DisplayName("t2 정산표를 조회하면 멤버 간 최종 송금 목록을 반환한다")
-    void t2_getSettlementReturnsTransfers() throws Exception {
-        given(expenseService.getSettlement(1L)).willReturn(new SettlementSummaryResponse(
-                new BigDecimal("30000.00"), List.of(),
-                List.of(new SettlementSummaryResponse.Transfer(
-                        2L, "민수", 1L, "지현", new BigDecimal("15000.00")))));
+    @DisplayName("t2 지출을 수정하면 갱신된 지출 정보를 반환한다")
+    void t2_updateExpenseReturnsUpdatedExpense() throws Exception {
+        var response = new ExpenseResponse(
+                1L, "렌터카(수정)", "TRANSPORT", new BigDecimal("40000.00"), "KRW",
+                null, null, 1L, "지현", SplitType.EQUAL,
+                List.of(new ExpenseResponse.ParticipantShareResponse(
+                        1L, "지현", new BigDecimal("40000.00"),
+                        ParticipantSettlementStatus.COMPLETED, null)), null);
+        given(expenseService.update(eq(1L), eq(9L), any())).willReturn(response);
 
-        mockMvc.perform(get("/api/trips/1/expenses/settlement"))
+        mockMvc.perform(put("/api/trips/1/expenses/9")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"렌터카(수정)","category":"TRANSPORT","totalAmount":40000,"expenseDate":"2026-08-01",
+                                "payerId":1,"splitType":"EQUAL","participantIds":[1]}
+                                """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.transfers[0].senderNickname").value("민수"))
-                .andExpect(jsonPath("$.data.transfers[0].receiverNickname").value("지현"));
+                .andExpect(jsonPath("$.data.title").value("렌터카(수정)"))
+                .andExpect(jsonPath("$.data.totalAmount").value(40000.00));
     }
 
     @Test
@@ -108,17 +122,30 @@ class ExpenseControllerTest {
     }
 
     @Test
-    @DisplayName("t5 송금자가 정산 완료를 요청하면 완료된 송금 정보를 반환한다")
-    void t5_completeSettlementReturnsCompletedTransfer() throws Exception {
-        given(expenseService.completeTransfer(1L, 3L)).willReturn(
-                SettlementSummaryResponse.Transfer.completed(
-                        9L, 2L, "민수", 3L, "지현",
-                        new BigDecimal("15000.00"), null, true));
+    @DisplayName("t5 정산 요약을 조회하면 받을 돈/보낼 돈과 지출 건수를 반환한다")
+    void t5_getSettlementReturnsReceivablePayableAndCounts() throws Exception {
+        given(expenseService.getSettlement(1L)).willReturn(new SettlementSummaryResponse(
+                new BigDecimal("30000.00"), new BigDecimal("15000.00"), BigDecimal.ZERO, 1, 0));
 
-        mockMvc.perform(patch("/api/trips/1/expenses/settlement/transfers/3/complete"))
+        mockMvc.perform(get("/api/trips/1/expenses/settlement"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.senderNickname").value("민수"))
-                .andExpect(jsonPath("$.data.receiverNickname").value("지현"))
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.data.myReceivable").value(15000.00))
+                .andExpect(jsonPath("$.data.pendingExpenseCount").value(1));
+    }
+
+    @Test
+    @DisplayName("t6 참여자가 자신의 몫을 정산 완료 처리하면 갱신된 지출 정보를 반환한다")
+    void t6_completeParticipantReturnsUpdatedExpense() throws Exception {
+        var response = new ExpenseResponse(
+                1L, "렌터카", "TRANSPORT", new BigDecimal("30000.00"), "KRW",
+                null, null, 1L, "지현", SplitType.EQUAL,
+                List.of(new ExpenseResponse.ParticipantShareResponse(
+                        2L, "민수", new BigDecimal("15000.00"),
+                        ParticipantSettlementStatus.COMPLETED, null)), null);
+        given(expenseService.completeParticipant(1L, 9L, 2L)).willReturn(response);
+
+        mockMvc.perform(patch("/api/trips/1/expenses/9/participants/2/complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.participants[0].status").value("COMPLETED"));
     }
 }

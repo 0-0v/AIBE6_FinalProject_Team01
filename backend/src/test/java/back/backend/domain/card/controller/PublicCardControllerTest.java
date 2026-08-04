@@ -14,6 +14,7 @@ import back.backend.domain.card.service.PublicCardService;
 import back.backend.global.security.SecurityContextAccessor;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TripVisibility;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,7 @@ class PublicCardControllerTest {
         given(detailService.getDetail(20L)).willReturn(new PublicCardDetailResponse(
                 20L, 10L, "제주 여행", "여행 요약", "제주", null,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 3),
-                TripVisibility.PUBLIC_RECORD, List.of(), List.of()));
+                TripVisibility.PUBLIC_RECORD, List.of(), List.of(), Set.of(), List.of()));
 
         mockMvc.perform(get("/api/cards/20/detail"))
                 .andExpect(status().isOk())

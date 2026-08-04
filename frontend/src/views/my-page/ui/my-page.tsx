@@ -10,7 +10,11 @@ import { useNavigate } from 'react-router-dom'
 import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
 import { resolveMediaUrl } from '@/shared/api/client'
-import { useProfileStore, withdrawAccount } from '@/features/manage-profile'
+import {
+    checkNicknameAvailability,
+    useProfileStore,
+    withdrawAccount,
+} from '@/features/manage-profile'
 import { useTripStore } from '@/features/manage-trip'
 
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
@@ -38,8 +42,12 @@ const WITHDRAWAL_REASON_HELP: Record<string, string> = {
 export function MyPage() {
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const { changeNickname, changeProfileImage, isUploadingImage } =
-        useProfileStore()
+    const {
+        changeNickname,
+        changeProfileImage,
+        isUpdatingNickname,
+        isUploadingImage,
+    } = useProfileStore()
     const { trips, isLoading, error: tripError, loadTrips } = useTripStore()
     const me = {
         name: currentUser?.nickname ?? '게스트',
@@ -52,6 +60,8 @@ export function MyPage() {
     const [draft, setDraft] = useState(me.name)
     const [editing, setEditing] = useState(false)
     const [error, setError] = useState('')
+    const [checkedNickname, setCheckedNickname] = useState('')
+    const [isCheckingNickname, setIsCheckingNickname] = useState(false)
     const [imageError, setImageError] = useState('')
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
     const [isWithdrawing, setIsWithdrawing] = useState(false)
@@ -73,6 +83,10 @@ export function MyPage() {
             setError('한글, 영문, 숫자, _만 사용할 수 있어요')
             return
         }
+        if (checkedNickname !== v) {
+            setError('닉네임 중복 확인을 완료해 주세요')
+            return
+        }
         try {
             await changeNickname(v)
             setError('')
@@ -81,6 +95,39 @@ export function MyPage() {
             setError(
                 err instanceof Error ? err.message : '닉네임 변경에 실패했어요',
             )
+        }
+    }
+
+    async function checkNickname() {
+        const v = draft.trim()
+        if (v.length < 2 || v.length > 12) {
+            setError('닉네임은 2~12자로 입력해주세요')
+            return
+        }
+        if (!/^[가-힣a-zA-Z0-9_]+$/.test(v)) {
+            setError('한글, 영문, 숫자, _만 사용할 수 있어요')
+            return
+        }
+
+        setIsCheckingNickname(true)
+        try {
+            const available = await checkNicknameAvailability(v)
+            if (!available) {
+                setCheckedNickname('')
+                setError('이미 사용 중인 닉네임입니다')
+                return
+            }
+            setCheckedNickname(v)
+            setError('')
+        } catch (err) {
+            setCheckedNickname('')
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : '닉네임 중복 확인에 실패했어요',
+            )
+        } finally {
+            setIsCheckingNickname(false)
         }
     }
 
@@ -178,13 +225,15 @@ export function MyPage() {
                         <div className="flex-1">
                             {editing ? (
                                 <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <input
                                             autoFocus
                                             value={draft}
-                                            onChange={(e) =>
+                                            onChange={(e) => {
                                                 setDraft(e.target.value)
-                                            }
+                                                setCheckedNickname('')
+                                                setError('')
+                                            }}
                                             className={`w-48 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 ${
                                                 error
                                                     ? 'border-red-400 focus:ring-red-100'
@@ -193,8 +242,23 @@ export function MyPage() {
                                         />
 
                                         <button
-                                            onClick={saveNickname}
-                                            className="rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                                            type="button"
+                                            onClick={() => void checkNickname()}
+                                            disabled={
+                                                isCheckingNickname ||
+                                                !draft.trim()
+                                            }
+                                            className="whitespace-nowrap rounded-xl border border-brand px-3 py-2 text-sm font-semibold text-brand transition hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {isCheckingNickname
+                                                ? '확인 중'
+                                                : '중복 확인'}
+                                        </button>
+
+                                        <button
+                                            onClick={() => void saveNickname()}
+                                            disabled={isUpdatingNickname}
+                                            className="rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             저장
                                         </button>
@@ -202,6 +266,7 @@ export function MyPage() {
                                             onClick={() => {
                                                 setEditing(false)
                                                 setDraft(me.name)
+                                                setCheckedNickname('')
                                                 setError('')
                                             }}
                                             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
@@ -214,6 +279,12 @@ export function MyPage() {
                                             {error}
                                         </p>
                                     )}
+                                    {!error &&
+                                        checkedNickname === draft.trim() && (
+                                            <p className="mt-1.5 text-xs font-medium text-emerald-600">
+                                                사용 가능한 닉네임입니다.
+                                            </p>
+                                        )}
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2">
@@ -223,6 +294,8 @@ export function MyPage() {
                                     <button
                                         onClick={() => {
                                             setDraft(me.name)
+                                            setCheckedNickname('')
+                                            setError('')
                                             setEditing(true)
                                         }}
                                         className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"

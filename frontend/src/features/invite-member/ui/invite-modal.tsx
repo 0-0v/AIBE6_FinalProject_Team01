@@ -78,12 +78,14 @@ export function InviteModal({ tripId, onClose }: Props) {
                 {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
                 {code && <>
                 <div className="mb-4 flex items-center gap-2">
-                    <div className="flex-1 rounded-xl border border-dashed border-slate-300 bg-slate-50 py-3 text-center text-xl font-bold tracking-[0.3em] text-slate-700">
-                        {code}
+                    <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-center">
+                        <span className="break-all font-mono text-sm font-bold tracking-widest text-slate-700">
+                            {code}
+                        </span>
                     </div>
                     <button
                         onClick={() => copy('code', code)}
-                        className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-white hover:bg-brand-700"
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white hover:bg-brand-700"
                     >
                         {copied === 'code' ? (
                             <CheckIcon size={18} />

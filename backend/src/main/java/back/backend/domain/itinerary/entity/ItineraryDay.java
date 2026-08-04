@@ -104,6 +104,10 @@ public class ItineraryDay {
         this.dayNumber = dayNumber;
     }
 
+    public void updateItineraryDate(LocalDate itineraryDate) {
+        this.itineraryDate = itineraryDate;
+    }
+
     public void updateDeparture(
             String departureType,
             String departureName,

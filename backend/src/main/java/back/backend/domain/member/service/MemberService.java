@@ -50,8 +50,16 @@ public class MemberService {
     @Transactional
     public MemberResponse updateNickname(Long memberId, String nickname) {
         Member member = getMemberOrThrow(memberId);
-        member.changeNickname(nickname);
+        String normalizedNickname = nickname.strip();
+        if (!isNicknameAvailable(memberId, normalizedNickname)) {
+            throw new BusinessException(MemberErrorCode.NICKNAME_ALREADY_EXISTS);
+        }
+        member.changeNickname(normalizedNickname);
         return MemberResponse.from(member);
+    }
+
+    public boolean isNicknameAvailable(Long memberId, String nickname) {
+        return !memberRepository.existsByNicknameAndIdNot(nickname.strip(), memberId);
     }
 
     @Transactional

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -136,5 +137,28 @@ class MemberControllerTest {
                         .string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")));
 
         org.mockito.Mockito.verify(memberService).withdraw(1L);
+    }
+
+    @Test
+    @DisplayName("t7 닉네임 중복 확인 요청 시 현재 회원을 제외한 사용 가능 여부를 반환한다")
+    void t7_checkNicknameAvailabilityReturnsAvailability() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(memberService.isNicknameAvailable(1L, "새닉네임")).thenReturn(true);
+
+        mockMvc.perform(post("/api/members/me/nickname-availability")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"새닉네임\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.available").value(true));
+    }
+
+    @Test
+    @DisplayName("t8 형식에 맞지 않는 닉네임의 중복 확인 요청은 400을 반환한다")
+    void t8_checkNicknameAvailabilityRejectsInvalidNickname() throws Exception {
+        mockMvc.perform(post("/api/members/me/nickname-availability")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"a\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_400"));
     }
 }

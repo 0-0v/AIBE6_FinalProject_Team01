@@ -255,7 +255,8 @@ export function Home() {
                         trip: activeTripData,
                         placeCount: places.length,
                         pendingVoteCount: pendingVotes.length,
-                        transferCount: expenseData.settlement.transfers.length,
+                        pendingSettlementCount:
+                            expenseData.settlement.pendingExpenseCount,
                     }),
                 )
                 setDashboardError(null)
@@ -1981,12 +1982,12 @@ function createDashboardTasks({
     trip,
     placeCount,
     pendingVoteCount,
-    transferCount,
+    pendingSettlementCount,
 }: {
     trip: TripResponse | undefined
     placeCount: number
     pendingVoteCount: number
-    transferCount: number
+    pendingSettlementCount: number
 }) {
     if (!trip) return []
     const tasks = []
@@ -2014,11 +2015,11 @@ function createDashboardTasks({
             urgent: true,
         })
     }
-    if (transferCount > 0) {
+    if (pendingSettlementCount > 0) {
         tasks.push({
             id: 'settlement',
-            label: `미정산 송금 ${transferCount}건 확인하기`,
-            meta: '지출·정산 화면에서 최종 송금 내역을 확인해 주세요.',
+            label: `미정산 지출 ${pendingSettlementCount}건 확인하기`,
+            meta: '지출·정산 화면에서 정산 대기 중인 지출을 확인해 주세요.',
             urgent: true,
         })
     }

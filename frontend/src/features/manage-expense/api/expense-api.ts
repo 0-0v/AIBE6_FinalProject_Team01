@@ -11,7 +11,11 @@ export type ExpenseContext = {
     members: ExpenseMember[]
     scheduleConfirmed: boolean
 }
-export type ExpenseParticipant = ExpenseMember & { shareAmount: number }
+export type ExpenseParticipant = ExpenseMember & {
+    shareAmount: number
+    status: 'PENDING' | 'COMPLETED'
+    settledAt: string | null
+}
 export type ExpenseResponse = {
     id: number
     title: string
@@ -28,24 +32,10 @@ export type ExpenseResponse = {
 }
 export type SettlementSummary = {
     totalExpense: number
-    members: Array<
-        ExpenseMember & {
-            paidAmount: number
-            shareAmount: number
-            balance: number
-        }
-    >
-    transfers: Array<{
-        senderId: number
-        senderNickname: string
-        receiverId: number
-        receiverNickname: string
-        amount: number
-        settlementId: number | null
-        status: 'PENDING' | 'COMPLETED'
-        completedAt: string | null
-        canComplete: boolean
-    }>
+    myReceivable: number
+    myPayable: number
+    pendingExpenseCount: number
+    completedExpenseCount: number
 }
 export type ExpenseCreateBody = {
     title: string
@@ -58,6 +48,7 @@ export type ExpenseCreateBody = {
     customShares: null
     memo: string | null
 }
+export type ExpenseUpdateBody = ExpenseCreateBody
 
 export async function fetchExpenseData(tripId: number) {
     const [expenses, context, settlement] = await Promise.all([
@@ -86,14 +77,25 @@ export async function createExpense(tripId: number, body: ExpenseCreateBody) {
     return response.data
 }
 
-export async function completeSettlementTransfer(
+export async function updateExpense(
     tripId: number,
-    receiverId: number,
+    expenseId: number,
+    body: ExpenseUpdateBody,
 ) {
-    const response = await apiClient.patch<
-        ApiResponse<SettlementSummary['transfers'][number]>
-    >(
-        `/api/trips/${tripId}/expenses/settlement/transfers/${receiverId}/complete`,
+    const response = await apiClient.put<ApiResponse<ExpenseResponse>>(
+        `/api/trips/${tripId}/expenses/${expenseId}`,
+        body,
+    )
+    return response.data
+}
+
+export async function completeExpenseParticipant(
+    tripId: number,
+    expenseId: number,
+    memberId: number,
+) {
+    const response = await apiClient.patch<ApiResponse<ExpenseResponse>>(
+        `/api/trips/${tripId}/expenses/${expenseId}/participants/${memberId}/complete`,
     )
     return response.data
 }

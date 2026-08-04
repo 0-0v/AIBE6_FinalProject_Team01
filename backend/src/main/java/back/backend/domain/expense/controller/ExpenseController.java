@@ -21,6 +21,13 @@ public class ExpenseController {
         return ApiResponse.success(expenseService.create(tripId, request));
     }
 
+    @PutMapping("/{expenseId}")
+    public ApiResponse<ExpenseResponse> update(
+            @PathVariable Long tripId, @PathVariable Long expenseId,
+            @Valid @RequestBody ExpenseUpdateRequest request) {
+        return ApiResponse.success(expenseService.update(tripId, expenseId, request));
+    }
+
     @GetMapping
     public ApiResponse<List<ExpenseResponse>> getExpenses(@PathVariable Long tripId) {
         return ApiResponse.success(expenseService.getExpenses(tripId));
@@ -36,9 +43,9 @@ public class ExpenseController {
         return ApiResponse.success(expenseService.getSettlement(tripId));
     }
 
-    @PatchMapping("/settlement/transfers/{receiverId}/complete")
-    public ApiResponse<SettlementSummaryResponse.Transfer> completeTransfer(
-            @PathVariable Long tripId, @PathVariable Long receiverId) {
-        return ApiResponse.success(expenseService.completeTransfer(tripId, receiverId));
+    @PatchMapping("/{expenseId}/participants/{memberId}/complete")
+    public ApiResponse<ExpenseResponse> completeParticipant(
+            @PathVariable Long tripId, @PathVariable Long expenseId, @PathVariable Long memberId) {
+        return ApiResponse.success(expenseService.completeParticipant(tripId, expenseId, memberId));
     }
 }

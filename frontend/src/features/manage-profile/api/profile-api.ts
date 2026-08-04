@@ -3,6 +3,7 @@ import { useCurrentUserStore } from '@/shared/model'
 import type { CurrentUser } from '@/shared/model'
 
 type ApiResponse<T> = { success: boolean; message: string; data: T }
+type NicknameAvailabilityResponse = ApiResponse<{ available: boolean }>
 
 function authHeaders(): HeadersInit {
     const accessToken = getAccessToken()
@@ -17,6 +18,15 @@ export async function updateNickname(nickname: string) {
         { headers: authHeaders() },
     )
     return response.data
+}
+
+export async function checkNicknameAvailability(nickname: string) {
+    const response = await apiClient.post<NicknameAvailabilityResponse>(
+        '/api/members/me/nickname-availability',
+        { nickname },
+        { headers: authHeaders() },
+    )
+    return response.data.available
 }
 
 export async function uploadProfileImage(file: File) {

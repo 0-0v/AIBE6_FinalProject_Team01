@@ -5,7 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import back.backend.domain.card.entity.PlanCard;
+import back.backend.domain.card.entity.PlanCardTag;
+import back.backend.domain.card.entity.TripTag;
 import back.backend.domain.card.repository.PlanCardRepository;
+import back.backend.domain.card.repository.PlanCardTagRepository;
+import back.backend.domain.card.repository.TripTagRepository;
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.member.entity.AuthProvider;
@@ -18,6 +22,7 @@ import back.backend.domain.travelrecord.entity.TravelPhoto;
 import back.backend.domain.travelrecord.entity.TravelRecord;
 import back.backend.domain.travelrecord.repository.TravelPhotoRepository;
 import back.backend.domain.travelrecord.repository.TravelRecordRepository;
+import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.repository.TripRepository;
@@ -44,11 +49,14 @@ class PublicCardDetailServiceTest {
     @Mock TravelRecordRepository travelRecordRepository;
     @Mock TravelPhotoRepository travelPhotoRepository;
     @Mock MemberRepository memberRepository;
+    @Mock PlanCardTagRepository cardTagRepository;
+    @Mock TripTagRepository tagRepository;
 
     private PublicCardDetailService service() {
         return new PublicCardDetailService(
                 cardRepository, tripRepository, dayRepository, tripPlaceRepository,
-                travelRecordRepository, travelPhotoRepository, memberRepository);
+                travelRecordRepository, travelPhotoRepository, memberRepository,
+                cardTagRepository, tagRepository);
     }
 
     @Test
@@ -138,5 +146,32 @@ class PublicCardDetailServiceTest {
         assertThat(result.records().get(0).memo()).isEqualTo("일출이 멋졌어요");
         assertThat(result.records().get(0).imageUrls()).containsExactly("/images/sunrise.jpg");
         assertThat(result.records().get(0).recordedByNickname()).isEqualTo("가나디");
+    }
+
+    @Test
+    @DisplayName("t4 여행 스타일과 태그를 함께 반환한다")
+    void t4_getDetailIncludesTravelStylesAndTags() {
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC_ROUTE, 1L);
+        ReflectionTestUtils.setField(card, "id", 20L);
+        Trip trip = Trip.create(
+                1L, "제주 여행", null, Set.of(TravelStyle.NATURE, TravelStyle.FOOD), "제주",
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 3),
+                TripVisibility.PUBLIC_ROUTE);
+        ReflectionTestUtils.setField(trip, "id", 10L);
+        PlanCardTag cardTag = PlanCardTag.create(20L, 30L);
+        TripTag tripTag = TripTag.create(10L, "친구랑", 1L, 0);
+        ReflectionTestUtils.setField(tripTag, "id", 30L);
+
+        when(cardRepository.findById(20L)).thenReturn(Optional.of(card));
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(dayRepository.findAllWithItemsByTripId(10L)).thenReturn(List.of());
+        when(tripPlaceRepository.findAllOrderedByTripId(10L)).thenReturn(List.of());
+        when(cardTagRepository.findAllByPlanCardId(20L)).thenReturn(List.of(cardTag));
+        when(tagRepository.findById(30L)).thenReturn(Optional.of(tripTag));
+
+        var result = service().getDetail(20L);
+
+        assertThat(result.travelStyles()).containsExactlyInAnyOrder(TravelStyle.NATURE, TravelStyle.FOOD);
+        assertThat(result.tags()).containsExactly("친구랑");
     }
 }
