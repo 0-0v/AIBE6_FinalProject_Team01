@@ -16,6 +16,38 @@ type PlaceSidebarItemProps = {
     onFocusPlace: (placeId: string) => void
 }
 
+function PlaceCategoryThumbnail({
+    place,
+    size,
+}: {
+    place: Place
+    size: 'sm' | 'md'
+}) {
+    const dimensions = size === 'md' ? 'h-10 w-10' : 'h-8 w-8'
+    const iconSize = size === 'md' ? 14 : 12
+
+    return (
+        <div
+            className={`flex ${dimensions} shrink-0 items-center justify-center rounded-lg`}
+            style={{
+                backgroundColor: (place.categoryColor ?? '#94a3b8') + '20',
+                color: place.categoryColor ?? '#94a3b8',
+            }}
+            aria-hidden="true"
+        >
+            {place.categoryIcon ? (
+                <CategoryIcon
+                    icon={place.categoryIcon}
+                    size={iconSize}
+                    strokeWidth={2}
+                />
+            ) : (
+                <MapPinIcon size={iconSize} />
+            )}
+        </div>
+    )
+}
+
 function PlaceSidebarItem({
     place,
     days,
@@ -50,36 +82,7 @@ function PlaceSidebarItem({
                     className="shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 />
 
-                {/* 썸네일 */}
-                {place.image ? (
-                    <img
-                        src={place.image}
-                        alt={place.name}
-                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                    />
-                ) : (
-                    <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                        style={{
-                            backgroundColor:
-                                (place.categoryColor ?? '#94a3b8') + '20',
-                        }}
-                    >
-                        {place.categoryIcon && (
-                            <span
-                                style={{
-                                    color: place.categoryColor ?? '#94a3b8',
-                                }}
-                            >
-                                <CategoryIcon
-                                    icon={place.categoryIcon}
-                                    size={14}
-                                    strokeWidth={2}
-                                />
-                            </span>
-                        )}
-                    </div>
-                )}
+                <PlaceCategoryThumbnail place={place} size="md" />
 
                 {/* 장소 정보 */}
                 <div className="min-w-0 flex-1">
@@ -244,40 +247,10 @@ export function PlaceSidebar({
                                             : { borderColor: '#e2e8f0' }
                                     }
                                 >
-                                    {place.image ? (
-                                        <img
-                                            src={place.image}
-                                            alt={place.name}
-                                            className="h-8 w-8 shrink-0 rounded-lg object-cover"
-                                        />
-                                    ) : (
-                                        <div
-                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                                            style={{
-                                                backgroundColor:
-                                                    (place.categoryColor ??
-                                                        '#94a3b8') + '20',
-                                            }}
-                                        >
-                                            {place.categoryIcon && (
-                                                <span
-                                                    style={{
-                                                        color:
-                                                            place.categoryColor ??
-                                                            '#94a3b8',
-                                                    }}
-                                                >
-                                                    <CategoryIcon
-                                                        icon={
-                                                            place.categoryIcon
-                                                        }
-                                                        size={12}
-                                                        strokeWidth={2}
-                                                    />
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
+                                    <PlaceCategoryThumbnail
+                                        place={place}
+                                        size="sm"
+                                    />
                                     <span className="truncate text-xs font-medium text-slate-700">
                                         {place.name}
                                     </span>

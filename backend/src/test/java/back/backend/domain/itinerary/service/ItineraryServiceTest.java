@@ -1,5 +1,7 @@
 package back.backend.domain.itinerary.service;
 
+import back.backend.domain.collaboration.activitylog.dto.ActivityLogCreateCommand;
+import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.itinerary.dto.request.*;
 import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
@@ -54,6 +56,7 @@ class ItineraryServiceTest {
     @Mock ItineraryTravelEstimator travelEstimator;
     @Mock EntityManager entityManager;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock ActivityLogService activityLogService;
     @InjectMocks ItineraryService itineraryService;
 
     private static final Long TRIP_ID = 1L;
@@ -255,8 +258,9 @@ class ItineraryServiceTest {
     }
 
     @Test
-    @DisplayName("t10 Day 상태를 CONFIRMED로 전환한다")
-    void t10_updateDayStatusConfirmsDay() {
+    @DisplayName("t10 Day 상태를 CONFIRMED로 전환하면 활동 로그가 기록된다")
+    void t10_updateDayStatusConfirmsDayAndLogsActivity() {
+        given(accessChecker.requireEdit(TRIP_ID)).willReturn(MEMBER_ID);
         given(dayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).willReturn(Optional.of(day));
         given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of(day));
 
@@ -264,6 +268,14 @@ class ItineraryServiceTest {
                 new UpdateItineraryDayStatusRequest(ItineraryDayStatus.CONFIRMED));
 
         assertThat(result.status()).isEqualTo("CONFIRMED");
+        ArgumentCaptor<ActivityLogCreateCommand> captor = ArgumentCaptor.forClass(ActivityLogCreateCommand.class);
+        then(activityLogService).should().create(captor.capture());
+        ActivityLogCreateCommand logged = captor.getValue();
+        assertThat(logged.tripId()).isEqualTo(TRIP_ID);
+        assertThat(logged.memberId()).isEqualTo(MEMBER_ID);
+        assertThat(logged.actionType()).isEqualTo("ITINERARY_DAY_CONFIRMED");
+        assertThat(logged.targetType()).isEqualTo("ITINERARY_DAY");
+        assertThat(logged.targetId()).isEqualTo(DAY_ID);
     }
 
     @Test

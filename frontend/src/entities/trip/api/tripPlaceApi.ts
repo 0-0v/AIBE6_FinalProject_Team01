@@ -68,6 +68,7 @@ const FALLBACK_IMAGES: Record<PlaceCategory, string> = {
     bar: '/67984159-ee93-4d51-aadd-43522138b92a.jpg',
     attraction: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     shopping: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
+    convenience: '/9e582d3a-c3de-4ac9-a64e-952cdb17a104.jpg',
     activity: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     transport: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',
     other: '/0844eb8a-06d8-4ab3-83ad-92012ae8d8fe.jpg',

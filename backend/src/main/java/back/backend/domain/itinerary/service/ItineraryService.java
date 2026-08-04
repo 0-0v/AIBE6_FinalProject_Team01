@@ -1,5 +1,7 @@
 package back.backend.domain.itinerary.service;
 
+import back.backend.domain.collaboration.activitylog.dto.ActivityLogCreateCommand;
+import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.itinerary.dto.request.*;
 import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.dto.response.ItineraryItemResponse;
@@ -51,6 +53,7 @@ public class ItineraryService {
     private final ItineraryTravelEstimator travelEstimator;
     private final EntityManager entityManager;
     private final ApplicationEventPublisher eventPublisher;
+    private final ActivityLogService activityLogService;
 
     @Transactional(readOnly = true)
     public List<ItineraryDayResponse> getItinerary(Long tripId) {
@@ -475,11 +478,22 @@ public class ItineraryService {
 
     @Transactional
     public ItineraryDayResponse updateDayStatus(Long tripId, Long dayId, UpdateItineraryDayStatusRequest request) {
-        accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         lockTripForUpdate(tripId);
         ItineraryDay day = findDayOrThrow(dayId, tripId);
 
+        ItineraryDayStatus previousStatus = day.getStatus();
         day.updateStatus(request.status());
+
+        boolean confirmed = request.status() == ItineraryDayStatus.CONFIRMED;
+        String dayLabel = day.getTitle() != null ? day.getTitle() : "Day " + day.getDayNumber();
+        String actionType = confirmed ? "ITINERARY_DAY_CONFIRMED" : "ITINERARY_DAY_UNCONFIRMED";
+        String description = confirmed
+                ? dayLabel + " 일정을 확정했습니다."
+                : dayLabel + " 일정 확정을 취소했습니다.";
+        activityLogService.create(new ActivityLogCreateCommand(
+                tripId, memberId, null, actionType, "ITINERARY_DAY", dayId, description,
+                Map.of("dayNumber", day.getDayNumber(), "previousStatus", previousStatus.name(), "newStatus", request.status().name())));
 
         publishChanged(tripId, dayId);
         return getDayResponseById(tripId, dayId);

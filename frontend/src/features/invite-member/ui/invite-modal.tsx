@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
     XIcon,
     CopyIcon,
@@ -17,7 +17,16 @@ export function InviteModal({ tripId, onClose }: Props) {
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [copied, setCopied] = useState<'code' | 'link' | null>(null)
+    const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const link = code ? `${window.location.origin}/app/room/invite/${code}` : ''
+
+    useEffect(() => {
+        return () => {
+            if (copiedTimerRef.current !== null) {
+                clearTimeout(copiedTimerRef.current)
+            }
+        }
+    }, [])
 
     async function issueInvitation() {
         setIsLoading(true)
@@ -35,7 +44,8 @@ export function InviteModal({ tripId, onClose }: Props) {
     function copy(kind: 'code' | 'link', value: string) {
         navigator.clipboard?.writeText(value)
         setCopied(kind)
-        setTimeout(() => setCopied(null), 1500)
+        if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current)
+        copiedTimerRef.current = setTimeout(() => setCopied(null), 1500)
     }
 
     return (

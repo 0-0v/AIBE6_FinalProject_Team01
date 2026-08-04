@@ -8,7 +8,7 @@ import React, {
     useState,
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { SparklesIcon } from 'lucide-react'
+import { MapIcon, SparklesIcon } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
     Place,
@@ -18,8 +18,10 @@ import {
     getItinerary,
     initializeItinerary,
     fromApiToPlace,
+    addTripPlace,
     type ItineraryDay,
 } from '@/entities/trip'
+import type { PlaceSearchResult } from '@/features/search-place'
 import { AiAgentPanel } from '@/features/ai-organize'
 import {
     consumePendingAiTripAction,
@@ -99,7 +101,6 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const handleAiRouteApplied = useCallback(
         (days: ItineraryDay[]) => {
             setItineraryState({ tripId, days })
-            setItineraryVersion((current) => current + 1)
         },
         [tripId],
     )
@@ -113,6 +114,24 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }, [loadTrips, tripId])
 
     const [selectedId, setSelectedId] = useState<string | null>(null)
+    const [selectedPlaceSource, setSelectedPlaceSource] = useState<
+        'card' | 'marker' | null
+    >(null)
+    const [placeFocusRequestVersion, setPlaceFocusRequestVersion] = useState(0)
+    const selectPlaceFromCard = useCallback((id: string) => {
+        setSelectedPlaceSource('card')
+        setSelectedId(id)
+        setPlaceFocusRequestVersion((current) => current + 1)
+    }, [])
+    const selectPlaceFromMarker = useCallback((id: string) => {
+        setSelectedPlaceSource('marker')
+        setSelectedId(id)
+        setPlaceFocusRequestVersion((current) => current + 1)
+    }, [])
+    const deselectPlace = useCallback(() => {
+        setSelectedPlaceSource(null)
+        setSelectedId(null)
+    }, [])
     const [headerContainer, setHeaderContainer] =
         useState<HTMLDivElement | null>(null)
     const [customPanelWidth, setCustomPanelWidth] = useState<number | null>(
@@ -120,6 +139,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     )
     const [isResizingPanel, setIsResizingPanel] = useState(false)
     const workspacePanelRef = useRef<HTMLElement>(null)
+    const [mapCollapsed, setMapCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
     const [pendingAiAction, setPendingAiAction] =
         useState<PendingAiTripAction | null>(null)
@@ -348,6 +368,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         [displayedPlaces],
     )
 
+    const existingGooglePlaceIds = useMemo(
+        () => new Set(places.map((p) => p.googlePlaceId).filter(Boolean) as string[]),
+        [places],
+    )
+
     const updatePlace = useCallback(
         (id: string, update: (place: Place) => Place) => {
             setPlaces((current) =>
@@ -386,6 +411,14 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
 
     function addPlace(place: Place) {
         setPlaces((current) => [place, ...current])
+    }
+
+    async function handleAddFromPoi(result: PlaceSearchResult) {
+        if (!tripId || !room) return
+        const tripPlace = await addTripPlace(tripId, result)
+        const added = fromApiToPlace(tripPlace, room.id)
+        addPlace(added)
+        selectPlaceFromMarker(added.id)
     }
 
     function deletePlace(id: string) {
@@ -595,22 +628,26 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         ease: [0.22, 1, 0.36, 1],
                         delay: room ? 0.08 : 0,
                     }}
-                    className={`relative min-h-[360px] min-w-0 flex-1 overflow-hidden ${
+                    className={`relative min-h-[360px] min-w-0 flex-1 overflow-hidden transition-[flex,opacity] duration-300 ease-out ${
                         isRecordMode ? 'hidden' : ''
                     } ${
                         room
                             ? 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]'
                             : ''
-                    }`}
+                    } ${mapCollapsed ? 'lg:hidden' : ''}`}
                 >
                     <MapCanvas
                         key={`map-${tripId ?? 'none'}-${pendingAiAction?.routeContext?.dayId ?? 'all'}-${pendingAiAction?.routeContext?.segmentIndex ?? 'all'}`}
-                        places={mapPlaces}
+                        places={showRoomList ? [] : mapPlaces}
                         initialLat={room?.destinationLat}
                         initialLng={room?.destinationLng}
                         selectedId={selectedId}
-                        onSelect={setSelectedId}
-                        onDeselect={() => setSelectedId(null)}
+                        focusRequestVersion={placeFocusRequestVersion}
+                        showSelectedPlacePhoto={
+                            selectedPlaceSource === 'marker'
+                        }
+                        onSelect={selectPlaceFromMarker}
+                        onDeselect={deselectPlace}
                         onPlacePhotoResolved={handlePlacePhotoResolved}
                         days={itineraryDays}
                         initialRouteDay={
@@ -619,7 +656,18 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         initialFocusedSegmentIndex={
                             pendingAiAction?.routeContext?.segmentIndex ?? null
                         }
+                        onAddFromPoi={!inviteCode && canManagePlaces ? handleAddFromPoi : undefined}
+                        existingGooglePlaceIds={existingGooglePlaceIds}
+                        canWrite={!inviteCode && canManagePlaces}
                     />
+                    {showRoomList && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/55 backdrop-blur-[3px]">
+                            <MapIcon size={36} className="mb-3 text-slate-300" />
+                            <p className="text-sm font-semibold text-slate-500">
+                                여행방을 선택하면 저장된 장소가 표시됩니다
+                            </p>
+                        </div>
+                    )}
                     {!inviteCode && canManagePlaces && (
                         <button
                             onClick={() => setAiOpen(true)}
@@ -642,7 +690,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                     className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col ${
                         isRecordMode
                             ? 'overflow-visible bg-transparent lg:w-full lg:max-w-none lg:flex-1'
-                            : 'overflow-hidden border border-slate-200 bg-white lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none'
+                            : `overflow-hidden border border-slate-200 bg-white ${
+                                  mapCollapsed
+                                      ? ''
+                                      : 'lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none'
+                              }`
                     } ${
                         room && !isRecordMode
                             ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
@@ -742,7 +794,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     room={room}
                                     places={displayedPlaces}
                                     selectedId={selectedId}
-                                    onSelectPlace={setSelectedId}
+                                    onSelectPlace={selectPlaceFromCard}
                                     onBack={() => navigate('/app/room')}
                                     onManage={() => setManageOpen(true)}
                                     onVisibilityManage={() =>
@@ -783,6 +835,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                             ? pendingAiAction.recommendations
                                             : null
                                     }
+                                    mapCollapsed={mapCollapsed}
+                                    onToggleMap={() => setMapCollapsed((v) => !v)}
                                 />
                             ) : (
                                 <RoomListPanel

@@ -80,6 +80,17 @@ class PlaceCategoryClassifierTest {
                 .isEqualTo(expected);
     }
 
+    @Test
+    @DisplayName("t7 편의점 공식 유형과 이름을 편의점 카테고리로 분류한다")
+    void t7_classifiesConvenienceStores() {
+        assertThat(PlaceCategoryClassifier.classify(
+                "convenience_store", List.of("store"), "7-Eleven"
+        )).isEqualTo(PlaceCategoryType.CONVENIENCE);
+        assertThat(PlaceCategoryClassifier.classify(
+                null, List.of(), "GS25 편의점"
+        )).isEqualTo(PlaceCategoryType.CONVENIENCE);
+    }
+
     private static Stream<Arguments> mixedCategoryCases() {
         return Stream.of(
                 arguments("establishment", List.of("cafe", "subway_station"),

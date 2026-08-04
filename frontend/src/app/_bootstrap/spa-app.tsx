@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useRef } from 'react'
 import {
     BrowserRouter,
     Navigate,
@@ -40,19 +40,25 @@ function AppShell() {
     const resetNotifications = useNotificationStore(
         (state) => state.resetNotifications,
     )
+    const loadNotificationsRef = useRef(loadNotifications)
+    const resetNotificationsRef = useRef(resetNotifications)
+    useLayoutEffect(() => {
+        loadNotificationsRef.current = loadNotifications
+        resetNotificationsRef.current = resetNotifications
+    })
 
     useEffect(() => {
         if (!currentUser) {
-            resetNotifications()
+            resetNotificationsRef.current()
             return
         }
 
         const refreshNotifications = () => {
             if (document.visibilityState === 'visible') {
-                void loadNotifications()
+                void loadNotificationsRef.current()
             }
         }
-        void loadNotifications()
+        void loadNotificationsRef.current()
         const intervalId = window.setInterval(refreshNotifications, 30_000)
         window.addEventListener('focus', refreshNotifications)
         document.addEventListener('visibilitychange', refreshNotifications)
@@ -65,7 +71,7 @@ function AppShell() {
                 refreshNotifications,
             )
         }
-    }, [currentUser, loadNotifications, resetNotifications])
+    }, [currentUser])
 
     // 세션 복원(리프레시 토큰 -> 내 정보 조회)이 끝나기 전에 그리면
     // 이전 currentUser 값(게스트 또는 직전 닉네임/사진)이 잠깐 보였다가

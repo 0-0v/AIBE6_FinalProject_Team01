@@ -28,6 +28,7 @@ public class PlaceCategoryService {
             new DefaultCategory("자연", PlaceCategoryType.NATURE, "#0f766e", PlaceMarkerIcon.TREES),
             new DefaultCategory("숙소", PlaceCategoryType.LODGING, "#0891b2", PlaceMarkerIcon.HOTEL),
             new DefaultCategory("쇼핑", PlaceCategoryType.SHOPPING, "#2563eb", PlaceMarkerIcon.SHOPPING_BAG),
+            new DefaultCategory("편의점", PlaceCategoryType.CONVENIENCE, "#16a34a", PlaceMarkerIcon.STORE),
             new DefaultCategory("액티비티", PlaceCategoryType.ACTIVITY, "#ea580c", PlaceMarkerIcon.STAR),
             new DefaultCategory("교통", PlaceCategoryType.TRANSPORT, "#475569", PlaceMarkerIcon.PLANE),
             new DefaultCategory("기타", PlaceCategoryType.OTHER, "#64748b", PlaceMarkerIcon.MAP_PIN)
@@ -45,6 +46,7 @@ public class PlaceCategoryService {
         accessChecker.requireView(tripId);
         return ensureDefaults(tripId)
                 .stream()
+                .filter(category -> category.getCategoryType() != PlaceCategoryType.OTHER)
                 .map(PlaceCategoryResponse::from)
                 .toList();
     }

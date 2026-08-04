@@ -259,10 +259,9 @@ function DepartureRow({
                     type="button"
                     disabled={updating}
                     onClick={() => setOpen((v) => !v)}
-                    className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold text-brand transition hover:bg-brand/10 disabled:opacity-40"
+                    className="shrink-0 rounded-md px-1.5 py-1 text-[10px] font-bold text-brand transition hover:bg-brand/10 disabled:opacity-40"
                     aria-label={departure ? '출발지 변경' : '출발지 선택'}
                 >
-                    <MapPinIcon size={11} aria-hidden />
                     {departure ? '변경' : '출발지 선택'}
                 </button>
             )}
@@ -381,10 +380,10 @@ function TransportConnector({
     }
 
     return (
-        <div className="relative flex flex-col items-center justify-center py-1">
-            {/* 세로 점선 */}
-            <div className="absolute inset-y-0 left-1/2 -translate-x-px border-l-2 border-dashed border-slate-200" />
-            <div className="relative z-10 flex items-center rounded-full border border-brand/25 bg-white text-brand shadow-sm">
+        <div className="relative flex flex-col items-center justify-center py-0">
+            {/* 세로 연결선 */}
+            <div className="absolute inset-y-0 left-1/2 -translate-x-px border-l-2 border-slate-300" />
+            <div className="relative z-10 my-1 flex items-center rounded-full border border-brand/30 bg-white text-brand shadow-sm">
                 <button
                     type="button"
                     onClick={toggleModeMenu}
@@ -468,21 +467,8 @@ function TransportConnector({
     )
 }
 
-type Props = {
-    day: ItineraryDay
-    tripId: number
-    canWrite: boolean
-    days: ItineraryDay[]
-    isDragging: boolean
-    unscheduledPlaces: Place[]
-    allPlaces?: Place[]
-    onAddPlace: (placeId: string) => void
-    onDaysChange: (days: ItineraryDay[]) => void
-    hoveredItemId?: string | null
-    onItemHoverChange?: (itemId: string | null) => void
-    onItemFocus?: (itemId: string) => void
-}
-
+// 아이템 사이 / 맨 앞 / 맨 끝에 놓는 전용 드롭존 — 정렬 아이템의 히트박스와
+// 경합하지 않도록 별도 타겟을 두어 사용자가 원하는 위치에 정확히 놓을 수 있게 한다.
 function ItineraryDropZone({
     dayId,
     insertionIndex,
@@ -500,16 +486,32 @@ function ItineraryDropZone({
     return (
         <div
             ref={setNodeRef}
-            className={`relative transition-[height] ${
-                visible ? 'h-3' : 'h-1'
+            className={`relative transition-[height] duration-150 ${
+                !visible ? 'h-1' : isOver ? 'h-9' : 'h-5'
             }`}
         >
             {isOver && (
-                <div className="absolute inset-x-1 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_0_2px_white]" />
+                <div className="absolute inset-x-1 top-1/2 h-1 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_0_3px_white]" />
             )}
         </div>
     )
 }
+
+type Props = {
+    day: ItineraryDay
+    tripId: number
+    canWrite: boolean
+    days: ItineraryDay[]
+    isDragging: boolean
+    unscheduledPlaces: Place[]
+    allPlaces?: Place[]
+    onAddPlace: (placeId: string) => void
+    onDaysChange: (days: ItineraryDay[]) => void
+    hoveredItemId?: string | null
+    onItemHoverChange?: (itemId: string | null) => void
+    onItemFocus?: (itemId: string) => void
+}
+
 
 export function DayColumn({
     day,
@@ -573,7 +575,7 @@ export function DayColumn({
             className={`rounded-xl border shadow-sm transition-colors ${borderClass}`}
         >
             {/* 헤더 */}
-            <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center justify-between px-3 py-1.5">
                 {/* 날짜 + 접기 버튼 */}
                 <button
                     type="button"
@@ -582,17 +584,17 @@ export function DayColumn({
                 >
                     <span className="shrink-0 text-slate-400">
                         {collapsed ? (
-                            <ChevronRightIcon size={13} />
+                            <ChevronRightIcon size={15} />
                         ) : (
-                            <ChevronDownIcon size={13} />
+                            <ChevronDownIcon size={15} />
                         )}
                     </span>
                     <span
-                        className={`shrink-0 text-xs font-extrabold ${isConfirmed ? 'text-green-600' : 'text-brand'}`}
+                        className={`shrink-0 text-base font-extrabold ${isConfirmed ? 'text-green-600' : 'text-brand'}`}
                     >
                         Day {day.dayNumber}
                     </span>
-                    <span className="truncate text-xs text-slate-500">
+                    <span className="truncate text-base font-medium text-slate-500">
                         {dateLabel}
                     </span>
                     {isConfirmed && (
@@ -701,7 +703,8 @@ export function DayColumn({
 
             {error && <p className="px-3 pb-1 text-xs text-red-500">{error}</p>}
 
-            {/* 출발지 행 */}
+            {/* 출발지 행 + 아이템 목록 (접으면 함께 숨김) */}
+            {!collapsed && (
             <DepartureRow
                 departure={day.departure}
                 tripId={tripId}
@@ -714,10 +717,10 @@ export function DayColumn({
                 days={days}
                 onDaysChange={onDaysChange}
             />
+            )}
 
-            {/* 아이템 목록 (접으면 숨김) */}
             {!collapsed && (
-                <div className="flex flex-col gap-0.5 px-2.5 pb-2.5">
+                <div className={`flex flex-col gap-0.5 px-2.5 ${isDragging ? 'pb-12' : 'pb-2.5'}`}>
                     <SortableContext
                         id={String(day.id)}
                         items={day.items.map((i) => i.id)}
@@ -725,9 +728,9 @@ export function DayColumn({
                     >
                         {day.items.length === 0 ? (
                             <div
-                                className={`flex min-h-12 items-center justify-center rounded-lg border-2 border-dashed text-xs transition-all ${
+                                className={`flex min-h-12 items-center justify-center rounded-lg border-2 border-dashed text-xs transition-[border-color,background-color,color] duration-150 ${
                                     isOver
-                                        ? 'scale-[1.02] border-brand bg-brand/10 text-brand'
+                                        ? 'border-brand bg-brand/10 text-brand'
                                         : isDragging
                                           ? 'border-brand/50 bg-brand/5 text-brand/60'
                                           : 'border-slate-200 text-slate-300'
@@ -768,7 +771,8 @@ export function DayColumn({
                                             onHoverChange={onItemHoverChange}
                                             onFocusItem={onItemFocus}
                                         />
-                                        {index < day.items.length - 1 && (
+                                        {index < day.items.length - 1 &&
+                                        !isDragging ? (
                                             <TransportConnector
                                                 item={item}
                                                 nextItem={day.items[index + 1]}
@@ -777,12 +781,13 @@ export function DayColumn({
                                                 days={days}
                                                 onDaysChange={onDaysChange}
                                             />
+                                        ) : (
+                                            <ItineraryDropZone
+                                                dayId={String(day.id)}
+                                                insertionIndex={index + 1}
+                                                visible={isDragging}
+                                            />
                                         )}
-                                        <ItineraryDropZone
-                                            dayId={String(day.id)}
-                                            insertionIndex={index + 1}
-                                            visible={isDragging}
-                                        />
                                     </React.Fragment>
                                 ))}
                             </>

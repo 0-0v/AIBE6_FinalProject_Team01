@@ -7,6 +7,7 @@ public enum PlaceMarkerIcon {
     TREES,
     HOTEL,
     SHOPPING_BAG,
+    STORE,
     MAP_PIN,
     SOUP,
     PIZZA,

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.concurrent.TimeUnit;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 
@@ -41,7 +42,7 @@ public class PlaceController {
         PlacePhotoService.PhotoContent photo = placePhotoService.getPhoto(name);
         return ResponseEntity.ok()
                 .contentType(photo.contentType())
-                .cacheControl(CacheControl.noStore())
+                .cacheControl(CacheControl.maxAge(24, TimeUnit.HOURS).cachePrivate())
                 .body(photo.bytes());
     }
 
@@ -57,7 +58,12 @@ public class PlaceController {
             @RequestParam String placeId
     ) {
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.noStore())
+                .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePrivate())
                 .body(ApiResponse.success(placePhotoService.getPhotoMetadata(placeId)));
+    }
+
+    @GetMapping("/details")
+    public ApiResponse<PlaceSearchResponse> getDetails(@RequestParam String placeId) {
+        return ApiResponse.success(placeSearchService.getPlaceDetails(placeId));
     }
 }

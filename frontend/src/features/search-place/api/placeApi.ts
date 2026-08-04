@@ -33,3 +33,15 @@ export async function searchPlaces(
     )
     return res.data
 }
+
+export async function getPlaceDetails(
+    googlePlaceId: string,
+    signal?: AbortSignal,
+): Promise<PlaceSearchResult> {
+    const params = new URLSearchParams({ placeId: googlePlaceId })
+    const res = await apiClient.get<ApiResponse<PlaceSearchResult>>(
+        `/api/places/details?${params.toString()}`,
+        { signal },
+    )
+    return res.data
+}

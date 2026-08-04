@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
     ArrowDownIcon,
-    CheckIcon,
     LoaderCircleIcon,
     MapPinIcon,
     MapPinnedIcon,
@@ -22,6 +21,7 @@ import {
     TransportModeIcon,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { AnalysisStatusAnimation } from '@/shared/ui'
 import { AiBrandMark } from '@/features/ai-trip-assistant'
 import {
     AiRouteSettingsModal,
@@ -60,7 +60,7 @@ function RoutePlanView({
 
     return (
         <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
-            <aside className="space-y-3">
+            <aside className="space-y-3 overflow-y-auto">
                 <div className="rounded-xl bg-brand-50 p-3">
                     <p className="text-xs font-semibold leading-relaxed text-brand-700">
                         {plan.summary}
@@ -98,7 +98,7 @@ function RoutePlanView({
             </aside>
 
             {selectedDay && (
-                <section className="min-w-0 rounded-2xl border border-slate-200 p-4">
+                <section className="min-w-0 overflow-y-auto rounded-2xl border border-slate-200 p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <div>
                             <span className="text-sm font-extrabold text-brand">
@@ -194,6 +194,7 @@ export function AiAgentPanel({
     const [options, setOptions] = useState<RouteOption[]>([])
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [loading, setLoading] = useState(false)
+    const [showSuccess, setShowSuccess] = useState(false)
     const [applying, setApplying] = useState(false)
     const [applied, setApplied] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -215,6 +216,7 @@ export function AiAgentPanel({
     ) {
         setShowSettings(false)
         setLoading(true)
+        setShowSuccess(false)
         setApplied(false)
         setError(null)
         try {
@@ -234,6 +236,7 @@ export function AiAgentPanel({
             const result = await previewItineraryRoutePlan(tripId, settings)
             setOptions(result)
             setSelectedIndex(0)
+            setShowSuccess(true)
         } catch (requestError) {
             setError(
                 getApiErrorMessage(requestError, '동선 분석에 실패했습니다.'),
@@ -332,12 +335,9 @@ export function AiAgentPanel({
                         </div>
                     )}
 
-                    {loading && (
+                    {loading && !showSuccess && (
                         <div className="flex flex-col items-center gap-3 py-16 text-center">
-                            <LoaderCircleIcon
-                                className="animate-spin text-brand"
-                                size={28}
-                            />
+                            <AnalysisStatusAnimation phase="loading" />
                             <p className="text-sm font-medium text-slate-500">
                                 장소와 이동 거리를 분석하고 있어요
                             </p>
@@ -347,10 +347,22 @@ export function AiAgentPanel({
                         </div>
                     )}
 
-                    {options.length > 0 && !loading && (
+                    {showSuccess && !loading && (
+                        <div className="flex flex-col items-center gap-3 py-16 text-center">
+                            <AnalysisStatusAnimation
+                                phase="complete"
+                                onComplete={() => setShowSuccess(false)}
+                            />
+                            <p className="text-sm font-medium text-slate-500">
+                                분석이 완료됐어요
+                            </p>
+                        </div>
+                    )}
+
+                    {options.length > 0 && !loading && !showSuccess && (
                         <div className="flex min-h-0 flex-1 flex-col gap-3">
                             {/* 경로 선택 탭 */}
-                            <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+                            <div className="flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
                                 {options.map((opt, i) => (
                                     <button
                                         key={i}
@@ -387,11 +399,14 @@ export function AiAgentPanel({
                     )}
                 </div>
 
-                {options.length > 0 && !loading && (
+                {options.length > 0 && !loading && !showSuccess && (
                     <footer className="shrink-0 border-t border-slate-200 p-5">
                         {applied ? (
                             <div className="flex items-center justify-center gap-1.5 rounded-xl bg-green-50 py-2.5 text-sm font-bold text-green-600">
-                                <CheckIcon size={15} />
+                                <AnalysisStatusAnimation
+                                    phase="complete"
+                                    size={28}
+                                />
                                 일정에 반영했습니다
                             </div>
                         ) : (

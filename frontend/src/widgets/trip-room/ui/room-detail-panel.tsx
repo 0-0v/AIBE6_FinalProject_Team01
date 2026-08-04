@@ -1,6 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronRightIcon, HistoryIcon, ListIcon, MapIcon } from 'lucide-react'
+import {
+    ChevronRightIcon,
+    HistoryIcon,
+    ListIcon,
+    MapIcon,
+    PanelLeftCloseIcon,
+    PanelLeftOpenIcon,
+} from 'lucide-react'
 import {
     Place,
     Room,
@@ -122,6 +129,8 @@ type Props = {
     onWorkspaceChange?: (workspace: TripRoomWorkspace) => void
     headerContainer?: HTMLElement | null
     aiPlaceRecommendations?: AiPlaceSearchRecommendation[] | null
+    mapCollapsed?: boolean
+    onToggleMap?: () => void
 }
 
 export function RoomDetailPanel({
@@ -149,6 +158,8 @@ export function RoomDetailPanel({
     onWorkspaceChange,
     headerContainer,
     aiPlaceRecommendations,
+    mapCollapsed = false,
+    onToggleMap,
 }: Props) {
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -183,25 +194,6 @@ export function RoomDetailPanel({
 
     const activeWorkspace: TripRoomWorkspace = planTab
 
-    const handlePhotoResolved = useCallback(
-        (
-            placeId: string,
-            photoUrl: string,
-            attribution: string | null,
-            attributionUrl: string | null,
-            sourceUrl: string,
-        ) => {
-            onUpdatePlace(placeId, (place) => ({
-                ...place,
-                image: photoUrl,
-                photoAttribution: attribution,
-                photoAttributionUrl: attributionUrl,
-                photoSourceUrl: sourceUrl,
-            }))
-        },
-        [onUpdatePlace],
-    )
-
     useEffect(() => {
         onWorkspaceChange?.(activeWorkspace)
     }, [activeWorkspace, onWorkspaceChange])
@@ -217,10 +209,8 @@ export function RoomDetailPanel({
             }
         }
         void loadMembers()
-        const intervalId = window.setInterval(() => void loadMembers(), 30_000)
         return () => {
             active = false
-            window.clearInterval(intervalId)
         }
     }, [tripId])
 
@@ -471,13 +461,33 @@ export function RoomDetailPanel({
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setActivityOpen((value) => !value)}
-                        className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${activityOpen ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
-                        aria-label="전체 활동 로그 열기"
-                    >
-                        <HistoryIcon size={18} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        {onToggleMap && (
+                            <button
+                                onClick={onToggleMap}
+                                className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${mapCollapsed ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                                aria-label={
+                                    mapCollapsed ? '지도 펼치기' : '지도 접기'
+                                }
+                                title={
+                                    mapCollapsed ? '지도 펼치기' : '지도 접기'
+                                }
+                            >
+                                {mapCollapsed ? (
+                                    <PanelLeftOpenIcon size={18} />
+                                ) : (
+                                    <PanelLeftCloseIcon size={18} />
+                                )}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setActivityOpen((value) => !value)}
+                            className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${activityOpen ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                            aria-label="전체 활동 로그 열기"
+                        >
+                            <HistoryIcon size={18} />
+                        </button>
+                    </div>
                 </div>
                 <div className="flex items-center">
                     <div
@@ -533,51 +543,41 @@ export function RoomDetailPanel({
             </div>
 
             {planTab !== 'places' && (
-                <div className="border-b border-slate-100 px-6 py-4.5">
+                <div className="border-b border-slate-100 px-6 py-2.5">
                     <nav
-                        className="flex items-center gap-2 text-xs font-bold"
+                        className="flex items-center gap-2"
                         aria-label="일정 준비 단계"
                     >
                         <button
                             type="button"
                             onClick={() => setPlanTab('itinerary')}
-                            className={
+                            className={`outline-none transition-all duration-150 ${
                                 planTab === 'itinerary'
-                                    ? 'text-brand-700'
-                                    : 'text-slate-400 hover:text-slate-700'
-                            }
+                                    ? 'text-lg font-extrabold text-brand-700'
+                                    : 'text-xs font-bold text-slate-400 hover:text-slate-600'
+                            }`}
                         >
                             날짜
                         </button>
                         <ChevronRightIcon
                             size={14}
-                            className="text-slate-300"
+                            className="shrink-0 text-slate-300"
                         />
                         <button
                             type="button"
                             disabled={!hasConfirmedDates}
                             onClick={() => setPlanTab('schedule')}
-                            className={
+                            className={`outline-none transition-all duration-150 ${
                                 planTab === 'schedule'
-                                    ? 'text-brand-700'
+                                    ? 'text-lg font-extrabold text-brand-700'
                                     : hasConfirmedDates
-                                      ? 'text-slate-400 hover:text-slate-700'
-                                      : 'cursor-not-allowed text-slate-200'
-                            }
+                                      ? 'text-xs font-bold text-slate-400 hover:text-slate-600'
+                                      : 'cursor-not-allowed text-xs font-bold text-slate-200'
+                            }`}
                         >
                             일정
                         </button>
                     </nav>
-                    <h3 className="mt-3 text-base font-extrabold text-slate-900">
-                        {planTab === 'itinerary'
-                            ? '멤버들의 가능한 날짜를 모아볼게요'
-                            : '확정된 날짜에 맞춰 일정을 준비해요'}
-                    </h3>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                        {planTab === 'itinerary'
-                            ? '가능 날짜를 눌러 투표해주세요'
-                            : '저장한 장소를 날짜와 방문 순서에 맞게 배치해보세요'}
-                    </p>
                 </div>
             )}
 
@@ -664,7 +664,6 @@ export function RoomDetailPanel({
                                             categoryId,
                                         )
                                     }
-                                    onPhotoResolved={handlePhotoResolved}
                                 />
                             ))
                         )}
@@ -690,11 +689,12 @@ export function RoomDetailPanel({
             {planTab === 'schedule' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     <SchedulePanel
-                        key={`schedule-${itineraryVersion}-${realtimeVersion}`}
+                        key={`schedule-${itineraryVersion}`}
                         tripId={tripId}
                         roomId={room.id}
                         places={places}
                         canWrite={canPlanWrite}
+                        realtimeVersion={realtimeVersion}
                         onDaysLoaded={onItineraryDaysLoaded}
                         onPlaceFocus={onSelectPlace}
                     />

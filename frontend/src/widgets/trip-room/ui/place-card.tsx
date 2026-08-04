@@ -9,7 +9,6 @@ import {
 import { CategoryIcon, Place, type PlaceCategoryInfo } from '@/entities/trip'
 import { useCurrentUserStore } from '@/shared/model'
 import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
-import { LazyPlacePhoto } from './lazy-place-photo'
 
 type Props = {
     place: Place
@@ -24,13 +23,6 @@ type Props = {
     categories: PlaceCategoryInfo[]
     categoriesLoading: boolean
     onCategoryChange: (categoryId: number) => Promise<void>
-    onPhotoResolved: (
-        placeId: string,
-        photoUrl: string,
-        attribution: string | null,
-        attributionUrl: string | null,
-        sourceUrl: string,
-    ) => void
 }
 
 export function PlaceCard({
@@ -46,8 +38,14 @@ export function PlaceCard({
     categories,
     categoriesLoading,
     onCategoryChange,
-    onPhotoResolved,
 }: Props) {
+    const cardRef = useRef<HTMLElement>(null)
+    useEffect(() => {
+        if (selected) {
+            cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+    }, [selected])
+
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isMe = place.addedBy === String(currentUser?.id)
     const adderName =
@@ -64,45 +62,11 @@ export function PlaceCard({
         : 0
     const [submittingVote, setSubmittingVote] = useState(false)
     const [changingCategory, setChangingCategory] = useState(false)
-    const thumbnailRef = useRef<HTMLDivElement>(null)
-    const [shouldLoadPhoto, setShouldLoadPhoto] = useState(false)
-
-    useEffect(() => {
-        if (!place.googlePlaceId || place.photoSourceUrl) return
-        const element = thumbnailRef.current
-        if (!element) return
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry?.isIntersecting) {
-                    setShouldLoadPhoto(true)
-                    observer.disconnect()
-                }
-            },
-            { rootMargin: '120px' },
-        )
-        observer.observe(element)
-        return () => observer.disconnect()
-    }, [place.googlePlaceId, place.photoSourceUrl])
-    const categoryOptions =
-        categories.length > 0
-            ? categories.map((category) => ({
-                  value: String(category.categoryId),
-                  label: category.name,
-                  leading: (
-                      <CategoryIcon icon={category.markerIcon} size={12} />
-                  ),
-              }))
-            : place.categoryId != null
-              ? [
-                    {
-                        value: String(place.categoryId),
-                        label: place.categoryName,
-                        leading: (
-                            <CategoryIcon icon={place.categoryIcon} size={12} />
-                        ),
-                    },
-                ]
-              : []
+    const categoryOptions = categories.map((category) => ({
+        value: String(category.categoryId),
+        label: category.name,
+        leading: <CategoryIcon icon={category.markerIcon} size={20} />,
+    }))
 
     async function submitVote(action: () => Promise<void>) {
         setSubmittingVote(true)
@@ -117,51 +81,61 @@ export function PlaceCard({
 
     return (
         <article
+            ref={cardRef}
             onClick={onSelect}
             className={`cursor-pointer rounded-2xl border bg-white p-3 transition ${selected ? 'border-brand ring-2 ring-brand-100' : 'border-slate-100 hover:border-slate-300'}`}
         >
             <div className="flex gap-3">
                 <div
-                    ref={thumbnailRef}
-                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-200"
+                    className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+                    style={{
+                        backgroundColor: `${place.categoryColor}18`,
+                        color: place.categoryColor,
+                    }}
+                    title={
+                        canWrite
+                            ? `${place.categoryName} · 눌러서 카테고리 변경`
+                            : place.categoryName
+                    }
                 >
-                    {place.googlePlaceId && !place.photoSourceUrl ? (
-                        shouldLoadPhoto ? (
-                            <LazyPlacePhoto
-                                placeId={place.id}
-                                googlePlaceId={place.googlePlaceId}
-                                placeName={place.name}
-                                onPhotoResolved={onPhotoResolved}
-                                variant="card"
-                            />
-                        ) : (
-                            <div className="h-full w-full animate-pulse bg-slate-200" />
-                        )
-                    ) : (
-                        <img
-                            src={place.image}
-                            alt=""
-                            className="h-full w-full object-cover"
+                    {!canWrite || categories.length === 0 ? (
+                        <CategoryIcon
+                            icon={place.categoryIcon}
+                            size={28}
+                            strokeWidth={1.8}
                         />
-                    )}
-                    {place.photoSourceUrl && (
-                        <a
-                            href={
-                                place.photoAttributionUrl ??
-                                place.photoSourceUrl
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
+                    ) : (
+                        <div
+                            className="h-full w-full"
                             onClick={(event) => event.stopPropagation()}
-                            className="absolute inset-x-0 bottom-0 truncate bg-slate-950/65 px-1 py-0.5 text-center text-[7px] font-semibold text-white hover:underline"
-                            title={place.photoAttribution ?? 'Google Maps 사진'}
                         >
-                            {place.photoAttribution ?? 'Google Maps'}
-                        </a>
+                            <Select
+                                aria-label={`${place.name} 카테고리 변경`}
+                                value={String(place.categoryId ?? '')}
+                                disabled={changingCategory}
+                                loading={changingCategory || categoriesLoading}
+                                fallbackLeading={
+                                    <CategoryIcon
+                                        icon={place.categoryIcon}
+                                        size={20}
+                                    />
+                                }
+                                onChange={(value) => {
+                                    setChangingCategory(true)
+                                    void onCategoryChange(
+                                        Number(value),
+                                    ).finally(() => setChangingCategory(false))
+                                }}
+                                className="h-full w-full"
+                                menuColumns={2}
+                                options={categoryOptions}
+                                variant="category-icon"
+                            />
+                        </div>
                     )}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
                         <div className="min-w-0">
                             <h4 className="truncate text-sm font-extrabold text-slate-900">
                                 {place.name}
@@ -170,52 +144,6 @@ export function PlaceCard({
                                 {place.address}
                             </p>
                         </div>
-                        {canWrite ? (
-                            <div
-                                className="shrink-0 rounded-full text-white"
-                                style={{
-                                    backgroundColor: place.categoryColor,
-                                }}
-                                onClick={(event) => event.stopPropagation()}
-                            >
-                                <Select
-                                    aria-label={`${place.name} 카테고리`}
-                                    value={String(place.categoryId ?? '')}
-                                    disabled={
-                                        changingCategory ||
-                                        categories.length === 0
-                                    }
-                                    loading={
-                                        changingCategory || categoriesLoading
-                                    }
-                                    onChange={(value) => {
-                                        setChangingCategory(true)
-                                        void onCategoryChange(
-                                            Number(value),
-                                        ).finally(() =>
-                                            setChangingCategory(false),
-                                        )
-                                    }}
-                                    className="w-32"
-                                    menuColumns={2}
-                                    options={categoryOptions}
-                                />
-                            </div>
-                        ) : (
-                            <span
-                                className="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold text-white"
-                                style={{
-                                    backgroundColor: place.categoryColor,
-                                }}
-                            >
-                                <CategoryIcon
-                                    icon={place.categoryIcon}
-                                    size={12}
-                                    className="inline-block"
-                                />{' '}
-                                {place.categoryName}
-                            </span>
-                        )}
                     </div>
                     {voteOpen ? (
                         <span className="mt-2 inline-flex rounded-full bg-orange-50 px-2 py-1 text-[10px] font-extrabold text-orange-600">

@@ -17,7 +17,7 @@ import type {
     RoutePlanPreview,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
-import { Select } from '@/shared/ui'
+import { AnalysisStatusAnimation, Select } from '@/shared/ui'
 import {
     applyAiItineraryReplan,
     previewAiItineraryReplan,
@@ -182,6 +182,7 @@ export function AiItineraryReplanModal({
     const [options, setOptions] = useState<RouteOption[]>([])
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [loading, setLoading] = useState(false)
+    const [showSuccess, setShowSuccess] = useState(false)
     const [applying, setApplying] = useState(false)
     const [applied, setApplied] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -256,6 +257,7 @@ export function AiItineraryReplanModal({
             return
         }
         setLoading(true)
+        setShowSuccess(false)
         setApplied(false)
         setError(null)
         try {
@@ -265,6 +267,7 @@ export function AiItineraryReplanModal({
             })
             setOptions(result)
             setSelectedIndex(0)
+            setShowSuccess(true)
         } catch (requestError) {
             setError(
                 getApiErrorMessage(
@@ -380,62 +383,63 @@ export function AiItineraryReplanModal({
                                                 <div className="mp-scroll mt-3 grid max-h-[228px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                                                     {selectedDisplayDay.items.map(
                                                         (item) => {
-                                                        const itemId = Number(
-                                                            item.id,
-                                                        )
-                                                        const selectable =
-                                                            isRemainingItem(
-                                                                selectedDisplayDay.itineraryDate,
-                                                                item,
-                                                                openedAt,
-                                                            )
-                                                        const selected =
-                                                            selectedItemId ===
-                                                            itemId
-                                                        return (
-                                                            <button
-                                                                key={item.id}
-                                                                type="button"
-                                                                disabled={
-                                                                    !selectable
-                                                                }
-                                                                onClick={() =>
-                                                                    selectStartingItem(
-                                                                        itemId,
-                                                                    )
-                                                                }
-                                                                className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${!selectable ? 'cursor-not-allowed border-slate-100 bg-slate-100/80 opacity-55 grayscale' : selected ? 'border-brand bg-rose-50' : 'border-slate-200 hover:border-rose-200'}`}
-                                                            >
-                                                                <span
-                                                                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white'}`}
+                                                            const itemId =
+                                                                Number(item.id)
+                                                            const selectable =
+                                                                isRemainingItem(
+                                                                    selectedDisplayDay.itineraryDate,
+                                                                    item,
+                                                                    openedAt,
+                                                                )
+                                                            const selected =
+                                                                selectedItemId ===
+                                                                itemId
+                                                            return (
+                                                                <button
+                                                                    key={
+                                                                        item.id
+                                                                    }
+                                                                    type="button"
+                                                                    disabled={
+                                                                        !selectable
+                                                                    }
+                                                                    onClick={() =>
+                                                                        selectStartingItem(
+                                                                            itemId,
+                                                                        )
+                                                                    }
+                                                                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${!selectable ? 'cursor-not-allowed border-slate-100 bg-slate-100/80 opacity-55 grayscale' : selected ? 'border-brand bg-rose-50' : 'border-slate-200 hover:border-rose-200'}`}
                                                                 >
-                                                                    {selected && (
-                                                                        <CheckIcon
-                                                                            size={
-                                                                                13
-                                                                            }
-                                                                        />
-                                                                    )}
-                                                                </span>
-                                                                <span className="min-w-0 flex-1">
-                                                                    <span className="block truncate text-xs font-extrabold text-slate-700">
-                                                                        {item.placeName ??
-                                                                            '이름 없는 일정'}
+                                                                    <span
+                                                                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white'}`}
+                                                                    >
+                                                                        {selected && (
+                                                                            <CheckIcon
+                                                                                size={
+                                                                                    13
+                                                                                }
+                                                                            />
+                                                                        )}
                                                                     </span>
-                                                                    <span className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
-                                                                        <Clock3Icon
-                                                                            size={
-                                                                                11
-                                                                            }
-                                                                        />
-                                                                        {item.startTime ??
-                                                                            '시간 미정'}
-                                                                        {!selectable &&
-                                                                            ' · 지난 일정'}
+                                                                    <span className="min-w-0 flex-1">
+                                                                        <span className="block truncate text-xs font-extrabold text-slate-700">
+                                                                            {item.placeName ??
+                                                                                '이름 없는 일정'}
+                                                                        </span>
+                                                                        <span className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
+                                                                            <Clock3Icon
+                                                                                size={
+                                                                                    11
+                                                                                }
+                                                                            />
+                                                                            {item.startTime ??
+                                                                                '시간 미정'}
+                                                                            {!selectable &&
+                                                                                ' · 지난 일정'}
+                                                                        </span>
                                                                     </span>
-                                                                </span>
-                                                            </button>
-                                                        )
+                                                                </button>
+                                                            )
                                                         },
                                                     )}
                                                 </div>
@@ -444,7 +448,8 @@ export function AiItineraryReplanModal({
                                                 selectedDisplayDay.items
                                                     .length > 6 && (
                                                     <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">
-                                                        아래로 스크롤해 나머지 일정을 확인하세요.
+                                                        아래로 스크롤해 나머지
+                                                        일정을 확인하세요.
                                                     </p>
                                                 )}
                                         </section>
@@ -503,19 +508,28 @@ export function AiItineraryReplanModal({
                         </div>
                     )}
 
-                    {loading && (
+                    {loading && !showSuccess && (
                         <div className="flex flex-col items-center gap-3 py-16 text-center">
-                            <LoaderCircleIcon
-                                className="animate-spin text-brand"
-                                size={30}
-                            />
+                            <AnalysisStatusAnimation phase="loading" />
                             <p className="text-sm font-bold text-slate-600">
                                 선택한 일정과 변경 사유를 분석하고 있어요.
                             </p>
                         </div>
                     )}
 
-                    {options.length > 0 && !loading && (
+                    {showSuccess && !loading && (
+                        <div className="flex flex-col items-center gap-3 py-16 text-center">
+                            <AnalysisStatusAnimation
+                                phase="complete"
+                                onComplete={() => setShowSuccess(false)}
+                            />
+                            <p className="text-sm font-bold text-slate-600">
+                                분석이 완료됐어요
+                            </p>
+                        </div>
+                    )}
+
+                    {options.length > 0 && !loading && !showSuccess && (
                         <div className="space-y-4">
                             <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
                                 {options.map((option, index) => (
@@ -552,15 +566,20 @@ export function AiItineraryReplanModal({
                 </div>
 
                 <footer className="border-t border-slate-100 p-5">
-                    {applied ? (
+                    {!showSuccess && applied ? (
                         <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 py-3 text-sm font-extrabold text-emerald-600">
-                            <CheckIcon size={16} /> 일정에 반영했습니다
+                            <AnalysisStatusAnimation
+                                phase="complete"
+                                size={32}
+                            />
+                            일정에 반영했습니다
                         </div>
                     ) : (
                         <button
                             type="button"
                             disabled={
                                 loading ||
+                                showSuccess ||
                                 applying ||
                                 remainingItems.length === 0
                             }
