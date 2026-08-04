@@ -25,10 +25,11 @@ type SelectProps = {
     'aria-label': string
     disabled?: boolean
     loading?: boolean
+    fallbackLeading?: ReactNode
     className?: string
     menuClassName?: string
     menuColumns?: 1 | 2
-    variant?: 'default' | 'form'
+    variant?: 'default' | 'form' | 'category-icon'
 }
 
 type MenuPosition = {
@@ -46,6 +47,7 @@ export function Select({
     'aria-label': ariaLabel,
     disabled = false,
     loading = false,
+    fallbackLeading,
     className,
     menuClassName,
     menuColumns = 1,
@@ -204,7 +206,9 @@ export function Select({
                     'flex w-full items-center gap-1.5 text-left outline-none transition disabled:cursor-not-allowed disabled:opacity-50',
                     variant === 'form'
                         ? 'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand/20'
-                        : 'rounded-full px-2 py-1 text-[10px] font-bold hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-white/80',
+                        : variant === 'category-icon'
+                          ? 'relative h-full justify-center rounded-xl p-0 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-current/30'
+                          : 'rounded-full px-2 py-1 text-[10px] font-bold hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-white/80',
                 )}
             >
                 {loading ? (
@@ -213,11 +217,13 @@ export function Select({
                         className="shrink-0 animate-spin"
                     />
                 ) : (
-                    selected?.leading
+                    (selected?.leading ?? fallbackLeading)
                 )}
                 <span
                     className={cn(
-                        'min-w-0 flex-1 truncate',
+                        variant === 'category-icon'
+                            ? 'sr-only'
+                            : 'min-w-0 flex-1 truncate',
                         value === '' && 'font-medium text-slate-400',
                     )}
                 >
@@ -227,6 +233,8 @@ export function Select({
                     size={12}
                     className={cn(
                         'shrink-0 transition-transform',
+                        variant === 'category-icon' &&
+                            'absolute bottom-1 right-1 rounded-full bg-white/90 p-0.5 shadow-sm',
                         open && 'rotate-180',
                     )}
                 />
@@ -257,8 +265,7 @@ export function Select({
                         <div
                             className={cn(
                                 'mp-scroll max-h-[var(--select-menu-max-height)] overflow-y-auto',
-                                menuColumns === 2 &&
-                                    'grid grid-cols-2 gap-0.5',
+                                menuColumns === 2 && 'grid grid-cols-2 gap-0.5',
                             )}
                         >
                             {options.map((option) => {

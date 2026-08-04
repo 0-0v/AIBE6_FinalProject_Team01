@@ -1,21 +1,19 @@
 'use client'
 
 import React, { useState } from 'react'
-import { ArrowRightIcon, GripVertical, Trash2Icon } from 'lucide-react'
+import { GripVertical, Trash2Icon } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
     removeItineraryItem,
-    moveItineraryItem,
     getItinerary,
     CategoryIcon,
 } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { Button } from '@/shared/ui'
-import { formatTimeRange, getNextSortOrder } from '../lib/itinerary-time'
+import { formatTimeRange } from '../lib/itinerary-time'
 import { useItineraryItemEditor } from '../model/use-itinerary-item-editor'
-import { DayPickerMenu } from './day-picker-menu'
 import { TimeRangeFields } from './time-range-fields'
 
 type Props = {
@@ -45,7 +43,6 @@ export function ScheduleItemCard({
     onHoverChange,
     onFocusItem,
 }: Props) {
-    const [showMovePicker, setShowMovePicker] = useState(false)
     const [actionError, setActionError] = useState<string | null>(null)
     const currentDay = days.find((day) => String(day.id) === currentDayId)
     const editor = useItineraryItemEditor({
@@ -62,11 +59,11 @@ export function ScheduleItemCard({
         transform,
         transition,
         isDragging,
-        isOver,
-    } = useSortable({ id: item.id })
+    } = useSortable({
+        id: item.id,
+        transition: { duration: 200, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+    })
     const style = { transform: CSS.Transform.toString(transform), transition }
-
-    const otherDays = days.filter((d) => String(d.id) !== currentDayId)
 
     async function handleDelete() {
         if (!canWrite) return
@@ -79,23 +76,14 @@ export function ScheduleItemCard({
         }
     }
 
-    async function handleMoveTo(targetDayId: string) {
-        if (!canWrite) return
-        setShowMovePicker(false)
-        const targetDay = days.find((d) => String(d.id) === targetDayId)
-        if (!targetDay) return
-        try {
-            await moveItineraryItem(
-                tripId,
-                Number(item.id),
-                Number(targetDayId),
-                getNextSortOrder(targetDay.items),
-            )
-            const updated = await getItinerary(tripId)
-            onDaysChange(updated)
-        } catch (err) {
-            setActionError(getApiErrorMessage(err, '이동에 실패했습니다.'))
-        }
+    if (isDragging) {
+        return (
+            <div
+                ref={setNodeRef}
+                style={style}
+                className="h-11 rounded-lg border-2 border-dashed border-brand/40 bg-brand/5"
+            />
+        )
     }
 
     return (
@@ -104,11 +92,8 @@ export function ScheduleItemCard({
             style={style}
             onMouseEnter={() => onHoverChange?.(String(item.id))}
             onMouseLeave={() => onHoverChange?.(null)}
-            className={`group relative overflow-hidden rounded-lg border bg-white shadow-sm transition ${highlighted ? 'border-brand ring-2 ring-brand/20' : 'border-slate-100 hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md'} ${isDragging ? 'opacity-50 shadow-lg' : ''}`}
+            className={`group relative rounded-lg border bg-white shadow-sm transition-[border-color,box-shadow] duration-150 ${highlighted ? 'border-brand ring-2 ring-brand/20' : 'border-slate-100 hover:border-slate-200 hover:shadow-md'}`}
         >
-            {isOver && !isDragging && (
-                <span className="pointer-events-none absolute inset-x-1 top-0 z-20 h-0.5 rounded-full bg-brand shadow-[0_0_0_2px_white]" />
-            )}
             <div className="flex items-stretch">
                 {/* 카테고리 컬러 스트라이프 */}
                 <div
@@ -116,34 +101,35 @@ export function ScheduleItemCard({
                     style={{ backgroundColor: item.categoryColor ?? '#e2e8f0' }}
                 />
 
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5">
-                    {/* 장소 정보와 핸들 영역 전체에서 드래그 */}
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1">
+                    {/* 왼쪽 그립 핸들 — 이 영역에서만 드래그 */}
+                    {canWrite && (
+                        <div
+                            {...listeners}
+                            {...attributes}
+                            className="flex shrink-0 cursor-grab touch-none items-center self-stretch px-0.5 text-slate-300 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 active:cursor-grabbing"
+                            title="잡고 이동하면 순서 변경"
+                        >
+                            <GripVertical size={14} />
+                        </div>
+                    )}
+
+                    {/* 장소 정보 — 클릭하면 지도 포커스 */}
                     <div
-                        {...(canWrite ? listeners : {})}
-                        {...(canWrite ? attributes : {})}
                         onClick={() => onFocusItem?.(String(item.id))}
-                        className={`flex min-w-0 flex-1 items-center gap-1.5 ${
-                            canWrite
-                                ? 'cursor-grab touch-none active:cursor-grabbing'
-                                : 'cursor-pointer'
-                        }`}
-                        title="클릭하면 지도에서 위치 확인 · 누른 채 이동하면 일정 변경"
+                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5"
+                        title="클릭하면 지도에서 위치 확인"
                     >
-                        {canWrite && (
-                            <GripVertical
-                                size={14}
-                                className="shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                            />
-                        )}
                         <span
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold text-white shadow-sm"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold text-white shadow-sm"
                             style={{ backgroundColor: dayColor }}
                             aria-label={`${visitOrder}번째 방문 장소`}
                         >
                             {visitOrder}
                         </span>
                         <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1">
+                            {/* 장소명 + 시간 가로 배치 */}
+                            <div className="flex items-center gap-1.5">
                                 {item.categoryIcon && (
                                     <span
                                         className="shrink-0"
@@ -154,20 +140,20 @@ export function ScheduleItemCard({
                                     >
                                         <CategoryIcon
                                             icon={item.categoryIcon}
-                                            size={11}
+                                            size={12}
                                             strokeWidth={2.5}
                                         />
                                     </span>
                                 )}
-                                <span className="truncate text-xs font-semibold text-slate-700">
+                                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
                                     {item.placeName ?? '(제목 없음)'}
                                 </span>
+                                <span className="shrink-0 text-xs text-slate-400">
+                                    {formatTimeRange(item.startTime, item.endTime)}
+                                </span>
                             </div>
-                            <p className="text-[10px] text-slate-400">
-                                {formatTimeRange(item.startTime, item.endTime)}
-                            </p>
                             {item.memo && (
-                                <p className="truncate text-[10px] leading-tight text-slate-400">
+                                <p className="truncate text-[11px] leading-tight text-slate-400">
                                     {item.memo}
                                 </p>
                             )}
@@ -177,35 +163,6 @@ export function ScheduleItemCard({
                     {/* 액션 버튼 */}
                     {canWrite && (
                         <div className="flex shrink-0 items-center gap-0.5">
-                            {/* 다른 Day로 이동 */}
-                            {otherDays.length > 0 && (
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setShowMovePicker(!showMovePicker)
-                                        }
-                                        className="rounded p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500"
-                                        title="다른 Day로 이동"
-                                    >
-                                        <ArrowRightIcon size={12} />
-                                    </button>
-                                    {showMovePicker && (
-                                        <DayPickerMenu
-                                            days={otherDays}
-                                            align="right"
-                                            widthClassName="w-36"
-                                            onClose={() =>
-                                                setShowMovePicker(false)
-                                            }
-                                            onSelect={(dayId) =>
-                                                void handleMoveTo(dayId)
-                                            }
-                                        />
-                                    )}
-                                </div>
-                            )}
-
                             {/* 편집 토글 */}
                             <button
                                 type="button"

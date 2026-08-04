@@ -5,8 +5,13 @@ import { ExternalLinkIcon, ImageOffIcon } from 'lucide-react'
 import { getPlacePhotoMetadata, type PlacePhotoMetadata } from '@/entities/trip'
 import { resolveGooglePlacePhotoUrl } from '@/shared/api/client'
 
-// 같은 googlePlaceId에 대한 중복 API 호출 방지 (페이지 세션 내 인메모리 캐시)
-const photoMetadataCache = new Map<string, Promise<PlacePhotoMetadata>>()
+// 완료된 메타데이터 결과를 세션 내내 보관 — 같은 장소를 다시 선택해도 재요청하지 않는다.
+const resolvedPhotoMetadata = new Map<string, PlacePhotoMetadata>()
+// 진행 중인 요청을 공유해 동시 중복 요청을 방지한다.
+const pendingPhotoMetadataRequests = new Map<
+    string,
+    Promise<PlacePhotoMetadata>
+>()
 
 type Props = {
     placeId: string
@@ -32,43 +37,65 @@ export function LazyPlacePhoto({
     const [metadata, setMetadata] = useState<PlacePhotoMetadata | null>(null)
     const [failed, setFailed] = useState(false)
     const onPhotoResolvedRef = useRef(onPhotoResolved)
-    onPhotoResolvedRef.current = onPhotoResolved
+
+    useEffect(() => {
+        onPhotoResolvedRef.current = onPhotoResolved
+    }, [onPhotoResolved])
 
     useEffect(() => {
         let cancelled = false
 
-        const cached = photoMetadataCache.get(googlePlaceId)
-        const request = cached ?? getPlacePhotoMetadata(googlePlaceId)
-        if (!cached) photoMetadataCache.set(googlePlaceId, request)
+        function applyMetadata(nextMetadata: PlacePhotoMetadata) {
+            if (cancelled) return
+            setMetadata(nextMetadata)
+            const photoUrl = resolveGooglePlacePhotoUrl(nextMetadata.photoName)
+            const firstAuthor = nextMetadata.authorAttributions.find(
+                (candidate) => candidate.displayName,
+            )
+            if (photoUrl && nextMetadata.googleMapsUri) {
+                onPhotoResolvedRef.current?.(
+                    placeId,
+                    photoUrl,
+                    firstAuthor?.displayName ?? null,
+                    firstAuthor?.uri ?? null,
+                    nextMetadata.googleMapsUri,
+                )
+            }
+        }
+
+        // 이미 완료된 결과가 있으면 API 호출 없이 바로 적용
+        const resolved = resolvedPhotoMetadata.get(googlePlaceId)
+        if (resolved) {
+            applyMetadata(resolved)
+            return () => { cancelled = true }
+        }
+
+        // 진행 중인 요청이 있으면 그 결과를 공유, 없으면 새로 요청
+        const pending = pendingPhotoMetadataRequests.get(googlePlaceId)
+        const request = pending ?? getPlacePhotoMetadata(googlePlaceId)
+        if (!pending) {
+            pendingPhotoMetadataRequests.set(googlePlaceId, request)
+            void request
+                .finally(() => {
+                    if (pendingPhotoMetadataRequests.get(googlePlaceId) === request) {
+                        pendingPhotoMetadataRequests.delete(googlePlaceId)
+                    }
+                })
+                .catch(() => {})
+        }
 
         void request
             .then((nextMetadata) => {
-                if (cancelled) return
-                setMetadata(nextMetadata)
-                const photoUrl = resolveGooglePlacePhotoUrl(
-                    nextMetadata.photoName,
-                )
-                const firstAuthor = nextMetadata.authorAttributions.find(
-                    (candidate) => candidate.displayName,
-                )
-                if (photoUrl && nextMetadata.googleMapsUri) {
-                    onPhotoResolvedRef.current?.(
-                        placeId,
-                        photoUrl,
-                        firstAuthor?.displayName ?? null,
-                        firstAuthor?.uri ?? null,
-                        nextMetadata.googleMapsUri,
-                    )
-                }
+                resolvedPhotoMetadata.set(googlePlaceId, nextMetadata)
+                applyMetadata(nextMetadata)
             })
             .catch(() => {
-                if (!cancelled) {
-                    photoMetadataCache.delete(googlePlaceId)
-                    setFailed(true)
-                }
+                if (!cancelled) setFailed(true)
             })
 
-        return () => { cancelled = true }
+        return () => {
+            cancelled = true
+        }
     }, [googlePlaceId, placeId])
 
     const googlePhotoUrl = resolveGooglePlacePhotoUrl(metadata?.photoName)

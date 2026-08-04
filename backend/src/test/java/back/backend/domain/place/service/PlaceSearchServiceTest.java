@@ -61,8 +61,7 @@ class PlaceSearchServiceTest {
                         "X-Goog-FieldMask",
                         "places.id,places.displayName,places.formattedAddress,places.location," +
                         "places.primaryType,places.types," +
-                        "places.rating,places.userRatingCount," +
-                        "places.currentOpeningHours.openNow"
+                        "places.rating,places.userRatingCount"
                 ))
                 .andExpect(header("X-Goog-Api-Key", "test-api-key"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
@@ -77,6 +76,7 @@ class PlaceSearchServiceTest {
         assertThat(result.get(0).longitude()).isEqualTo(126.373);
         assertThat(result.get(0).placeType()).isEqualTo("tourist_attraction");
         assertThat(result.get(0).photoName()).isNull();
+        assertThat(result.get(0).openNow()).isNull();
         server.verify();
     }
 
@@ -326,6 +326,67 @@ class PlaceSearchServiceTest {
 
         assertThat(result.englishName()).isEqualTo("Hwaseong");
         assertThat(result.countryCode()).isEqualTo("KR");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t13 한 글자 검색어는 외부 API를 호출하지 않고 검색어 오류를 반환한다")
+    void t13_singleCharacterQueryIsRejectedBeforeExternalCall() {
+        assertThatThrownBy(() -> service.search("a"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(error -> assertThat(((BusinessException) error).getErrorCode())
+                        .isEqualTo(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED));
+
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t14 구글 장소 ID로 단건 조회하면 PlaceSearchResponse를 반환한다")
+    void t14_getPlaceDetailsByGooglePlaceId() {
+        String responseJson = """
+                {
+                  "id": "ChIJdetail",
+                  "displayName": {"text": "스타벅스 강남점", "languageCode": "ko"},
+                  "formattedAddress": "서울 강남구 테헤란로 123",
+                  "location": {"latitude": 37.498, "longitude": 127.027},
+                  "primaryType": "cafe",
+                  "types": ["cafe", "food"],
+                  "rating": 4.2,
+                  "userRatingCount": 1203
+                }
+                """;
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places/ChIJdetail")))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-Goog-FieldMask",
+                        "id,displayName,formattedAddress,location,primaryType,types,rating,userRatingCount"))
+                .andExpect(header("X-Goog-Api-Key", "test-api-key"))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        PlaceSearchResponse result = service.getPlaceDetails("ChIJdetail");
+
+        assertThat(result.googlePlaceId()).isEqualTo("ChIJdetail");
+        assertThat(result.name()).isEqualTo("스타벅스 강남점");
+        assertThat(result.address()).isEqualTo("서울 강남구 테헤란로 123");
+        assertThat(result.latitude()).isEqualTo(37.498);
+        assertThat(result.longitude()).isEqualTo(127.027);
+        assertThat(result.placeType()).isEqualTo("cafe");
+        assertThat(result.rating()).isEqualTo(4.2);
+        assertThat(result.userRatingCount()).isEqualTo(1203);
+        assertThat(result.photoName()).isNull();
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t15 구글 Places API 단건 조회 실패 시 외부 API 오류로 변환한다")
+    void t15_getPlaceDetailsFailsWithExternalApiError() {
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places/ChIJbad")))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThatThrownBy(() -> service.getPlaceDetails("ChIJbad"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR));
         server.verify();
     }
 }

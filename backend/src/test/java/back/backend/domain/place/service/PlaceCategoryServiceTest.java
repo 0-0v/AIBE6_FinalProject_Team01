@@ -54,7 +54,7 @@ class PlaceCategoryServiceTest {
         assertThat(result).extracting(PlaceCategoryResponse::name)
                 .containsExactly(
                         "음식점", "카페", "술집", "명소", "자연",
-                        "숙소", "쇼핑", "액티비티", "교통", "기타"
+                        "숙소", "쇼핑", "편의점", "액티비티", "교통"
                 );
         then(categoryRepository).should().findAllByTripIdOrderBySortOrderAscIdAsc(1L);
     }
@@ -125,7 +125,7 @@ class PlaceCategoryServiceTest {
 
         categoryService.ensureDefaults(1L);
 
-        then(categoryRepository).should(times(10))
+        then(categoryRepository).should(times(11))
                 .insertIgnore(eq(1L), anyString(), anyString(), anyString(), anyString(), anyInt());
     }
 
@@ -137,8 +137,8 @@ class PlaceCategoryServiceTest {
 
         categoryService.ensureDefaults(1L);
 
-        // food(FOOD), other(OTHER) 2개 이미 존재 → 나머지 8개만 insertIgnore
-        then(categoryRepository).should(times(8))
+        // food(FOOD), other(OTHER) 2개 이미 존재 → 나머지 9개만 insertIgnore
+        then(categoryRepository).should(times(9))
                 .insertIgnore(eq(1L), anyString(), anyString(), anyString(), anyString(), anyInt());
     }
 
@@ -180,12 +180,16 @@ class PlaceCategoryServiceTest {
                 category(25L, "쇼핑", PlaceCategoryType.SHOPPING, 6)
         );
         categories.put(
+                PlaceCategoryType.CONVENIENCE,
+                category(28L, "편의점", PlaceCategoryType.CONVENIENCE, 7)
+        );
+        categories.put(
                 PlaceCategoryType.ACTIVITY,
-                category(26L, "액티비티", PlaceCategoryType.ACTIVITY, 7)
+                category(26L, "액티비티", PlaceCategoryType.ACTIVITY, 8)
         );
         categories.put(
                 PlaceCategoryType.TRANSPORT,
-                category(27L, "교통", PlaceCategoryType.TRANSPORT, 8)
+                category(27L, "교통", PlaceCategoryType.TRANSPORT, 9)
         );
         categories.put(PlaceCategoryType.OTHER, other);
         for (PlaceCategory replacement : replacements) {
@@ -199,6 +203,7 @@ class PlaceCategoryServiceTest {
                 categories.get(PlaceCategoryType.NATURE),
                 categories.get(PlaceCategoryType.LODGING),
                 categories.get(PlaceCategoryType.SHOPPING),
+                categories.get(PlaceCategoryType.CONVENIENCE),
                 categories.get(PlaceCategoryType.ACTIVITY),
                 categories.get(PlaceCategoryType.TRANSPORT),
                 categories.get(PlaceCategoryType.OTHER)

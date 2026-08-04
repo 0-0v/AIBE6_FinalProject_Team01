@@ -32,13 +32,14 @@ public class PlaceSearchService {
     private static final String FIELD_MASK =
             "places.id,places.displayName,places.formattedAddress,places.location," +
             "places.primaryType,places.types," +
-            "places.rating,places.userRatingCount," +
-            "places.currentOpeningHours.openNow";
+            "places.rating,places.userRatingCount";
     private static final String DETAILS_FIELD_MASK =
             "id,businessStatus,currentOpeningHours.openNow," +
             "currentOpeningHours.nextOpenTime,currentOpeningHours.nextCloseTime," +
             "currentOpeningHours.weekdayDescriptions,currentOpeningHours.periods," +
             "regularOpeningHours.weekdayDescriptions";
+    private static final String PLACE_DETAILS_FIELD_MASK =
+            "id,displayName,formattedAddress,location,primaryType,types,rating,userRatingCount";
 
     private final RestClient restClient;
     @Autowired
@@ -75,7 +76,7 @@ public class PlaceSearchService {
     }
 
     public List<PlaceSearchResponse> search(String query) {
-        return search(query, null, null);
+        return search(query, null, null, null, null);
     }
 
     public List<PlaceSearchResponse> search(String query, String location, String includedType) {
@@ -89,12 +90,13 @@ public class PlaceSearchService {
             Double latitude,
             Double longitude
     ) {
-        if (!StringUtils.hasText(query)) {
+        if (!StringUtils.hasText(query) || query.trim().length() < 2) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
+        String normalizedQuery = query.trim();
         String fullQuery = StringUtils.hasText(location)
-                ? query + " " + location
-                : query;
+                ? normalizedQuery + " " + location.trim()
+                : normalizedQuery;
         Map<String, Object> requestBody = new LinkedHashMap<>();
         requestBody.put("textQuery", fullQuery);
         requestBody.put("languageCode", "ko");
@@ -195,32 +197,41 @@ public class PlaceSearchService {
         }
     }
 
+    public PlaceSearchResponse getPlaceDetails(String googlePlaceId) {
+        return mapToResponse(fetchPlaceById(googlePlaceId, PLACE_DETAILS_FIELD_MASK));
+    }
+
     public PlaceOperationalDetails getOperationalDetails(String googlePlaceId) {
+        GooglePlacesApiResponse.Place place = fetchPlaceById(googlePlaceId, DETAILS_FIELD_MASK);
+        var current = place.currentOpeningHours();
+        List<String> descriptions = current != null
+                && current.weekdayDescriptions() != null
+                ? current.weekdayDescriptions()
+                : place.regularOpeningHours() == null
+                || place.regularOpeningHours().weekdayDescriptions() == null
+                ? List.of()
+                : place.regularOpeningHours().weekdayDescriptions();
+        return new PlaceOperationalDetails(
+                place.businessStatus(),
+                current == null ? null : current.openNow(),
+                parseOffsetDateTime(current == null ? null : current.nextOpenTime()),
+                parseOffsetDateTime(current == null ? null : current.nextCloseTime()),
+                List.copyOf(descriptions),
+                mapOpeningWindows(current)
+        );
+    }
+
+    private GooglePlacesApiResponse.Place fetchPlaceById(String googlePlaceId, String fieldMask) {
         try {
             GooglePlacesApiResponse.Place place = restClient.get()
                     .uri("/places/{placeId}", googlePlaceId)
-                    .header("X-Goog-FieldMask", DETAILS_FIELD_MASK)
+                    .header("X-Goog-FieldMask", fieldMask)
                     .retrieve()
                     .body(GooglePlacesApiResponse.Place.class);
             if (place == null) {
                 throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
             }
-            var current = place.currentOpeningHours();
-            List<String> descriptions = current != null
-                    && current.weekdayDescriptions() != null
-                    ? current.weekdayDescriptions()
-                    : place.regularOpeningHours() == null
-                    || place.regularOpeningHours().weekdayDescriptions() == null
-                    ? List.of()
-                    : place.regularOpeningHours().weekdayDescriptions();
-            return new PlaceOperationalDetails(
-                    place.businessStatus(),
-                    current == null ? null : current.openNow(),
-                    parseOffsetDateTime(current == null ? null : current.nextOpenTime()),
-                    parseOffsetDateTime(current == null ? null : current.nextCloseTime()),
-                    List.copyOf(descriptions),
-                    mapOpeningWindows(current)
-            );
+            return place;
         } catch (RestClientException e) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
         }
@@ -334,9 +345,6 @@ public class PlaceSearchService {
                 place.types(),
                 name
         );
-        Boolean openNow = place.currentOpeningHours() == null
-                ? null : place.currentOpeningHours().openNow();
-
         return new PlaceSearchResponse(
                 place.id(),
                 name,
@@ -349,7 +357,7 @@ public class PlaceSearchService {
                 null,
                 place.rating(),
                 place.userRatingCount(),
-                openNow,
+                null,
                 null,
                 null,
                 null,

@@ -54,6 +54,7 @@ final class PlaceCategoryClassifier {
             PlaceCategoryType.NATURE,
             PlaceCategoryType.ACTIVITY,
             PlaceCategoryType.FOOD,
+            PlaceCategoryType.CONVENIENCE,
             PlaceCategoryType.SHOPPING,
             PlaceCategoryType.BAR,
             PlaceCategoryType.CAFE
@@ -104,6 +105,8 @@ final class PlaceCategoryClassifier {
                     "department_store", "discount_store", "flea_market", "gift_shop",
                     "grocery_store", "hypermarket", "market", "shopping_mall",
                     "store", "supermarket", "warehouse_store");
+        register(mappings, PlaceCategoryType.CONVENIENCE,
+                    "convenience_store");
         register(mappings, PlaceCategoryType.ATTRACTION,
                     "amphitheatre", "art_gallery", "art_museum", "auditorium",
                     "castle", "church", "cultural_landmark", "fountain",
@@ -135,6 +138,7 @@ final class PlaceCategoryClassifier {
                     "공원", "정원", "해변", "해수욕장", "등산", "산악", "산 정상", "섬"
             ),
             PlaceCategoryType.SHOPPING, List.of("쇼핑", "시장", "백화점", "아울렛", "쇼핑몰"),
+            PlaceCategoryType.CONVENIENCE, List.of("편의점"),
             PlaceCategoryType.ATTRACTION, List.of(
                     "박물관", "미술관", "명소", "성당", "사찰", "궁궐", "성곽"
             )

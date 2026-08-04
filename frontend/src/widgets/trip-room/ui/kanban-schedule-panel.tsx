@@ -1,9 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { DndContext, DragOverlay } from '@dnd-kit/core'
+import {
+    defaultDropAnimationSideEffects,
+    DndContext,
+    DragOverlay,
+    type DropAnimation,
+} from '@dnd-kit/core'
 import { CategoryIcon } from '@/entities/trip'
-import type { Place } from '@/entities/trip'
+import type { ItineraryItem, Place } from '@/entities/trip'
+import { formatTimeRange } from '../lib/itinerary-time'
 import { DayColumn } from './day-column'
 import { PlaceSidebar } from './place-sidebar'
 import { KanbanMapPanel } from './kanban-map-panel'
@@ -16,16 +22,60 @@ import {
     useItineraryBoard,
 } from '../model/use-itinerary-board'
 
+const dropAnimation: DropAnimation = {
+    sideEffects: defaultDropAnimationSideEffects({
+        styles: { active: { opacity: '0' } },
+    }),
+}
+
+function ScheduleItemDragOverlay({ item }: { item: ItineraryItem }) {
+    return (
+        <div className="flex w-64 cursor-grabbing items-stretch rounded-lg border border-brand/40 bg-white shadow-2xl ring-2 ring-brand/20">
+            <div
+                className="w-1.5 shrink-0 rounded-l-lg"
+                style={{ backgroundColor: item.categoryColor ?? '#e2e8f0' }}
+            />
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5">
+                {item.categoryIcon && (
+                    <span
+                        className="shrink-0"
+                        style={{ color: item.categoryColor ?? '#94a3b8' }}
+                    >
+                        <CategoryIcon
+                            icon={item.categoryIcon}
+                            size={12}
+                            strokeWidth={2.5}
+                        />
+                    </span>
+                )}
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+                    {item.placeName ?? '(제목 없음)'}
+                </span>
+                <span className="shrink-0 text-xs text-slate-400">
+                    {formatTimeRange(item.startTime, item.endTime)}
+                </span>
+            </div>
+        </div>
+    )
+}
+
 type Props = {
     tripId: number
     places: Place[]
     canWrite: boolean
+    realtimeVersion?: number
 }
 
-export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
+export function KanbanSchedulePanel({
+    tripId,
+    places,
+    canWrite,
+    realtimeVersion = 0,
+}: Props) {
     const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
     const [focusedPlaceId, setFocusedPlaceId] = useState<string | null>(null)
+    const [focusRequestVersion, setFocusRequestVersion] = useState(0)
     const {
         days,
         setDays,
@@ -43,12 +93,13 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
         undoLastAction,
         unscheduledPlaces,
         activePlaceForOverlay,
+        activeScheduledItemForOverlay,
         addPlaceToDay,
         handleDragStart,
         handleDragOver,
         handleDragCancel,
         handleDragEnd,
-    } = useItineraryBoard(tripId, places, canWrite)
+    } = useItineraryBoard(tripId, places, canWrite, realtimeVersion)
     const useFluidDayColumns = days.length <= 4
 
     if (loading) {
@@ -81,10 +132,15 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
         <DndContext
             sensors={sensors}
             collisionDetection={itineraryCollisionDetection}
+            autoScroll={{ threshold: { x: 0.1, y: 0.08 }, acceleration: 6 }}
+            accessibility={{ restoreFocus: false }}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragCancel={handleDragCancel}
-            onDragEnd={(e) => void handleDragEnd(e)}
+            onDragEnd={(e) => {
+                void handleDragEnd(e)
+                ;(document.activeElement as HTMLElement | null)?.blur()
+            }}
         >
             <div className="relative flex min-h-0 flex-1 flex-col">
                 {dndError && (
@@ -106,13 +162,20 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                     onItemHoverChange={setHoveredItemId}
                     focusedItemId={focusedItemId}
                     focusedPlaceId={focusedPlaceId}
+                    focusRequestVersion={focusRequestVersion}
                     onItemFocus={(itemId) => {
                         setFocusedItemId(itemId)
                         if (itemId != null) setFocusedPlaceId(null)
+                        if (itemId != null) {
+                            setFocusRequestVersion((current) => current + 1)
+                        }
                     }}
                     onPlaceFocus={(placeId) => {
                         setFocusedPlaceId(placeId)
                         if (placeId != null) setFocusedItemId(null)
+                        if (placeId != null) {
+                            setFocusRequestVersion((current) => current + 1)
+                        }
                     }}
                 />
 
@@ -130,6 +193,7 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                         onFocusPlace={(placeId) => {
                             setFocusedPlaceId(placeId)
                             setFocusedItemId(null)
+                            setFocusRequestVersion((current) => current + 1)
                         }}
                     />
 
@@ -164,6 +228,9 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                                     onItemFocus={(itemId) => {
                                         setFocusedItemId(itemId)
                                         setFocusedPlaceId(null)
+                                        setFocusRequestVersion(
+                                            (current) => current + 1,
+                                        )
                                     }}
                                 />
                             </div>
@@ -178,10 +245,14 @@ export function KanbanSchedulePanel({ tripId, places, canWrite }: Props) {
                 />
             </div>
 
-            <DragOverlay>
-                {activePlaceForOverlay ? (
+            <DragOverlay dropAnimation={dropAnimation}>
+                {activeScheduledItemForOverlay ? (
+                    <ScheduleItemDragOverlay
+                        item={activeScheduledItemForOverlay}
+                    />
+                ) : activePlaceForOverlay ? (
                     <div
-                        className="flex cursor-grabbing items-center gap-1 rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-lg"
+                        className="flex cursor-grabbing items-center gap-1 rounded-full border bg-white px-2.5 py-1 text-xs font-medium shadow-xl ring-1 ring-brand/20"
                         style={
                             activePlaceForOverlay.categoryColor
                                 ? {

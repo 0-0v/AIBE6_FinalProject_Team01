@@ -14,7 +14,11 @@ import {
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 
-export function useItineraryDays(tripId: number, canInitialize = true) {
+export function useItineraryDays(
+    tripId: number,
+    canInitialize = true,
+    refreshVersion = 0,
+) {
     const [state, setState] = useState<{
         tripId: number
         days: ItineraryDay[]
@@ -93,6 +97,24 @@ export function useItineraryDays(tripId: number, canInitialize = true) {
             throw error
         }
     }, [tripId])
+
+    const lastRefreshRef = useRef({ tripId, refreshVersion })
+
+    useEffect(() => {
+        const previous = lastRefreshRef.current
+        lastRefreshRef.current = { tripId, refreshVersion }
+
+        if (
+            previous.tripId !== tripId ||
+            previous.refreshVersion === refreshVersion
+        ) {
+            return
+        }
+
+        void refresh().catch(() => {
+            // refresh에서 기존 일정은 유지하고 오류 상태를 반영한다.
+        })
+    }, [refresh, refreshVersion, tripId])
 
     return {
         days: state.tripId === tripId ? state.days : [],

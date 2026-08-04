@@ -72,10 +72,13 @@ export function PlaceSearch({
     useEffect(() => {
         const trimmed = q.trim()
         const categoryQuery =
-            selectedCategory === 'all' || searchDismissed
-                ? ''
-                : activeTab.label
+            selectedCategory === 'all' || searchDismissed ? '' : activeTab.label
         const searchQuery = trimmed || categoryQuery
+        const includedType =
+            selectedSuggestion?.includedType ??
+            (selectedSuggestion || selectedCategory === 'all'
+                ? undefined
+                : selectedCategory)
         const currentRequestId = ++requestId.current
         const controller = new AbortController()
 
@@ -94,16 +97,14 @@ export function PlaceSearch({
             try {
                 const data = await searchPlaces(searchQuery, {
                     location,
-                    includedType:
-                        selectedSuggestion?.includedType ??
-                        (selectedSuggestion || selectedCategory === 'all'
-                            ? undefined
-                            : selectedCategory),
+                    includedType,
                     latitude,
                     longitude,
                     signal: controller.signal,
                 })
-                if (requestId.current === currentRequestId) setResults(data)
+                if (requestId.current === currentRequestId) {
+                    setResults(data)
+                }
             } catch {
                 if (
                     !controller.signal.aborted &&
@@ -115,7 +116,7 @@ export function PlaceSearch({
             } finally {
                 if (requestId.current === currentRequestId) setLoading(false)
             }
-        }, 300)
+        }, 700)
 
         return () => {
             if (debounceTimer.current) clearTimeout(debounceTimer.current)
@@ -262,10 +263,12 @@ export function PlaceSearch({
                                     handleSuggestionClick(suggestion)
                                 }
                                 aria-pressed={
-                                    selectedSuggestion?.label === suggestion.label
+                                    selectedSuggestion?.label ===
+                                    suggestion.label
                                 }
                                 className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                                    selectedSuggestion?.label === suggestion.label
+                                    selectedSuggestion?.label ===
+                                    suggestion.label
                                         ? 'border-brand bg-brand-50 text-brand'
                                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800'
                                 }`}
@@ -289,8 +292,8 @@ export function PlaceSearch({
                         </p>
                     </div>
                 )}
-                {((q.trim().length >= 2 ||
-                    (!searchDismissed && selectedCategory !== 'all')) ||
+                {(q.trim().length >= 2 ||
+                    (!searchDismissed && selectedCategory !== 'all') ||
                     activeAiRecommendations) && (
                     <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-100">
                         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold text-slate-500">

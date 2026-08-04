@@ -1,4 +1,5 @@
 export { Avatar, DEFAULT_AVATAR_COLOR } from './avatar'
+export { AnalysisStatusAnimation } from './analysis-status-animation'
 export { Badge } from './badge'
 export { BrandLogo } from './brand-logo'
 export { Button, buttonVariants } from './button'
