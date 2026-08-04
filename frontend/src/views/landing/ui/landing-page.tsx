@@ -1488,9 +1488,9 @@ export function Landing() {
                                 transition: 'transform 0.3s ease',
                             }}
                         >
-                            링크만 툭 던져주세요.
+                            검색창에 쓱, 지도에 콕.
                             <br />
-                            정리는 AI가 다 해드릴게요.
+                            귀찮은 정리는 AI가 알아서.
                         </h2>
                         <p
                             style={{
@@ -1500,9 +1500,9 @@ export function Landing() {
                                 fontWeight: 500,
                             }}
                         >
-                            채팅으로 공유한 지도 링크, 붙여넣기만 하세요.
+                            저장한 장소는 카테고리별로 자동 정리돼서,
                             <br />
-                            카테고리·위치·태그까지 AI가 알아서 정리해요.
+                            여행방 전체가 한눈에 볼 수 있어요.
                         </p>
                     </div>
                 </div>
