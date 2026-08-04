@@ -72,3 +72,85 @@ variable "npm_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "app_domain" {
+  description = "백엔드에 연결할 도메인 (nginx-proxy-manager의 proxy host 도메인과 일치해야 함, CI 배포 스크립트가 이 값으로 전환 대상을 찾음)"
+  type        = string
+}
+
+variable "jwt_secret" {
+  description = "백엔드 JWT 서명에 사용할 시크릿 (app.auth.jwt.secret)"
+  type        = string
+  sensitive   = true
+}
+
+variable "google_maps_api_key" {
+  description = "백엔드 Google Maps/Routes API 키 (app.integrations.google-maps.api-key)"
+  type        = string
+  sensitive   = true
+}
+
+variable "google_client_id" {
+  description = "구글 소셜 로그인 OAuth2 클라이언트 ID"
+  type        = string
+}
+
+variable "google_client_secret" {
+  description = "구글 소셜 로그인 OAuth2 클라이언트 시크릿"
+  type        = string
+  sensitive   = true
+}
+
+variable "kakao_client_id" {
+  description = "카카오 소셜 로그인 OAuth2 클라이언트 ID"
+  type        = string
+}
+
+variable "kakao_client_secret" {
+  description = "카카오 소셜 로그인 OAuth2 클라이언트 시크릿"
+  type        = string
+  sensitive   = true
+}
+
+variable "oauth_token_encryption_key" {
+  description = "소셜 로그인 토큰 저장/연결해제에 쓰는 AES 키 (Base64, `openssl rand -base64 32`로 생성)"
+  type        = string
+  sensitive   = true
+}
+
+variable "brevo_api_key" {
+  description = "Brevo 트랜잭션 이메일 API 키 (BrevoEmailClient가 실제로 사용, 이메일 인증 발송에 필수)"
+  type        = string
+  sensitive   = true
+}
+
+variable "brevo_email_verification_template_id" {
+  description = "Brevo 이메일 인증 템플릿 ID (BrevoEmailClient가 실제로 사용)"
+  type        = string
+}
+
+variable "brevo_smtp_username" {
+  description = "Brevo SMTP 사용자명 (현재 코드에서 JavaMailSender를 쓰지 않아 실제로는 참조되지 않음, 추후 대비용)"
+  type        = string
+  default     = ""
+}
+
+variable "brevo_smtp_password" {
+  description = "Brevo SMTP 비밀번호 (현재 코드에서 JavaMailSender를 쓰지 않아 실제로는 참조되지 않음, 추후 대비용)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "brevo_from_email" {
+  description = "Brevo 발신자 이메일 (EmailAuthProperties.getFrom()이 코드에서 호출되지 않아 실제로는 참조되지 않음, 추후 대비용)"
+  type        = string
+  default     = ""
+}
+
+variable "openai_api_key" {
+  description = "AI 동선 추천에 사용할 OpenAI API 키 (없으면 규칙 기반 추천으로 자동 대체)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

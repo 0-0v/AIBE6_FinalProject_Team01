@@ -35,6 +35,11 @@ spring:
 server:
   forward-headers-strategy: framework
 
+management:
+  health:
+    mail:
+      enabled: false
+
 springdoc:
   api-docs:
     path: /v3/api-docs
