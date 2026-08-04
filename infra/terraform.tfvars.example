@@ -1,0 +1,13 @@
+# 이 파일을 terraform.tfvars로 복사한 뒤 실제 값을 채워 넣습니다.
+# terraform.tfvars는 비밀번호를 포함하므로 .gitignore에 의해 커밋되지 않습니다.
+
+key_pair_name    = ""
+ssh_allowed_cidr = "" # 예: 1.2.3.4/32
+
+mysql_user           = ""
+mysql_password       = ""
+mysql_root_password  = ""
+redis_password       = ""
+
+npm_admin_email    = ""
+npm_admin_password = ""
