@@ -873,9 +873,9 @@ export function Landing() {
                             transition: 'transform 0.3s ease',
                         }}
                     >
-                        여행은 다 같이 가면서,
+                        지도 검색 따로, 캡처 따로, 공유 따로.
                         <br />
-                        계획은 왜 맨날 나 혼자짤까?
+                        이 번거로운 무한 굴레.
                     </h2>
                 </div>
 
