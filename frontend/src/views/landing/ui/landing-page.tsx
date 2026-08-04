@@ -23,11 +23,8 @@ const LANDING_STYLES = `
     font-display: swap;
   }
   @keyframes pl-fadeUpIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes pl-floatY { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-14px); } }
-  @keyframes pl-floatY2 { 0%,100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(10px) rotate(4deg); } }
   @keyframes pl-heroBody { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
   @keyframes pl-heroBag { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-2px); } }
-  @keyframes pl-floatPin { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-13px); } }
   @keyframes pl-twinkle { 0%,100% { opacity: 0.5; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
   .pl-h { font-family: 'BMDOHYEON', 'Gothic A1', 'Manrope', sans-serif !important; font-weight: 400 !important; letter-spacing: 0 !important; word-break: keep-all; }
   .pl-nav-link { font-weight: 600; font-size: 15px; color: #3A2A28; position: relative; padding-bottom: 2px; background-image: linear-gradient(#FF7A59, #FF7A59); background-size: 0% 2px; background-repeat: no-repeat; background-position: left bottom; transition: background-size 0.25s ease; text-decoration: none; }
@@ -476,88 +473,6 @@ export function Landing() {
                         />
                     ))}
                 </svg>
-
-                {/* 플로팅 아이콘들 */}
-                <div
-                    style={{
-                        position: 'absolute',
-                        left: '3%',
-                        bottom: '6%',
-                        zIndex: 0,
-                        width: 34,
-                        height: 34,
-                        borderRadius: 9,
-                        background: '#FFF',
-                        border: '2px solid #3A2A28',
-                        boxShadow: '2px 2px 0 #3A2A28',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        animation: 'pl-floatY 6s ease-in-out infinite',
-                    }}
-                >
-                    <svg width="16" height="16" viewBox="0 0 24 24">
-                        <path
-                            d="M12 2C7 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3-8-8-8z"
-                            fill="#FF7A59"
-                        />
-                    </svg>
-                </div>
-                <div
-                    style={{
-                        position: 'absolute',
-                        right: '4%',
-                        top: '18%',
-                        zIndex: 0,
-                        width: 30,
-                        height: 30,
-                        borderRadius: 8,
-                        background: '#FFF',
-                        border: '2px solid #3A2A28',
-                        boxShadow: '2px 2px 0 #3A2A28',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        animation: 'pl-floatY2 5.4s ease-in-out infinite',
-                    }}
-                >
-                    <svg width="14" height="14" viewBox="0 0 24 24">
-                        <path
-                            d="M12 21s-8-4.8-8-11a5 5 0 0 1 8-4 5 5 0 0 1 8 4c0 6.2-8 11-8 11z"
-                            fill="#8B7CFF"
-                        />
-                    </svg>
-                </div>
-                <div
-                    style={{
-                        position: 'absolute',
-                        right: '6%',
-                        bottom: '10%',
-                        zIndex: 0,
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        background: '#FFF',
-                        border: '2px solid #3A2A28',
-                        boxShadow: '2px 2px 0 #3A2A28',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        animation: 'pl-floatPin 6.6s ease-in-out infinite',
-                    }}
-                >
-                    <svg width="15" height="15" viewBox="0 0 24 24">
-                        <rect
-                            x="2"
-                            y="7"
-                            width="20"
-                            height="13"
-                            rx="2"
-                            fill="#D8CFFF"
-                        />
-                        <circle cx="12" cy="13.5" r="3.4" fill="#FFF" />
-                    </svg>
-                </div>
 
                 {/* 히어로 텍스트 */}
                 <div
