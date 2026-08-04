@@ -100,7 +100,6 @@ public class TravelRecordService {
         activityLogService.create(new ActivityLogCreateCommand(
                 tripId,
                 memberId,
-                null,
                 "TRAVEL_RECORD_CREATED",
                 "TRAVEL_RECORD",
                 record.getId(),
@@ -143,7 +142,7 @@ public class TravelRecordService {
         // 이미 저장된 기록을 표시/수정할 때는 dayNumber 범위를 강제하지 않는다.
         int dayNumber = resolveDayNumber(trip, record.getVisitedAt().toLocalDate());
         activityLogService.create(new ActivityLogCreateCommand(
-                tripId, memberId, null, "TRAVEL_RECORD_UPDATED", "TRAVEL_RECORD", recordId,
+                tripId, memberId, "TRAVEL_RECORD_UPDATED", "TRAVEL_RECORD", recordId,
                 "DAY " + dayNumber + " 공동 여행 기록을 수정했습니다.", Map.of()
         ));
         return toResponse(record, tripPlaceId, dayNumber, imageUrls, memberNickname(record.getRecordedBy()));
@@ -157,7 +156,7 @@ public class TravelRecordService {
         photoRepository.deleteAllByTravelRecordId(recordId);
         recordRepository.delete(record);
         activityLogService.create(new ActivityLogCreateCommand(
-                tripId, memberId, null, "TRAVEL_RECORD_DELETED", "TRAVEL_RECORD", recordId,
+                tripId, memberId, "TRAVEL_RECORD_DELETED", "TRAVEL_RECORD", recordId,
                 "공동 여행 기록을 삭제했습니다.", Map.of()
         ));
     }
@@ -214,7 +213,6 @@ public class TravelRecordService {
         activityLogService.create(new ActivityLogCreateCommand(
                 tripId,
                 memberId,
-                null,
                 "TRIP_RETROSPECTIVE_SAVED",
                 "TRIP_RETROSPECTIVE",
                 saved.getId(),

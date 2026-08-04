@@ -492,7 +492,7 @@ public class ItineraryService {
                 ? dayLabel + " 일정을 확정했습니다."
                 : dayLabel + " 일정 확정을 취소했습니다.";
         activityLogService.create(new ActivityLogCreateCommand(
-                tripId, memberId, null, actionType, "ITINERARY_DAY", dayId, description,
+                tripId, memberId, actionType, "ITINERARY_DAY", dayId, description,
                 Map.of("dayNumber", day.getDayNumber(), "previousStatus", previousStatus.name(), "newStatus", request.status().name())));
 
         publishChanged(tripId, dayId);

@@ -69,6 +69,7 @@ class ActivityLogControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].id").value(10))
                 .andExpect(jsonPath("$.data.content[0].actionType").value("PLACE_ADDED"))
+                .andExpect(jsonPath("$.data.content[0].agentRunId").doesNotExist())
                 .andExpect(jsonPath("$.data.content[0].metadata.placeName").value("자매국수"))
                 .andExpect(jsonPath("$.data.totalElements").value(1));
     }
@@ -116,7 +117,6 @@ class ActivityLogControllerTest {
                 10L,
                 1L,
                 2L,
-                null,
                 "PLACE_ADDED",
                 "TRIP_PLACE",
                 20L,

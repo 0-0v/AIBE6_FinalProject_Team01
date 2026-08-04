@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import {
-    BotIcon,
     HistoryIcon,
     LoaderCircleIcon,
     UserRoundIcon,
@@ -23,7 +22,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
 })
 
 function actorLabel(log: ActivityLog) {
-    if (log.agentRunId !== null) return 'AI 에이전트'
     if (log.memberId !== null) return `멤버 #${log.memberId}`
     return '시스템'
 }
@@ -109,7 +107,6 @@ export function ActivityLogPanel({ tripId, allowGuest = false }: Props) {
             <div className="space-y-1">
                 {logs.map((log) => {
                     const target = targetLabel(log)
-                    const isAgent = log.agentRunId !== null
 
                     return (
                         <div
@@ -117,11 +114,7 @@ export function ActivityLogPanel({ tripId, allowGuest = false }: Props) {
                             className="flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-slate-50"
                         >
                             <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                                {isAgent ? (
-                                    <BotIcon size={13} />
-                                ) : (
-                                    <UserRoundIcon size={13} />
-                                )}
+                                <UserRoundIcon size={13} />
                             </span>
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs leading-snug text-slate-600">

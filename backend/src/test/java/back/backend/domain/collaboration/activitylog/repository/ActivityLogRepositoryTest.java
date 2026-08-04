@@ -59,7 +59,6 @@ class ActivityLogRepositoryTest {
         ActivityLog activityLog = ActivityLog.create(
                 1L,
                 1L,
-                null,
                 "PLACE_UPDATED",
                 "TRIP_PLACE",
                 10L,
@@ -76,7 +75,6 @@ class ActivityLogRepositoryTest {
         return activityLogRepository.saveAndFlush(ActivityLog.create(
                 tripId,
                 1L,
-                null,
                 actionType,
                 "TRIP_PLACE",
                 targetId,

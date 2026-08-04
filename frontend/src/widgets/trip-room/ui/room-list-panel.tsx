@@ -50,7 +50,6 @@ export function RoomListPanel({
         useState<TripVisibilitySettings | null>(null)
     const [scopeLoading, setScopeLoading] = useState(false)
     const [scopeBusy, setScopeBusy] = useState(false)
-    const [scopeError, setScopeError] = useState<string | null>(null)
     const pastYears = useMemo(
         () =>
             Array.from(
@@ -108,7 +107,6 @@ export function RoomListPanel({
     }
 
     const openPublicScope = async (room: Room) => {
-        setScopeError(null)
         setScopeRoom(room)
         setScopeLoading(true)
         try {
@@ -118,7 +116,9 @@ export function RoomListPanel({
                 )
             }
         } catch (cause) {
-            setScopeError(
+            setScopeRoom(null)
+            setVisibilityRoom(room)
+            setVisibilityError(
                 getApiErrorMessage(cause, '공개 범위 정보를 불러오지 못했습니다.'),
             )
         } finally {
@@ -129,14 +129,13 @@ export function RoomListPanel({
     const selectPublicScope = async (scope: PublicScope) => {
         if (!scopeRoom?.apiTripId) return
         setScopeBusy(true)
-        setScopeError(null)
         try {
             await updateTripVisibility(scopeRoom.apiTripId, scope)
             await onRetry()
             setScopeRoom(null)
             setScopeSettings(null)
         } catch (cause) {
-            setScopeError(
+            setVisibilityError(
                 getApiErrorMessage(
                     cause,
                     '여행방 공개 상태를 변경하지 못했습니다.',
@@ -347,6 +346,24 @@ export function RoomListPanel({
                     />,
                     document.body,
                 )}
+            {scopeRoom && !scopeLoading && scopeSettings && (
+                <PublicScopeModal
+                    photoCount={scopeSettings.photoCount}
+                    recordCount={scopeSettings.recordCount}
+                    selected={
+                        scopeSettings.visibility === 'PRIVATE'
+                            ? null
+                            : scopeSettings.visibility
+                    }
+                    busy={scopeBusy}
+                    onSelect={(scope) => void selectPublicScope(scope)}
+                    onClose={() => {
+                        if (scopeBusy) return
+                        setScopeRoom(null)
+                        setScopeSettings(null)
+                    }}
+                />
+            )}
         </div>
     )
 }

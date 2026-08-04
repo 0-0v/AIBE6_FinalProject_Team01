@@ -42,7 +42,7 @@ public class CollaborationEventService {
             String notificationTitle
     ) {
         activityLogService.create(new ActivityLogCreateCommand(
-                tripId, actorId, null, actionType, targetType, targetId, description, metadata));
+                tripId, actorId, actionType, targetType, targetId, description, metadata));
 
         Set<Long> recipients = new LinkedHashSet<>(tripMemberRepository.findMemberIdsByTripId(tripId));
         if (recipients.isEmpty() && actorId != null) {

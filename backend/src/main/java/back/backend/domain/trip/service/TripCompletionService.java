@@ -73,7 +73,6 @@ public class TripCompletionService {
         activityLogService.create(new ActivityLogCreateCommand(
                 trip.getId(),
                 null,
-                null,
                 "TRIP_AUTO_COMPLETED",
                 "TRIP",
                 trip.getId(),

@@ -37,7 +37,6 @@ public class ActivityLogService {
         ActivityLog activityLog = ActivityLog.create(
                 command.tripId(),
                 command.memberId(),
-                command.agentRunId(),
                 command.actionType(),
                 command.targetType(),
                 command.targetId(),

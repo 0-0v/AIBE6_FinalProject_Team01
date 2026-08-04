@@ -32,9 +32,6 @@ public class ActivityLog {
     @Column(name = "member_id")
     private Long memberId;
 
-    @Column(name = "agent_run_id")
-    private Long agentRunId;
-
     @Column(name = "action_type", nullable = false, length = 30)
     private String actionType;
 
@@ -61,7 +58,6 @@ public class ActivityLog {
     private ActivityLog(
             Long tripId,
             Long memberId,
-            Long agentRunId,
             String actionType,
             String targetType,
             Long targetId,
@@ -70,7 +66,6 @@ public class ActivityLog {
     ) {
         this.tripId = Objects.requireNonNull(tripId, "tripId must not be null");
         this.memberId = memberId;
-        this.agentRunId = agentRunId;
         this.actionType = Objects.requireNonNull(actionType, "actionType must not be null");
         this.targetType = targetType;
         this.targetId = targetId;
@@ -81,7 +76,6 @@ public class ActivityLog {
     public static ActivityLog create(
             Long tripId,
             Long memberId,
-            Long agentRunId,
             String actionType,
             String targetType,
             Long targetId,
@@ -91,7 +85,6 @@ public class ActivityLog {
         return new ActivityLog(
                 tripId,
                 memberId,
-                agentRunId,
                 actionType,
                 targetType,
                 targetId,
@@ -110,10 +103,6 @@ public class ActivityLog {
 
     public Long getMemberId() {
         return memberId;
-    }
-
-    public Long getAgentRunId() {
-        return agentRunId;
     }
 
     public String getActionType() {
