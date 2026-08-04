@@ -1,0 +1,106 @@
+#!/bin/bash
+set -euo pipefail
+
+# 프리티어(t3.micro) 메모리 보완용 스왑 4GB
+dd if=/dev/zero of=/swapfile bs=128M count=32
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+
+timedatectl set-timezone Asia/Seoul
+
+dnf install -y docker
+systemctl enable docker
+systemctl start docker
+
+mkdir -p /usr/libexec/docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 \
+  -o /usr/libexec/docker/cli-plugins/docker-compose
+chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+
+docker network create plamingo-network || true
+
+mkdir -p /dockerProjects/npm_1/volumes/data
+mkdir -p /dockerProjects/npm_1/volumes/etc/letsencrypt
+mkdir -p /dockerProjects/mysql_1/volumes/var/lib/mysql
+mkdir -p /dockerProjects/redis_1/volumes/data
+
+# 이 네트워크는 이후 백엔드/프론트엔드 앱 컨테이너 배포 시에도
+# --network plamingo-network 로 붙여서 npm이 컨테이너명으로 리버스 프록시할 수 있게 한다.
+cat <<'COMPOSE_EOF' > /dockerProjects/docker-compose.yml
+name: plamingo-infra
+
+services:
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: plamingo-npm
+    restart: unless-stopped
+    networks:
+      - plamingo-network
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    environment:
+      TZ: Asia/Seoul
+      INITIAL_ADMIN_EMAIL: ${npm_admin_email}
+      INITIAL_ADMIN_PASSWORD: ${npm_admin_password}
+    volumes:
+      - /dockerProjects/npm_1/volumes/data:/data
+      - /dockerProjects/npm_1/volumes/etc/letsencrypt:/etc/letsencrypt
+
+  mysql:
+    image: mysql:8.4
+    container_name: plamingo-mysql
+    restart: unless-stopped
+    networks:
+      - plamingo-network
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${mysql_database}
+      MYSQL_USER: ${mysql_user}
+      MYSQL_PASSWORD: ${mysql_password}
+      MYSQL_ROOT_PASSWORD: ${mysql_root_password}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+09:00
+    volumes:
+      - /dockerProjects/mysql_1/volumes/var/lib/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: plamingo-redis
+    restart: unless-stopped
+    networks:
+      - plamingo-network
+    ports:
+      - "6379:6379"
+    environment:
+      REDIS_PASSWORD: ${redis_password}
+      TZ: Asia/Seoul
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${redis_password}"]
+    volumes:
+      - /dockerProjects/redis_1/volumes/data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  plamingo-network:
+    external: true
+COMPOSE_EOF
+
+cd /dockerProjects
+docker compose up -d

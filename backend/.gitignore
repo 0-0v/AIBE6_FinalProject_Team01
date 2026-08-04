@@ -53,3 +53,6 @@ logs/
 
 ### Local file storage (uploaded profile images, etc.) ###
 /uploads/
+
+.idea
+.terraform

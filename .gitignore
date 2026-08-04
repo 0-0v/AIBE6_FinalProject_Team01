@@ -35,3 +35,12 @@ docs/superpowers/
 *.log
 logs/
 *.pid
+
+### Terraform ###
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
