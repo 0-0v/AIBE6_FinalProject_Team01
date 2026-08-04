@@ -154,3 +154,15 @@ variable "openai_api_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "cors_allowed_origins" {
+  description = "CORS 허용 오리진 (프론트엔드 배포 도메인, 쉼표로 여러 개 구분 가능)"
+  type        = string
+  default     = "http://localhost:3000"
+}
+
+variable "frontend_base_url" {
+  description = "이메일 링크 등에 사용할 프론트엔드 기본 URL"
+  type        = string
+  default     = "http://localhost:3000"
+}

@@ -279,6 +279,8 @@ resource "aws_instance" "app_host" {
     brevo_smtp_password                  = var.brevo_smtp_password
     brevo_from_email                     = var.brevo_from_email
     openai_api_key                       = var.openai_api_key
+    cors_allowed_origins                 = var.cors_allowed_origins
+    frontend_base_url                    = var.frontend_base_url
   })
 
   tags = {
