@@ -222,4 +222,28 @@ class MemberServiceTest {
         assertThat(member.getStatus()).isEqualTo(back.backend.domain.member.entity.MemberStatus.ACTIVE);
         verify(refreshTokenRepository, org.mockito.Mockito.never()).deleteByMemberId(11L);
     }
+
+    @Test
+    @DisplayName("t12 현재 회원을 제외하고 같은 닉네임을 사용하는 회원이 없으면 사용 가능하다")
+    void t12_isNicknameAvailableReturnsTrueWhenNicknameIsUnusedByOthers() {
+        when(memberRepository.existsByNicknameAndIdNot("새닉네임", 1L)).thenReturn(false);
+
+        boolean available = memberService.isNicknameAvailable(1L, " 새닉네임 ");
+
+        assertThat(available).isTrue();
+    }
+
+    @Test
+    @DisplayName("t13 다른 회원이 사용하는 닉네임으로 변경하면 중복 예외가 발생한다")
+    void t13_updateNicknameThrowsWhenNicknameAlreadyExists() {
+        Member member = Member.create(
+                "user13@example.com", "기존닉네임", null, AuthProvider.KAKAO, "kakao-13");
+        ReflectionTestUtils.setField(member, "id", 13L);
+        when(memberRepository.findById(13L)).thenReturn(Optional.of(member));
+        when(memberRepository.existsByNicknameAndIdNot("중복닉네임", 13L)).thenReturn(true);
+
+        assertThatThrownBy(() -> memberService.updateNickname(13L, " 중복닉네임 "))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("이미 사용 중인 닉네임입니다.");
+    }
 }

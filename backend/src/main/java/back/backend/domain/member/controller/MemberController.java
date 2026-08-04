@@ -2,6 +2,7 @@ package back.backend.domain.member.controller;
 
 import back.backend.domain.member.dto.MemberResponse;
 import back.backend.domain.member.dto.NicknameUpdateRequest;
+import back.backend.domain.member.dto.NicknameAvailabilityResponse;
 import back.backend.domain.member.service.MemberService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
@@ -50,6 +51,16 @@ public class MemberController {
     public ApiResponse<MemberResponse> updateNickname(@Valid @RequestBody NicknameUpdateRequest request) {
         Long memberId = securityContextAccessor.getCurrentMemberId();
         return ApiResponse.success(memberService.updateNickname(memberId, request.nickname()));
+    }
+
+    @PostMapping("/me/nickname-availability")
+    @Operation(summary = "내 닉네임 변경 중복 확인")
+    public ApiResponse<NicknameAvailabilityResponse> checkNicknameAvailability(
+            @Valid @RequestBody NicknameUpdateRequest request
+    ) {
+        Long memberId = securityContextAccessor.getCurrentMemberId();
+        return ApiResponse.success(new NicknameAvailabilityResponse(
+                memberService.isNicknameAvailable(memberId, request.nickname())));
     }
 
     @PostMapping(value = "/me/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

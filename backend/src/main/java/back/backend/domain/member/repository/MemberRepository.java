@@ -22,6 +22,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     boolean existsByNicknameAndProvider(String nickname, AuthProvider provider);
 
+    boolean existsByNicknameAndIdNot(String nickname, Long id);
+
     List<Member> findAllByStatusAndPersonalInfoExpiresAtLessThanEqualAndPersonalInfoDeletedAtIsNull(
             MemberStatus status,
             LocalDateTime expiresAt
