@@ -21,8 +21,13 @@ import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.itinerary.repository.ItineraryDayRepository;
+import back.backend.domain.travelrecord.repository.TravelRecordRepository;
 import java.time.Clock;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +44,8 @@ public class TripService {
     private final PlanCardRepository planCardRepository;
     private final TripPresenceService tripPresenceService;
     private final TripAccessChecker tripAccessChecker;
+    private final ItineraryDayRepository itineraryDayRepository;
+    private final TravelRecordRepository travelRecordRepository;
     private final Clock clock;
 
     public TripService(TripRepository tripRepository, TripMemberRepository tripMemberRepository,
@@ -48,6 +55,8 @@ public class TripService {
                        PlanCardRepository planCardRepository,
                        TripPresenceService tripPresenceService,
                        TripAccessChecker tripAccessChecker,
+                       ItineraryDayRepository itineraryDayRepository,
+                       TravelRecordRepository travelRecordRepository,
                        Clock clock) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
@@ -57,6 +66,8 @@ public class TripService {
         this.planCardRepository = planCardRepository;
         this.tripPresenceService = tripPresenceService;
         this.tripAccessChecker = tripAccessChecker;
+        this.itineraryDayRepository = itineraryDayRepository;
+        this.travelRecordRepository = travelRecordRepository;
         this.clock = clock;
     }
 
@@ -104,6 +115,7 @@ public class TripService {
     @Transactional
     public TripResponse update(Long memberId, Long tripId, TripRequest request) {
         Trip trip = findJoinedTripWithoutLock(memberId, tripId);
+        LocalDate previousStartDate = trip.getStartDate();
         try {
             trip.update(request.title(), request.companionType(), request.normalizedTravelStyles(),
                     request.destination(), request.destinationLat(), request.destinationLng(),
@@ -111,6 +123,7 @@ public class TripService {
                     request.dayStartTime(), request.dayEndTime(), request.travelPace());
             trip.updateDestinationMetadata(
                     request.destinationEnglishName(), request.destinationCountryCode());
+            moveDatedTripContent(tripId, previousStartDate, request.startDate());
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
         } catch (IllegalStateException exception) {
@@ -118,6 +131,30 @@ public class TripService {
         }
         recordEvent(trip, memberId, "TRIP_UPDATED", "여행방 정보를 수정했습니다.");
         return toResponse(trip);
+    }
+
+    private void moveDatedTripContent(Long tripId, LocalDate previousStartDate, LocalDate newStartDate) {
+        if (previousStartDate == null || newStartDate == null) {
+            return;
+        }
+        long days = ChronoUnit.DAYS.between(previousStartDate, newStartDate);
+        var itineraryDays = itineraryDayRepository.findAllByTripIdOrderByItineraryDateAsc(tripId);
+        Map<LocalDate, Integer> dayNumbersByPreviousDate = new HashMap<>();
+        itineraryDays.forEach(day -> dayNumbersByPreviousDate.put(day.getItineraryDate(), day.getDayNumber()));
+
+        travelRecordRepository.findAllByTripIdOrderByVisitedAtDescIdDesc(tripId).forEach(record -> {
+            Integer dayNumber = dayNumbersByPreviousDate.get(record.getVisitedAt().toLocalDate());
+            if (dayNumber != null) {
+                record.moveVisitedDateTo(newStartDate.plusDays(dayNumber - 1L));
+            } else if (days != 0) {
+                record.moveVisitedAtByDays(days);
+            }
+        });
+        itineraryDays.forEach(day ->
+                day.updateItineraryDate(LocalDate.of(1000, 1, 1).plusDays(day.getDayNumber())));
+        itineraryDayRepository.flush();
+        itineraryDays.forEach(day ->
+                day.updateItineraryDate(newStartDate.plusDays(day.getDayNumber() - 1L)));
     }
 
     @Transactional

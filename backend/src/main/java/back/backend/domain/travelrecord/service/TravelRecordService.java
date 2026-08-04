@@ -139,7 +139,9 @@ public class TravelRecordService {
                 .map(TripPlace::getId)
                 .findFirst()
                 .orElse(null);
-        int dayNumber = calculateDayNumber(trip, record.getVisitedAt().toLocalDate());
+        // 기록 이후 여행 날짜가 바뀌어 방문 일시가 현재 기간 밖으로 밀려났을 수 있으므로,
+        // 이미 저장된 기록을 표시/수정할 때는 dayNumber 범위를 강제하지 않는다.
+        int dayNumber = resolveDayNumber(trip, record.getVisitedAt().toLocalDate());
         activityLogService.create(new ActivityLogCreateCommand(
                 tripId, memberId, null, "TRAVEL_RECORD_UPDATED", "TRAVEL_RECORD", recordId,
                 "DAY " + dayNumber + " 공동 여행 기록을 수정했습니다.", Map.of()
@@ -189,7 +191,7 @@ public class TravelRecordService {
                 .map(record -> toResponse(
                         record,
                         tripPlaceIdsByPlaceId.get(record.getPlaceId()),
-                        calculateDayNumber(trip, record.getVisitedAt().toLocalDate()),
+                        resolveDayNumber(trip, record.getVisitedAt().toLocalDate()),
                         imageUrlsByRecordId.getOrDefault(record.getId(), List.of()),
                         nicknames.getOrDefault(record.getRecordedBy(), "알 수 없는 멤버")
                 ))
@@ -239,6 +241,15 @@ public class TravelRecordService {
         if (visitedDate.isBefore(trip.getStartDate()) || visitedDate.isAfter(trip.getEndDate())) {
             throw new BusinessException(TravelRecordErrorCode.VISITED_AT_OUT_OF_RANGE);
         }
+        return Math.toIntExact(ChronoUnit.DAYS.between(trip.getStartDate(), visitedDate)) + 1;
+    }
+
+    /**
+     * 이미 저장된 기록의 dayNumber를 표시용으로만 계산한다. 기록 이후 여행 날짜가 바뀌어
+     * 방문 일시가 현재 기간 밖에 있어도 예외를 던지지 않고 범위를 벗어난 날짜 그대로 계산한다.
+     */
+    private int resolveDayNumber(Trip trip, LocalDate visitedDate) {
+        requireTripDates(trip);
         return Math.toIntExact(ChronoUnit.DAYS.between(trip.getStartDate(), visitedDate)) + 1;
     }
 

@@ -1,6 +1,7 @@
 package back.backend.domain.travelrecord.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -48,5 +49,13 @@ public class TravelRecord {
 
     public void updateContent(String memo) {
         this.memo = memo;
+    }
+
+    public void moveVisitedAtByDays(long days) {
+        this.visitedAt = this.visitedAt.plusDays(days);
+    }
+
+    public void moveVisitedDateTo(LocalDate visitedDate) {
+        this.visitedAt = LocalDateTime.of(visitedDate, this.visitedAt.toLocalTime());
     }
 }

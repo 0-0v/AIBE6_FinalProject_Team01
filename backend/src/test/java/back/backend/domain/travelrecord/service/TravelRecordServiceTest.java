@@ -1,6 +1,7 @@
 package back.backend.domain.travelrecord.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -194,5 +195,57 @@ class TravelRecordServiceTest {
 
         verify(photoRepository).deleteAllByTravelRecordId(30L);
         verify(recordRepository).delete(record);
+    }
+
+    @Test
+    @DisplayName("t7 여행 날짜가 바뀌어 기존 기록의 방문 일시가 기간 밖이어도 메모와 사진을 수정할 수 있다")
+    void t7_updateRecordSucceedsEvenWhenVisitedAtNowOutsideTripDates() {
+        Trip trip = Trip.create(
+                1L, "후쿠오카", null, Set.of(), "후쿠오카",
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2)
+        );
+        TravelRecord record = mock(TravelRecord.class);
+        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
+        given(recordRepository.findByIdAndTripId(30L, 1L)).willReturn(java.util.Optional.of(record));
+        given(record.getRecordedBy()).willReturn(1L);
+        // 여행 날짜가 나중에 바뀌어, 기록 당시의 방문 일시(7/24)가 현재 기간(9/1~9/2) 밖에 있다.
+        given(record.getVisitedAt()).willReturn(LocalDateTime.of(2026, 7, 24, 10, 0));
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
+
+        assertThatCode(() -> service.update(
+                1L, 30L, new TravelRecordUpdateRequest("수정한 메모", List.of("/photo.png"))
+        )).doesNotThrowAnyException();
+
+        verify(record).updateContent("수정한 메모");
+        verify(photoRepository).deleteAllByTravelRecordId(30L);
+        verify(photoRepository).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("t8 여행 날짜가 바뀌어 일부 기록의 방문 일시가 기간 밖이어도 목록 조회는 실패하지 않는다")
+    void t8_getRecordsSucceedsEvenWhenSomeVisitedAtNowOutsideTripDates() {
+        Trip trip = Trip.create(
+                1L, "후쿠오카", null, Set.of(), "후쿠오카",
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2)
+        );
+        TravelRecord outOfRangeRecord = mock(TravelRecord.class);
+        given(accessChecker.requireView(1L)).willReturn(1L);
+        given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
+        given(outOfRangeRecord.getId()).willReturn(30L);
+        given(outOfRangeRecord.getRecordedBy()).willReturn(1L);
+        given(outOfRangeRecord.getPlaceId()).willReturn(20L);
+        given(outOfRangeRecord.getVisitedAt()).willReturn(LocalDateTime.of(2026, 7, 24, 10, 0));
+        given(recordRepository.findAllByTripIdOrderByVisitedAtDescIdDesc(1L))
+                .willReturn(List.of(outOfRangeRecord));
+        given(photoRepository.findAllByTravelRecordIdInOrderBySortOrderAsc(List.of(30L)))
+                .willReturn(List.of());
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
+        given(memberRepository.findAllById(List.of(1L))).willReturn(List.of());
+
+        List<back.backend.domain.travelrecord.dto.TravelRecordResponse> responses =
+                service.getRecords(1L);
+
+        assertThat(responses).hasSize(1);
     }
 }

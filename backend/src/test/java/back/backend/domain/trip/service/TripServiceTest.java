@@ -11,6 +11,10 @@ import static org.mockito.Mockito.when;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.card.repository.PlanCardRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.itinerary.entity.ItineraryDay;
+import back.backend.domain.itinerary.repository.ItineraryDayRepository;
+import back.backend.domain.travelrecord.entity.TravelRecord;
+import back.backend.domain.travelrecord.repository.TravelRecordRepository;
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.collaboration.notification.service.NotificationService;
 import back.backend.domain.trip.dto.TripRequest;
@@ -28,6 +32,7 @@ import back.backend.global.exception.BusinessException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +55,8 @@ class TripServiceTest {
     @Mock PlanCardRepository planCardRepository;
     @Mock TripPresenceService tripPresenceService;
     @Mock TripAccessChecker tripAccessChecker;
+    @Mock ItineraryDayRepository itineraryDayRepository;
+    @Mock TravelRecordRepository travelRecordRepository;
     private TripService tripService;
     private final Clock clock = Clock.fixed(
             Instant.parse("2026-07-31T00:00:00Z"),
@@ -60,7 +67,8 @@ class TripServiceTest {
     void setUp() {
         tripService = new TripService(tripRepository, tripMemberRepository, memberRepository,
                 activityLogService, notificationService, planCardRepository,
-                tripPresenceService, tripAccessChecker, clock);
+                tripPresenceService, tripAccessChecker, itineraryDayRepository,
+                travelRecordRepository, clock);
     }
 
     @Test
@@ -311,6 +319,41 @@ class TripServiceTest {
 
         assertThat(response.destinationEnglishName()).isEqualTo("Guam");
         assertThat(response.destinationCountryCode()).isEqualTo("GU");
+    }
+
+    @Test
+    @DisplayName("t15 여행 기간을 이동하면 기존 일정과 여행 기록의 상대 Day를 유지한다")
+    void t15_updateTripDatesPreservesItineraryAndTravelRecordDayNumbers() {
+        Trip trip = Trip.create(
+                1L, "제주 여행", CompanionType.FRIENDS, Set.of(TravelStyle.FOOD),
+                "제주도", LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 3)
+        );
+        ItineraryDay itineraryDay = ItineraryDay.create(
+                10L, LocalDate.of(2026, 8, 2), 2
+        );
+        TravelRecord travelRecord = TravelRecord.builder()
+                .tripId(10L)
+                .placeId(20L)
+                .recordedBy(1L)
+                .visitedAt(LocalDateTime.of(2026, 8, 2, 14, 30))
+                .memo("기존 기록")
+                .build();
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(itineraryDayRepository.findAllByTripIdOrderByItineraryDateAsc(10L))
+                .thenReturn(List.of(itineraryDay));
+        when(travelRecordRepository.findAllByTripIdOrderByVisitedAtDescIdDesc(10L))
+                .thenReturn(List.of(travelRecord));
+        TripRequest request = new TripRequest(
+                "제주 여행", CompanionType.FRIENDS, Set.of(TravelStyle.FOOD), "제주도",
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 3),
+                TripVisibility.PRIVATE, null, null, null
+        );
+
+        tripService.update(1L, 10L, request);
+
+        assertThat(itineraryDay.getItineraryDate()).isEqualTo(LocalDate.of(2026, 7, 2));
+        assertThat(travelRecord.getVisitedAt()).isEqualTo(LocalDateTime.of(2026, 7, 2, 14, 30));
     }
 
     private Trip trip(String title) {

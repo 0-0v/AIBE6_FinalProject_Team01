@@ -1045,6 +1045,126 @@ class ItineraryServiceTest {
         }));
     }
 
+    @Test
+    @DisplayName("t38 여행 날짜를 변경하면 기존 일정이 순서 그대로 새 날짜에 적용된다")
+    void t38_initializeItineraryShiftsExistingDaysOntoNewDateRange() {
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 9, 5));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 9, 6));
+
+        ItineraryDay dayOne = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 1), 1);
+        ReflectionTestUtils.setField(dayOne, "id", 101L);
+        ReflectionTestUtils.setField(dayOne, "items", new ArrayList<>(List.of(item)));
+        ItineraryDay dayTwo = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 2), 2);
+        ReflectionTestUtils.setField(dayTwo, "id", 102L);
+        ReflectionTestUtils.setField(dayTwo, "items", new ArrayList<>());
+
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(new ArrayList<>(List.of(dayOne, dayTwo)));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
+        given(dayRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        then(dayRepository).should(never()).deleteAll(any());
+        assertThat(dayOne.getItineraryDate()).isEqualTo(LocalDate.of(2026, 9, 5));
+        assertThat(dayOne.getDayNumber()).isEqualTo(1);
+        assertThat(dayOne.getItems()).containsExactly(item);
+        assertThat(dayTwo.getItineraryDate()).isEqualTo(LocalDate.of(2026, 9, 6));
+        assertThat(dayTwo.getDayNumber()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("t39 여행 날짜 범위가 좁아지면 넘치는 Day 중 저장된 장소가 있는 Day는 뒷번호로 보존한다")
+    void t39_initializeItineraryPreservesOverflowingDaysWithItemsAfterShrink() {
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 1));
+
+        ItineraryDay dayOne = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 7, 1), 1);
+        ReflectionTestUtils.setField(dayOne, "id", 101L);
+        ReflectionTestUtils.setField(dayOne, "items", new ArrayList<>());
+        ItineraryDay dayTwoWithItems =
+                ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 7, 2), 2);
+        ReflectionTestUtils.setField(dayTwoWithItems, "id", 102L);
+        ReflectionTestUtils.setField(
+                dayTwoWithItems, "items", new ArrayList<>(List.of(item)));
+
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(new ArrayList<>(List.of(dayOne, dayTwoWithItems)));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
+        given(dayRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        then(dayRepository).should(never()).deleteAll(any());
+        assertThat(dayOne.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+        assertThat(dayOne.getDayNumber()).isEqualTo(1);
+        assertThat(dayTwoWithItems.getDayNumber()).isEqualTo(2);
+        assertThat(dayTwoWithItems.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 2));
+        assertThat(dayTwoWithItems.getItems()).containsExactly(item);
+    }
+
+    @Test
+    @DisplayName("t41 넘치는 보존 Day의 원래 날짜가 새 활성 Day의 날짜와 겹쳐도 충돌 없이 처리한다")
+    void t41_initializeItineraryAvoidsDateCollisionWithPreservedOverflowDay() {
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 2));
+
+        ItineraryDay dayOne = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 1), 1);
+        ReflectionTestUtils.setField(dayOne, "id", 101L);
+        ReflectionTestUtils.setField(dayOne, "items", new ArrayList<>());
+        ItineraryDay dayTwoActive = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 7, 5), 2);
+        ReflectionTestUtils.setField(dayTwoActive, "id", 103L);
+        ReflectionTestUtils.setField(dayTwoActive, "items", new ArrayList<>());
+        // dayNumber 순서상 overflow로 밀리지만, 원래 날짜(08-02)가 새 활성 Day(index1)의
+        // 목표 날짜와 정확히 겹치는 보존 대상 Day
+        ItineraryDay overflowDayCollidingDate =
+                ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 2), 3);
+        ReflectionTestUtils.setField(overflowDayCollidingDate, "id", 102L);
+        ReflectionTestUtils.setField(
+                overflowDayCollidingDate, "items", new ArrayList<>(List.of(item)));
+
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(new ArrayList<>(
+                        List.of(dayOne, overflowDayCollidingDate, dayTwoActive)));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
+        given(dayRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        assertThat(dayOne.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+        assertThat(dayTwoActive.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 2));
+        assertThat(overflowDayCollidingDate.getItineraryDate())
+                .isNotEqualTo(LocalDate.of(2026, 8, 2));
+        assertThat(overflowDayCollidingDate.getItems()).containsExactly(item);
+    }
+
+    @Test
+    @DisplayName("t40 여행 날짜 범위가 좁아지면 넘치는 빈 Day는 삭제한다")
+    void t40_initializeItineraryDeletesOverflowingEmptyDays() {
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 1));
+
+        ItineraryDay dayOne = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 7, 1), 1);
+        ReflectionTestUtils.setField(dayOne, "id", 101L);
+        ReflectionTestUtils.setField(dayOne, "items", new ArrayList<>());
+        ItineraryDay emptyOverflowDay =
+                ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 7, 2), 2);
+        ReflectionTestUtils.setField(emptyOverflowDay, "id", 102L);
+        ReflectionTestUtils.setField(emptyOverflowDay, "items", new ArrayList<>());
+
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(new ArrayList<>(List.of(dayOne, emptyOverflowDay)));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
+        given(dayRepository.saveAll(anyList())).willAnswer(inv -> inv.getArgument(0));
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        then(dayRepository).should().deleteAll(argThat(days ->
+                ((List<ItineraryDay>) days).size() == 1
+                        && ((List<ItineraryDay>) days).get(0) == emptyOverflowDay
+        ));
+    }
+
     private RoutePlanItemResponse routePlanItem(Long tripPlaceId, String name) {
         return new RoutePlanItemResponse(
                 tripPlaceId,

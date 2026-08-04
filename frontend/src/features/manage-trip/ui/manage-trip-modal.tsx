@@ -1,7 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { LogOutIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { errorMessage } from '@/shared/lib'
-import { globalModal } from '@/shared/model'
 import {
     deleteTrip,
     leaveTrip,
@@ -53,11 +52,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                 ? current.filter((item) => item !== style)
                 : [...current, style],
         )
-    }
-
-    function hasDateChanges() {
-        if (!trip.startDate || !trip.endDate) return false
-        return startDate !== trip.startDate || endDate !== trip.endDate
     }
 
     function validateForm(): boolean {
@@ -125,20 +119,6 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     function save(event: FormEvent) {
         event.preventDefault()
         if (!validateForm()) return
-
-        if (trip.status !== 'COMPLETED' && hasDateChanges()) {
-            globalModal.open({
-                title: '여행 날짜를 정말 변경할까요?',
-                description:
-                    '기간에서 제외된 일정은 삭제되며 복구할 수 없습니다.',
-                tone: 'danger',
-                confirmText: '일정 삭제 후 변경',
-                cancelText: '날짜 다시 확인',
-                showCancel: true,
-                onConfirm: persistChanges,
-            })
-            return
-        }
 
         void persistChanges()
     }
