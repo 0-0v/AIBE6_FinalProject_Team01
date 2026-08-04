@@ -3,7 +3,11 @@ package back.backend.domain.card.service;
 import back.backend.domain.card.dto.PublicCardDetailResponse;
 import back.backend.domain.card.dto.PublicCardRecordResponse;
 import back.backend.domain.card.entity.PlanCard;
+import back.backend.domain.card.entity.PlanCardTag;
+import back.backend.domain.card.entity.TripTag;
 import back.backend.domain.card.repository.PlanCardRepository;
+import back.backend.domain.card.repository.PlanCardTagRepository;
+import back.backend.domain.card.repository.TripTagRepository;
 import back.backend.domain.itinerary.dto.response.ItineraryDayResponse;
 import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.member.repository.MemberRepository;
@@ -21,6 +25,7 @@ import back.backend.global.exception.CommonErrorCode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -37,6 +42,8 @@ public class PublicCardDetailService {
     private final TravelRecordRepository travelRecordRepository;
     private final TravelPhotoRepository travelPhotoRepository;
     private final MemberRepository memberRepository;
+    private final PlanCardTagRepository cardTagRepository;
+    private final TripTagRepository tagRepository;
 
     public PublicCardDetailService(
             PlanCardRepository cardRepository,
@@ -45,7 +52,9 @@ public class PublicCardDetailService {
             TripPlaceRepository tripPlaceRepository,
             TravelRecordRepository travelRecordRepository,
             TravelPhotoRepository travelPhotoRepository,
-            MemberRepository memberRepository
+            MemberRepository memberRepository,
+            PlanCardTagRepository cardTagRepository,
+            TripTagRepository tagRepository
     ) {
         this.cardRepository = cardRepository;
         this.tripRepository = tripRepository;
@@ -54,6 +63,8 @@ public class PublicCardDetailService {
         this.travelRecordRepository = travelRecordRepository;
         this.travelPhotoRepository = travelPhotoRepository;
         this.memberRepository = memberRepository;
+        this.cardTagRepository = cardTagRepository;
+        this.tagRepository = tagRepository;
     }
 
     public PublicCardDetailResponse getDetail(Long cardId) {
@@ -71,6 +82,9 @@ public class PublicCardDetailService {
         List<PublicCardRecordResponse> records = card.getVisibility() == TripVisibility.PUBLIC_RECORD
                 ? getRecords(trip.getId(), tripPlaceList)
                 : List.of();
+        List<String> tags = cardTagRepository.findAllByPlanCardId(card.getId()).stream()
+                .map(PlanCardTag::getTagId).map(tagRepository::findById).flatMap(Optional::stream)
+                .map(TripTag::getName).toList();
 
         return new PublicCardDetailResponse(
                 card.getId(),
@@ -83,7 +97,9 @@ public class PublicCardDetailService {
                 trip.getEndDate(),
                 card.getVisibility(),
                 itinerary,
-                records);
+                records,
+                trip.getTravelStyles(),
+                tags);
     }
 
     private List<PublicCardRecordResponse> getRecords(Long tripId, List<TripPlace> tripPlaceList) {
