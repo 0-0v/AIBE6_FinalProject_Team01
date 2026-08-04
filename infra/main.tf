@@ -256,13 +256,29 @@ resource "aws_instance" "app_host" {
   }
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    mysql_database      = var.mysql_database
-    mysql_user          = var.mysql_user
-    mysql_password      = var.mysql_password
-    mysql_root_password = var.mysql_root_password
-    redis_password      = var.redis_password
-    npm_admin_email     = var.npm_admin_email
-    npm_admin_password  = var.npm_admin_password
+    mysql_database                       = var.mysql_database
+    mysql_user                           = var.mysql_user
+    mysql_password                       = var.mysql_password
+    mysql_root_password                  = var.mysql_root_password
+    redis_password                       = var.redis_password
+    npm_admin_email                      = var.npm_admin_email
+    npm_admin_password                   = var.npm_admin_password
+    app_domain                           = var.app_domain
+    jwt_secret                           = var.jwt_secret
+    google_maps_api_key                  = var.google_maps_api_key
+    google_client_id                     = var.google_client_id
+    google_client_secret                 = var.google_client_secret
+    kakao_client_id                      = var.kakao_client_id
+    kakao_client_secret                  = var.kakao_client_secret
+    oauth_token_encryption_key           = var.oauth_token_encryption_key
+    aws_s3_bucket                        = aws_s3_bucket.uploads.bucket
+    aws_s3_public_base_url               = "https://${aws_s3_bucket.uploads.bucket}.s3.${var.region}.amazonaws.com"
+    brevo_api_key                        = var.brevo_api_key
+    brevo_email_verification_template_id = var.brevo_email_verification_template_id
+    brevo_smtp_username                  = var.brevo_smtp_username
+    brevo_smtp_password                  = var.brevo_smtp_password
+    brevo_from_email                     = var.brevo_from_email
+    openai_api_key                       = var.openai_api_key
   })
 
   tags = {

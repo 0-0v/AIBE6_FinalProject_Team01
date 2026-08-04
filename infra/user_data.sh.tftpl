@@ -21,6 +21,34 @@ chmod +x /usr/libexec/docker/cli-plugins/docker-compose
 
 docker network create plamingo-network || true
 
+# CI 배포 스크립트(.github/workflows/deploy.yml)가 SSM 명령 안에서
+# `source /etc/environment`로 읽어가는 값들. PAM도 이 파일을 읽으므로
+# export 없이 KEY="value" 형식으로만 작성한다.
+cat <<'ENVIRONMENT_EOF' >> /etc/environment
+NPM_ADMIN_EMAIL="${npm_admin_email}"
+NPM_ADMIN_PASSWORD="${npm_admin_password}"
+APP_DOMAIN="${app_domain}"
+MYSQL_USER="${mysql_user}"
+MYSQL_PASSWORD="${mysql_password}"
+REDIS_PASSWORD="${redis_password}"
+JWT_SECRET="${jwt_secret}"
+GOOGLE_MAPS_API_KEY="${google_maps_api_key}"
+GOOGLE_CLIENT_ID="${google_client_id}"
+GOOGLE_CLIENT_SECRET="${google_client_secret}"
+KAKAO_CLIENT_ID="${kakao_client_id}"
+KAKAO_CLIENT_SECRET="${kakao_client_secret}"
+OAUTH_TOKEN_ENCRYPTION_KEY="${oauth_token_encryption_key}"
+FILE_STORAGE_TYPE="s3"
+AWS_S3_BUCKET="${aws_s3_bucket}"
+AWS_S3_PUBLIC_BASE_URL="${aws_s3_public_base_url}"
+BREVO_API_KEY="${brevo_api_key}"
+BREVO_EMAIL_VERIFICATION_TEMPLATE_ID="${brevo_email_verification_template_id}"
+BREVO_SMTP_USERNAME="${brevo_smtp_username}"
+BREVO_SMTP_PASSWORD="${brevo_smtp_password}"
+BREVO_FROM_EMAIL="${brevo_from_email}"
+OPENAI_API_KEY="${openai_api_key}"
+ENVIRONMENT_EOF
+
 mkdir -p /dockerProjects/npm_1/volumes/data
 mkdir -p /dockerProjects/npm_1/volumes/etc/letsencrypt
 mkdir -p /dockerProjects/mysql_1/volumes/var/lib/mysql

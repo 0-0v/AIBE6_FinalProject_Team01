@@ -11,3 +11,21 @@ redis_password       = ""
 
 npm_admin_email    = ""
 npm_admin_password = ""
+
+app_domain           = "" # 예: api.plamingo.example.com (nginx-proxy-manager의 proxy host 도메인과 동일해야 함)
+jwt_secret           = ""
+google_maps_api_key  = ""
+
+google_client_id     = ""
+google_client_secret = ""
+kakao_client_id      = ""
+kakao_client_secret  = ""
+oauth_token_encryption_key = "" # openssl rand -base64 32
+
+brevo_api_key                        = ""
+brevo_email_verification_template_id = "1"
+brevo_smtp_username                  = "" # 현재 코드에서 실제로는 참조되지 않음(추후 대비용)
+brevo_smtp_password                  = "" # 현재 코드에서 실제로는 참조되지 않음(추후 대비용)
+brevo_from_email                     = "" # 현재 코드에서 실제로는 참조되지 않음(추후 대비용)
+
+openai_api_key = "" # 없어도 규칙 기반 추천으로 자동 대체

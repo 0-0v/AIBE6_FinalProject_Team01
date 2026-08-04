@@ -20,6 +20,11 @@ spring:
     compose:
       enabled: false
 
+management:
+  health:
+    redis:
+      enabled: false
+
 app:
   auth:
     jwt:
