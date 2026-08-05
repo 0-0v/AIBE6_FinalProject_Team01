@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
     AdvancedMarker,
     Map as GoogleMap,
@@ -1013,9 +1013,20 @@ function RouteFocusController({
     padding?: number
 }) {
     const map = useMap()
+    const lastAppliedFocusKeyRef = useRef<string | null>(null)
+    const focusKey = `${padding}:${points
+        .map((point) => `${point.lat},${point.lng}`)
+        .join('|')}`
 
     useEffect(() => {
-        if (map == null || points.length === 0) return
+        if (map == null) return
+        if (points.length === 0) {
+            lastAppliedFocusKeyRef.current = null
+            return
+        }
+        if (lastAppliedFocusKeyRef.current === focusKey) return
+
+        lastAppliedFocusKeyRef.current = focusKey
         if (points.length === 1) {
             map.panTo(points[0])
             map.setZoom(16)
@@ -1028,7 +1039,7 @@ function RouteFocusController({
             listener.remove()
         })
         return () => listener.remove()
-    }, [map, padding, points])
+    }, [focusKey, map, padding, points])
 
     return null
 }
@@ -1050,12 +1061,24 @@ function MapController({
     focusRequestVersion: number
 }) {
     const map = useMap()
+    const lastAppliedPlacesKeyRef = useRef<string | null>(null)
     const selectedPlace = places.find((place) => place.id === selectedId)
     const selectedLat = selectedPlace?.lat
     const selectedLng = selectedPlace?.lng
+    const placesKey = places
+        .map((place) => `${place.id}:${place.lat},${place.lng}`)
+        .join('|')
+    const autoFitKey = `${initialLat ?? ''}:${initialLng ?? ''}:${placesKey}`
 
     useEffect(() => {
-        if (!map || !autoFitPlaces) return
+        if (!map) return
+        if (!autoFitPlaces) {
+            lastAppliedPlacesKeyRef.current = null
+            return
+        }
+        if (lastAppliedPlacesKeyRef.current === autoFitKey) return
+
+        lastAppliedPlacesKeyRef.current = autoFitKey
 
         if (places.length === 0) {
             if (initialLat != null && initialLng != null) {
@@ -1072,7 +1095,7 @@ function MapController({
         }
 
         fitBoundsToPoints(map, places)
-    }, [autoFitPlaces, initialLat, initialLng, map, places])
+    }, [autoFitKey, autoFitPlaces, initialLat, initialLng, map, places])
 
     useEffect(() => {
         if (!map || selectedLat == null || selectedLng == null) return

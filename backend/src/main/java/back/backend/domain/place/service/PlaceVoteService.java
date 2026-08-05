@@ -106,7 +106,7 @@ public class PlaceVoteService {
         LocalDateTime now = LocalDateTime.now();
         if (isExpired(voteRequest, now)) {
             voteRequest.close(now);
-            tripPlaceRepository.delete(tripPlace);
+            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
             recordExpiredVote(tripId, tripPlace, voteRequest);
             List<PlaceVoteResponse> responses = voteResponseRepository
                     .findAllByVoteRequestId(voteRequestId);
@@ -135,14 +135,14 @@ public class PlaceVoteService {
             resultStatus = TripPlaceStatus.SAVED;
             voteRequest.close(now);
         } else if (disagreeCount >= majorityCount) {
-            // 과반수 반대 → 버킷리스트에서 제거
+            // 과반수 반대 → 탈락 이력을 보존
             voteRequest.close(now);
-            tripPlaceRepository.delete(tripPlace);
+            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
             resultStatus = TripPlaceStatus.REJECTED;
         } else if (responses.size() >= voteRequest.getTotalMemberCount()) {
-            // 과반 찬성이 없으면 버킷리스트에서 제거
+            // 과반 찬성이 없으면 탈락 이력을 보존
             voteRequest.close(now);
-            tripPlaceRepository.delete(tripPlace);
+            tripPlace.updateStatus(TripPlaceStatus.REJECTED);
             resultStatus = TripPlaceStatus.REJECTED;
         }
         if (voteRequest.getStatus() == PlaceVoteStatus.CLOSED) {
@@ -189,7 +189,6 @@ public class PlaceVoteService {
                     TripPlace tripPlace = tripPlacesById.get(request.getTripPlaceId());
                     if (tripPlace != null) {
                         tripPlace.updateStatus(TripPlaceStatus.REJECTED);
-                        tripPlaceRepository.delete(tripPlace);
                         recordExpiredVote(tripId, tripPlace, request);
                     }
                 });
