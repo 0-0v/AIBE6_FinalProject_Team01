@@ -113,24 +113,19 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }, [loadTrips, tripId])
 
     const [selectedId, setSelectedId] = useState<string | null>(null)
-    const [selectedPlaceSource, setSelectedPlaceSource] = useState<
-        'card' | 'marker' | null
-    >(null)
     const [placeFocusRequestVersion, setPlaceFocusRequestVersion] = useState(0)
     const selectPlaceFromCard = useCallback((id: string) => {
-        setSelectedPlaceSource('card')
         setSelectedId(id)
         setPlaceFocusRequestVersion((current) => current + 1)
     }, [])
     const selectPlaceFromMarker = useCallback((id: string) => {
-        setSelectedPlaceSource('marker')
         setSelectedId(id)
         setPlaceFocusRequestVersion((current) => current + 1)
     }, [])
     const deselectPlace = useCallback(() => {
-        setSelectedPlaceSource(null)
         setSelectedId(null)
     }, [])
+    const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null)
     const [headerContainer, setHeaderContainer] =
         useState<HTMLDivElement | null>(null)
     const [customPanelWidth, setCustomPanelWidth] = useState<number | null>(
@@ -420,6 +415,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
 
     function deletePlace(id: string) {
         setPlaces((current) => current.filter((place) => place.id !== id))
+        if (selectedId === id) {
+            deselectPlace()
+        }
+        if (hoveredPlaceId === id) {
+            setHoveredPlaceId(null)
+        }
     }
 
     async function handleInviteCodeSubmit(event: FormEvent<HTMLFormElement>) {
@@ -640,12 +641,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         initialLng={room?.destinationLng}
                         selectedId={selectedId}
                         focusRequestVersion={placeFocusRequestVersion}
-                        showSelectedPlacePhoto={
-                            selectedPlaceSource === 'marker'
-                        }
                         onSelect={selectPlaceFromMarker}
                         onDeselect={deselectPlace}
-                        onPlacePhotoResolved={handlePlacePhotoResolved}
+                        hoveredPlaceId={hoveredPlaceId}
+                        onHoverPlace={setHoveredPlaceId}
                         days={itineraryDays}
                         initialRouteDay={
                             pendingAiAction?.routeContext?.dayNumber ?? null
@@ -791,6 +790,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     places={displayedPlaces}
                                     selectedId={selectedId}
                                     onSelectPlace={selectPlaceFromCard}
+                                    onDeselectPlace={deselectPlace}
+                                    hoveredPlaceId={hoveredPlaceId}
+                                    onHoverPlace={setHoveredPlaceId}
+                                    onPlacePhotoResolved={
+                                        handlePlacePhotoResolved
+                                    }
                                     onBack={() => navigate('/app/room')}
                                     onManage={() => setManageOpen(true)}
                                     onVisibilityManage={() =>
