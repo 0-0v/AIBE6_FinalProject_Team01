@@ -20,6 +20,7 @@ import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.realtime.RealtimeEvent;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.travelrecord.repository.TravelRecordRepository;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -47,6 +49,7 @@ public class TripService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final TravelRecordRepository travelRecordRepository;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TripService(TripRepository tripRepository, TripMemberRepository tripMemberRepository,
                        MemberRepository memberRepository,
@@ -57,7 +60,8 @@ public class TripService {
                        TripAccessChecker tripAccessChecker,
                        ItineraryDayRepository itineraryDayRepository,
                        TravelRecordRepository travelRecordRepository,
-                       Clock clock) {
+                       Clock clock,
+                       ApplicationEventPublisher eventPublisher) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.memberRepository = memberRepository;
@@ -69,6 +73,7 @@ public class TripService {
         this.itineraryDayRepository = itineraryDayRepository;
         this.travelRecordRepository = travelRecordRepository;
         this.clock = clock;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -110,6 +115,15 @@ public class TripService {
                         member.getProfileImageUrl(),
                         tripPresenceService.isOnline(tripId, member.getId())))
                 .toList();
+    }
+
+    public void markPresent(Long tripId) {
+        Long memberId = tripAccessChecker.requireView(tripId);
+        if (memberId == null) {
+            throw new BusinessException(TripErrorCode.TRIP_NOT_FOUND);
+        }
+        tripPresenceService.touch(tripId, memberId);
+        eventPublisher.publishEvent(RealtimeEvent.tripMembers(tripId, memberId));
     }
 
     @Transactional

@@ -76,6 +76,13 @@ public class TripController {
         return ApiResponse.success(tripService.getMembers(tripId));
     }
 
+    @PostMapping("/{tripId}/presence")
+    @Operation(summary = "여행방 접속 상태 갱신")
+    public ApiResponse<Void> markPresent(@PathVariable Long tripId) {
+        tripService.markPresent(tripId);
+        return ApiResponse.ok();
+    }
+
     @PatchMapping("/{tripId}")
     @Operation(summary = "여행방 수정")
     public ApiResponse<TripResponse> update(@PathVariable Long tripId, @Valid @RequestBody TripRequest request) {

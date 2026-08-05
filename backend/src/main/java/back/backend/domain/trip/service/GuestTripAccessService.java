@@ -15,10 +15,12 @@ import back.backend.domain.trip.repository.TripInvitationRepository;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.realtime.RealtimeEvent;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -33,6 +35,7 @@ public class GuestTripAccessService {
     private final TripGuestMemberRepository tripGuestMemberRepository;
     private final TripMemberRepository tripMemberRepository;
     private final GuestTokenHasher tokenHasher;
+    private final ApplicationEventPublisher eventPublisher;
 
     public GuestTripAccessService(
             TripInvitationRepository invitationRepository,
@@ -40,7 +43,8 @@ public class GuestTripAccessService {
             GuestSessionRepository guestSessionRepository,
             TripGuestMemberRepository tripGuestMemberRepository,
             TripMemberRepository tripMemberRepository,
-            GuestTokenHasher tokenHasher
+            GuestTokenHasher tokenHasher,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.invitationRepository = invitationRepository;
         this.tripRepository = tripRepository;
@@ -48,6 +52,7 @@ public class GuestTripAccessService {
         this.tripGuestMemberRepository = tripGuestMemberRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.tokenHasher = tokenHasher;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -120,6 +125,7 @@ public class GuestTripAccessService {
 
         if (!tripMemberRepository.existsByTripIdAndMemberId(trip.getId(), memberId)) {
             tripMemberRepository.save(TripMember.viewer(trip.getId(), memberId));
+            eventPublisher.publishEvent(RealtimeEvent.tripMembers(trip.getId(), memberId));
         }
         claimIfPresent(memberId, token);
     }
@@ -128,6 +134,7 @@ public class GuestTripAccessService {
         for (TripGuestMember guestMember : tripGuestMemberRepository.findAllByGuestSessionId(session.getId())) {
             if (!tripMemberRepository.existsByTripIdAndMemberId(guestMember.getTripId(), memberId)) {
                 tripMemberRepository.save(TripMember.viewer(guestMember.getTripId(), memberId));
+                eventPublisher.publishEvent(RealtimeEvent.tripMembers(guestMember.getTripId(), memberId));
             }
         }
         tripGuestMemberRepository.deleteAllByGuestSessionId(session.getId());

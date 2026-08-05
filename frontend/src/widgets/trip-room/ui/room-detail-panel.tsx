@@ -212,7 +212,7 @@ export function RoomDetailPanel({
         return () => {
             active = false
         }
-    }, [tripId])
+    }, [realtimeVersion, tripId])
 
     const canWrite = canManage
     const canPlanWrite = canWrite

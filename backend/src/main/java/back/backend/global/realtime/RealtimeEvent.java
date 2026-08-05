@@ -48,4 +48,16 @@ public record RealtimeEvent(
                 Instant.now()
         );
     }
+
+    public static RealtimeEvent tripMembers(Long tripId, Long memberId) {
+        return new RealtimeEvent(
+                UUID.randomUUID().toString(),
+                "TRIP_MEMBERS_CHANGED",
+                tripId,
+                "TRIP_MEMBER",
+                memberId,
+                Set.of(),
+                Instant.now()
+        );
+    }
 }

@@ -86,6 +86,10 @@ export async function fetchTripMembers(id: number) {
     return response.data
 }
 
+export async function markTripPresence(id: number) {
+    await apiClient.post<ApiResponse<void>>(`/api/trips/${id}/presence`, null)
+}
+
 export async function createTrip(request: TripRequest) {
     const response = await apiClient.post<ApiResponse<TripResponse>>(
         '/api/trips',
