@@ -201,9 +201,6 @@ export function PlaceCard({
             )}
 
             <div className="mt-3 border-t border-slate-100 pt-2">
-                <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-300">
-                    협업 의견
-                </p>
                 <div className="flex flex-wrap items-center gap-2">
                     {voteOpen && (
                         <div className="flex w-full items-center gap-2">
