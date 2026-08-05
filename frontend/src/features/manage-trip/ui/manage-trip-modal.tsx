@@ -14,6 +14,7 @@ import {
     DestinationAutocomplete,
     type DestinationResult,
 } from './destination-autocomplete'
+import { MAX_TRAVEL_STYLE_COUNT } from '../model/travel-style-policy'
 
 const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'ACTIVITY', label: '액티비티' },
@@ -47,16 +48,22 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
     const [busy, setBusy] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
     function toggleStyle(style: TravelStyle) {
-        setStyles((current) =>
-            current.includes(style)
-                ? current.filter((item) => item !== style)
-                : [...current, style],
-        )
+        setStyles((current) => {
+            if (current.includes(style)) {
+                return current.filter((item) => item !== style)
+            }
+            if (current.length >= MAX_TRAVEL_STYLE_COUNT) return current
+            return [...current, style]
+        })
     }
 
     function validateForm(): boolean {
         if (!title.trim()) {
             setError('여행방 이름을 입력해 주세요.')
+            return false
+        }
+        if (styles.length > MAX_TRAVEL_STYLE_COUNT) {
+            setError(`여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`)
             return false
         }
         if ((startDate && !endDate) || (!startDate && endDate)) {
@@ -232,7 +239,8 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                         </label>
                         <fieldset className="mt-3.5">
                             <legend className="text-sm font-bold">
-                                여행 스타일
+                                여행 스타일{' '}
+                                <span className="font-normal text-slate-400">(최대 3개)</span>
                             </legend>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {STYLES.map((style) => (
@@ -240,7 +248,11 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                         key={style.value}
                                         type="button"
                                         onClick={() => toggleStyle(style.value)}
-                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold ${styles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
+                                        disabled={
+                                            styles.length >= MAX_TRAVEL_STYLE_COUNT &&
+                                            !styles.includes(style.value)
+                                        }
+                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40 ${styles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
                                     >
                                         {style.label}
                                     </button>

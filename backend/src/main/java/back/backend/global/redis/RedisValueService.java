@@ -30,6 +30,11 @@ public class RedisValueService {
         return Optional.ofNullable(redisTemplate.opsForValue().get(key));
     }
 
+    public Optional<String> getAndDelete(String key) {
+        validateKey(key);
+        return Optional.ofNullable(redisTemplate.opsForValue().getAndDelete(key));
+    }
+
     public boolean delete(String key) {
         validateKey(key);
         return Boolean.TRUE.equals(redisTemplate.delete(key));

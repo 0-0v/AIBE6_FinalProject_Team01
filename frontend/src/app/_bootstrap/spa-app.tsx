@@ -21,6 +21,7 @@ import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom, ScheduleKanbanPage } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
 import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
+import { TripEmailInvitationPage } from '@/views/trip-email-invitation'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { getJwtExpirationTime } from '@/shared/lib'
@@ -218,6 +219,7 @@ export function App() {
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
+                <Route path="/trip-invite/:token" element={<TripEmailInvitationPage />} />
                 <Route path="/app/*" element={<AppShell />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

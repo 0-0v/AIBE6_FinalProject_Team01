@@ -16,6 +16,7 @@ public record TripRequest(
         @Size(max = 100, message = "여행방 이름은 100자 이하여야 합니다.")
         String title,
         CompanionType companionType,
+        @Size(max = 3, message = "여행 스타일은 최대 3개까지 선택할 수 있습니다.")
         Set<TravelStyle> travelStyles,
         @Size(max = 100, message = "여행 장소는 100자 이하여야 합니다.")
         String destination,

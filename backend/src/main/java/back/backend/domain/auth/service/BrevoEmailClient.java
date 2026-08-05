@@ -9,9 +9,13 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.mail.MailException;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -21,15 +25,25 @@ public class BrevoEmailClient {
 
     private final RestClient restClient;
     private final EmailAuthProperties properties;
+    private final JavaMailSender mailSender;
 
     @Autowired
-    public BrevoEmailClient(EmailAuthProperties properties) {
-        this(createRestClientBuilder(), properties);
+    public BrevoEmailClient(EmailAuthProperties properties, JavaMailSender mailSender) {
+        this(createRestClientBuilder(), properties, mailSender);
     }
 
     BrevoEmailClient(RestClient.Builder builder, EmailAuthProperties properties) {
+        this(builder, properties, null);
+    }
+
+    BrevoEmailClient(
+            RestClient.Builder builder,
+            EmailAuthProperties properties,
+            JavaMailSender mailSender
+    ) {
         this.restClient = builder.baseUrl(BREVO_BASE_URL).build();
         this.properties = properties;
+        this.mailSender = mailSender;
     }
 
     public void sendVerificationEmail(
@@ -63,6 +77,79 @@ public class BrevoEmailClient {
         }
     }
 
+    public void sendTripInvitationEmail(
+            String email,
+            String inviteeNickname,
+            String inviterNickname,
+            String tripTitle,
+            String invitationUrl,
+            long expirationDays
+    ) {
+        if (!StringUtils.hasText(properties.getFrom())) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
+        String html = invitationHtml(
+                inviteeNickname, inviterNickname, tripTitle, invitationUrl, expirationDays);
+        if (!StringUtils.hasText(properties.getBrevoApiKey())) {
+            sendTripInvitationWithSmtp(email, tripTitle, html);
+            return;
+        }
+        SendHtmlEmailRequest request = new SendHtmlEmailRequest(
+                new Sender("Plamingo", properties.getFrom()),
+                List.of(new Recipient(email)),
+                "[Plamingo] " + tripTitle + " 여행에 초대받았어요",
+                html
+        );
+        try {
+            restClient.post()
+                    .uri("/smtp/email")
+                    .header("api-key", properties.getBrevoApiKey())
+                    .accept(MediaType.APPLICATION_JSON)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException exception) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
+    }
+
+    private void sendTripInvitationWithSmtp(String email, String tripTitle, String html) {
+        if (mailSender == null) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
+        try {
+            var message = mailSender.createMimeMessage();
+            var helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(properties.getFrom());
+            helper.setTo(email);
+            helper.setSubject("[Plamingo] " + tripTitle + " 여행에 초대받았어요");
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (jakarta.mail.MessagingException | MailException exception) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
+    }
+
+    private String invitationHtml(String invitee, String inviter, String trip, String url, long days) {
+        return """
+                <!doctype html><html><body style="margin:0;background:#fff7f8;font-family:Arial,sans-serif;color:#213c51">
+                <div style="max-width:560px;margin:32px auto;background:#fff;border-radius:24px;overflow:hidden;border:1px solid #f8d9df">
+                  <div style="padding:28px;background:linear-gradient(135deg,#f3b8b1,#df5d76);color:#fff"><b style="font-size:24px">Plamingo</b></div>
+                  <div style="padding:32px"><h1 style="font-size:22px;margin:0 0 16px">여행 초대가 도착했어요</h1>
+                  <p style="line-height:1.7">%s님, <b>%s</b>님이 <b>%s</b> 여행에 초대했어요.</p>
+                  <a href="%s" style="display:block;margin:28px 0;padding:15px;text-align:center;background:#e7657a;color:#fff;text-decoration:none;border-radius:12px;font-weight:bold">초대받은 계정으로 참여하기</a>
+                  <p style="font-size:12px;color:#94a3b8;line-height:1.6">이 링크는 %d일 동안 한 번만 사용할 수 있습니다. 본인이 요청하지 않은 초대라면 메일을 무시해 주세요.</p></div>
+                </div></body></html>
+                """.formatted(
+                HtmlUtils.htmlEscape(invitee),
+                HtmlUtils.htmlEscape(inviter),
+                HtmlUtils.htmlEscape(trip),
+                HtmlUtils.htmlEscape(url),
+                days
+        );
+    }
+
     private void validateConfiguration() {
         if (!StringUtils.hasText(properties.getBrevoApiKey())
                 || properties.getVerificationTemplateId() == null) {
@@ -87,5 +174,16 @@ public class BrevoEmailClient {
     }
 
     private record Recipient(String email) {
+    }
+
+    private record Sender(String name, String email) {
+    }
+
+    private record SendHtmlEmailRequest(
+            Sender sender,
+            List<Recipient> to,
+            String subject,
+            String htmlContent
+    ) {
     }
 }

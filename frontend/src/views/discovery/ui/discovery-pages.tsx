@@ -1507,6 +1507,7 @@ function ItineraryCopyFlow({
                 <CreateTripModal
                     onClose={() => setCreateOpen(false)}
                     requireDates
+                    inviteAfterCreate={false}
                     onCreated={(tripId) => {
                         setCreateOpen(false)
                         void copy(tripId)

@@ -1,12 +1,17 @@
 package back.backend.domain.trip.controller;
 
 import back.backend.domain.trip.dto.TripInvitationResponse;
+import back.backend.domain.trip.dto.TripEmailInvitationRequest;
+import back.backend.domain.trip.dto.TripEmailInvitationAvailabilityResponse;
+import back.backend.domain.trip.dto.TripEmailInvitationsRequest;
+import back.backend.domain.trip.dto.TripEmailInvitationAcceptResponse;
 import back.backend.domain.trip.dto.ClaimTripInvitationRequest;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.GuestAccessGrant;
 import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.domain.trip.service.TripInvitationService;
+import back.backend.domain.trip.service.TripEmailInvitationService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,22 +34,56 @@ public class TripInvitationController {
     private final GuestTripAccessService guestTripAccessService;
     private final GuestAccessCookieProvider guestAccessCookieProvider;
     private final SecurityContextAccessor securityContextAccessor;
+    private final TripEmailInvitationService emailInvitationService;
 
     public TripInvitationController(
             TripInvitationService invitationService,
             GuestTripAccessService guestTripAccessService,
             GuestAccessCookieProvider guestAccessCookieProvider,
-            SecurityContextAccessor securityContextAccessor
+            SecurityContextAccessor securityContextAccessor,
+            TripEmailInvitationService emailInvitationService
     ) {
         this.invitationService = invitationService;
         this.guestTripAccessService = guestTripAccessService;
         this.guestAccessCookieProvider = guestAccessCookieProvider;
         this.securityContextAccessor = securityContextAccessor;
+        this.emailInvitationService = emailInvitationService;
     }
     @PostMapping("/trips/{tripId}/invitations")
     @Operation(summary = "여행방 조회 초대 링크 생성")
     public ApiResponse<TripInvitationResponse> create(@PathVariable Long tripId) {
         return ApiResponse.success(invitationService.create(securityContextAccessor.getCurrentMemberId(), tripId));
+    }
+
+    @PostMapping("/trips/{tripId}/email-invitations/validate")
+    @Operation(summary = "여행방 이메일 초대 대상 검증")
+    public ApiResponse<TripEmailInvitationAvailabilityResponse> validateEmailInvitation(
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripEmailInvitationRequest request
+    ) {
+        return ApiResponse.success(emailInvitationService.validate(
+                securityContextAccessor.getCurrentMemberId(), tripId, request.email()));
+    }
+
+    @PostMapping("/trips/{tripId}/email-invitations")
+    @Operation(summary = "등록 회원 이메일로 여행방 초대 일괄 발송")
+    public ApiResponse<Void> sendEmailInvitations(
+            @PathVariable Long tripId,
+            @Valid @RequestBody TripEmailInvitationsRequest request
+    ) {
+        emailInvitationService.sendAll(
+                securityContextAccessor.getCurrentMemberId(), tripId, request.emails());
+        return ApiResponse.successMessage("여행방 초대 메일을 발송했습니다.");
+    }
+
+    @PostMapping("/trips/email-invitations/{token}/accept")
+    @Operation(summary = "로그인 회원의 이메일 초대 수락")
+    public ApiResponse<TripEmailInvitationAcceptResponse> acceptEmailInvitation(
+            @PathVariable String token
+    ) {
+        Long tripId = emailInvitationService.accept(
+                securityContextAccessor.getCurrentMemberId(), token);
+        return ApiResponse.success(new TripEmailInvitationAcceptResponse(tripId));
     }
     @GetMapping("/trip-invitations/{inviteCode}/preview")
     @Operation(summary = "비로그인 초대 여행방 조회")
