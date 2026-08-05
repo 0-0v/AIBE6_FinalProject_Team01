@@ -1,7 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
     defaultDropAnimationSideEffects,
     DndContext,
@@ -12,7 +11,9 @@ import {
 } from '@dnd-kit/core'
 import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
+import type { TripMember } from '@/features/manage-trip'
 import { formatTimeRange } from '../lib/itinerary-time'
+import { resolveMemberNickname } from '../lib/member-lookup'
 import {
     itineraryCollisionDetection,
     UNSCHEDULED_DROP_ZONE_ID,
@@ -24,6 +25,7 @@ import {
     ItineraryBoardFeedback,
     ItineraryBoardGuide,
 } from './itinerary-board-feedback'
+import { PlaceDetailOverlay } from './place-detail-overlay'
 
 // ────────────────────────────────────────────────────────────
 // DragOverlay 드롭 애니메이션
@@ -164,24 +166,39 @@ function UnscheduledPlaceTray({ children }: { children: React.ReactNode }) {
 // ────────────────────────────────────────────────────────────
 type Props = {
     tripId: number
-    roomId?: string
     places: Place[]
     canWrite: boolean
     realtimeVersion?: number
     onDaysLoaded?: (days: ItineraryDay[]) => void
     onPlaceFocus?: (placeId: string) => void
+    hoveredPlaceId?: string | null
+    onPlaceHoverChange?: (placeId: string | null) => void
+    selectedPlaceId?: string | null
+    onPlaceDeselect?: () => void
+    onPlacePhotoResolved?: (
+        placeId: string,
+        photoUrl: string,
+        attribution: string | null,
+        attributionUrl: string | null,
+        sourceUrl: string,
+    ) => void
+    members?: TripMember[]
 }
 
 export function SchedulePanel({
     tripId,
-    roomId,
     places,
     canWrite,
     realtimeVersion = 0,
     onDaysLoaded,
     onPlaceFocus,
+    hoveredPlaceId = null,
+    onPlaceHoverChange,
+    selectedPlaceId = null,
+    onPlaceDeselect,
+    onPlacePhotoResolved,
+    members = [],
 }: Props) {
-    const navigate = useNavigate()
     const {
         days,
         setDays,
@@ -204,6 +221,42 @@ export function SchedulePanel({
         handleDragCancel,
         handleDragEnd,
     } = useItineraryBoard(tripId, places, canWrite, realtimeVersion)
+
+    // 선택된 장소의 상세 패널(오버레이)에 쓸 정보 — 지도 팝업 대신 여기서 z-index로 띄운다
+    const selectedPlace = useMemo(
+        () =>
+            selectedPlaceId != null
+                ? places.find((candidate) => candidate.id === selectedPlaceId)
+                : undefined,
+        [places, selectedPlaceId],
+    )
+    const selectedScheduleInfo = useMemo(() => {
+        let result: {
+            dayNumber: number
+            order: number
+            item: ItineraryItem
+            nextItem: ItineraryItem | null
+        } | null = null
+        if (selectedPlaceId != null) {
+            for (const day of days) {
+                const index = day.items.findIndex(
+                    (candidate) =>
+                        candidate.tripPlaceId != null &&
+                        String(candidate.tripPlaceId) === selectedPlaceId,
+                )
+                if (index !== -1) {
+                    result = {
+                        dayNumber: day.dayNumber,
+                        order: index + 1,
+                        item: day.items[index],
+                        nextItem: day.items[index + 1] ?? null,
+                    }
+                    break
+                }
+            }
+        }
+        return result
+    }, [days, selectedPlaceId])
 
     useEffect(() => {
         if (!loading) onDaysLoaded?.(days)
@@ -259,62 +312,82 @@ export function SchedulePanel({
                             {dndError}
                         </p>
                     )}
-                    {days.map((day) => (
-                        <DayColumn
-                            key={day.id}
-                            day={day}
-                            tripId={tripId}
-                            canWrite={canWrite && !saving}
-                            days={days}
-                            isDragging={isDragging}
-                            unscheduledPlaces={unscheduledPlaces}
-                            allPlaces={places}
-                            onAddPlace={(placeId) =>
-                                void addPlaceToDay(placeId, String(day.id))
-                            }
-                            onDaysChange={setDays}
-                            onItemFocus={(itemId) => {
-                                const item = day.items.find(
-                                    (candidate) =>
-                                        String(candidate.id) === itemId,
-                                )
-                                if (item?.tripPlaceId != null) {
-                                    onPlaceFocus?.(String(item.tripPlaceId))
+                    {days.map((day) => {
+                        const hoveredItem =
+                            hoveredPlaceId != null
+                                ? day.items.find(
+                                      (candidate) =>
+                                          candidate.tripPlaceId != null &&
+                                          String(candidate.tripPlaceId) ===
+                                              hoveredPlaceId,
+                                  )
+                                : undefined
+                        const selectedItem =
+                            selectedPlaceId != null
+                                ? day.items.find(
+                                      (candidate) =>
+                                          candidate.tripPlaceId != null &&
+                                          String(candidate.tripPlaceId) ===
+                                              selectedPlaceId,
+                                  )
+                                : undefined
+                        return (
+                            <DayColumn
+                                key={day.id}
+                                day={day}
+                                tripId={tripId}
+                                canWrite={canWrite && !saving}
+                                days={days}
+                                isDragging={isDragging}
+                                unscheduledPlaces={unscheduledPlaces}
+                                allPlaces={places}
+                                onAddPlace={(placeId) =>
+                                    void addPlaceToDay(
+                                        placeId,
+                                        String(day.id),
+                                    )
                                 }
-                            }}
-                        />
-                    ))}
+                                onDaysChange={setDays}
+                                onItemFocus={(itemId) => {
+                                    const item = day.items.find(
+                                        (candidate) =>
+                                            String(candidate.id) === itemId,
+                                    )
+                                    if (item?.tripPlaceId != null) {
+                                        onPlaceFocus?.(
+                                            String(item.tripPlaceId),
+                                        )
+                                    }
+                                }}
+                                hoveredItemId={
+                                    hoveredItem != null
+                                        ? String(hoveredItem.id)
+                                        : null
+                                }
+                                selectedItemId={
+                                    selectedItem != null
+                                        ? String(selectedItem.id)
+                                        : null
+                                }
+                                onItemHoverChange={(itemId) => {
+                                    if (itemId == null) {
+                                        onPlaceHoverChange?.(null)
+                                        return
+                                    }
+                                    const item = day.items.find(
+                                        (candidate) =>
+                                            String(candidate.id) === itemId,
+                                    )
+                                    onPlaceHoverChange?.(
+                                        item?.tripPlaceId != null
+                                            ? String(item.tripPlaceId)
+                                            : null,
+                                    )
+                                }}
+                            />
+                        )
+                    })}
                 </div>
-
-                {/* 칸반 플래너 진입 버튼 */}
-                {roomId && (
-                    <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-2">
-                        <button
-                            type="button"
-                            onClick={() =>
-                                navigate(`/app/room/${roomId}/schedule`)
-                            }
-                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand/30 bg-brand/5 py-2.5 text-xs font-bold text-brand transition hover:bg-brand/10"
-                        >
-                            <svg
-                                width="13"
-                                height="13"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <rect x="3" y="3" width="7" height="7" />
-                                <rect x="14" y="3" width="7" height="7" />
-                                <rect x="14" y="14" width="7" height="7" />
-                                <rect x="3" y="14" width="7" height="7" />
-                            </svg>
-                            칸반 플래너로 열기
-                        </button>
-                    </div>
-                )}
 
                 {/* 배치 대기 — 하단 고정 */}
                 <UnscheduledPlaceTray>
@@ -341,7 +414,7 @@ export function SchedulePanel({
                             모든 장소가 일정에 배치됐어요 🎉
                         </p>
                     ) : (
-                        <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+                        <div className="mp-scroll flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
                             {unscheduledPlaces.map((place) =>
                                 canWrite && !saving ? (
                                     <PlaceChip
@@ -390,6 +463,19 @@ export function SchedulePanel({
                     onUndo={() => void undoLastAction()}
                     onDismiss={clearFeedback}
                 />
+
+                {selectedPlace && onPlaceDeselect && (
+                    <PlaceDetailOverlay
+                        place={selectedPlace}
+                        scheduleInfo={selectedScheduleInfo}
+                        addedByNickname={resolveMemberNickname(
+                            members,
+                            selectedPlace.addedBy,
+                        )}
+                        onClose={onPlaceDeselect}
+                        onPlacePhotoResolved={onPlacePhotoResolved}
+                    />
+                )}
             </div>
 
             <DragOverlay dropAnimation={dropAnimation}>

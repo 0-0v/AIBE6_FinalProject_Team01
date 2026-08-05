@@ -39,7 +39,7 @@ export function ItineraryMapMarker({
 
     return (
         <div
-            className={`relative flex flex-col items-center transition-transform ${
+            className={`relative flex flex-col items-center transition-transform duration-150 ease-out ${
                 emphasized ? 'scale-110' : ''
             }`}
         >

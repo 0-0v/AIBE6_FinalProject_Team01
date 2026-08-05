@@ -7,27 +7,18 @@ import {
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
-import {
-    ClockIcon,
-    ExternalLinkIcon,
-    NavigationIcon,
-    XIcon,
-} from 'lucide-react'
 import { Place } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
 import { ItineraryRoutePolyline } from './itinerary-route-polyline'
-import { LazyPlacePhoto } from './lazy-place-photo'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
-import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
     getItineraryDayColor,
     hasMapCoordinates,
     ITINERARY_MAP_BOUNDS,
     ITINERARY_MAP_MIN_ZOOM,
 } from '../lib/itinerary-map'
-import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
 import { getPlaceDetails } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
@@ -42,7 +33,6 @@ const DEFAULT_ZOOM = 10
 const DESTINATION_FOCUS_ZOOM = 12
 const SELECTED_PLACE_FOCUS_ZOOM = 16
 const CATEGORY_BADGE_MIN_ZOOM = 10
-const SELECTED_PLACE_VIEWPORT_PADDING = 16
 
 type Props = {
     places: Place[]
@@ -50,16 +40,8 @@ type Props = {
     initialLng?: number | null
     selectedId: string | null
     focusRequestVersion?: number
-    showSelectedPlacePhoto?: boolean
     onSelect: (id: string) => void
     onDeselect: () => void
-    onPlacePhotoResolved?: (
-        placeId: string,
-        photoUrl: string,
-        attribution: string | null,
-        attributionUrl: string | null,
-        sourceUrl: string,
-    ) => void
     days?: ItineraryDay[]
     initialRouteDay?: number | null
     initialFocusedSegmentIndex?: number | null
@@ -68,6 +50,8 @@ type Props = {
     onAddFromPoi?: (result: PlaceSearchResult) => Promise<void>
     existingGooglePlaceIds?: Set<string>
     canWrite?: boolean
+    hoveredPlaceId?: string | null
+    onHoverPlace?: (placeId: string | null) => void
 }
 
 export function MapCanvas({
@@ -76,10 +60,8 @@ export function MapCanvas({
     initialLng,
     selectedId,
     focusRequestVersion = 0,
-    showSelectedPlacePhoto = false,
     onSelect,
     onDeselect,
-    onPlacePhotoResolved,
     days,
     initialRouteDay,
     initialFocusedSegmentIndex,
@@ -88,6 +70,8 @@ export function MapCanvas({
     onAddFromPoi,
     existingGooglePlaceIds,
     canWrite,
+    hoveredPlaceId,
+    onHoverPlace,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -108,10 +92,8 @@ export function MapCanvas({
             initialLng={initialLng}
             selectedId={selectedId}
             focusRequestVersion={focusRequestVersion}
-            showSelectedPlacePhoto={showSelectedPlacePhoto}
             onSelect={onSelect}
             onDeselect={onDeselect}
-            onPlacePhotoResolved={onPlacePhotoResolved}
             days={days}
             initialRouteDay={initialRouteDay}
             initialFocusedSegmentIndex={initialFocusedSegmentIndex}
@@ -120,6 +102,8 @@ export function MapCanvas({
             onAddFromPoi={onAddFromPoi}
             existingGooglePlaceIds={existingGooglePlaceIds}
             canWrite={canWrite}
+            hoveredPlaceId={hoveredPlaceId}
+            onHoverPlace={onHoverPlace}
         />
     )
 }
@@ -130,10 +114,8 @@ function GoogleMapCanvas({
     initialLng,
     selectedId,
     focusRequestVersion = 0,
-    showSelectedPlacePhoto,
     onSelect,
     onDeselect,
-    onPlacePhotoResolved,
     days,
     initialRouteDay,
     initialFocusedSegmentIndex,
@@ -142,6 +124,8 @@ function GoogleMapCanvas({
     onAddFromPoi,
     existingGooglePlaceIds,
     canWrite = false,
+    hoveredPlaceId = null,
+    onHoverPlace,
 }: Pick<
     Props,
     | 'places'
@@ -149,10 +133,8 @@ function GoogleMapCanvas({
     | 'initialLng'
     | 'selectedId'
     | 'focusRequestVersion'
-    | 'showSelectedPlacePhoto'
     | 'onSelect'
     | 'onDeselect'
-    | 'onPlacePhotoResolved'
     | 'days'
     | 'initialRouteDay'
     | 'initialFocusedSegmentIndex'
@@ -161,6 +143,8 @@ function GoogleMapCanvas({
     | 'onAddFromPoi'
     | 'existingGooglePlaceIds'
     | 'canWrite'
+    | 'hoveredPlaceId'
+    | 'onHoverPlace'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -200,6 +184,14 @@ function GoogleMapCanvas({
     const [focusedSegmentIndex, setFocusedSegmentIndex] = useState<
         number | null
     >(initialFocusedSegmentIndex ?? null)
+    const [prevSelectedIdForSegment, setPrevSelectedIdForSegment] = useState(
+        selectedId,
+    )
+    // Day 필터를 직접 클릭해서 켰을 때만("day-route") 전체 동선 보기로 카메라를 맞추고,
+    // 그 외(장소 선택 등)에는 카메라를 건드리지 않는다.
+    const [routeFocusMode, setRouteFocusMode] = useState<'day-route' | 'none'>(
+        'none',
+    )
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
 
@@ -348,6 +340,27 @@ function GoogleMapCanvas({
         return map
     }, [activeDayPoints])
 
+    // 일정 목록에서 다른 장소를 선택하는 등 마커 클릭이 아닌 경로로 selectedId가 바뀌면,
+    // 이전에 탐색하던 구간(focusedSegmentIndex)이 새 선택과 안 맞을 수 있다 —
+    // 이 경우 구간 탐색바("Day 1 · 3/3")가 엉뚱하게 남아있지 않도록 초기화한다.
+    // (selectedId가 실제로 바뀐 경우에만 검사 — 이전/다음 버튼으로 구간만 옮길 땐 selectedId가
+    // 그대로라 여기 안 걸리고, 마커 클릭은 focusedSegmentIndex도 같이 올바르게 세팅되므로 안 걸린다)
+    if (selectedId !== prevSelectedIdForSegment) {
+        setPrevSelectedIdForSegment(selectedId)
+        if (focusedSegmentIndex != null) {
+            const selectedIndex =
+                selectedId != null
+                    ? activeDayPlaceIndexMap.get(selectedId)
+                    : undefined
+            const segmentMatchesSelection =
+                selectedIndex === focusedSegmentIndex ||
+                selectedIndex === focusedSegmentIndex + 1
+            if (!segmentMatchesSelection) {
+                setFocusedSegmentIndex(null)
+            }
+        }
+    }
+
     // focusedSegmentIndex → focusedSegment ({fromPlaceId, toPlaceId})
     const focusedSegment = useMemo(() => {
         if (focusedSegmentIndex == null || activeDayPoints.length < 2)
@@ -383,15 +396,28 @@ function GoogleMapCanvas({
         if (routeOverview) {
             return visibleRoutes.flatMap((route) => route.points)
         }
-        if (activeRouteDay != null) {
+        // 장소가 선택된 상태라면 그 장소 포커싱은 MapController가 전담한다 —
+        // Day 필터가 선택에 맞춰 조용히 따라왔을 뿐이라면(routeFocusMode !== 'day-route')
+        // 여기서 전체 동선 보기로 카메라를 끌고 가지 않는다.
+        if (selectedId != null) {
+            return []
+        }
+        if (activeRouteDay != null && routeFocusMode === 'day-route') {
             return itineraryRoutes
                 .filter((route) => route.dayNumber === activeRouteDay)
                 .flatMap((route) => route.points)
         }
-        // 전체 일정: Day 1 첫 번째 장소만 → panTo + zoom 으로 확대
+        // 전체 일정 + 선택 없음: Day 1 첫 번째 장소만 → panTo + zoom 으로 확대
         const firstDayPoints = itineraryRoutes[0]?.points ?? []
         return firstDayPoints.slice(0, 1)
-    }, [activeRouteDay, itineraryRoutes, routeOverview, visibleRoutes])
+    }, [
+        activeRouteDay,
+        itineraryRoutes,
+        routeFocusMode,
+        routeOverview,
+        selectedId,
+        visibleRoutes,
+    ])
     if (!isLoaded) {
         return (
             <div className="flex h-full w-full items-center justify-center bg-slate-100">
@@ -437,6 +463,8 @@ function GoogleMapCanvas({
                             error: null,
                             saving: false,
                         })
+                        setHoveredId(null)
+                        onDeselect()
                         return
                     }
                     setHoveredId(null)
@@ -505,15 +533,28 @@ function GoogleMapCanvas({
                 )}
                 {places.map((place) => {
                     const isSelected = place.id === selectedId
-                    const isHovered = place.id === hoveredId
+                    const isSelfHovered = place.id === hoveredId
+                    // 목록에서 이 장소에 마우스를 올렸을 때도 마커를 함께 강조한다.
+                    const isHovered =
+                        isSelfHovered || place.id === hoveredPlaceId
                     const scheduled = scheduledPlaceDetailsMap.get(place.id)
                     // Day 선택 시 해당 Day 외 마커 완전히 숨김
+                    // — 단, 지금 선택했거나 목록에서 호버 중인 장소는 다른 Day(또는 미배치)여도 예외로 보여준다
                     if (
                         activeRouteDay != null &&
-                        scheduled?.dayNumber !== activeRouteDay
+                        scheduled?.dayNumber !== activeRouteDay &&
+                        place.id !== hoveredPlaceId &&
+                        place.id !== selectedId
                     ) {
                         return null
                     }
+                    // Day 필터와 다른 날짜 소속이라 예외로 보이는 마커인지 (호버로 잠깐 보일 때만 구분 표시 —
+                    // 선택된 장소는 "장소" 탭과 동일하게 필터 상태와 무관하게 항상 같은 모습으로 포커싱된다)
+                    const isDayMismatch =
+                        !isSelected &&
+                        activeRouteDay != null &&
+                        scheduled != null &&
+                        scheduled.dayNumber !== activeRouteDay
                     // 구간 집중 모드 dim
                     const isFocusModeActive = focusedSegment != null
                     const isFocusedPlace =
@@ -533,6 +574,7 @@ function GoogleMapCanvas({
                             position={{ lat: place.lat, lng: place.lng }}
                             onClick={() => {
                                 onSelect(place.id)
+                                setPoiState(null)
                                 // 현재 Day 소속 마커 클릭 → 해당 구간으로 이동
                                 if (
                                     !routeOverview &&
@@ -559,11 +601,17 @@ function GoogleMapCanvas({
                         >
                             <div
                                 className={`relative flex flex-col items-center transition-opacity ${markerOpacity}`}
-                                onMouseEnter={() => setHoveredId(place.id)}
-                                onMouseLeave={() => setHoveredId(null)}
+                                onMouseEnter={() => {
+                                    setHoveredId(place.id)
+                                    onHoverPlace?.(place.id)
+                                }}
+                                onMouseLeave={() => {
+                                    setHoveredId(null)
+                                    onHoverPlace?.(null)
+                                }}
                             >
-                                {/* 호버 인포카드 */}
-                                {isHovered && !isSelected && (
+                                {/* 호버 인포카드 — 실제로 마우스가 올라간 경우에만 표시 */}
+                                {isSelfHovered && !isSelected && (
                                     <div className="itinerary-map-card-enter pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-xl border border-slate-100 bg-white p-2.5 shadow-xl">
                                         <div className="flex items-start gap-2">
                                             <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">
@@ -606,191 +654,11 @@ function GoogleMapCanvas({
                                     selected={isSelected}
                                     hovered={isHovered}
                                     focused={isFromPlace}
-                                    outlined={outlinedPlaceIds.includes(
-                                        place.id,
-                                    )}
+                                    outlined={
+                                        isDayMismatch ||
+                                        outlinedPlaceIds.includes(place.id)
+                                    }
                                 />
-                                {isSelected && (
-                                    <div
-                                        data-selected-place-card
-                                        className="itinerary-map-card-enter absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl"
-                                    >
-                                        <button
-                                            type="button"
-                                            aria-label={`${place.name} 상세 정보 닫기`}
-                                            onClick={(event) => {
-                                                event.stopPropagation()
-                                                setHoveredId(null)
-                                                onDeselect()
-                                            }}
-                                            className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-white/95 text-slate-500 shadow-sm transition hover:bg-white hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                                        >
-                                            <XIcon size={14} aria-hidden />
-                                        </button>
-                                        {showSelectedPlacePhoto &&
-                                        place.photoSourceUrl ? (
-                                            <div className="relative bg-slate-100">
-                                                <img
-                                                    src={place.image}
-                                                    alt={place.name}
-                                                    className="h-20 w-full object-cover"
-                                                />
-                                                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-slate-950/65 px-2 py-1 text-[9px] text-white">
-                                                    <a
-                                                        href={
-                                                            place.photoAttributionUrl ??
-                                                            place.photoSourceUrl
-                                                        }
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="truncate hover:underline"
-                                                        onClick={(event) =>
-                                                            event.stopPropagation()
-                                                        }
-                                                    >
-                                                        {place.photoAttribution
-                                                            ? `사진: ${place.photoAttribution}`
-                                                            : 'Google Maps 사진'}
-                                                    </a>
-                                                    <a
-                                                        href={
-                                                            place.photoSourceUrl
-                                                        }
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex shrink-0 items-center gap-0.5 font-bold hover:underline"
-                                                        onClick={(event) =>
-                                                            event.stopPropagation()
-                                                        }
-                                                    >
-                                                        원본
-                                                        <ExternalLinkIcon
-                                                            size={9}
-                                                            aria-hidden
-                                                        />
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        ) : showSelectedPlacePhoto &&
-                                          place.googlePlaceId ? (
-                                            <LazyPlacePhoto
-                                                key={place.googlePlaceId}
-                                                placeId={place.id}
-                                                googlePlaceId={
-                                                    place.googlePlaceId
-                                                }
-                                                placeName={place.name}
-                                                onPhotoResolved={
-                                                    onPlacePhotoResolved
-                                                }
-                                            />
-                                        ) : showSelectedPlacePhoto ? (
-                                            <img
-                                                src={place.image}
-                                                alt={place.name}
-                                                className="h-20 w-full bg-slate-100 object-cover"
-                                            />
-                                        ) : null}
-                                        <div className="space-y-2 px-3 pb-3 pt-2.5">
-                                            <div>
-                                                <div className="flex items-start gap-2">
-                                                    <p className="min-w-0 flex-1 truncate text-xs font-bold text-slate-800">
-                                                        {place.name}
-                                                    </p>
-                                                    {place.categoryName && (
-                                                        <span
-                                                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    place.categoryColor +
-                                                                    '20',
-                                                                color: place.categoryColor,
-                                                            }}
-                                                        >
-                                                            {place.categoryName}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {place.address && (
-                                                    <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
-                                                        {place.address}
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            {scheduled != null && (
-                                                <div className="space-y-1.5 rounded-lg bg-slate-50 px-2.5 py-2 text-[10px]">
-                                                    <p className="font-bold text-brand">
-                                                        Day{' '}
-                                                        {scheduled.dayNumber} ·{' '}
-                                                        {scheduled.order}번째
-                                                        장소
-                                                    </p>
-                                                    <p className="flex items-center gap-1 text-slate-600">
-                                                        <ClockIcon
-                                                            size={11}
-                                                            aria-hidden
-                                                        />
-                                                        {formatTimeRange(
-                                                            scheduled.item
-                                                                .startTime,
-                                                            scheduled.item
-                                                                .endTime,
-                                                        )}
-                                                    </p>
-                                                    {scheduled.nextItem !=
-                                                        null && (
-                                                        <p className="flex items-start gap-1 text-slate-500">
-                                                            <NavigationIcon
-                                                                size={11}
-                                                                className="mt-px shrink-0"
-                                                                aria-hidden
-                                                            />
-                                                            <span className="line-clamp-2">
-                                                                다음 장소까지{' '}
-                                                                {formatTransportSummary(
-                                                                    scheduled.item,
-                                                                )}
-                                                            </span>
-                                                        </p>
-                                                    )}
-                                                    {scheduled.item.memo && (
-                                                        <p className="line-clamp-2 border-t border-slate-200 pt-1.5 text-slate-500">
-                                                            메모 ·{' '}
-                                                            {
-                                                                scheduled.item
-                                                                    .memo
-                                                            }
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            <a
-                                                href={buildGoogleMapsPlaceUrl(
-                                                    place,
-                                                )}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={(event) =>
-                                                    event.stopPropagation()
-                                                }
-                                                className="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-[10px] font-bold text-slate-600 transition hover:border-brand/30 hover:bg-brand/5 hover:text-brand"
-                                            >
-                                                Google Maps에서 최신 정보 확인
-                                                <ExternalLinkIcon
-                                                    size={10}
-                                                    aria-hidden
-                                                />
-                                            </a>
-                                            <p className="text-center text-[9px] text-slate-400">
-                                                영업시간은 방문 전에 다시 확인해
-                                                주세요.
-                                            </p>
-                                        </div>
-                                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-white" />
-                                    </div>
-                                )}
                             </div>
                         </AdvancedMarker>
                     )
@@ -809,6 +677,7 @@ function GoogleMapCanvas({
                     selectedDay={activeRouteDay}
                     onSelect={(day) => {
                         setSelectedRouteDay(day)
+                        setRouteFocusMode(day != null ? 'day-route' : 'none')
                         setFocusedSegmentIndex(day != null ? 0 : null)
                     }}
                 />
@@ -1089,7 +958,10 @@ function MapController({
         }
 
         if (places.length === 1) {
-            map.setCenter({ lat: places[0].lat, lng: places[0].lng })
+            map.setCenter({
+                lat: places[0].lat,
+                lng: places[0].lng,
+            })
             map.setZoom(14)
             return
         }
@@ -1099,51 +971,8 @@ function MapController({
 
     useEffect(() => {
         if (!map || selectedLat == null || selectedLng == null) return
-
-        let animationFrame: number | null = null
-        const idleListener = map.addListener('idle', () => {
-            idleListener.remove()
-            animationFrame = window.requestAnimationFrame(() => {
-                const mapRect = map.getDiv().getBoundingClientRect()
-                const card = map
-                    .getDiv()
-                    .querySelector<HTMLElement>('[data-selected-place-card]')
-                if (!card) return
-
-                const cardRect = card.getBoundingClientRect()
-                const minX = mapRect.left + SELECTED_PLACE_VIEWPORT_PADDING
-                const maxX = mapRect.right - SELECTED_PLACE_VIEWPORT_PADDING
-                const minY = mapRect.top + SELECTED_PLACE_VIEWPORT_PADDING
-                const maxY = mapRect.bottom - SELECTED_PLACE_VIEWPORT_PADDING
-                let contentShiftX = 0
-                let contentShiftY = 0
-
-                if (cardRect.left < minX) {
-                    contentShiftX = minX - cardRect.left
-                } else if (cardRect.right > maxX) {
-                    contentShiftX = maxX - cardRect.right
-                }
-                if (cardRect.top < minY) {
-                    contentShiftY = minY - cardRect.top
-                } else if (cardRect.bottom > maxY) {
-                    contentShiftY = maxY - cardRect.bottom
-                }
-
-                if (contentShiftX !== 0 || contentShiftY !== 0) {
-                    map.panBy(-contentShiftX, -contentShiftY)
-                }
-            })
-        })
-
         map.panTo({ lat: selectedLat, lng: selectedLng })
         map.setZoom(SELECTED_PLACE_FOCUS_ZOOM)
-
-        return () => {
-            idleListener.remove()
-            if (animationFrame != null) {
-                window.cancelAnimationFrame(animationFrame)
-            }
-        }
     }, [focusRequestVersion, map, selectedLat, selectedLng])
 
     return null

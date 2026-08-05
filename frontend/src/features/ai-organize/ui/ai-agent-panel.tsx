@@ -60,7 +60,7 @@ function RoutePlanView({
 
     return (
         <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
-            <aside className="space-y-3 overflow-y-auto">
+            <aside className="mp-scroll space-y-3 overflow-y-auto">
                 <div className="rounded-xl bg-brand-50 p-3">
                     <p className="text-xs font-semibold leading-relaxed text-brand-700">
                         {plan.summary}
@@ -98,7 +98,7 @@ function RoutePlanView({
             </aside>
 
             {selectedDay && (
-                <section className="min-w-0 overflow-y-auto rounded-2xl border border-slate-200 p-4">
+                <section className="mp-scroll min-w-0 overflow-y-auto rounded-2xl border border-slate-200 p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <div>
                             <span className="text-sm font-extrabold text-brand">
@@ -362,7 +362,7 @@ export function AiAgentPanel({
                     {options.length > 0 && !loading && !showSuccess && (
                         <div className="flex min-h-0 flex-1 flex-col gap-3">
                             {/* 경로 선택 탭 */}
-                            <div className="flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+                            <div className="mp-scroll flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
                                 {options.map((opt, i) => (
                                     <button
                                         key={i}

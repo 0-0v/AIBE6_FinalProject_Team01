@@ -274,7 +274,7 @@ export function Explore() {
 
                 <div className="mt-5 flex flex-row items-center justify-between gap-3">
                     <div
-                        className="flex min-w-0 gap-2 overflow-x-auto pb-1"
+                        className="mp-scroll flex min-w-0 gap-2 overflow-x-auto pb-1"
                         aria-label="여행 스타일 필터"
                     >
                         <button
@@ -721,7 +721,7 @@ export function ExploreDetail() {
                         </div>
 
                         <div className="mt-6 border-t border-slate-100 pt-5">
-                            <div className="flex gap-2 overflow-x-auto pb-2">
+                            <div className="mp-scroll flex gap-2 overflow-x-auto pb-2">
                                 {detail.itinerary.length > 0 && (
                                     <button
                                         type="button"
@@ -938,7 +938,7 @@ function PublicRecordDetail({
                             </span>
                         </div>
 
-                        <div className="mt-5 flex gap-2 overflow-x-auto border-b border-slate-100 pb-5">
+                        <div className="mp-scroll mt-5 flex gap-2 overflow-x-auto border-b border-slate-100 pb-5">
                             {detail.itinerary.map((day) => (
                                 <button
                                     key={day.id}

@@ -127,7 +127,7 @@ export function MapRouteFilter({ routes, selectedDay, onSelect }: Props) {
                     <div
                         role="listbox"
                         aria-label="전체 Day 목록"
-                        className="absolute left-0 top-10 z-50 max-h-64 w-40 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+                        className="mp-scroll absolute left-0 top-10 z-50 max-h-64 w-40 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
                     >
                         <button
                             type="button"

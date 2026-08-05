@@ -295,7 +295,7 @@ export function PlaceSearch({
                 {(q.trim().length >= 2 ||
                     (!searchDismissed && selectedCategory !== 'all') ||
                     activeAiRecommendations) && (
-                    <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-100">
+                    <div className="mp-scroll mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-100">
                         <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] font-semibold text-slate-500">
                             장소 정보 제공:{' '}
                             <a

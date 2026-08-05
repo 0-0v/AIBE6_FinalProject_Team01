@@ -460,7 +460,7 @@ export function ExpensePanel({
                     onClick={closeComposer}
                 >
                     <div
-                        className="relative z-[101] max-h-[calc(100%-1.5rem)] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl"
+                        className="mp-scroll relative z-[101] max-h-[calc(100%-1.5rem)] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-5 shadow-2xl"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="sticky top-0 z-20 grid grid-cols-[2rem_1fr_2rem] items-center bg-white pb-2">

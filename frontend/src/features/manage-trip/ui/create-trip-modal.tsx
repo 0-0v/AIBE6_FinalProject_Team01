@@ -134,7 +134,7 @@ export function CreateTripModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4">
             <form
                 onSubmit={submit}
-                className="max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl md:overflow-visible"
+                className="mp-scroll max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl md:overflow-visible"
             >
                 <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 md:px-6">
                     <h2 className="text-xl font-extrabold">새 여행방</h2>
