@@ -34,6 +34,12 @@ function websocketUrl() {
     )
 }
 
+function parseActiveTripId(value: string | null) {
+    if (value == null || value.trim() === '') return null
+    const tripId = Number(value)
+    return Number.isSafeInteger(tripId) && tripId > 0 ? tripId : null
+}
+
 export function RealtimeSync() {
     const handledEventIds = useRef(new Set<string>())
     const [accessTokenVersion, setAccessTokenVersion] = useState(0)
@@ -55,8 +61,8 @@ export function RealtimeSync() {
     }, [])
 
     useEffect(() => {
-        const tripId = Number(activeTripId)
-        if (!currentUser || !Number.isFinite(tripId)) return
+        const tripId = parseActiveTripId(activeTripId)
+        if (!currentUser || tripId == null) return
 
         const heartbeat = () => {
             void markTripPresence(tripId).catch(() => undefined)
@@ -68,6 +74,7 @@ export function RealtimeSync() {
 
     useEffect(() => {
         const token = getAccessToken()
+        const tripId = parseActiveTripId(activeTripId)
         if (!currentUser || !token) {
             useRealtimeStore.getState().setConnected(false)
             return
@@ -133,9 +140,9 @@ export function RealtimeSync() {
                     handleNotification,
                 )
                 client.subscribe('/topic/public-cards', handlePublicCardChange)
-                if (activeTripId) {
+                if (tripId != null) {
                     client.subscribe(
-                        `/topic/trips/${activeTripId}`,
+                        `/topic/trips/${tripId}`,
                         handleTripChange,
                     )
                 }

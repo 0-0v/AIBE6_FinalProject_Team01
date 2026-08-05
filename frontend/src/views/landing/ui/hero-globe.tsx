@@ -93,6 +93,7 @@ export function HeroGlobe() {
     useEffect(() => {
         const canvas = canvasRef.current
         if (!canvas) return
+        let disposed = false
 
         const globe = createGlobe(canvas, {
             devicePixelRatio: 2,
@@ -113,6 +114,7 @@ export function HeroGlobe() {
 
         let animationFrame: number
         const renderFrame = () => {
+            if (disposed) return
             if (!pointerRef.current.down) {
                 phiRef.current += 0.0035
             }
@@ -141,6 +143,7 @@ export function HeroGlobe() {
         animationFrame = requestAnimationFrame(renderFrame)
 
         return () => {
+            disposed = true
             cancelAnimationFrame(animationFrame)
             globe.destroy()
         }
