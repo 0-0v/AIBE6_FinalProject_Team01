@@ -9,11 +9,11 @@ import {
 } from 'lucide-react'
 import type { ItineraryItem, Place } from '@/entities/trip'
 import { CategoryIcon } from '@/entities/trip'
-import { useCurrentUserStore } from '@/shared/model'
-import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
+import { Avatar } from '@/shared/ui'
 import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
+import { useAdderDisplay } from '../model/use-adder-display'
 import { LazyPlacePhoto } from './lazy-place-photo'
 
 type ScheduleInfo = {
@@ -47,11 +47,7 @@ export function PlaceDetailOverlay({
     onPlacePhotoResolved,
 }: Props) {
     const hasPhoto = place.googlePlaceId != null || place.image != null
-    const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const isMe = place.addedBy === String(currentUser?.id)
-    const adderName =
-        addedByNickname ?? (isMe ? (currentUser?.nickname ?? '나') : '멤버')
-    const adderColor = isMe ? DEFAULT_AVATAR_COLOR : '#94a3b8'
+    const { adderName, adderColor } = useAdderDisplay(place, addedByNickname)
 
     return (
         <div className="itinerary-map-card-enter mp-scroll absolute inset-0 z-30 flex flex-col overflow-y-auto bg-white">
@@ -82,25 +78,9 @@ export function PlaceDetailOverlay({
                         <ArrowLeftIcon size={15} aria-hidden />
                     </button>
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent px-4 pb-3 pt-12">
-                        <div className="flex items-end gap-2">
-                            <h3 className="min-w-0 flex-1 text-lg font-extrabold leading-tight text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.4)]">
-                                {place.name}
-                            </h3>
-                            {place.categoryName && (
-                                <span
-                                    className="flex shrink-0 items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold backdrop-blur"
-                                    style={{ color: place.categoryColor }}
-                                >
-                                    {place.categoryIcon && (
-                                        <CategoryIcon
-                                            icon={place.categoryIcon}
-                                            size={12}
-                                        />
-                                    )}
-                                    {place.categoryName}
-                                </span>
-                            )}
-                        </div>
+                        <h3 className="text-lg font-extrabold leading-tight text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.4)]">
+                            {place.name}
+                        </h3>
                     </div>
                 </div>
             ) : (
@@ -114,39 +94,34 @@ export function PlaceDetailOverlay({
                 </button>
             )}
 
-            <div className="flex flex-1 flex-col justify-center space-y-3 px-4 py-3.5">
+            <div className="space-y-3 px-4 py-3.5">
                 <div>
                     {!hasPhoto && (
-                        <div className="flex items-start gap-2">
-                            <h3 className="min-w-0 flex-1 text-base font-extrabold text-slate-900">
-                                {place.name}
-                            </h3>
-                            {place.categoryName && (
-                                <span
-                                    className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold"
-                                    style={{
-                                        backgroundColor:
-                                            place.categoryColor + '20',
-                                        color: place.categoryColor,
-                                    }}
-                                >
-                                    {place.categoryIcon && (
-                                        <CategoryIcon
-                                            icon={place.categoryIcon}
-                                            size={12}
-                                        />
-                                    )}
-                                    {place.categoryName}
-                                </span>
+                        <h3 className="text-base font-extrabold text-slate-900">
+                            {place.name}
+                        </h3>
+                    )}
+                    {place.categoryName && (
+                        <span
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${hasPhoto ? 'mt-2' : 'mt-1.5'}`}
+                            style={{
+                                backgroundColor: place.categoryColor + '20',
+                                color: place.categoryColor,
+                            }}
+                        >
+                            {place.categoryIcon && (
+                                <CategoryIcon
+                                    icon={place.categoryIcon}
+                                    size={13}
+                                />
                             )}
-                        </div>
+                            {place.categoryName}
+                        </span>
                     )}
                     {place.address && (
-                        <p
-                            className={`flex items-start gap-1.5 text-xs leading-relaxed text-slate-500 ${hasPhoto ? '' : 'mt-2'}`}
-                        >
+                        <p className="mt-2 flex items-start gap-1.5 text-sm leading-relaxed text-slate-500">
                             <MapPinIcon
-                                size={13}
+                                size={15}
                                 className="mt-0.5 shrink-0 text-slate-400"
                                 aria-hidden
                             />
@@ -154,8 +129,8 @@ export function PlaceDetailOverlay({
                         </p>
                     )}
                     <div className="mt-2 flex items-center gap-1.5">
-                        <Avatar name={adderName} color={adderColor} size={20} />
-                        <span className="text-xs text-slate-400">
+                        <Avatar name={adderName} color={adderColor} size={22} />
+                        <span className="text-sm text-slate-500">
                             {adderName}님이 등록
                         </span>
                     </div>
