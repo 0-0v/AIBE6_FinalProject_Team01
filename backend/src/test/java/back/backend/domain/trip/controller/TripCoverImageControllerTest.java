@@ -3,6 +3,7 @@ package back.backend.domain.trip.controller;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import back.backend.domain.trip.dto.TripResponse;
@@ -10,11 +11,13 @@ import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.service.TripCoverImageService;
 import back.backend.global.security.SecurityContextAccessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Set;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -54,5 +57,30 @@ class TripCoverImageControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.coverImageUrl")
                         .value("/uploads/trip-cover-images/10/cover.png"));
+    }
+
+    @Test
+    @DisplayName("t2 기본 이미지를 선택하면 프리셋 URL로 변경된 여행방을 반환한다")
+    void t2_selectPresetCoverImageReturnsUpdatedTrip() throws Exception {
+        given(securityContextAccessor.getCurrentMemberId()).willReturn(1L);
+        given(tripCoverImageService.updateWithPreset(eq(1L), eq(10L), eq("PRESET_2")))
+                .willReturn(new TripResponse(
+                        10L, 1L, "후쿠오카", null, Set.of(), "후쿠오카",
+                        null, null,
+                        "https://plamingo.example.com/assets/trip-covers/trip-cover-02.jpg",
+                        2L, TripStatus.PLANNING, TripVisibility.PRIVATE, false, null, null,
+                        "09:00", "21:00", "NORMAL"
+                ));
+
+        mockMvc.perform(post("/api/trips/10/cover-image/preset")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new ObjectMapper().writeValueAsString(
+                                new PresetRequestBody("PRESET_2"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.coverImageUrl")
+                        .value("https://plamingo.example.com/assets/trip-covers/trip-cover-02.jpg"));
+    }
+
+    private record PresetRequestBody(String presetKey) {
     }
 }

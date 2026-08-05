@@ -3,10 +3,12 @@ import { XIcon } from 'lucide-react'
 import { errorMessage } from '@/shared/lib'
 import {
     createTrip,
+    setTripCoverImagePreset,
     uploadTripCoverImage,
     type TravelStyle,
 } from '../api/trip-api'
-import { TripCoverImageField } from './trip-cover-image-field'
+import { pickRandomTripCoverPreset } from '../model/trip-cover-presets'
+import { TripCoverImageField, type TripCoverMode } from './trip-cover-image-field'
 import {
     DestinationAutocomplete,
     type DestinationResult,
@@ -43,6 +45,10 @@ export function CreateTripModal({
     const [endDate, setEndDate] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [coverMode, setCoverMode] = useState<TripCoverMode>('preset')
+    const [coverPreset, setCoverPreset] = useState(() =>
+        pickRandomTripCoverPreset(),
+    )
     const [coverImage, setCoverImage] = useState<File | null>(null)
     const [createdTripId, setCreatedTripId] = useState<number | null>(null)
     function toggleStyle(style: TravelStyle) {
@@ -72,6 +78,10 @@ export function CreateTripModal({
             setError('종료일은 시작일보다 빠를 수 없습니다.')
             return
         }
+        if (coverMode === 'upload' && !coverImage) {
+            setError('이미지를 선택하거나 기본 이미지를 사용해 주세요.')
+            return
+        }
         setIsSubmitting(true)
         setError(null)
         try {
@@ -95,8 +105,10 @@ export function CreateTripModal({
                     })
                 ).id
             setCreatedTripId(tripId)
-            if (coverImage) {
+            if (coverMode === 'upload' && coverImage) {
                 await uploadTripCoverImage(tripId, coverImage)
+            } else {
+                await setTripCoverImagePreset(tripId, coverPreset.key)
             }
             onCreated(tripId)
         } catch (caught) {
@@ -127,6 +139,14 @@ export function CreateTripModal({
                 <div className="grid md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                     <div className="bg-slate-50 p-5 md:rounded-bl-3xl md:p-6">
                         <TripCoverImageField
+                            mode={coverMode}
+                            onModeChange={setCoverMode}
+                            presetUrl={coverPreset.url}
+                            onReroll={() =>
+                                setCoverPreset((current) =>
+                                    pickRandomTripCoverPreset(current.key),
+                                )
+                            }
                             file={coverImage}
                             disabled={isSubmitting}
                             compact

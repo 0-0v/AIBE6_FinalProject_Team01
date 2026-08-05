@@ -147,6 +147,14 @@ export async function uploadTripCoverImage(id: number, file: File) {
     return response.data
 }
 
+export async function setTripCoverImagePreset(id: number, presetKey: string) {
+    const response = await apiClient.post<ApiResponse<TripResponse>>(
+        `/api/trips/${id}/cover-image/preset`,
+        { presetKey },
+    )
+    return response.data
+}
+
 export async function deleteTrip(id: number) {
     await apiClient.delete<ApiResponse<null>>(`/api/trips/${id}`)
 }
