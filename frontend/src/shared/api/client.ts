@@ -31,13 +31,18 @@ export type ApiResponse<T> = {
 // Refresh Token은 httpOnly 쿠키로만 존재하고 JS에서 읽을 수 없다 (XSS 방어).
 // Access Token은 메모리에만 두고 localStorage에 저장하지 않는다.
 let accessToken: string | null = null
+export const ACCESS_TOKEN_CHANGED_EVENT = 'plamingo:access-token-changed'
 
 export function getAccessToken(): string | null {
     return accessToken
 }
 
 export function setAccessToken(token: string | null) {
+    if (accessToken === token) return
     accessToken = token
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(ACCESS_TOKEN_CHANGED_EVENT))
+    }
 }
 
 // 서버가 재발급마다 Refresh Token을 rotation하므로, 동시에 여러 요청이 401을 받아도

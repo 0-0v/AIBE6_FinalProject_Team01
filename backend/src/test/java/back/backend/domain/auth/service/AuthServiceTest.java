@@ -300,4 +300,5 @@ class AuthServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("이미 사용 중인 닉네임입니다.");
     }
+
 }

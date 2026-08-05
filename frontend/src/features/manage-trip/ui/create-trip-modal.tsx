@@ -11,6 +11,8 @@ import {
     DestinationAutocomplete,
     type DestinationResult,
 } from './destination-autocomplete'
+import { TripEmailInvitationStep } from './trip-email-invitation-step'
+import { MAX_TRAVEL_STYLE_COUNT } from '../model/travel-style-policy'
 
 const STYLES: { value: TravelStyle; label: string }[] = [
     { value: 'ACTIVITY', label: '액티비티' },
@@ -27,12 +29,14 @@ type Props = {
     onClose: () => void
     onCreated: (tripId: number) => void
     requireDates?: boolean
+    inviteAfterCreate?: boolean
 }
 
 export function CreateTripModal({
     onClose,
     onCreated,
     requireDates = false,
+    inviteAfterCreate = true,
 }: Props) {
     const [title, setTitle] = useState('')
     const [travelStyles, setTravelStyles] = useState<TravelStyle[]>([])
@@ -45,12 +49,15 @@ export function CreateTripModal({
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [coverImage, setCoverImage] = useState<File | null>(null)
     const [createdTripId, setCreatedTripId] = useState<number | null>(null)
+    const [showInvitationStep, setShowInvitationStep] = useState(false)
     function toggleStyle(style: TravelStyle) {
-        setTravelStyles((current) =>
-            current.includes(style)
-                ? current.filter((item) => item !== style)
-                : [...current, style],
-        )
+        setTravelStyles((current) => {
+            if (current.includes(style)) {
+                return current.filter((item) => item !== style)
+            }
+            if (current.length >= MAX_TRAVEL_STYLE_COUNT) return current
+            return [...current, style]
+        })
     }
 
     async function submit(event: FormEvent) {
@@ -58,6 +65,10 @@ export function CreateTripModal({
         const normalizedTitle = title.trim()
         if (!normalizedTitle) {
             setError('여행방 이름을 입력해 주세요.')
+            return
+        }
+        if (travelStyles.length > MAX_TRAVEL_STYLE_COUNT) {
+            setError(`여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`)
             return
         }
         if ((startDate && !endDate) || (!startDate && endDate)) {
@@ -98,12 +109,25 @@ export function CreateTripModal({
             if (coverImage) {
                 await uploadTripCoverImage(tripId, coverImage)
             }
-            onCreated(tripId)
+            if (inviteAfterCreate) {
+                setShowInvitationStep(true)
+            } else {
+                onCreated(tripId)
+            }
         } catch (caught) {
             setError(errorMessage(caught, '여행방을 생성하지 못했습니다.'))
         } finally {
             setIsSubmitting(false)
         }
+    }
+
+    if (showInvitationStep && createdTripId != null) {
+        return (
+            <TripEmailInvitationStep
+                tripId={createdTripId}
+                onComplete={() => onCreated(createdTripId)}
+            />
+        )
     }
 
     return (
@@ -150,7 +174,8 @@ export function CreateTripModal({
 
                         <fieldset className="mt-3.5">
                             <legend className="text-sm font-bold">
-                                여행 스타일
+                                여행 스타일{' '}
+                                <span className="font-normal text-slate-400">(최대 3개)</span>
                             </legend>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {STYLES.map((style) => (
@@ -158,7 +183,11 @@ export function CreateTripModal({
                                         key={style.value}
                                         type="button"
                                         onClick={() => toggleStyle(style.value)}
-                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
+                                        disabled={
+                                            travelStyles.length >= MAX_TRAVEL_STYLE_COUNT &&
+                                            !travelStyles.includes(style.value)
+                                        }
+                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40 ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
                                     >
                                         {style.label}
                                     </button>

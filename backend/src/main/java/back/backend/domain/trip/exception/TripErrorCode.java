@@ -17,6 +17,14 @@ public enum TripErrorCode implements ErrorCode {
     TRIP_CARD_ALREADY_EXISTS(HttpStatus.CONFLICT, "TRIP_CARD_409", "이미 여행 카드가 생성되었습니다."),
     TRIP_CARD_NOT_FOUND(HttpStatus.NOT_FOUND, "TRIP_CARD_404", "여행 카드를 찾을 수 없습니다."),
     INVITATION_NOT_FOUND(HttpStatus.NOT_FOUND, "TRIP_INVITATION_404", "유효한 초대 링크를 찾을 수 없습니다."),
+    INVITEE_NOT_FOUND(HttpStatus.NOT_FOUND, "TRIP_INVITEE_404", "가입된 회원 이메일을 찾을 수 없습니다."),
+    INVITEE_ALREADY_MEMBER(HttpStatus.CONFLICT, "TRIP_INVITEE_409", "이미 여행방에 참여한 회원입니다."),
+    EMAIL_INVITATION_INVALID(HttpStatus.NOT_FOUND, "TRIP_EMAIL_INVITATION_404", "초대 링크가 만료되었거나 이미 사용되었습니다."),
+    EMAIL_INVITATION_ACCOUNT_MISMATCH(
+            HttpStatus.FORBIDDEN,
+            "TRIP_EMAIL_INVITATION_403",
+            "초대받은 이메일 계정으로 로그인해 주세요."
+    ),
     GUEST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "TRIP_GUEST_403", "게스트 여행방 조회 권한이 없습니다."),
     INVALID_DATE_AVAILABILITY(
             HttpStatus.BAD_REQUEST,

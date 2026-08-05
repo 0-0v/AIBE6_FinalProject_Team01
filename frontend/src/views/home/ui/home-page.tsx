@@ -749,7 +749,7 @@ export function Home() {
                                                     </p>
                                                 </div>
                                                 <div className="mt-1 grid grid-cols-[auto_minmax(90px,1fr)_auto] items-center gap-3">
-                                                    <strong className="block font-['Inter'] text-5xl font-black tracking-[-0.04em] text-[#EEEEEE]">
+                                                    <strong className="block whitespace-nowrap font-['Inter'] text-[clamp(2.25rem,2.4vw,3rem)] font-black tracking-[-0.04em] text-[#EEEEEE]">
                                                         {getOriginCode(
                                                             activeTrip,
                                                         )}
@@ -770,7 +770,7 @@ export function Home() {
                                                         {isDestinationSet(
                                                             activeTrip.location,
                                                         ) ? (
-                                                            <strong className="block font-['Inter'] text-5xl font-black tracking-[-0.04em] text-[#EEEEEE]">
+                                                            <strong className="block whitespace-nowrap font-['Inter'] text-[clamp(2.25rem,2.4vw,3rem)] font-black tracking-[-0.04em] text-[#EEEEEE]">
                                                                 {getTicketDestinationCode(
                                                                     activeTrip,
                                                                 )}
@@ -1899,9 +1899,12 @@ export function Home() {
             {createTripOpen && (
                 <CreateTripModal
                     onClose={() => setCreateTripOpen(false)}
-                    onCreated={() => {
+                    onCreated={async (tripId) => {
                         setCreateTripOpen(false)
-                        void loadTrips()
+                        await loadTrips()
+                        const roomId = String(tripId)
+                        selectTrip(roomId)
+                        navigate(`/app/room/${roomId}`)
                     }}
                 />
             )}
