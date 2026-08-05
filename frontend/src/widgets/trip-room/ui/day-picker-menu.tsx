@@ -37,7 +37,7 @@ export function DayPickerMenu({
                 <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                     Day 선택
                 </p>
-                <div className="max-h-44 overflow-y-auto">
+                <div className="mp-scroll max-h-44 overflow-y-auto">
                     {days.map((day) => (
                         <button
                             key={day.id}
