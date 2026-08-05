@@ -33,6 +33,9 @@ const DEFAULT_ZOOM = 10
 const DESTINATION_FOCUS_ZOOM = 12
 const SELECTED_PLACE_FOCUS_ZOOM = 16
 const CATEGORY_BADGE_MIN_ZOOM = 10
+const MARKER_SIMPLIFY_MIN_ZOOM = 12
+// 숙소·교통 거점은 지도를 축소해도 여행의 '기준점' 역할을 하도록 항상 원래 마커로 유지한다.
+const ANCHOR_CATEGORY_ICONS = new Set(['HOTEL', 'PLANE'])
 
 type Props = {
     places: Place[]
@@ -52,6 +55,7 @@ type Props = {
     canWrite?: boolean
     hoveredPlaceId?: string | null
     onHoverPlace?: (placeId: string | null) => void
+    onRouteDayChange?: (dayNumber: number | null) => void
 }
 
 export function MapCanvas({
@@ -72,6 +76,7 @@ export function MapCanvas({
     canWrite,
     hoveredPlaceId,
     onHoverPlace,
+    onRouteDayChange,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -104,6 +109,7 @@ export function MapCanvas({
             canWrite={canWrite}
             hoveredPlaceId={hoveredPlaceId}
             onHoverPlace={onHoverPlace}
+            onRouteDayChange={onRouteDayChange}
         />
     )
 }
@@ -126,6 +132,7 @@ function GoogleMapCanvas({
     canWrite = false,
     hoveredPlaceId = null,
     onHoverPlace,
+    onRouteDayChange,
 }: Pick<
     Props,
     | 'places'
@@ -145,6 +152,7 @@ function GoogleMapCanvas({
     | 'canWrite'
     | 'hoveredPlaceId'
     | 'onHoverPlace'
+    | 'onRouteDayChange'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -193,6 +201,7 @@ function GoogleMapCanvas({
         'none',
     )
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
+    const [simplifyMarkers, setSimplifyMarkers] = useState(false)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
 
     useEffect(() => {
@@ -278,6 +287,10 @@ function GoogleMapCanvas({
         }
         return map
     }, [days])
+    const selectedNextItem =
+        selectedId == null
+            ? null
+            : (scheduledPlaceDetailsMap.get(selectedId)?.nextItem ?? null)
 
     // 확정 여부와 관계없이 일정에 배치된 Day의 경로 목록
     const itineraryRoutes = useMemo(() => {
@@ -363,13 +376,28 @@ function GoogleMapCanvas({
 
     // focusedSegmentIndex → focusedSegment ({fromPlaceId, toPlaceId})
     const focusedSegment = useMemo(() => {
-        if (focusedSegmentIndex == null || activeDayPoints.length < 2)
-            return null
+        if (focusedSegmentIndex == null || activeDayPoints.length < 2) {
+            // Day 필터로 구간 탐색 중이 아니어도, 장소를 직접 선택했다면
+            // 그 장소 → 다음 장소 구간을 대시보드와 동일하게 보여준다.
+            if (selectedId == null) return null
+            const scheduled = scheduledPlaceDetailsMap.get(selectedId)
+            const nextTripPlaceId = scheduled?.nextItem?.tripPlaceId
+            if (nextTripPlaceId == null) return null
+            return {
+                fromPlaceId: selectedId,
+                toPlaceId: nextTripPlaceId,
+            }
+        }
         const from = activeDayPoints[focusedSegmentIndex]
         const to = activeDayPoints[focusedSegmentIndex + 1]
         if (!from?.tripPlaceId || !to?.tripPlaceId) return null
         return { fromPlaceId: from.tripPlaceId, toPlaceId: to.tripPlaceId }
-    }, [focusedSegmentIndex, activeDayPoints])
+    }, [
+        focusedSegmentIndex,
+        activeDayPoints,
+        selectedId,
+        scheduledPlaceDetailsMap,
+    ])
 
     // 집중 구간의 두 장소 ID (마커 dim용)
     const focusedPlaceIds = useMemo(
@@ -407,9 +435,8 @@ function GoogleMapCanvas({
                 .filter((route) => route.dayNumber === activeRouteDay)
                 .flatMap((route) => route.points)
         }
-        // 전체 일정 + 선택 없음: Day 1 첫 번째 장소만 → panTo + zoom 으로 확대
-        const firstDayPoints = itineraryRoutes[0]?.points ?? []
-        return firstDayPoints.slice(0, 1)
+        // 전체 일정 + 선택 없음: 모든 날짜의 장소가 한 화면에 컴팩하게 들어오도록 맞춘다.
+        return visibleRoutes.flatMap((route) => route.points)
     }, [
         activeRouteDay,
         itineraryRoutes,
@@ -449,6 +476,11 @@ function GoogleMapCanvas({
                     setShowCategoryBadges((current) =>
                         current === shouldShow ? current : shouldShow,
                     )
+                    const shouldSimplify =
+                        event.detail.zoom < MARKER_SIMPLIFY_MIN_ZOOM
+                    setSimplifyMarkers((current) =>
+                        current === shouldSimplify ? current : shouldSimplify,
+                    )
                 }}
                 onClick={(event) => {
                     const clickedPlaceId = event.detail.placeId
@@ -478,6 +510,18 @@ function GoogleMapCanvas({
                     initialLat={initialLat}
                     initialLng={initialLng}
                     selectedId={selectedId}
+                    selectedNextLat={
+                        selectedNextItem != null &&
+                        hasMapCoordinates(selectedNextItem)
+                            ? selectedNextItem.lat
+                            : null
+                    }
+                    selectedNextLng={
+                        selectedNextItem != null &&
+                        hasMapCoordinates(selectedNextItem)
+                            ? selectedNextItem.lng
+                            : null
+                    }
                     autoFitPlaces={!routeOverview}
                     focusRequestVersion={focusRequestVersion}
                 />
@@ -568,6 +612,9 @@ function GoogleMapCanvas({
                         !isFocusedPlace
                             ? 'opacity-20'
                             : 'opacity-100'
+                    const isAnchor =
+                        place.categoryIcon != null &&
+                        ANCHOR_CATEGORY_ICONS.has(place.categoryIcon)
                     return (
                         <AdvancedMarker
                             key={place.id}
@@ -658,6 +705,10 @@ function GoogleMapCanvas({
                                         isDayMismatch ||
                                         outlinedPlaceIds.includes(place.id)
                                     }
+                                    simplified={
+                                        simplifyMarkers && !isAnchor
+                                    }
+                                    anchor={isAnchor}
                                 />
                             </div>
                         </AdvancedMarker>
@@ -676,9 +727,13 @@ function GoogleMapCanvas({
                     routes={itineraryRoutes}
                     selectedDay={activeRouteDay}
                     onSelect={(day) => {
+                        // 날짜를 고르면 특정 구간이 아니라 그 날짜 전체가 컴팩하게 보여야 하므로,
+                        // 이전에 남아있던 장소 선택/구간 탐색 상태를 먼저 정리한다.
+                        onDeselect()
                         setSelectedRouteDay(day)
                         setRouteFocusMode(day != null ? 'day-route' : 'none')
-                        setFocusedSegmentIndex(day != null ? 0 : null)
+                        setFocusedSegmentIndex(null)
+                        onRouteDayChange?.(day)
                     }}
                 />
             )}
@@ -800,6 +855,15 @@ function RouteLayer({
                                             : 'dimmed'
                                         : 'normal'
                                 }
+                                animated={
+                                    isFocusMode
+                                        ? isFocusedSeg
+                                        : hoveredSegment === segmentId
+                                }
+                                visible={
+                                    isFocusMode ||
+                                    hoveredSegment === segmentId
+                                }
                             />
                             <AdvancedMarker
                                 position={midpoint}
@@ -919,6 +983,8 @@ function MapController({
     initialLat,
     initialLng,
     selectedId,
+    selectedNextLat = null,
+    selectedNextLng = null,
     autoFitPlaces,
     focusRequestVersion,
 }: {
@@ -926,6 +992,8 @@ function MapController({
     initialLat?: number | null
     initialLng?: number | null
     selectedId: string | null
+    selectedNextLat?: number | null
+    selectedNextLng?: number | null
     autoFitPlaces: boolean
     focusRequestVersion: number
 }) {
@@ -934,6 +1002,17 @@ function MapController({
     const selectedPlace = places.find((place) => place.id === selectedId)
     const selectedLat = selectedPlace?.lat
     const selectedLng = selectedPlace?.lng
+    // 다음 장소 좌표는 일정 데이터가 백그라운드에서 재계산될 때마다 잠깐 null이
+    // 됐다가 다시 채워질 수 있다 — 이걸 effect 의존성에 그대로 넣으면 사용자가
+    // 지도를 자유롭게 둘러보는 중에도 선택된 장소로 카메라가 튀어버린다.
+    // ref로만 최신값을 들고 있고, 실제 포커싱은 focusRequestVersion(명시적 선택)에만 반응한다.
+    const secondaryPointRef = useRef({
+        lat: selectedNextLat,
+        lng: selectedNextLng,
+    })
+    useEffect(() => {
+        secondaryPointRef.current = { lat: selectedNextLat, lng: selectedNextLng }
+    })
     const placesKey = places
         .map((place) => `${place.id}:${place.lat},${place.lng}`)
         .join('|')
@@ -971,6 +1050,21 @@ function MapController({
 
     useEffect(() => {
         if (!map || selectedLat == null || selectedLng == null) return
+
+        const secondary = secondaryPointRef.current
+        if (secondary.lat != null && secondary.lng != null) {
+            // 선택한 장소와 다음 장소가 함께 화면에 들어오도록 컴팩하게 맞춘다.
+            fitBoundsToPoints(
+                map,
+                [
+                    { lat: selectedLat, lng: selectedLng },
+                    { lat: secondary.lat, lng: secondary.lng },
+                ],
+                80,
+            )
+            return
+        }
+
         map.panTo({ lat: selectedLat, lng: selectedLng })
         map.setZoom(SELECTED_PLACE_FOCUS_ZOOM)
     }, [focusRequestVersion, map, selectedLat, selectedLng])
