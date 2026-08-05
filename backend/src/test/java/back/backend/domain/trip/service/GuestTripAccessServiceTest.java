@@ -32,6 +32,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
+import back.backend.global.realtime.RealtimeEvent;
 
 @ExtendWith(MockitoExtension.class)
 class GuestTripAccessServiceTest {
@@ -41,6 +43,7 @@ class GuestTripAccessServiceTest {
     @Mock GuestSessionRepository guestSessionRepository;
     @Mock TripGuestMemberRepository tripGuestMemberRepository;
     @Mock TripMemberRepository tripMemberRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     private GuestTripAccessService service;
     private final GuestTokenHasher tokenHasher = new GuestTokenHasher();
@@ -48,7 +51,7 @@ class GuestTripAccessServiceTest {
     @BeforeEach
     void setUp() {
         service = new GuestTripAccessService(invitationRepository, tripRepository, guestSessionRepository,
-                tripGuestMemberRepository, tripMemberRepository, tokenHasher);
+                tripGuestMemberRepository, tripMemberRepository, tokenHasher, eventPublisher);
     }
 
     @Test
@@ -193,6 +196,7 @@ class GuestTripAccessServiceTest {
         assertThat(memberCaptor.getValue().getTripId()).isEqualTo(10L);
         assertThat(memberCaptor.getValue().getMemberId()).isEqualTo(2L);
         assertThat(memberCaptor.getValue().getRole().name()).isEqualTo("VIEWER");
+        verify(eventPublisher).publishEvent(any(RealtimeEvent.class));
     }
 
     private GuestSession guestSession() {

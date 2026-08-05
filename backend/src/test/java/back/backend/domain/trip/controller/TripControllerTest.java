@@ -49,6 +49,15 @@ class TripControllerTest {
     @MockitoBean TripCompletionConfirmationService tripCompletionConfirmationService;
 
     @Test
+    @DisplayName("t10 여행방 접속 상태를 갱신하면 성공 응답을 반환한다")
+    void t10_markPresentReturnsSuccessResponse() throws Exception {
+        mockMvc.perform(post("/api/trips/{tripId}/presence", 10L))
+                .andExpect(status().isOk());
+
+        verify(tripService).markPresent(10L);
+    }
+
+    @Test
     @DisplayName("t1 인증 회원이 여행방을 생성하면 201 응답을 반환한다")
     void t1_createTripReturnsCreatedResponse() throws Exception {
         when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);

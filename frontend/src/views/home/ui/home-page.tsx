@@ -160,8 +160,13 @@ export function Home() {
         tripId: number | null
         month: Date
     }>(() => ({ tripId: null, month: startOfMonth(new Date()) }))
-    const defaultCalendarMonth = activeTripData?.startDate
-        ? startOfMonth(parseLocalDate(activeTripData.startDate))
+    const defaultDashboardDate = getDefaultDashboardDate(
+        activeTripData?.startDate,
+        activeTripData?.endDate,
+        todayDateKey,
+    )
+    const defaultCalendarMonth = defaultDashboardDate
+        ? startOfMonth(parseLocalDate(defaultDashboardDate))
         : startOfMonth(new Date())
     const calendarMonth =
         calendarCursor.tripId === (activeTripData?.id ?? null)
@@ -279,10 +284,21 @@ export function Home() {
 
     useEffect(() => {
         Promise.resolve().then(() => {
-            setSelectedDate(activeTripData?.startDate ?? null)
+            setSelectedDate(
+                getDefaultDashboardDate(
+                    activeTripData?.startDate,
+                    activeTripData?.endDate,
+                    todayDateKey,
+                ),
+            )
             setFocusedItemId(null)
         })
-    }, [activeTripData?.id, activeTripData?.startDate])
+    }, [
+        activeTripData?.endDate,
+        activeTripData?.id,
+        activeTripData?.startDate,
+        todayDateKey,
+    ])
 
     useEffect(() => {
         if (!currentUser || !activeTrip.apiTripId) {
@@ -696,7 +712,13 @@ export function Home() {
                                                     </p>
                                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-300 px-2.5 py-1 text-[10px] font-black text-[#213C51]">
                                                         <span className="h-1.5 w-1.5 rounded-full bg-[#213C51]" />
-                                                        {activeTrip.status}
+                                                        {getTripStatusLabel(
+                                                            activeTripData?.startDate,
+                                                            activeTripData?.endDate,
+                                                            activeTripData?.status,
+                                                            todayDateKey,
+                                                            activeTrip.status,
+                                                        )}
                                                     </span>
                                                 </div>
                                                 <button
@@ -1976,6 +1998,34 @@ function getTripCountdownLabel(
             86_400_000,
     )
     return remainingDays === 0 ? 'D-DAY' : `D-${remainingDays}`
+}
+
+function getDefaultDashboardDate(
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+    todayDateKey: string,
+) {
+    if (!startDate) return null
+    if (endDate && todayDateKey >= startDate && todayDateKey <= endDate) {
+        return todayDateKey
+    }
+    return startDate
+}
+
+function getTripStatusLabel(
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+    status: string | null | undefined,
+    todayDateKey: string,
+    fallback: string,
+) {
+    if (status === 'COMPLETED' || (endDate && todayDateKey > endDate)) {
+        return '완료'
+    }
+    if (startDate && endDate && todayDateKey >= startDate && todayDateKey <= endDate) {
+        return '여행 중'
+    }
+    return fallback
 }
 
 function createDashboardTasks({

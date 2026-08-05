@@ -11,6 +11,7 @@ export {
     createTripInvitation,
     claimGuestTripAccess,
     fetchTripMembers,
+    markTripPresence,
 } from './api/trip-api'
 export type {
     CompanionType,

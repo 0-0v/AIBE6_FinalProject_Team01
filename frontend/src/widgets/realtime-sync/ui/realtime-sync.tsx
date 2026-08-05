@@ -8,7 +8,7 @@ import {
 } from '@stomp/stompjs'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
-import { useTripStore } from '@/features/manage-trip'
+import { markTripPresence, useTripStore } from '@/features/manage-trip'
 import { BASE_URL, getAccessToken } from '@/shared/api/client'
 import { useCurrentUserStore, useRealtimeStore } from '@/shared/model'
 
@@ -34,6 +34,18 @@ export function RealtimeSync() {
     const handledEventIds = useRef(new Set<string>())
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const activeTripId = useTripStore((state) => state.activeTripId)
+
+    useEffect(() => {
+        const tripId = Number(activeTripId)
+        if (!currentUser || !Number.isFinite(tripId)) return
+
+        const heartbeat = () => {
+            void markTripPresence(tripId).catch(() => undefined)
+        }
+        heartbeat()
+        const intervalId = window.setInterval(heartbeat, 25_000)
+        return () => window.clearInterval(intervalId)
+    }, [activeTripId, currentUser])
 
     useEffect(() => {
         const token = getAccessToken()

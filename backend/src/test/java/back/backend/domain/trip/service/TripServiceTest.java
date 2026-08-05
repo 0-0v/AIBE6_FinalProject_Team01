@@ -44,6 +44,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.context.ApplicationEventPublisher;
+import back.backend.global.realtime.RealtimeEvent;
 
 @ExtendWith(MockitoExtension.class)
 class TripServiceTest {
@@ -57,6 +59,7 @@ class TripServiceTest {
     @Mock TripAccessChecker tripAccessChecker;
     @Mock ItineraryDayRepository itineraryDayRepository;
     @Mock TravelRecordRepository travelRecordRepository;
+    @Mock ApplicationEventPublisher eventPublisher;
     private TripService tripService;
     private final Clock clock = Clock.fixed(
             Instant.parse("2026-07-31T00:00:00Z"),
@@ -68,7 +71,7 @@ class TripServiceTest {
         tripService = new TripService(tripRepository, tripMemberRepository, memberRepository,
                 activityLogService, notificationService, planCardRepository,
                 tripPresenceService, tripAccessChecker, itineraryDayRepository,
-                travelRecordRepository, clock);
+                travelRecordRepository, clock, eventPublisher);
     }
 
     @Test
@@ -354,6 +357,17 @@ class TripServiceTest {
 
         assertThat(itineraryDay.getItineraryDate()).isEqualTo(LocalDate.of(2026, 7, 2));
         assertThat(travelRecord.getVisitedAt()).isEqualTo(LocalDateTime.of(2026, 7, 2, 14, 30));
+    }
+
+    @Test
+    @DisplayName("t16 여행방 멤버가 접속 상태를 갱신하면 온라인 시각과 실시간 이벤트를 기록한다")
+    void t16_markPresentTouchesPresenceAndPublishesRealtimeEvent() {
+        when(tripAccessChecker.requireView(10L)).thenReturn(2L);
+
+        tripService.markPresent(10L);
+
+        verify(tripPresenceService).touch(10L, 2L);
+        verify(eventPublisher).publishEvent(any(RealtimeEvent.class));
     }
 
     private Trip trip(String title) {
