@@ -242,7 +242,7 @@ export function Explore() {
     return (
         <div className="min-h-full bg-[#f8fafb] px-4 py-6 sm:px-7 sm:py-8 lg:px-9">
             <div className="mx-auto max-w-[1500px]">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-row items-center justify-between gap-5">
                     <PageHeader
                         eyebrow="DISCOVER"
                         title="둘러보기"
@@ -272,7 +272,7 @@ export function Explore() {
                     </form>
                 </div>
 
-                <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="mt-5 flex flex-row items-center justify-between gap-3">
                     <div
                         className="flex min-w-0 gap-2 overflow-x-auto pb-1"
                         aria-label="여행 스타일 필터"
@@ -358,7 +358,7 @@ export function Explore() {
                     </div>
                 )}
 
-                <div className="mt-5 grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+                <div className="mt-5 grid auto-rows-fr grid-cols-3 gap-5">
                     {data?.content.map((card) => (
                         <TravelCard
                             key={card.id}

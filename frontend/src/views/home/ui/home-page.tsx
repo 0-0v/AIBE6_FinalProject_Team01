@@ -404,10 +404,10 @@ export function Home() {
     }
 
     return (
-        <div className="min-h-full bg-[#f9fafb] px-4 py-5 sm:px-7 sm:py-7 xl:px-8">
-            <header className="mx-auto grid max-w-[1440px] items-center gap-4 px-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-h-full bg-[#f9fafb] px-8 py-7">
+            <header className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)_320px] items-center gap-4 px-1">
                 <div className="min-w-0">
-                    <h1 className="text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-[30px]">
+                    <h1 className="text-[30px] font-extrabold tracking-[-0.05em] text-slate-950">
                         안녕하세요, {currentUser?.nickname ?? '여행자'}님
                     </h1>
                     <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
@@ -429,7 +429,7 @@ export function Home() {
                                 }
                                 className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-xl bg-[#fdeef1] px-3 py-1.5 text-left transition hover:bg-[#f2647c] hover:shadow-[0_10px_24px_rgba(242,100,124,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <span className="min-w-0 break-keep text-xl font-extrabold tracking-[-0.02em] text-[#c94c63] transition-colors group-hover:text-white sm:text-2xl">
+                                <span className="min-w-0 break-keep text-2xl font-extrabold tracking-[-0.02em] text-[#c94c63] transition-colors group-hover:text-white">
                                     {rooms.length > 0
                                         ? activeTrip.location
                                         : '아직 미정'}
@@ -486,10 +486,10 @@ export function Home() {
                         </span>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 sm:gap-5 xl:justify-end">
+                <div className="flex items-center justify-end gap-5">
                     <button
                         onClick={() => setCreateTripOpen(true)}
-                        className="flamingo-gradient flamingo-glow hidden items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 sm:flex"
+                        className="flamingo-gradient flamingo-glow flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
                     >
                         <PlusIcon size={16} /> 새 여행방
                     </button>
@@ -507,10 +507,10 @@ export function Home() {
 
             {view === 'list' ? (
                 <div className="mx-auto mt-6 max-w-[1440px] space-y-5 px-1">
-                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-5">
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
                         <TravelRooms embedded compact />
                     </section>
-                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:p-5">
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
                         <SectionTitle
                             title="북마크한 여행 카드"
                             action={
@@ -544,7 +544,7 @@ export function Home() {
                             </div>
                         ) : (
                             <>
-                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                <div className="grid grid-cols-4 gap-4">
                                     {visibleBookmarkedCards.map((card) => (
                                         <article
                                             key={card.id}
@@ -690,9 +690,9 @@ export function Home() {
                 </div>
             ) : (
                 <>
-                    <main className="mx-auto mt-6 grid max-w-[1440px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                    <main className="mx-auto mt-6 grid max-w-[1440px] grid-cols-[minmax(0,1fr)_320px] gap-4">
                         <div className="min-w-0 space-y-4">
-                            <div className="grid items-start gap-4 lg:h-[300px] lg:grid-cols-[minmax(0,1fr)_290px] lg:items-stretch">
+                            <div className="grid h-[300px] grid-cols-[minmax(0,1fr)_290px] items-stretch gap-4">
                                 {editable(
                                     'travel',
                                     '여행 현황',
@@ -700,11 +700,11 @@ export function Home() {
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.32 }}
-                                        className="relative h-auto overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] shadow-[0_12px_30px_rgba(15,23,42,0.12)] lg:h-full"
+                                        className="relative h-full overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
                                     >
-                                        <span className="absolute right-[60px] top-0 z-10 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f9fafb] sm:right-[80px]" />
-                                        <span className="absolute right-[60px] bottom-0 z-10 h-6 w-6 translate-y-1/2 rounded-full bg-[#f9fafb] sm:right-[80px]" />
-                                        <div className="relative flex h-full flex-col pb-6 pr-[72px] sm:pr-[92px]">
+                                        <span className="absolute right-[80px] top-0 z-10 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f9fafb]" />
+                                        <span className="absolute right-[80px] bottom-0 z-10 h-6 w-6 translate-y-1/2 rounded-full bg-[#f9fafb]" />
+                                        <div className="relative flex h-full flex-col pb-6 pr-[92px]">
                                             <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-6">
                                                 <div className="flex items-center gap-3">
                                                     <p className="font-['Inter'] text-xs font-bold uppercase tracking-[0.24em] text-[#9bbbd1]">
@@ -749,7 +749,7 @@ export function Home() {
                                                     </p>
                                                 </div>
                                                 <div className="mt-1 grid grid-cols-[auto_minmax(90px,1fr)_auto] items-center gap-3">
-                                                    <strong className="block font-['Inter'] text-4xl font-black tracking-[-0.04em] text-[#EEEEEE] sm:text-5xl">
+                                                    <strong className="block font-['Inter'] text-5xl font-black tracking-[-0.04em] text-[#EEEEEE]">
                                                         {getOriginCode(
                                                             activeTrip,
                                                         )}
@@ -770,13 +770,13 @@ export function Home() {
                                                         {isDestinationSet(
                                                             activeTrip.location,
                                                         ) ? (
-                                                            <strong className="block font-['Inter'] text-4xl font-black tracking-[-0.04em] text-[#EEEEEE] sm:text-5xl">
+                                                            <strong className="block font-['Inter'] text-5xl font-black tracking-[-0.04em] text-[#EEEEEE]">
                                                                 {getTicketDestinationCode(
                                                                     activeTrip,
                                                                 )}
                                                             </strong>
                                                         ) : (
-                                                            <strong className="inline-flex rounded-xl border-2 border-dashed border-[#6f93ad]/70 px-3 py-1 font-['Inter'] text-3xl font-black tracking-[0.08em] text-[#9bbbd1] sm:text-4xl">
+                                                            <strong className="inline-flex rounded-xl border-2 border-dashed border-[#6f93ad]/70 px-3 py-1 font-['Inter'] text-4xl font-black tracking-[0.08em] text-[#9bbbd1]">
                                                                 ???
                                                             </strong>
                                                         )}
@@ -784,7 +784,7 @@ export function Home() {
                                                 </div>
                                             </div>
 
-                                            <div className="mx-6 mt-auto grid gap-4 border-t border-dashed border-[#6f93ad]/55 pt-4 sm:grid-cols-[0.9fr_1.25fr] sm:items-end">
+                                            <div className="mx-6 mt-auto grid grid-cols-[0.9fr_1.25fr] items-end gap-4 border-t border-dashed border-[#6f93ad]/55 pt-4">
                                                 <div>
                                                     <p className="font-['Inter'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#9bbbd1]">
                                                         Traveler
@@ -831,25 +831,25 @@ export function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="absolute bottom-0 right-0 top-0 flex w-[72px] flex-col items-center justify-between border-l-2 border-dashed border-[#6f93ad]/65 py-7 sm:w-[92px]">
+                                            <div className="absolute bottom-0 right-0 top-0 flex w-[92px] flex-col items-center justify-between border-l-2 border-dashed border-[#6f93ad]/65 py-7">
                                                 <span className="font-['Inter'] text-[9px] font-bold uppercase tracking-[0.2em] text-[#9bbbd1] [writing-mode:vertical-rl]">
                                                     Departure
                                                 </span>
-                                                <strong className="font-['Inter'] text-2xl font-black text-[#F2647C] [writing-mode:vertical-rl] sm:text-3xl">
+                                                <strong className="font-['Inter'] text-3xl font-black text-[#F2647C] [writing-mode:vertical-rl]">
                                                     {tripCountdownLabel}
                                                 </strong>
                                                 <span aria-hidden="true" />
                                             </div>
                                         </div>
                                     </motion.section>,
-                                    'overflow-hidden rounded-[22px] lg:h-full',
+                                    'h-full overflow-hidden rounded-[22px]',
                                 )}
 
                                 {editable(
                                     'tasks',
                                     '투표 대기',
                                     <section
-                                        className={`flex h-[300px] min-h-0 flex-col overflow-hidden rounded-[22px] border p-5 shadow-[0_12px_30px_rgba(15,23,42,0.07)] transition-colors duration-500 lg:h-full ${
+                                        className={`flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border p-5 shadow-[0_12px_30px_rgba(15,23,42,0.07)] transition-colors duration-500 ${
                                             visibleInsightSlide === 0
                                                 ? 'border-rose-200 bg-[#fff7f8]'
                                                 : 'border-slate-200 bg-white'
@@ -1248,11 +1248,11 @@ export function Home() {
                                             </div>
                                         )}
                                     </section>,
-                                    'h-[300px] min-h-0 overflow-hidden rounded-[22px] lg:h-full',
+                                    'h-full min-h-0 overflow-hidden rounded-[22px]',
                                 )}
                             </div>
 
-                            <section className="flex flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)] xl:h-[560px]">
+                            <section className="flex h-[560px] flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)]">
                                 <div className="flex items-center justify-between px-6 py-5">
                                     <div>
                                         <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#d84f68]">
@@ -1519,7 +1519,7 @@ export function Home() {
                                         </button>
                                     }
                                 />
-                                <div className="grid gap-4 sm:grid-cols-3">
+                                <div className="grid grid-cols-3 gap-4">
                                     {rooms.length === 0 && (
                                         <button
                                             onClick={() =>
@@ -1682,7 +1682,7 @@ export function Home() {
                                         </div>
                                     </div>
                                 </section>,
-                                'overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)] xl:h-[360px]',
+                                'h-[360px] overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)]',
                             )}
                             {editable(
                                 'schedule',
@@ -1827,7 +1827,7 @@ export function Home() {
                                         </>
                                     )}
                                 </section>,
-                                'min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)] xl:h-[560px]',
+                                'h-[560px] min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)]',
                             )}
                             <div className="hidden">
                                 {editable(
