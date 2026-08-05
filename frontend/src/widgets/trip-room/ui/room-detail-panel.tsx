@@ -36,6 +36,7 @@ import type {
 } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { globalModal } from '@/shared/model'
+import { resolveMemberNickname } from '../lib/member-lookup'
 import { UNSAVED_DATE_MODAL_COPY } from '../lib/unsaved-date-modal-copy'
 import { ActivityLogPanel } from './activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
@@ -709,13 +710,10 @@ export function RoomDetailPanel({
                                 <PlaceCard
                                     key={place.id}
                                     place={place}
-                                    addedByNickname={
-                                        members.find(
-                                            (member) =>
-                                                member.memberId ===
-                                                Number(place.addedBy),
-                                        )?.nickname
-                                    }
+                                    addedByNickname={resolveMemberNickname(
+                                        members,
+                                        place.addedBy,
+                                    )}
                                     selected={selectedId === place.id}
                                     canWrite={canPlanWrite}
                                     onSelect={() => onSelectPlace(place.id)}
@@ -761,13 +759,10 @@ export function RoomDetailPanel({
                     {selectedPlaceForOverlay && onDeselectPlace && (
                         <PlaceDetailOverlay
                             place={selectedPlaceForOverlay}
-                            addedByNickname={
-                                members.find(
-                                    (member) =>
-                                        member.memberId ===
-                                        Number(selectedPlaceForOverlay.addedBy),
-                                )?.nickname
-                            }
+                            addedByNickname={resolveMemberNickname(
+                                members,
+                                selectedPlaceForOverlay.addedBy,
+                            )}
                             onClose={onDeselectPlace}
                             onPlacePhotoResolved={onPlacePhotoResolved}
                         />

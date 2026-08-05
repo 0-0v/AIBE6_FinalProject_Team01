@@ -7,8 +7,8 @@ import {
     Trash2Icon,
 } from 'lucide-react'
 import { CategoryIcon, Place, type PlaceCategoryInfo } from '@/entities/trip'
-import { useCurrentUserStore } from '@/shared/model'
-import { Avatar, DEFAULT_AVATAR_COLOR, Select } from '@/shared/ui'
+import { Avatar, Select } from '@/shared/ui'
+import { useAdderDisplay } from '../model/use-adder-display'
 
 type Props = {
     place: Place
@@ -46,11 +46,7 @@ export function PlaceCard({
         }
     }, [selected])
 
-    const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const isMe = place.addedBy === String(currentUser?.id)
-    const adderName =
-        addedByNickname ?? (isMe ? (currentUser?.nickname ?? '나') : '멤버')
-    const adderColor = isMe ? DEFAULT_AVATAR_COLOR : '#94a3b8'
+    const { adderName, adderColor } = useAdderDisplay(place, addedByNickname)
     const vote = place.voteSummary
     const upVotes = vote?.agreeCount ?? 0
     const downVotes = vote?.disagreeCount ?? 0

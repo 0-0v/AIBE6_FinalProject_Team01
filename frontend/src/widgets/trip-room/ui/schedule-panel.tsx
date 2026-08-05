@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
     defaultDropAnimationSideEffects,
     DndContext,
@@ -13,6 +13,7 @@ import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
 import type { TripMember } from '@/features/manage-trip'
 import { formatTimeRange } from '../lib/itinerary-time'
+import { resolveMemberNickname } from '../lib/member-lookup'
 import {
     itineraryCollisionDetection,
     UNSCHEDULED_DROP_ZONE_ID,
@@ -221,6 +222,42 @@ export function SchedulePanel({
         handleDragEnd,
     } = useItineraryBoard(tripId, places, canWrite, realtimeVersion)
 
+    // 선택된 장소의 상세 패널(오버레이)에 쓸 정보 — 지도 팝업 대신 여기서 z-index로 띄운다
+    const selectedPlace = useMemo(
+        () =>
+            selectedPlaceId != null
+                ? places.find((candidate) => candidate.id === selectedPlaceId)
+                : undefined,
+        [places, selectedPlaceId],
+    )
+    const selectedScheduleInfo = useMemo(() => {
+        let result: {
+            dayNumber: number
+            order: number
+            item: ItineraryItem
+            nextItem: ItineraryItem | null
+        } | null = null
+        if (selectedPlaceId != null) {
+            for (const day of days) {
+                const index = day.items.findIndex(
+                    (candidate) =>
+                        candidate.tripPlaceId != null &&
+                        String(candidate.tripPlaceId) === selectedPlaceId,
+                )
+                if (index !== -1) {
+                    result = {
+                        dayNumber: day.dayNumber,
+                        order: index + 1,
+                        item: day.items[index],
+                        nextItem: day.items[index + 1] ?? null,
+                    }
+                    break
+                }
+            }
+        }
+        return result
+    }, [days, selectedPlaceId])
+
     useEffect(() => {
         if (!loading) onDaysLoaded?.(days)
     }, [days, loading, onDaysLoaded])
@@ -250,38 +287,6 @@ export function SchedulePanel({
                 여행 날짜를 먼저 확정해주세요.
             </div>
         )
-    }
-
-    // 선택된 장소의 상세 패널(오버레이)에 쓸 정보 — 지도 팝업 대신 여기서 z-index로 띄운다
-    const selectedPlace =
-        selectedPlaceId != null
-            ? places.find((candidate) => candidate.id === selectedPlaceId)
-            : undefined
-    let selectedScheduleInfo:
-        | {
-              dayNumber: number
-              order: number
-              item: ItineraryItem
-              nextItem: ItineraryItem | null
-          }
-        | null = null
-    if (selectedPlaceId != null) {
-        for (const day of days) {
-            const index = day.items.findIndex(
-                (candidate) =>
-                    candidate.tripPlaceId != null &&
-                    String(candidate.tripPlaceId) === selectedPlaceId,
-            )
-            if (index !== -1) {
-                selectedScheduleInfo = {
-                    dayNumber: day.dayNumber,
-                    order: index + 1,
-                    item: day.items[index],
-                    nextItem: day.items[index + 1] ?? null,
-                }
-                break
-            }
-        }
     }
 
     return (
@@ -463,13 +468,10 @@ export function SchedulePanel({
                     <PlaceDetailOverlay
                         place={selectedPlace}
                         scheduleInfo={selectedScheduleInfo}
-                        addedByNickname={
-                            members.find(
-                                (member) =>
-                                    member.memberId ===
-                                    Number(selectedPlace.addedBy),
-                            )?.nickname
-                        }
+                        addedByNickname={resolveMemberNickname(
+                            members,
+                            selectedPlace.addedBy,
+                        )}
                         onClose={onPlaceDeselect}
                         onPlacePhotoResolved={onPlacePhotoResolved}
                     />
