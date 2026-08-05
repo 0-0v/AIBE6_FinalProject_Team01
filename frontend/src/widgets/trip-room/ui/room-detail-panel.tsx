@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import {
     ChevronRightIcon,
     HistoryIcon,
@@ -42,6 +43,7 @@ import { useNotificationStore } from '@/features/manage-notification'
 import { DateVotePanel } from './date-vote-panel'
 import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
+import { PlaceDetailOverlay } from './place-detail-overlay'
 import { RoomHeader } from './room-header'
 import type { PlaceCommentResponse } from '@/entities/trip'
 
@@ -129,6 +131,7 @@ type Props = {
     places: Place[]
     selectedId: string | null
     onSelectPlace: (id: string) => void
+    onDeselectPlace?: () => void
     onBack: () => void
     onManage: () => void
     onVisibilityManage: () => void
@@ -151,6 +154,15 @@ type Props = {
     aiPlaceRecommendations?: AiPlaceSearchRecommendation[] | null
     mapCollapsed?: boolean
     onToggleMap?: () => void
+    hoveredPlaceId?: string | null
+    onHoverPlace?: (placeId: string | null) => void
+    onPlacePhotoResolved?: (
+        placeId: string,
+        photoUrl: string,
+        attribution: string | null,
+        attributionUrl: string | null,
+        sourceUrl: string,
+    ) => void
 }
 
 export function RoomDetailPanel({
@@ -158,6 +170,7 @@ export function RoomDetailPanel({
     places,
     selectedId,
     onSelectPlace,
+    onDeselectPlace,
     onBack,
     onManage,
     onVisibilityManage,
@@ -180,7 +193,11 @@ export function RoomDetailPanel({
     aiPlaceRecommendations,
     mapCollapsed = false,
     onToggleMap,
+    hoveredPlaceId = null,
+    onHoverPlace,
+    onPlacePhotoResolved,
 }: Props) {
+    const navigate = useNavigate()
     const [planTab, setPlanTab] = useState<PlanTab>('places')
     const [placeVoteFilter, setPlaceVoteFilter] =
         useState<PlaceVoteFilter>('all')
@@ -442,6 +459,11 @@ export function RoomDetailPanel({
         }
     }
 
+    const selectedPlaceForOverlay =
+        selectedId != null
+            ? places.find((place) => place.id === selectedId)
+            : undefined
+
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
             {(() => {
@@ -536,6 +558,7 @@ export function RoomDetailPanel({
                                     key={item.key}
                                     onClick={() => {
                                         if (active) return
+                                        onDeselectPlace?.()
                                         requestDiscardDateChanges(() => {
                                             setPlanTab(
                                                 item.key === 'schedule' &&
@@ -562,7 +585,7 @@ export function RoomDetailPanel({
             </div>
 
             {planTab !== 'places' && (
-                <div className="border-b border-slate-100 px-6 py-2.5">
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-2.5">
                     <nav
                         className="flex items-center gap-2"
                         aria-label="일정 준비 단계"
@@ -597,11 +620,37 @@ export function RoomDetailPanel({
                             일정
                         </button>
                     </nav>
+                    {planTab === 'schedule' && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                navigate(`/app/room/${room.id}/schedule`)
+                            }
+                            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/5 px-2.5 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand/10"
+                        >
+                            <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <rect x="3" y="3" width="7" height="7" />
+                                <rect x="14" y="3" width="7" height="7" />
+                                <rect x="14" y="14" width="7" height="7" />
+                                <rect x="3" y="14" width="7" height="7" />
+                            </svg>
+                            칸반 플래너로 열기
+                        </button>
+                    )}
                 </div>
             )}
 
             {planTab === 'places' && (
-                <>
+                <div className="relative flex min-h-0 flex-1 flex-col">
                     <div className="border-b border-slate-100">
                         {canPlanWrite && (
                             <PlaceSearch
@@ -709,7 +758,21 @@ export function RoomDetailPanel({
                             ))
                         )}
                     </div>
-                </>
+                    {selectedPlaceForOverlay && onDeselectPlace && (
+                        <PlaceDetailOverlay
+                            place={selectedPlaceForOverlay}
+                            addedByNickname={
+                                members.find(
+                                    (member) =>
+                                        member.memberId ===
+                                        Number(selectedPlaceForOverlay.addedBy),
+                                )?.nickname
+                            }
+                            onClose={onDeselectPlace}
+                            onPlacePhotoResolved={onPlacePhotoResolved}
+                        />
+                    )}
+                </div>
             )}
             {planTab === 'itinerary' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
@@ -719,6 +782,7 @@ export function RoomDetailPanel({
                         onDirtyChange={setDateAvailabilityDirty}
                         onCollaborationChanged={refreshCollaborationData}
                         onTripDatesChanged={() => {
+                            onDeselectPlace?.()
                             void Promise.resolve(onTripDatesChanged?.()).then(
                                 () => setPlanTab('schedule'),
                             )
@@ -732,12 +796,17 @@ export function RoomDetailPanel({
                     <SchedulePanel
                         key={`schedule-${itineraryVersion}`}
                         tripId={tripId}
-                        roomId={room.id}
                         places={places}
                         canWrite={canPlanWrite}
                         realtimeVersion={realtimeVersion}
                         onDaysLoaded={onItineraryDaysLoaded}
                         onPlaceFocus={onSelectPlace}
+                        hoveredPlaceId={hoveredPlaceId}
+                        onPlaceHoverChange={onHoverPlace}
+                        onPlacePhotoResolved={onPlacePhotoResolved}
+                        onPlaceDeselect={onDeselectPlace}
+                        selectedPlaceId={selectedId}
+                        members={members}
                     />
                 </div>
             )}

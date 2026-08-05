@@ -24,7 +24,13 @@ type Props = {
         attributionUrl: string | null,
         sourceUrl: string,
     ) => void
-    variant?: 'map' | 'card'
+    variant?: 'map' | 'card' | 'panel'
+}
+
+function sizeClassName(variant: 'map' | 'card' | 'panel'): string {
+    if (variant === 'card') return 'h-16 w-16'
+    if (variant === 'panel') return 'h-48 w-full'
+    return 'h-20 w-full'
 }
 
 export function LazyPlacePhoto({
@@ -106,12 +112,10 @@ export function LazyPlacePhoto({
     if (failed) {
         return (
             <div
-                className={`flex flex-col items-center justify-center gap-1 bg-slate-100 text-slate-400 ${
-                    variant === 'card' ? 'h-16 w-16' : 'h-20 w-full text-[10px]'
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 bg-slate-100 text-slate-400 ${sizeClassName(variant)} ${variant !== 'card' ? 'text-[10px]' : ''}`}
             >
                 <ImageOffIcon size={variant === 'card' ? 16 : 18} aria-hidden />
-                {variant === 'map' && (
+                {variant !== 'card' && (
                     <span>장소 사진을 불러오지 못했어요</span>
                 )}
             </div>
@@ -121,9 +125,7 @@ export function LazyPlacePhoto({
     if (!googlePhotoUrl) {
         return (
             <div
-                className={`animate-pulse bg-slate-200 ${
-                    variant === 'card' ? 'h-16 w-16' : 'h-20 w-full'
-                }`}
+                className={`animate-pulse bg-slate-200 ${sizeClassName(variant)}`}
                 role="status"
                 aria-label={`${placeName} 사진 불러오는 중`}
             />
@@ -135,11 +137,7 @@ export function LazyPlacePhoto({
             <img
                 src={googlePhotoUrl}
                 alt={placeName}
-                className={
-                    variant === 'card'
-                        ? 'h-16 w-16 object-cover'
-                        : 'h-20 w-full object-cover'
-                }
+                className={`${sizeClassName(variant)} object-cover`}
                 onError={() => setFailed(true)}
             />
             {metadata?.googleMapsUri && (
