@@ -102,6 +102,26 @@ function resolvePlaceSearchCenter(room: Room, places: Place[]) {
     }
 }
 type PlanTab = 'places' | 'itinerary' | 'schedule'
+type PlaceVoteFilter = 'all' | 'confirmed' | 'rejected' | 'pending'
+
+const PLACE_VOTE_FILTERS: { value: PlaceVoteFilter; label: string }[] = [
+    { value: 'all', label: '전체' },
+    { value: 'confirmed', label: '투표 종료 · 확정' },
+    { value: 'rejected', label: '투표 종료 · 탈락' },
+    { value: 'pending', label: '진행 중 · 투표 전' },
+]
+
+function matchesPlaceVoteFilter(place: Place, filter: PlaceVoteFilter) {
+    const vote = place.voteSummary
+    if (filter === 'confirmed') {
+        return vote?.status === 'CLOSED' && place.status === 'saved'
+    }
+    if (filter === 'rejected') {
+        return vote?.status === 'CLOSED' && place.status === 'rejected'
+    }
+    if (filter === 'pending') return !vote || vote.status === 'OPEN'
+    return true
+}
 export type TripRoomWorkspace = PlanTab
 
 type Props = {
@@ -162,6 +182,8 @@ export function RoomDetailPanel({
     onToggleMap,
 }: Props) {
     const [planTab, setPlanTab] = useState<PlanTab>('places')
+    const [placeVoteFilter, setPlaceVoteFilter] =
+        useState<PlaceVoteFilter>('all')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
@@ -190,6 +212,13 @@ export function RoomDetailPanel({
     const placeSearchCenter = useMemo(
         () => resolvePlaceSearchCenter(room, places),
         [room, places],
+    )
+    const filteredPlaces = useMemo(
+        () =>
+            places.filter((place) =>
+                matchesPlaceVoteFilter(place, placeVoteFilter),
+            ),
+        [placeVoteFilter, places],
     )
 
     const activeWorkspace: TripRoomWorkspace = planTab
@@ -284,11 +313,6 @@ export function RoomDetailPanel({
             () => startTripPlaceVote(tripId, Number(id)),
             '투표 신청에 실패했습니다.',
         )
-        if (voteSummary.placeStatus === 'REJECTED') {
-            onDeletePlace(id)
-            refreshCollaborationData()
-            return
-        }
         onUpdatePlace(id, (place) => ({
             ...place,
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
@@ -366,11 +390,6 @@ export function RoomDetailPanel({
                 ),
             '투표 응답에 실패했습니다.',
         )
-        if (voteSummary.placeStatus === 'REJECTED') {
-            onDeletePlace(id)
-            refreshCollaborationData()
-            return
-        }
         onUpdatePlace(id, (place) => ({
             ...place,
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
@@ -608,14 +627,36 @@ export function RoomDetailPanel({
                                 {placeError ?? categoryError ?? loadError}
                             </p>
                         )}
+                        <div className="flex flex-wrap gap-1.5 px-4 pb-3 pt-2">
+                            {PLACE_VOTE_FILTERS.map((filter) => (
+                                <button
+                                    key={filter.value}
+                                    type="button"
+                                    onClick={() =>
+                                        setPlaceVoteFilter(filter.value)
+                                    }
+                                    className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold transition ${placeVoteFilter === filter.value ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                >
+                                    {filter.label}{' '}
+                                    {
+                                        places.filter((place) =>
+                                            matchesPlaceVoteFilter(
+                                                place,
+                                                filter.value,
+                                            ),
+                                        ).length
+                                    }
+                                </button>
+                            ))}
+                        </div>
                     </div>
                     <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2.5 overflow-y-auto px-4 py-3 @min-[760px]:grid-cols-2">
-                        {places.length === 0 ? (
+                        {filteredPlaces.length === 0 ? (
                             <p className="py-16 text-center text-sm text-slate-400">
                                 해당하는 장소가 없어요
                             </p>
                         ) : (
-                            places.map((place) => (
+                            filteredPlaces.map((place) => (
                                 <PlaceCard
                                     key={place.id}
                                     place={place}

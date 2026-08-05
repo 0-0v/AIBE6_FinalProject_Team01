@@ -145,28 +145,50 @@ export function PlaceCard({
                             </p>
                         </div>
                     </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
                     {voteOpen ? (
-                        <span className="mt-2 inline-flex rounded-full bg-orange-50 px-2 py-1 text-[10px] font-extrabold text-orange-600">
+                        <span className="inline-flex rounded-full border border-orange-200 bg-orange-100 px-2.5 py-1 text-[11px] font-extrabold text-orange-700">
                             투표 진행 중 {vote.responseCount}/
                             {vote.requiredResponseCount}명
                         </span>
+                    ) : voteClosed && place.status === 'rejected' ? (
+                        <span className="inline-flex rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-[11px] font-extrabold text-rose-700">
+                            투표 종료 · 탈락
+                        </span>
                     ) : voteClosed ? (
-                        <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-600">
-                            투표 종료 · 찬성 {agreeRate}%
+                        <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700">
+                            투표 종료 · 확정 · 찬성 {agreeRate}%
                         </span>
                     ) : place.status === 'saved' ? (
-                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
-                            <CheckIcon size={10} /> 지도에 저장됨
+                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
+                            <CheckIcon size={10} /> 투표 전
                         </span>
                     ) : place.status === 'rejected' ? (
-                        <span className="mt-2 inline-flex rounded-full bg-rose-50 px-2 py-1 text-[10px] font-extrabold text-rose-600">
+                        <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-[10px] font-extrabold text-rose-600">
                             탈락
                         </span>
                     ) : (
-                        <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
                             투표중
                         </span>
                     )}
+                    {!voteOpen && (
+                        <button
+                            disabled={!canWrite || submittingVote}
+                            onClick={(event) => {
+                                event.stopPropagation()
+                                void submitVote(onStartVote)
+                            }}
+                            className="shrink-0 rounded-md border border-orange-300 bg-orange-50 px-2 py-1 text-[10px] font-extrabold text-orange-700 transition hover:bg-orange-100 disabled:opacity-40"
+                        >
+                            {submittingVote
+                                ? '신청 중'
+                                : voteClosed
+                                  ? '다시 투표'
+                                  : '투표 시작'}
+                        </button>
+                    )}
+                    </div>
                 </div>
             </div>
 
@@ -183,23 +205,8 @@ export function PlaceCard({
                     협업 의견
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="ml-auto flex items-center gap-1.5">
-                        {!voteOpen ? (
-                            <button
-                                disabled={!canWrite || submittingVote}
-                                onClick={(event) => {
-                                    event.stopPropagation()
-                                    void submitVote(onStartVote)
-                                }}
-                                className="rounded-md bg-orange-50 px-2 py-1 text-[10px] font-bold text-orange-600 hover:bg-orange-100 disabled:opacity-40"
-                            >
-                                {submittingVote
-                                    ? '신청 중'
-                                    : voteClosed
-                                      ? '다시 투표'
-                                      : '갈래말래 신청'}
-                            </button>
-                        ) : (
+                    {voteOpen && (
+                        <div className="flex w-full items-center gap-2">
                             <>
                                 <button
                                     disabled={!canWrite || submittingVote}
@@ -207,9 +214,10 @@ export function PlaceCard({
                                         event.stopPropagation()
                                         void submitVote(() => onVote('up'))
                                     }}
-                                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition disabled:opacity-40 ${myVote === 'AGREE' ? 'bg-brand-50 text-brand-700' : 'bg-slate-50 text-slate-500 hover:bg-brand-50 hover:text-brand-700'}`}
+                                    aria-pressed={myVote === 'AGREE'}
+                                    className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-extrabold shadow-sm transition disabled:opacity-40 ${myVote === 'AGREE' ? 'border-brand bg-brand text-white' : 'border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100'}`}
                                 >
-                                    <ThumbsUpIcon size={13} /> 찬성 {upVotes}
+                                    <ThumbsUpIcon size={15} /> 찬성 {upVotes}
                                 </button>
                                 <button
                                     disabled={!canWrite || submittingVote}
@@ -217,14 +225,15 @@ export function PlaceCard({
                                         event.stopPropagation()
                                         void submitVote(() => onVote('down'))
                                     }}
-                                    className={`flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold transition disabled:opacity-40 ${myVote === 'DISAGREE' ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-500 hover:bg-rose-50 hover:text-rose-600'}`}
+                                    aria-pressed={myVote === 'DISAGREE'}
+                                    className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-extrabold shadow-sm transition disabled:opacity-40 ${myVote === 'DISAGREE' ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'}`}
                                 >
-                                    <ThumbsDownIcon size={13} /> 반대{' '}
+                                    <ThumbsDownIcon size={15} /> 반대{' '}
                                     {downVotes}
                                 </button>
                             </>
-                        )}
-                    </div>
+                        </div>
+                    )}
                     <div className="flex items-center gap-1.5">
                         <Avatar name={adderName} color={adderColor} size={20} />
                         <span className="text-[11px] text-slate-400">

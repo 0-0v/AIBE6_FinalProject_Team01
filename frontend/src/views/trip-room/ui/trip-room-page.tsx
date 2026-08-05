@@ -1,5 +1,4 @@
 import React, {
-    type CSSProperties,
     type FormEvent,
     useCallback,
     useEffect,
@@ -306,13 +305,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 const cachedComments =
                     useCommentStore.getState().commentsByPlaceId
                 setPlaces(
-                    tripPlaces
-                        .filter(
-                            (tp) =>
-                                votesByPlaceId.get(tp.tripPlaceId)
-                                    ?.placeStatus !== 'REJECTED',
-                        )
-                        .map((tp) => {
+                    tripPlaces.map((tp) => {
                             const place = fromApiToPlace(
                                 tp,
                                 activeRoomId,
@@ -364,8 +357,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     )
 
     const mapPlaces = useMemo(
-        () => displayedPlaces.filter((place) => place.status === 'saved'),
-        [displayedPlaces],
+        () =>
+            displayedPlaces.filter(
+                (place) =>
+                    place.status !== 'rejected' || place.id === selectedId,
+            ),
+        [displayedPlaces, selectedId],
     )
 
     const existingGooglePlaceIds = useMemo(
@@ -687,14 +684,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         ease: [0.22, 1, 0.36, 1],
                         delay: room ? 0.13 : 0,
                     }}
-                    className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col ${
+                    className={`@container relative flex min-h-0 shrink-0 flex-col ${
                         isRecordMode
                             ? 'w-full max-w-none flex-1 overflow-visible bg-transparent'
-                            : `overflow-hidden border border-slate-200 bg-white ${
-                                  mapCollapsed
-                                      ? ''
-                                      : 'min-w-[360px] max-w-[calc(100%-360px)] w-[var(--workspace-panel-width)] flex-none'
-                              }`
+                            : mapCollapsed
+                              ? 'w-full flex-1 overflow-hidden border border-slate-200 bg-white'
+                              : 'min-w-[360px] max-w-[calc(100%-360px)] flex-none overflow-hidden border border-slate-200 bg-white'
                     } ${
                         room && !isRecordMode
                             ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
@@ -706,11 +701,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             ? ''
                             : 'transition-[width] duration-300 ease-out'
                     }`}
-                    style={
-                        {
-                            '--workspace-panel-width': resolvedPanelWidth,
-                        } as CSSProperties
-                    }
+                    style={{
+                        width:
+                            !isRecordMode && !mapCollapsed
+                                ? resolvedPanelWidth
+                                : undefined,
+                    }}
                 >
                     {!isRecordMode && (
                         <div
