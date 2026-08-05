@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
     Client,
     ReconnectionTimeMode,
@@ -9,7 +9,11 @@ import {
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
 import { markTripPresence, useTripStore } from '@/features/manage-trip'
-import { BASE_URL, getAccessToken } from '@/shared/api/client'
+import {
+    ACCESS_TOKEN_CHANGED_EVENT,
+    BASE_URL,
+    getAccessToken,
+} from '@/shared/api/client'
 import { useCurrentUserStore, useRealtimeStore } from '@/shared/model'
 
 export const REALTIME_EVENT_NAME = 'plamingo:realtime'
@@ -32,8 +36,23 @@ function websocketUrl() {
 
 export function RealtimeSync() {
     const handledEventIds = useRef(new Set<string>())
+    const [accessTokenVersion, setAccessTokenVersion] = useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const activeTripId = useTripStore((state) => state.activeTripId)
+
+    useEffect(() => {
+        const handleAccessTokenChange = () =>
+            setAccessTokenVersion((current) => current + 1)
+        window.addEventListener(
+            ACCESS_TOKEN_CHANGED_EVENT,
+            handleAccessTokenChange,
+        )
+        return () =>
+            window.removeEventListener(
+                ACCESS_TOKEN_CHANGED_EVENT,
+                handleAccessTokenChange,
+            )
+    }, [])
 
     useEffect(() => {
         const tripId = Number(activeTripId)
@@ -45,7 +64,7 @@ export function RealtimeSync() {
         heartbeat()
         const intervalId = window.setInterval(heartbeat, 25_000)
         return () => window.clearInterval(intervalId)
-    }, [activeTripId, currentUser])
+    }, [accessTokenVersion, activeTripId, currentUser])
 
     useEffect(() => {
         const token = getAccessToken()
