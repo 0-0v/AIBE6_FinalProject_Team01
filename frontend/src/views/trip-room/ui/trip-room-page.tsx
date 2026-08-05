@@ -126,6 +126,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         setSelectedId(null)
     }, [])
     const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null)
+    const [focusDayRequest, setFocusDayRequest] = useState<{
+        dayNumber: number
+        version: number
+    } | null>(null)
     const [headerContainer, setHeaderContainer] =
         useState<HTMLDivElement | null>(null)
     const [customPanelWidth, setCustomPanelWidth] = useState<number | null>(
@@ -655,6 +659,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         onAddFromPoi={!inviteCode && canManagePlaces ? handleAddFromPoi : undefined}
                         existingGooglePlaceIds={existingGooglePlaceIds}
                         canWrite={!inviteCode && canManagePlaces}
+                        onRouteDayChange={(dayNumber) => {
+                            if (dayNumber == null) return
+                            setFocusDayRequest({
+                                dayNumber,
+                                version: Date.now(),
+                            })
+                        }}
                     />
                     {showRoomList && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/55 backdrop-blur-[3px]">
@@ -793,6 +804,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     onDeselectPlace={deselectPlace}
                                     hoveredPlaceId={hoveredPlaceId}
                                     onHoverPlace={setHoveredPlaceId}
+                                    focusDayRequest={focusDayRequest}
                                     onPlacePhotoResolved={
                                         handlePlacePhotoResolved
                                     }
