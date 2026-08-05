@@ -52,7 +52,7 @@ export function PlaceDetailOverlay({
     return (
         <div className="itinerary-map-card-enter mp-scroll absolute inset-0 z-30 flex flex-col overflow-y-auto bg-white">
             {hasPhoto ? (
-                <div className="relative shrink-0">
+                <div className="relative shrink-0 @min-[640px]:mx-auto @min-[640px]:mt-4 @min-[640px]:w-full @min-[640px]:max-w-xl @min-[640px]:overflow-hidden @min-[640px]:rounded-2xl">
                     {place.googlePlaceId ? (
                         <LazyPlacePhoto
                             key={place.googlePlaceId}
@@ -94,7 +94,7 @@ export function PlaceDetailOverlay({
                 </button>
             )}
 
-            <div className="space-y-3 px-4 py-3.5">
+            <div className="space-y-3 px-4 py-3.5 @min-[640px]:mx-auto @min-[640px]:max-w-xl">
                 <div>
                     {!hasPhoto && (
                         <h3 className="text-base font-extrabold text-slate-900">
