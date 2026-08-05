@@ -66,7 +66,7 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
             </header>
 
             <section
-                className={`${compact ? 'mt-4 gap-4 sm:grid-cols-2 xl:grid-cols-4' : 'mt-8 gap-5 md:grid-cols-2 xl:grid-cols-3'} grid`}
+                className={`${compact ? 'mt-4 grid-cols-4 gap-4' : 'mt-8 grid-cols-3 gap-5'} grid`}
             >
                 {isLoading && (
                     <p className="text-sm text-slate-400">

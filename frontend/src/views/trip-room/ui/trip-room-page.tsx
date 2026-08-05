@@ -616,8 +616,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 )}
             </AnimatePresence>
             <div
-                className={`relative flex min-h-0 flex-1 flex-col lg:flex-row ${
-                    room ? 'gap-5 p-4 sm:px-10 sm:py-5' : ''
+                className={`relative flex min-h-0 flex-1 flex-row ${
+                    room ? 'gap-5 px-10 py-5' : ''
                 }`}
             >
                 <motion.div
@@ -634,7 +634,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         room
                             ? 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]'
                             : ''
-                    } ${mapCollapsed ? 'lg:hidden' : ''}`}
+                    } ${mapCollapsed ? 'hidden' : ''}`}
                 >
                     <MapCanvas
                         key={`map-${tripId ?? 'none'}-${pendingAiAction?.routeContext?.dayId ?? 'all'}-${pendingAiAction?.routeContext?.segmentIndex ?? 'all'}`}
@@ -689,11 +689,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                     }}
                     className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col ${
                         isRecordMode
-                            ? 'overflow-visible bg-transparent lg:w-full lg:max-w-none lg:flex-1'
+                            ? 'w-full max-w-none flex-1 overflow-visible bg-transparent'
                             : `overflow-hidden border border-slate-200 bg-white ${
                                   mapCollapsed
                                       ? ''
-                                      : 'lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none'
+                                      : 'min-w-[360px] max-w-[calc(100%-360px)] w-[var(--workspace-panel-width)] flex-none'
                               }`
                     } ${
                         room && !isRecordMode
@@ -734,7 +734,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             onDoubleClick={resetActivePanelWidth}
                             onKeyDown={handlePanelResizeKeyDown}
                             title="드래그해서 패널 너비 조절 · 더블클릭해서 초기화"
-                            className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center focus:outline-none lg:flex"
+                            className="group absolute -left-3 top-0 z-20 flex h-full w-6 cursor-col-resize touch-none items-center justify-center focus:outline-none"
                         >
                             <span
                                 className={`absolute h-full transition-all duration-150 ${

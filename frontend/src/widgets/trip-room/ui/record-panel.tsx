@@ -373,7 +373,7 @@ export function RecordPanel({
                 </p>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-4 overflow-hidden">
                 <div className="mp-scroll min-h-0 overflow-y-auto rounded-[22px] bg-white shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
                     <div className="flex items-center justify-between gap-4 px-10 pt-7 pb-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -781,7 +781,7 @@ function RecordSummary({
     )
 
     return (
-        <aside className="hidden min-h-0 flex-col gap-3 overflow-hidden lg:flex">
+        <aside className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
                 <div className="flex items-center justify-between gap-2">
                     <h3 className="text-sm font-extrabold text-slate-900">
