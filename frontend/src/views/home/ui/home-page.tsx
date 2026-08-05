@@ -139,6 +139,7 @@ export function Home() {
     const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
+    const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
     const [focusedRecommendationPlaceId, setFocusedRecommendationPlaceId] =
         useState<string | null>(null)
     const [insightSlide, setInsightSlide] = useState(0)
@@ -332,14 +333,6 @@ export function Home() {
 
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
-    const selectedDayFocusedItemId =
-        selectedItineraryDay?.items.some(
-            (item) => String(item.id) === focusedItemId,
-        ) === true
-            ? focusedItemId
-            : selectedItineraryDay?.items[0] != null
-              ? String(selectedItineraryDay.items[0].id)
-              : null
     const insightSlideCount = logs.length > 0 ? 3 : 2
     const visibleInsightSlide = insightSlide % insightSlideCount
     const settlementSlideIndex = logs.length > 0 ? 2 : 1
@@ -1261,7 +1254,7 @@ export function Home() {
                                         <h2 className="mt-1 text-lg font-black text-slate-900">
                                             {selectedItineraryDay
                                                 ? `Day ${selectedItineraryDay.dayNumber} · ${selectedItineraryDay.title ?? '여행 일정'}`
-                                                : '날짜를 선택하면 지도가 표시됩니다'}
+                                                : '전체 일정'}
                                         </h2>
                                     </div>
                                     {activeTrip.apiTripId ? (
@@ -1370,19 +1363,67 @@ export function Home() {
                                         />
                                     )}
                                 </div>
-                                {selectedItineraryDay ? (
+                                {itineraryDays.length > 0 && (
+                                    <div className="flex items-center gap-1.5 overflow-x-auto px-6 pb-3 scrollbar-none">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedDate(null)
+                                                setFocusedItemId(null)
+                                            }}
+                                            aria-pressed={selectedDate == null}
+                                            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                                                selectedDate == null
+                                                    ? 'border-transparent bg-[#334155] text-white'
+                                                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                                            }`}
+                                        >
+                                            전체
+                                        </button>
+                                        {itineraryDays.map((day) => {
+                                            const isActive =
+                                                day.itineraryDate ===
+                                                selectedDate
+                                            return (
+                                                <button
+                                                    key={day.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedDate(
+                                                            day.itineraryDate,
+                                                        )
+                                                        setFocusedItemId(null)
+                                                    }}
+                                                    aria-pressed={isActive}
+                                                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                                                        isActive
+                                                            ? 'border-transparent bg-[#e7657a] text-white'
+                                                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                                                    }`}
+                                                >
+                                                    Day {day.dayNumber}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                                {itineraryDays.length > 0 ? (
                                     <div className="min-h-[430px] flex-1 [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
                                         <KanbanMapPanel
-                                            days={[selectedItineraryDay]}
+                                            days={itineraryDays}
                                             places={[]}
                                             activeDragId={null}
                                             previewDayId={null}
-                                            hoveredItemId={null}
-                                            onItemHoverChange={() => undefined}
-                                            focusedItemId={
-                                                selectedDayFocusedItemId
+                                            hoveredItemId={hoveredItemId}
+                                            onItemHoverChange={
+                                                setHoveredItemId
                                             }
+                                            focusedItemId={focusedItemId}
                                             focusedPlaceId={null}
+                                            emphasizedDayNumber={
+                                                selectedItineraryDay?.dayNumber ??
+                                                null
+                                            }
                                             onItemFocus={setFocusedItemId}
                                             onPlaceFocus={() => undefined}
                                         />
@@ -1390,8 +1431,7 @@ export function Home() {
                                 ) : (
                                     <div className="flex min-h-[430px] flex-1 items-center justify-center bg-slate-50">
                                         <p className="text-sm font-semibold text-slate-400">
-                                            오른쪽 달력에서 여행 날짜를 선택해
-                                            주세요.
+                                            아직 등록된 일정이 없어요.
                                         </p>
                                     </div>
                                 )}
