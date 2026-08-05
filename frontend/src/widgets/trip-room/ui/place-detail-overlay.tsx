@@ -177,6 +177,18 @@ export function PlaceDetailOverlay({
                     Google Maps에서 최신 정보 확인
                     <ExternalLinkIcon size={12} aria-hidden />
                 </a>
+                <div className="space-y-1.5 rounded-xl bg-slate-50 px-3.5 py-3 text-[11px] leading-relaxed text-slate-500">
+                    <p className="font-bold text-slate-400">
+                        Google Maps에서 더 확인할 수 있어요
+                    </p>
+                    <ul className="list-disc space-y-1 pl-4">
+                        <li>영업시간 및 임시휴무 여부</li>
+                        <li>전화번호, 웹사이트</li>
+                        <li>방문자 리뷰와 평점</li>
+                        <li>실시간 혼잡도(인기 시간대, 일부 장소만 제공)</li>
+                        <li>가격대, 편의시설 등 부가 정보</li>
+                    </ul>
+                </div>
             </div>
         </div>
     )
