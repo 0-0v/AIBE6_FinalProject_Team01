@@ -26,11 +26,13 @@ const LANDING_STYLES = `
   @keyframes pl-heroBody { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
   @keyframes pl-heroBag { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-2px); } }
   @keyframes pl-twinkle { 0%,100% { opacity: 0.5; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
+  @keyframes pl-scrollBounce { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(7px); } }
   .pl-h { font-family: 'BMDOHYEON', 'Gothic A1', 'Manrope', sans-serif !important; font-weight: 400 !important; letter-spacing: 0 !important; word-break: keep-all; }
   .pl-nav-link { font-weight: 600; font-size: 15px; color: #3A2A28; position: relative; padding-bottom: 2px; background-image: linear-gradient(#FF7A59, #FF7A59); background-size: 0% 2px; background-repeat: no-repeat; background-position: left bottom; transition: background-size 0.25s ease; text-decoration: none; }
   .pl-nav-link:hover { background-size: 100% 2px; }
   .pl-cta-btn:hover { transform: translateY(-3px); box-shadow: 0 16px 28px rgba(255,90,60,0.42) !important; }
   .pl-ghost-btn:hover { transform: translateY(-3px); border-color: #FFB4C6 !important; }
+  .pl-scroll-hint:hover { border-color: #FFB4C6 !important; animation-play-state: paused; }
   .pl-h2-hover:hover { transform: scale(1.015); }
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
@@ -45,12 +47,70 @@ const LANDING_STYLES = `
 const fadeUpIn = (delayMs: number) =>
     `pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) ${delayMs}ms both`
 
+/** 씬 섹션(문제/장소/투표/AI/정산/CTA) 6곳이 공유하는 위아래 패딩 비율 */
+const SCENE_SECTION_PADDING =
+    'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)'
+
+/** 씬 섹션 제목(h2)이 공유하는 기본 스타일 — margin만 섹션별로 다르게 덮어쓴다 */
+const SCENE_H2_BASE: React.CSSProperties = {
+    fontSize: 'clamp(32px,4.6vw,52px)',
+    lineHeight: 1.36,
+    transition: 'transform 0.3s ease',
+}
+
+/** 마지막 섹션을 제외한 각 섹션 하단에 두는 "아래로 스크롤" 유도 버튼 —
+ * 클릭하면 다음 섹션으로 바로 이동한다. */
+function ScrollDownHint({
+    onClick,
+}: {
+    onClick?: (e: React.MouseEvent) => void
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label="다음 섹션으로 스크롤"
+            className="pl-scroll-hint"
+            style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: 'clamp(14px,2.5vw,28px)',
+                transform: 'translateX(-50%)',
+                zIndex: 2,
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: '#FFFDF9',
+                border: '1.5px solid #EFE2D6',
+                boxShadow: '0 8px 18px rgba(58,42,40,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                animation: 'pl-scrollBounce 1.8s ease-in-out infinite',
+            }}
+        >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path
+                    d="M5 9l7 7 7-7"
+                    stroke="#FF7A59"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            </svg>
+        </button>
+    )
+}
+
 export function Landing() {
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isInitialized = useCurrentUserStore((state) => state.isInitialized)
 
     const [scrolled, setScrolled] = useState(false)
+    // 히어로(첫 섹션)에서만 헤더를 보여주고, 다른 섹션으로 넘어가면 숨긴다.
+    const [showNav, setShowNav] = useState(true)
     const [revealed, setRevealed] = useState<Record<string, boolean>>({})
     const [isMobile, setIsMobile] = useState(
         () => typeof window !== 'undefined' && window.innerWidth <= 768,
@@ -95,6 +155,10 @@ export function Landing() {
             scrollRafRef.current = requestAnimationFrame(() => {
                 scrollRafRef.current = null
                 setScrolled(window.scrollY > 24)
+                const heroHeight =
+                    document.getElementById('pl-hero')?.getBoundingClientRect()
+                        .height ?? window.innerHeight
+                setShowNav(window.scrollY < heroHeight * 0.6)
             })
         }
         window.addEventListener('scroll', onScroll, { passive: true })
@@ -190,6 +254,52 @@ export function Landing() {
         }
     }, [])
 
+    // 파워포인트 슬라이드처럼 휠을 한 번 굴릴 때마다 다음/이전 섹션으로 즉시 전환한다.
+    // (스크롤이 흐르듯 이어지지 않도록 기본 스크롤을 막고 섹션 단위로만 점프시킨다)
+    useEffect(() => {
+        if (isMobile || reduced) return
+
+        const sectionIds = [
+            'pl-hero',
+            'problem-section',
+            'place-section',
+            'vote-section',
+            'ai-section',
+            'expense-section',
+            'cta-section',
+        ]
+        let locked = false
+
+        const onWheel = (e: WheelEvent) => {
+            if (locked) {
+                e.preventDefault()
+                return
+            }
+
+            let currentIndex = 0
+            sectionIds.forEach((id, index) => {
+                const top = document.getElementById(id)?.getBoundingClientRect().top
+                if (top != null && top <= 1) currentIndex = index
+            })
+
+            const nextIndex = currentIndex + (e.deltaY > 0 ? 1 : -1)
+            if (nextIndex < 0 || nextIndex >= sectionIds.length) return
+
+            e.preventDefault()
+            locked = true
+            document.getElementById(sectionIds[nextIndex])?.scrollIntoView({
+                behavior: 'auto',
+                block: 'start',
+            })
+            window.setTimeout(() => {
+                locked = false
+            }, 750)
+        }
+
+        window.addEventListener('wheel', onWheel, { passive: false })
+        return () => window.removeEventListener('wheel', onWheel)
+    }, [isMobile, reduced])
+
     // 헬퍼
     const scrollTo = useCallback(
         (id: string) => (e: React.MouseEvent) => {
@@ -271,12 +381,12 @@ export function Landing() {
         background: '#FFFDF8',
         border: '2.5px solid #3A2A28',
         borderRadius: 16,
-        padding: '16px 18px',
+        padding: '13px 18px',
         boxShadow: '3px 3px 0 #3A2A28',
-        minHeight: 76,
+        minHeight: 68,
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
+        gap: 5,
         justifyContent: 'center',
     }
 
@@ -308,7 +418,13 @@ export function Landing() {
                     justifyContent: 'space-between',
                     gap: 16,
                     padding: '18px clamp(20px,5vw,64px)',
-                    transition: 'background 0.35s ease, box-shadow 0.35s ease',
+                    transform: showNav
+                        ? 'translateY(0)'
+                        : 'translateY(-100%)',
+                    opacity: showNav ? 1 : 0,
+                    pointerEvents: showNav ? 'auto' : 'none',
+                    transition:
+                        'background 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease, opacity 0.35s ease',
                 }}
             >
                 {/* nav 배경 블러 레이어 */}
@@ -416,7 +532,7 @@ export function Landing() {
                     scrollSnapAlign: 'start',
                     display: 'flex',
                     alignItems: 'center',
-                    padding: '96px clamp(16px,4vw,80px) 40px',
+                    padding: '92px clamp(16px,4vw,80px) 24px',
                     gap: 'clamp(16px,2.5vw,60px)',
                     flexWrap: 'wrap',
                     overflow: 'hidden',
@@ -504,9 +620,9 @@ export function Landing() {
                     <h1
                         className="pl-h"
                         style={{
-                            fontSize: 'clamp(56px,7vw,96px)',
-                            lineHeight: 1.22,
-                            margin: '0 0 18px',
+                            fontSize: 'clamp(40px,5.6vw,68px)',
+                            lineHeight: 1.2,
+                            margin: '0 0 12px',
                             animation: fadeUpIn(100),
                         }}
                     >
@@ -522,11 +638,11 @@ export function Landing() {
                     </h1>
                     <p
                         style={{
-                            fontSize: 'clamp(20px,2.2vw,26px)',
-                            lineHeight: 1.5,
+                            fontSize: 'clamp(16px,1.8vw,20px)',
+                            lineHeight: 1.45,
                             color: '#5B5F7E',
                             fontWeight: 700,
-                            margin: '0 0 24px',
+                            margin: '0 0 14px',
                             maxWidth: 520,
                             animation: fadeUpIn(200),
                         }}
@@ -542,7 +658,7 @@ export function Landing() {
                             display: 'flex',
                             gap: 14,
                             flexWrap: 'wrap',
-                            marginBottom: 12,
+                            marginBottom: 8,
                             animation: fadeUpIn(300),
                         }}
                     >
@@ -603,7 +719,7 @@ export function Landing() {
                         style={{
                             display: 'flex',
                             gap: 'clamp(20px,4vw,48px)',
-                            marginTop: 28,
+                            marginTop: 14,
                             flexWrap: 'wrap',
                             animation: fadeUpIn(460),
                         }}
@@ -713,6 +829,7 @@ export function Landing() {
                         </div>
                     </div>
                 </div>
+            <ScrollDownHint onClick={scrollTo('problem-section')} />
             </section>
 
             {/* ── 여정 레일 (좌측 고정) ── */}
@@ -782,7 +899,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -867,10 +984,8 @@ export function Landing() {
                     <h2
                         className="pl-h pl-h2-hover"
                         style={{
-                            fontSize: 'clamp(44px,6.4vw,72px)',
-                            lineHeight: 1.36,
-                            margin: '0 0 60px',
-                            transition: 'transform 0.3s ease',
+                            ...SCENE_H2_BASE,
+                            margin: '0 0 20px',
                         }}
                     >
                         지도 검색 따로, 캡처 따로, 공유 따로.
@@ -896,7 +1011,7 @@ export function Landing() {
                         style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 22,
+                            gap: 18,
                             flex: '1 1 240px',
                             maxWidth: 280,
                             marginTop: -10,
@@ -962,28 +1077,6 @@ export function Landing() {
                                         <path
                                             d="M12 2C7 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3-8-8-8z"
                                             fill="#D8CFFF"
-                                        />
-                                    </svg>
-                                ),
-                            },
-                            {
-                                delay: 300,
-                                rotate: '-5deg',
-                                ml: -6,
-                                label: '맛집',
-                                title: '니시키 카페',
-                                sub: '',
-                                icon: (
-                                    <svg
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"
-                                            fill="none"
-                                            stroke="#C7476B"
-                                            strokeWidth="1.8"
                                         />
                                     </svg>
                                 ),
@@ -1081,7 +1174,7 @@ export function Landing() {
                         style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 22,
+                            gap: 18,
                             flex: '1 1 240px',
                             maxWidth: 280,
                             marginTop: 14,
@@ -1171,35 +1264,6 @@ export function Landing() {
                                     </svg>
                                 ),
                             },
-                            {
-                                delay: 380,
-                                rotate: '3deg',
-                                ml: 10,
-                                label: '체크리스트',
-                                title: '여권 확인',
-                                sub: '유심 구매',
-                                icon: (
-                                    <svg
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            d="M9 11l3 3L22 4"
-                                            stroke="#8A8FA8"
-                                            strokeWidth="2"
-                                            fill="none"
-                                            strokeLinecap="round"
-                                        />
-                                        <path
-                                            d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
-                                            stroke="#8A8FA8"
-                                            strokeWidth="1.8"
-                                            fill="none"
-                                        />
-                                    </svg>
-                                ),
-                            },
                         ].map(
                             (
                                 { delay, rotate, ml, label, title, sub, icon },
@@ -1257,6 +1321,7 @@ export function Landing() {
                         )}
                     </div>
                 </div>
+            <ScrollDownHint onClick={scrollTo('place-section')} />
             </section>
 
             {/* ── SCENE 02 PLACE ── */}
@@ -1268,7 +1333,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -1482,10 +1547,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 20px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             검색창에 쓱, 지도에 콕.
@@ -1526,6 +1589,7 @@ export function Landing() {
                         }}
                     />
                 </div>
+            <ScrollDownHint onClick={scrollTo('vote-section')} />
             </section>
 
             {/* ── SCENE 03 VOTE ── */}
@@ -1537,7 +1601,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -1607,10 +1671,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 20px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             투표 한 번이면
@@ -1840,6 +1902,7 @@ export function Landing() {
                         }}
                     />
                 </div>
+            <ScrollDownHint onClick={scrollTo('ai-section')} />
             </section>
 
             {/* ── SCENE 04 AI ── */}
@@ -1851,7 +1914,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -2095,10 +2158,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 20px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             고르기만 하면
@@ -2139,6 +2200,7 @@ export function Landing() {
                         }}
                     />
                 </div>
+            <ScrollDownHint onClick={scrollTo('expense-section')} />
             </section>
 
             {/* ── SCENE 05 EXPENSE ── */}
@@ -2150,7 +2212,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -2191,7 +2253,7 @@ export function Landing() {
                                     left: '50%',
                                     top: '50%',
                                     transform: 'translate(-50%,-52%)',
-                                    fontSize: 'clamp(70px,9vw,110px)',
+                                    fontSize: 'clamp(80px,10vw,130px)',
                                     fontWeight: 800,
                                     color: 'transparent',
                                     WebkitTextStroke:
@@ -2217,10 +2279,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 24px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             누가 얼마 냈는지,
@@ -2292,6 +2352,7 @@ export function Landing() {
                         }}
                     />
                 </div>
+            <ScrollDownHint onClick={scrollTo('cta-section')} />
             </section>
 
             {/* ── SCENE 06 CTA ── */}
@@ -2303,7 +2364,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -2405,10 +2466,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 32px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             고민은 그만,

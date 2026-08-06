@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
     defaultDropAnimationSideEffects,
     DndContext,
@@ -175,6 +175,8 @@ type Props = {
     onPlaceHoverChange?: (placeId: string | null) => void
     selectedPlaceId?: string | null
     onPlaceDeselect?: () => void
+    focusDayNumber?: number | null
+    focusDayVersion?: number
     onPlacePhotoResolved?: (
         placeId: string,
         photoUrl: string,
@@ -196,9 +198,12 @@ export function SchedulePanel({
     onPlaceHoverChange,
     selectedPlaceId = null,
     onPlaceDeselect,
+    focusDayNumber = null,
+    focusDayVersion = 0,
     onPlacePhotoResolved,
     members = [],
 }: Props) {
+    const dayColumnRefs = useRef(new Map<number, HTMLDivElement>())
     const {
         days,
         setDays,
@@ -221,6 +226,13 @@ export function SchedulePanel({
         handleDragCancel,
         handleDragEnd,
     } = useItineraryBoard(tripId, places, canWrite, realtimeVersion)
+
+    // 지도에서 날짜를 선택하면 그 날짜의 Day 컬럼으로 스크롤 포커싱한다.
+    useEffect(() => {
+        if (focusDayNumber == null) return
+        const node = dayColumnRefs.current.get(focusDayNumber)
+        node?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, [focusDayNumber, focusDayVersion])
 
     // 선택된 장소의 상세 패널(오버레이)에 쓸 정보 — 지도 팝업 대신 여기서 z-index로 띄운다
     const selectedPlace = useMemo(
@@ -332,8 +344,22 @@ export function SchedulePanel({
                                   )
                                 : undefined
                         return (
-                            <DayColumn
+                            <div
                                 key={day.id}
+                                ref={(node) => {
+                                    if (node) {
+                                        dayColumnRefs.current.set(
+                                            day.dayNumber,
+                                            node,
+                                        )
+                                    } else {
+                                        dayColumnRefs.current.delete(
+                                            day.dayNumber,
+                                        )
+                                    }
+                                }}
+                            >
+                            <DayColumn
                                 day={day}
                                 tripId={tripId}
                                 canWrite={canWrite && !saving}
@@ -385,6 +411,7 @@ export function SchedulePanel({
                                     )
                                 }}
                             />
+                            </div>
                         )
                     })}
                 </div>

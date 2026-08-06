@@ -1,6 +1,7 @@
+/// <reference types="google.maps" />
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
     ChevronDownIcon,
     ChevronUpIcon,
@@ -31,7 +32,11 @@ import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 
 const DEFAULT_CENTER = { lat: 33.489, lng: 126.4983 }
 const CATEGORY_BADGE_MIN_ZOOM = 10
+const MARKER_SIMPLIFY_MIN_ZOOM = 12
 const FOCUSED_CARD_VIEWPORT_PADDING = 12
+const DIMMED_DAY_OPACITY = 'opacity-35'
+// 숙소·교통 거점은 지도를 축소해도 여행의 '기준점' 역할을 하도록 항상 원래 마커로 유지한다.
+const ANCHOR_CATEGORY_ICONS = new Set(['HOTEL', 'PLANE'])
 
 function FocusedItineraryItemCard({
     dayNumber,
@@ -138,29 +143,67 @@ type Props = {
     focusedPlaceId: string | null
     focusRequestVersion?: number
     highlightedPlaceId?: string | null
+    emphasizedDayNumber?: number | null
     onItemFocus: (itemId: string | null) => void
     onPlaceFocus: (placeId: string | null) => void
+}
+
+function fitBoundsToPoints(
+    map: NonNullable<ReturnType<typeof useMap>>,
+    points: Array<{ lat: number; lng: number }>,
+    padding?: number,
+) {
+    const lats = points.map((p) => p.lat)
+    const lngs = points.map((p) => p.lng)
+    map.fitBounds(
+        {
+            north: Math.max(...lats),
+            south: Math.min(...lats),
+            east: Math.max(...lngs),
+            west: Math.min(...lngs),
+        },
+        padding,
+    )
 }
 
 function MapFocusController({
     lat,
     lng,
+    secondaryLat = null,
+    secondaryLng = null,
     focusRequestVersion,
 }: {
     lat: number | null
     lng: number | null
+    secondaryLat?: number | null
+    secondaryLng?: number | null
     focusRequestVersion: number
 }) {
     const map = useMap()
 
     useEffect(() => {
         if (map == null || lat == null || lng == null) return
-        map.panTo({ lat, lng })
-        if ((map.getZoom() ?? 0) < 14) {
-            map.setZoom(14)
+
+        if (secondaryLat != null && secondaryLng != null) {
+            // 클릭한 장소와 다음 장소가 함께 화면에 들어오도록 컴팩하게 맞춘다.
+            fitBoundsToPoints(
+                map,
+                [
+                    { lat, lng },
+                    { lat: secondaryLat, lng: secondaryLng },
+                ],
+                80,
+            )
+        } else {
+            map.panTo({ lat, lng })
+            if ((map.getZoom() ?? 0) < 14) {
+                map.setZoom(14)
+            }
         }
 
-        const animationFrame = window.requestAnimationFrame(() => {
+        // fitBounds/panTo 전환이 끝나 카드가 실제 위치에 자리잡은 뒤에 여백을 보정해야
+        // 정확하므로, 한 프레임 뒤가 아니라 지도가 idle 상태가 된 뒤에 계산한다.
+        const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
             const mapRect = map.getDiv().getBoundingClientRect()
             const card = map
                 .getDiv()
@@ -190,8 +233,36 @@ function MapFocusController({
             }
         })
 
-        return () => window.cancelAnimationFrame(animationFrame)
-    }, [focusRequestVersion, lat, lng, map])
+        return () => google.maps.event.removeListener(listener)
+    }, [focusRequestVersion, lat, lng, secondaryLat, secondaryLng, map])
+
+    return null
+}
+
+function MapAutoFitController({
+    points,
+    enabled,
+}: {
+    points: Array<{ lat: number; lng: number }>
+    enabled: boolean
+}) {
+    const map = useMap()
+    const appliedKeyRef = useRef<string | null>(null)
+    const key = points.map((p) => `${p.lat}:${p.lng}`).join('|')
+
+    useEffect(() => {
+        if (!map || !enabled || points.length === 0) return
+        if (appliedKeyRef.current === key) return
+        appliedKeyRef.current = key
+
+        if (points.length === 1) {
+            map.setCenter(points[0])
+            map.setZoom(14)
+            return
+        }
+
+        fitBoundsToPoints(map, points, 64)
+    }, [enabled, key, map, points])
 
     return null
 }
@@ -206,6 +277,7 @@ function MapContent({
     focusedItemId,
     focusedPlaceId,
     highlightedPlaceId = null,
+    emphasizedDayNumber = null,
     focusRequestVersion = 0,
     onItemFocus,
     onPlaceFocus,
@@ -214,8 +286,18 @@ function MapContent({
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? 'DEMO_MAP_ID'
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
+    const [simplifyMarkers, setSimplifyMarkers] = useState(false)
 
     const allItems = useMemo(() => days.flatMap((d) => d.items), [days])
+    const autoFitPoints = useMemo(() => {
+        if (emphasizedDayNumber == null) {
+            return allItems.filter(hasMapCoordinates)
+        }
+        const emphasizedDay = days.find(
+            (day) => day.dayNumber === emphasizedDayNumber,
+        )
+        return (emphasizedDay?.items ?? []).filter(hasMapCoordinates)
+    }, [allItems, days, emphasizedDayNumber])
     const placeById = useMemo(
         () => new Map(places.map((place) => [String(place.id), place])),
         [places],
@@ -238,6 +320,7 @@ function MapContent({
                 return itemsWithCoords.slice(0, -1).map((item, index) => ({
                     key: `${day.id}-${item.id}`,
                     color,
+                    dayNumber: day.dayNumber,
                     fromItemId: String(item.id),
                     from: { lat: item.lat, lng: item.lng },
                     to: {
@@ -302,6 +385,16 @@ function MapContent({
                   lng: effectiveFocusedItem.lng,
               }
             : null
+    const focusedNextItem =
+        focusedNextItemId == null
+            ? null
+            : (allItems.find(
+                  (item) => String(item.id) === focusedNextItemId,
+              ) ?? null)
+    const focusedNextPosition =
+        focusedNextItem != null && hasMapCoordinates(focusedNextItem)
+            ? { lat: focusedNextItem.lat, lng: focusedNextItem.lng }
+            : null
     const scheduledPlaceIds = new Set(
         allItems
             .map((item) => item.tripPlaceId)
@@ -363,6 +456,11 @@ function MapContent({
                     setShowCategoryBadges((current) =>
                         current === shouldShow ? current : shouldShow,
                     )
+                    const shouldSimplify =
+                        event.detail.zoom < MARKER_SIMPLIFY_MIN_ZOOM
+                    setSimplifyMarkers((current) =>
+                        current === shouldSimplify ? current : shouldSimplify,
+                    )
                 }}
                 onClick={() => {
                     onItemHoverChange(null)
@@ -373,23 +471,46 @@ function MapContent({
                 <MapFocusController
                     lat={activeFocusPosition?.lat ?? null}
                     lng={activeFocusPosition?.lng ?? null}
+                    secondaryLat={
+                        focusedPosition != null
+                            ? (focusedNextPosition?.lat ?? null)
+                            : null
+                    }
+                    secondaryLng={
+                        focusedPosition != null
+                            ? (focusedNextPosition?.lng ?? null)
+                            : null
+                    }
                     focusRequestVersion={focusRequestVersion}
+                />
+                <MapAutoFitController
+                    points={autoFitPoints}
+                    enabled={activeFocusPosition == null}
                 />
                 {segments.map((segment) => {
                     const isFocusMode = effectiveFocusedItemId != null
                     const isFocused =
                         isFocusMode &&
                         segment.fromItemId === effectiveFocusedItemId
+                    const isHoveredSegment =
+                        hoveredItemId === segment.fromItemId
+                    const isEmphasizedDay =
+                        emphasizedDayNumber == null ||
+                        segment.dayNumber === emphasizedDayNumber
                     const segOpacity = isFocusMode
                         ? isFocused
                             ? 1.0
                             : 0.15
-                        : 0.9
+                        : isEmphasizedDay
+                          ? 0.9
+                          : 0.2
                     const segWeight = isFocusMode
                         ? isFocused
                             ? 6
                             : 3
-                        : 4
+                        : isEmphasizedDay
+                          ? 4
+                          : 2
                     const path = [segment.from, segment.to]
                     return (
                         <ItineraryRoutePolyline
@@ -404,8 +525,14 @@ function MapContent({
                                     ? isFocused
                                         ? 'focused'
                                         : 'dimmed'
-                                    : 'normal'
+                                    : isEmphasizedDay
+                                      ? 'normal'
+                                      : 'dimmed'
                             }
+                            animated={
+                                isFocusMode ? isFocused : isHoveredSegment
+                            }
+                            visible={isFocusMode || isHoveredSegment}
                         />
                     )
                 })}
@@ -418,10 +545,18 @@ function MapContent({
                                 effectiveFocusedItemId === String(item.id)
                             const isNextFocused =
                                 focusedNextItemId === String(item.id)
+                            const isEmphasizedDay =
+                                emphasizedDayNumber == null ||
+                                day.dayNumber === emphasizedDayNumber
+                            const isAnchor =
+                                item.categoryIcon != null &&
+                                ANCHOR_CATEGORY_ICONS.has(item.categoryIcon)
                             const markerOpacity =
                                 isFocusMode && !isItemFocused && !isNextFocused
                                     ? 'opacity-25'
-                                    : 'opacity-100'
+                                    : !isFocusMode && !isEmphasizedDay
+                                      ? DIMMED_DAY_OPACITY
+                                      : 'opacity-100'
                             return (
                             <AdvancedMarker
                                 key={item.id}
@@ -486,6 +621,12 @@ function MapContent({
                                         hovered={
                                             hoveredItemId === String(item.id)
                                         }
+                                        simplified={
+                                            simplifyMarkers &&
+                                            !isNextFocused &&
+                                            !isAnchor
+                                        }
+                                        anchor={isAnchor}
                                     />
                                 </div>
                             </AdvancedMarker>
@@ -581,9 +722,27 @@ export function KanbanMapPanel(props: Props) {
         open || focusedItemId != null || focusedPlaceId != null
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     const totalItems = days.reduce((sum, d) => sum + d.items.length, 0)
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (focusedItemId == null && focusedPlaceId == null) return
+
+        function handlePointerDown(event: PointerEvent) {
+            if (containerRef.current?.contains(event.target as Node)) return
+            onItemFocus(null)
+            onPlaceFocus(null)
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+        return () =>
+            document.removeEventListener('pointerdown', handlePointerDown)
+    }, [focusedItemId, focusedPlaceId, onItemFocus, onPlaceFocus])
 
     return (
-        <div className="shrink-0 border-b border-slate-200 bg-white">
+        <div
+            ref={containerRef}
+            className="shrink-0 border-b border-slate-200 bg-white"
+        >
             <button
                 type="button"
                 onClick={() => {

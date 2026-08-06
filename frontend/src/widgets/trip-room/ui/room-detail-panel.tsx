@@ -157,6 +157,7 @@ type Props = {
     onToggleMap?: () => void
     hoveredPlaceId?: string | null
     onHoverPlace?: (placeId: string | null) => void
+    focusDayRequest?: { dayNumber: number; version: number } | null
     onPlacePhotoResolved?: (
         placeId: string,
         photoUrl: string,
@@ -196,10 +197,21 @@ export function RoomDetailPanel({
     onToggleMap,
     hoveredPlaceId = null,
     onHoverPlace,
+    focusDayRequest = null,
     onPlacePhotoResolved,
 }: Props) {
     const navigate = useNavigate()
     const [planTab, setPlanTab] = useState<PlanTab>('places')
+
+    // 지도에서 날짜를 선택하면 일정 탭으로 전환해서 그 날짜로 포커싱한다.
+    const [prevFocusDayRequest, setPrevFocusDayRequest] =
+        useState(focusDayRequest)
+    if (focusDayRequest !== prevFocusDayRequest) {
+        setPrevFocusDayRequest(focusDayRequest)
+        if (focusDayRequest != null) {
+            setPlanTab('schedule')
+        }
+    }
     const [placeVoteFilter, setPlaceVoteFilter] =
         useState<PlaceVoteFilter>('all')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -802,6 +814,8 @@ export function RoomDetailPanel({
                         onPlaceDeselect={onDeselectPlace}
                         selectedPlaceId={selectedId}
                         members={members}
+                        focusDayNumber={focusDayRequest?.dayNumber ?? null}
+                        focusDayVersion={focusDayRequest?.version ?? 0}
                     />
                 </div>
             )}
