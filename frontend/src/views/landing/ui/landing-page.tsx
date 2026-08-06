@@ -47,6 +47,17 @@ const LANDING_STYLES = `
 const fadeUpIn = (delayMs: number) =>
     `pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) ${delayMs}ms both`
 
+/** 씬 섹션(문제/장소/투표/AI/정산/CTA) 6곳이 공유하는 위아래 패딩 비율 */
+const SCENE_SECTION_PADDING =
+    'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)'
+
+/** 씬 섹션 제목(h2)이 공유하는 기본 스타일 — margin만 섹션별로 다르게 덮어쓴다 */
+const SCENE_H2_BASE: React.CSSProperties = {
+    fontSize: 'clamp(32px,4.6vw,52px)',
+    lineHeight: 1.36,
+    transition: 'transform 0.3s ease',
+}
+
 /** 마지막 섹션을 제외한 각 섹션 하단에 두는 "아래로 스크롤" 유도 버튼 —
  * 클릭하면 다음 섹션으로 바로 이동한다. */
 function ScrollDownHint({
@@ -888,8 +899,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding:
-                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -974,10 +984,8 @@ export function Landing() {
                     <h2
                         className="pl-h pl-h2-hover"
                         style={{
-                            fontSize: 'clamp(32px,4.6vw,52px)',
-                            lineHeight: 1.36,
+                            ...SCENE_H2_BASE,
                             margin: '0 0 20px',
-                            transition: 'transform 0.3s ease',
                         }}
                     >
                         지도 검색 따로, 캡처 따로, 공유 따로.
@@ -1325,8 +1333,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding:
-                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -1540,10 +1547,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(32px,4.6vw,52px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 20px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             검색창에 쓱, 지도에 콕.
@@ -1596,8 +1601,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding:
-                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -1667,10 +1671,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(32px,4.6vw,52px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 20px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             투표 한 번이면
@@ -1912,8 +1914,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding:
-                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -2157,10 +2158,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(32px,4.6vw,52px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 20px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             고르기만 하면
@@ -2213,8 +2212,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding:
-                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -2281,10 +2279,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(32px,4.6vw,52px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 24px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             누가 얼마 냈는지,
@@ -2368,8 +2364,7 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding:
-                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
+                    padding: SCENE_SECTION_PADDING,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -2471,10 +2466,8 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(32px,4.6vw,52px)',
-                                lineHeight: 1.36,
+                                ...SCENE_H2_BASE,
                                 margin: '0 0 32px',
-                                transition: 'transform 0.3s ease',
                             }}
                         >
                             고민은 그만,
