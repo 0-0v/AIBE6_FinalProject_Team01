@@ -370,12 +370,12 @@ export function Landing() {
         background: '#FFFDF8',
         border: '2.5px solid #3A2A28',
         borderRadius: 16,
-        padding: '16px 18px',
+        padding: '13px 18px',
         boxShadow: '3px 3px 0 #3A2A28',
-        minHeight: 76,
+        minHeight: 68,
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
+        gap: 5,
         justifyContent: 'center',
     }
 
@@ -521,7 +521,7 @@ export function Landing() {
                     scrollSnapAlign: 'start',
                     display: 'flex',
                     alignItems: 'center',
-                    padding: '96px clamp(16px,4vw,80px) 40px',
+                    padding: '92px clamp(16px,4vw,80px) 24px',
                     gap: 'clamp(16px,2.5vw,60px)',
                     flexWrap: 'wrap',
                     overflow: 'hidden',
@@ -609,9 +609,9 @@ export function Landing() {
                     <h1
                         className="pl-h"
                         style={{
-                            fontSize: 'clamp(56px,7vw,96px)',
-                            lineHeight: 1.22,
-                            margin: '0 0 18px',
+                            fontSize: 'clamp(40px,5.6vw,68px)',
+                            lineHeight: 1.2,
+                            margin: '0 0 12px',
                             animation: fadeUpIn(100),
                         }}
                     >
@@ -627,11 +627,11 @@ export function Landing() {
                     </h1>
                     <p
                         style={{
-                            fontSize: 'clamp(20px,2.2vw,26px)',
-                            lineHeight: 1.5,
+                            fontSize: 'clamp(16px,1.8vw,20px)',
+                            lineHeight: 1.45,
                             color: '#5B5F7E',
                             fontWeight: 700,
-                            margin: '0 0 24px',
+                            margin: '0 0 14px',
                             maxWidth: 520,
                             animation: fadeUpIn(200),
                         }}
@@ -647,7 +647,7 @@ export function Landing() {
                             display: 'flex',
                             gap: 14,
                             flexWrap: 'wrap',
-                            marginBottom: 12,
+                            marginBottom: 8,
                             animation: fadeUpIn(300),
                         }}
                     >
@@ -708,7 +708,7 @@ export function Landing() {
                         style={{
                             display: 'flex',
                             gap: 'clamp(20px,4vw,48px)',
-                            marginTop: 28,
+                            marginTop: 14,
                             flexWrap: 'wrap',
                             animation: fadeUpIn(460),
                         }}
@@ -888,7 +888,8 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding:
+                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -973,9 +974,9 @@ export function Landing() {
                     <h2
                         className="pl-h pl-h2-hover"
                         style={{
-                            fontSize: 'clamp(44px,6.4vw,72px)',
+                            fontSize: 'clamp(32px,4.6vw,52px)',
                             lineHeight: 1.36,
-                            margin: '0 0 60px',
+                            margin: '0 0 20px',
                             transition: 'transform 0.3s ease',
                         }}
                     >
@@ -1002,7 +1003,7 @@ export function Landing() {
                         style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 22,
+                            gap: 18,
                             flex: '1 1 240px',
                             maxWidth: 280,
                             marginTop: -10,
@@ -1068,28 +1069,6 @@ export function Landing() {
                                         <path
                                             d="M12 2C7 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3-8-8-8z"
                                             fill="#D8CFFF"
-                                        />
-                                    </svg>
-                                ),
-                            },
-                            {
-                                delay: 300,
-                                rotate: '-5deg',
-                                ml: -6,
-                                label: '맛집',
-                                title: '니시키 카페',
-                                sub: '',
-                                icon: (
-                                    <svg
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"
-                                            fill="none"
-                                            stroke="#C7476B"
-                                            strokeWidth="1.8"
                                         />
                                     </svg>
                                 ),
@@ -1187,7 +1166,7 @@ export function Landing() {
                         style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 22,
+                            gap: 18,
                             flex: '1 1 240px',
                             maxWidth: 280,
                             marginTop: 14,
@@ -1277,35 +1256,6 @@ export function Landing() {
                                     </svg>
                                 ),
                             },
-                            {
-                                delay: 380,
-                                rotate: '3deg',
-                                ml: 10,
-                                label: '체크리스트',
-                                title: '여권 확인',
-                                sub: '유심 구매',
-                                icon: (
-                                    <svg
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            d="M9 11l3 3L22 4"
-                                            stroke="#8A8FA8"
-                                            strokeWidth="2"
-                                            fill="none"
-                                            strokeLinecap="round"
-                                        />
-                                        <path
-                                            d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
-                                            stroke="#8A8FA8"
-                                            strokeWidth="1.8"
-                                            fill="none"
-                                        />
-                                    </svg>
-                                ),
-                            },
                         ].map(
                             (
                                 { delay, rotate, ml, label, title, sub, icon },
@@ -1375,7 +1325,8 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding:
+                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -1589,7 +1540,7 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
+                                fontSize: 'clamp(32px,4.6vw,52px)',
                                 lineHeight: 1.36,
                                 margin: '0 0 20px',
                                 transition: 'transform 0.3s ease',
@@ -1645,7 +1596,8 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding:
+                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -1715,7 +1667,7 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
+                                fontSize: 'clamp(32px,4.6vw,52px)',
                                 lineHeight: 1.36,
                                 margin: '0 0 20px',
                                 transition: 'transform 0.3s ease',
@@ -1960,7 +1912,8 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding:
+                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'clamp(30px,5vw,72px)',
@@ -2204,7 +2157,7 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
+                                fontSize: 'clamp(32px,4.6vw,52px)',
                                 lineHeight: 1.36,
                                 margin: '0 0 20px',
                                 transition: 'transform 0.3s ease',
@@ -2260,7 +2213,8 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding:
+                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -2301,7 +2255,7 @@ export function Landing() {
                                     left: '50%',
                                     top: '50%',
                                     transform: 'translate(-50%,-52%)',
-                                    fontSize: 'clamp(70px,9vw,110px)',
+                                    fontSize: 'clamp(80px,10vw,130px)',
                                     fontWeight: 800,
                                     color: 'transparent',
                                     WebkitTextStroke:
@@ -2327,7 +2281,7 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
+                                fontSize: 'clamp(32px,4.6vw,52px)',
                                 lineHeight: 1.36,
                                 margin: '0 0 24px',
                                 transition: 'transform 0.3s ease',
@@ -2414,7 +2368,8 @@ export function Landing() {
                     minHeight: '100vh',
                     boxSizing: 'border-box',
                     scrollSnapAlign: 'start',
-                    padding: 'min(10vw,100px) clamp(20px,6vw,80px)',
+                    padding:
+                        'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -2516,7 +2471,7 @@ export function Landing() {
                         <h2
                             className="pl-h pl-h2-hover"
                             style={{
-                                fontSize: 'clamp(44px,6.4vw,72px)',
+                                fontSize: 'clamp(32px,4.6vw,52px)',
                                 lineHeight: 1.36,
                                 margin: '0 0 32px',
                                 transition: 'transform 0.3s ease',
