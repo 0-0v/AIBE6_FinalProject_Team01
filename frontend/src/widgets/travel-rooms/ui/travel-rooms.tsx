@@ -15,7 +15,8 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
     const [createOpen, setCreateOpen] = React.useState(false)
     const [page, setPage] = React.useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const { rooms, isLoading, error, loadTrips, resetTrips } = useTripStore()
+    const { rooms, isLoading, error, loadTrips, resetTrips, selectTrip } =
+        useTripStore()
 
     useEffect(() => {
         if (currentUser) void loadTrips()
@@ -66,7 +67,7 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
             </header>
 
             <section
-                className={`${compact ? 'mt-4 gap-4 sm:grid-cols-2 xl:grid-cols-4' : 'mt-8 gap-5 md:grid-cols-2 xl:grid-cols-3'} grid`}
+                className={`${compact ? 'mt-4 grid-cols-4 gap-4' : 'mt-8 grid-cols-3 gap-5'} grid`}
             >
                 {isLoading && (
                     <p className="text-sm text-slate-400">
@@ -120,9 +121,12 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
             {createOpen && (
                 <CreateTripModal
                     onClose={() => setCreateOpen(false)}
-                    onCreated={() => {
+                    onCreated={async (tripId) => {
                         setCreateOpen(false)
-                        void loadTrips()
+                        await loadTrips()
+                        const roomId = String(tripId)
+                        selectTrip(roomId)
+                        navigate(`/app/room/${roomId}`)
                     }}
                 />
             )}

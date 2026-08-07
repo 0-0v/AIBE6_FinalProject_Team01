@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
     Client,
     ReconnectionTimeMode,
@@ -9,7 +9,11 @@ import {
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
 import { markTripPresence, useTripStore } from '@/features/manage-trip'
-import { BASE_URL, getAccessToken } from '@/shared/api/client'
+import {
+    ACCESS_TOKEN_CHANGED_EVENT,
+    BASE_URL,
+    getAccessToken,
+} from '@/shared/api/client'
 import { useCurrentUserStore, useRealtimeStore } from '@/shared/model'
 
 export const REALTIME_EVENT_NAME = 'plamingo:realtime'
@@ -30,14 +34,35 @@ function websocketUrl() {
     )
 }
 
+function parseActiveTripId(value: string | null) {
+    if (value == null || value.trim() === '') return null
+    const tripId = Number(value)
+    return Number.isSafeInteger(tripId) && tripId > 0 ? tripId : null
+}
+
 export function RealtimeSync() {
     const handledEventIds = useRef(new Set<string>())
+    const [accessTokenVersion, setAccessTokenVersion] = useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const activeTripId = useTripStore((state) => state.activeTripId)
 
     useEffect(() => {
-        const tripId = Number(activeTripId)
-        if (!currentUser || !Number.isFinite(tripId)) return
+        const handleAccessTokenChange = () =>
+            setAccessTokenVersion((current) => current + 1)
+        window.addEventListener(
+            ACCESS_TOKEN_CHANGED_EVENT,
+            handleAccessTokenChange,
+        )
+        return () =>
+            window.removeEventListener(
+                ACCESS_TOKEN_CHANGED_EVENT,
+                handleAccessTokenChange,
+            )
+    }, [])
+
+    useEffect(() => {
+        const tripId = parseActiveTripId(activeTripId)
+        if (!currentUser || tripId == null) return
 
         const heartbeat = () => {
             void markTripPresence(tripId).catch(() => undefined)
@@ -45,10 +70,11 @@ export function RealtimeSync() {
         heartbeat()
         const intervalId = window.setInterval(heartbeat, 25_000)
         return () => window.clearInterval(intervalId)
-    }, [activeTripId, currentUser])
+    }, [accessTokenVersion, activeTripId, currentUser])
 
     useEffect(() => {
         const token = getAccessToken()
+        const tripId = parseActiveTripId(activeTripId)
         if (!currentUser || !token) {
             useRealtimeStore.getState().setConnected(false)
             return
@@ -114,9 +140,9 @@ export function RealtimeSync() {
                     handleNotification,
                 )
                 client.subscribe('/topic/public-cards', handlePublicCardChange)
-                if (activeTripId) {
+                if (tripId != null) {
                     client.subscribe(
-                        `/topic/trips/${activeTripId}`,
+                        `/topic/trips/${tripId}`,
                         handleTripChange,
                     )
                 }

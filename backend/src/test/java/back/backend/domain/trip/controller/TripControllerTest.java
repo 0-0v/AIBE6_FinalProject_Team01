@@ -183,6 +183,20 @@ class TripControllerTest {
                 .andExpect(jsonPath("$.data.tags[1]").value("액티비티"));
     }
 
+    @Test
+    @DisplayName("t10 여행 스타일을 네 개 선택하면 여행방 생성을 거절한다")
+    void t10_createTripRejectsMoreThanThreeTravelStyles() throws Exception {
+        mockMvc.perform(post("/api/trips")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "title":"제주 여행",
+                                  "travelStyles":["ACTIVITY","NATURE","SHOPPING","FOOD"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
                 Set.of(TravelStyle.FOOD), null, null, null, null, 1L,

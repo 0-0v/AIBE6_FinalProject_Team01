@@ -531,7 +531,7 @@ export function AiItineraryReplanModal({
 
                     {options.length > 0 && !loading && !showSuccess && (
                         <div className="space-y-4">
-                            <div className="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+                            <div className="mp-scroll flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
                                 {options.map((option, index) => (
                                     <button
                                         key={`${option.routeLabel}-${index}`}

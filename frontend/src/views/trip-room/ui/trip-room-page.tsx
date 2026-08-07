@@ -1,5 +1,4 @@
 import React, {
-    type CSSProperties,
     type FormEvent,
     useCallback,
     useEffect,
@@ -114,24 +113,23 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }, [loadTrips, tripId])
 
     const [selectedId, setSelectedId] = useState<string | null>(null)
-    const [selectedPlaceSource, setSelectedPlaceSource] = useState<
-        'card' | 'marker' | null
-    >(null)
     const [placeFocusRequestVersion, setPlaceFocusRequestVersion] = useState(0)
     const selectPlaceFromCard = useCallback((id: string) => {
-        setSelectedPlaceSource('card')
         setSelectedId(id)
         setPlaceFocusRequestVersion((current) => current + 1)
     }, [])
     const selectPlaceFromMarker = useCallback((id: string) => {
-        setSelectedPlaceSource('marker')
         setSelectedId(id)
         setPlaceFocusRequestVersion((current) => current + 1)
     }, [])
     const deselectPlace = useCallback(() => {
-        setSelectedPlaceSource(null)
         setSelectedId(null)
     }, [])
+    const [hoveredPlaceId, setHoveredPlaceId] = useState<string | null>(null)
+    const [focusDayRequest, setFocusDayRequest] = useState<{
+        dayNumber: number
+        version: number
+    } | null>(null)
     const [headerContainer, setHeaderContainer] =
         useState<HTMLDivElement | null>(null)
     const [customPanelWidth, setCustomPanelWidth] = useState<number | null>(
@@ -306,13 +304,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 const cachedComments =
                     useCommentStore.getState().commentsByPlaceId
                 setPlaces(
-                    tripPlaces
-                        .filter(
-                            (tp) =>
-                                votesByPlaceId.get(tp.tripPlaceId)
-                                    ?.placeStatus !== 'REJECTED',
-                        )
-                        .map((tp) => {
+                    tripPlaces.map((tp) => {
                             const place = fromApiToPlace(
                                 tp,
                                 activeRoomId,
@@ -364,8 +356,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     )
 
     const mapPlaces = useMemo(
-        () => displayedPlaces.filter((place) => place.status === 'saved'),
-        [displayedPlaces],
+        () =>
+            displayedPlaces.filter(
+                (place) =>
+                    place.status !== 'rejected' || place.id === selectedId,
+            ),
+        [displayedPlaces, selectedId],
     )
 
     const existingGooglePlaceIds = useMemo(
@@ -423,6 +419,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
 
     function deletePlace(id: string) {
         setPlaces((current) => current.filter((place) => place.id !== id))
+        if (selectedId === id) {
+            deselectPlace()
+        }
+        if (hoveredPlaceId === id) {
+            setHoveredPlaceId(null)
+        }
     }
 
     async function handleInviteCodeSubmit(event: FormEvent<HTMLFormElement>) {
@@ -616,8 +618,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 )}
             </AnimatePresence>
             <div
-                className={`relative flex min-h-0 flex-1 flex-col lg:flex-row ${
-                    room ? 'gap-5 p-4 sm:px-10 sm:py-5' : ''
+                className={`relative flex min-h-0 flex-1 flex-row ${
+                    room ? 'gap-5 px-10 py-5' : ''
                 }`}
             >
                 <motion.div
@@ -634,7 +636,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         room
                             ? 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]'
                             : ''
-                    } ${mapCollapsed ? 'lg:hidden' : ''}`}
+                    } ${mapCollapsed ? 'hidden' : ''}`}
                 >
                     <MapCanvas
                         key={`map-${tripId ?? 'none'}-${pendingAiAction?.routeContext?.dayId ?? 'all'}-${pendingAiAction?.routeContext?.segmentIndex ?? 'all'}`}
@@ -643,12 +645,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         initialLng={room?.destinationLng}
                         selectedId={selectedId}
                         focusRequestVersion={placeFocusRequestVersion}
-                        showSelectedPlacePhoto={
-                            selectedPlaceSource === 'marker'
-                        }
                         onSelect={selectPlaceFromMarker}
                         onDeselect={deselectPlace}
-                        onPlacePhotoResolved={handlePlacePhotoResolved}
+                        hoveredPlaceId={hoveredPlaceId}
+                        onHoverPlace={setHoveredPlaceId}
                         days={itineraryDays}
                         initialRouteDay={
                             pendingAiAction?.routeContext?.dayNumber ?? null
@@ -659,6 +659,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         onAddFromPoi={!inviteCode && canManagePlaces ? handleAddFromPoi : undefined}
                         existingGooglePlaceIds={existingGooglePlaceIds}
                         canWrite={!inviteCode && canManagePlaces}
+                        onRouteDayChange={(dayNumber) => {
+                            if (dayNumber == null) return
+                            setFocusDayRequest({
+                                dayNumber,
+                                version: Date.now(),
+                            })
+                        }}
                     />
                     {showRoomList && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/55 backdrop-blur-[3px]">
@@ -687,14 +694,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         ease: [0.22, 1, 0.36, 1],
                         delay: room ? 0.13 : 0,
                     }}
-                    className={`@container relative flex min-h-0 w-full shrink-0 flex-1 flex-col ${
+                    className={`@container relative flex min-h-0 shrink-0 flex-col ${
                         isRecordMode
-                            ? 'overflow-visible bg-transparent lg:w-full lg:max-w-none lg:flex-1'
-                            : `overflow-hidden border border-slate-200 bg-white ${
-                                  mapCollapsed
-                                      ? ''
-                                      : 'lg:min-w-[360px] lg:max-w-[calc(100%-360px)] lg:w-[var(--workspace-panel-width)] lg:flex-none'
-                              }`
+                            ? 'w-full max-w-none flex-1 overflow-visible bg-transparent'
+                            : mapCollapsed
+                              ? 'w-full flex-1 overflow-hidden border border-slate-200 bg-white'
+                              : 'min-w-[360px] max-w-[calc(100%-360px)] flex-none overflow-hidden border border-slate-200 bg-white'
                     } ${
                         room && !isRecordMode
                             ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
@@ -706,11 +711,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             ? ''
                             : 'transition-[width] duration-300 ease-out'
                     }`}
-                    style={
-                        {
-                            '--workspace-panel-width': resolvedPanelWidth,
-                        } as CSSProperties
-                    }
+                    style={{
+                        width:
+                            !isRecordMode && !mapCollapsed
+                                ? resolvedPanelWidth
+                                : undefined,
+                    }}
                 >
                     {!isRecordMode && (
                         <div
@@ -734,7 +740,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             onDoubleClick={resetActivePanelWidth}
                             onKeyDown={handlePanelResizeKeyDown}
                             title="드래그해서 패널 너비 조절 · 더블클릭해서 초기화"
-                            className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center focus:outline-none lg:flex"
+                            className="group absolute -left-3 top-0 z-20 flex h-full w-6 cursor-col-resize touch-none items-center justify-center focus:outline-none"
                         >
                             <span
                                 className={`absolute h-full transition-all duration-150 ${
@@ -795,6 +801,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     places={displayedPlaces}
                                     selectedId={selectedId}
                                     onSelectPlace={selectPlaceFromCard}
+                                    onDeselectPlace={deselectPlace}
+                                    hoveredPlaceId={hoveredPlaceId}
+                                    onHoverPlace={setHoveredPlaceId}
+                                    focusDayRequest={focusDayRequest}
+                                    onPlacePhotoResolved={
+                                        handlePlacePhotoResolved
+                                    }
                                     onBack={() => navigate('/app/room')}
                                     onManage={() => setManageOpen(true)}
                                     onVisibilityManage={() =>

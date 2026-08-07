@@ -47,7 +47,7 @@ export function RoomHeader({
     const hiddenMembers = members.slice(4)
 
     return (
-        <header className="bg-slate-50 px-4 py-3 sm:px-10 sm:py-7">
+        <header className="bg-slate-50 px-10 py-7">
             <div className="flex flex-wrap items-center gap-3">
                 {showBackButton && (
                     <button
@@ -61,7 +61,7 @@ export function RoomHeader({
                 <div className="min-w-0 flex-1">
                     <div className="border-l-4 border-[#213C51] py-1 pl-4">
                         <div className="flex items-center gap-2">
-                            <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl">
+                            <h1 className="truncate text-2xl font-extrabold tracking-tight">
                                 {title}
                             </h1>
                             <span

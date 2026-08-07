@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { GripVertical, Trash2Icon } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -26,6 +26,7 @@ type Props = {
     dayColor: string
     onDaysChange: (days: ItineraryDay[]) => void
     highlighted?: boolean
+    selected?: boolean
     onHoverChange?: (itemId: string | null) => void
     onFocusItem?: (itemId: string) => void
 }
@@ -40,10 +41,24 @@ export function ScheduleItemCard({
     dayColor,
     onDaysChange,
     highlighted = false,
+    selected = false,
     onHoverChange,
     onFocusItem,
 }: Props) {
     const [actionError, setActionError] = useState<string | null>(null)
+    const [isSelfHovering, setIsSelfHovering] = useState(false)
+    const cardRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        // 내가 직접 마우스를 올린 경우엔 이미 보이는 상태라 스크롤할 필요 없음 —
+        // 지도 마커 호버로 강조된 경우에만 목록에서도 위치를 찾아준다.
+        if (selected || (highlighted && !isSelfHovering)) {
+            cardRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+            })
+        }
+    }, [selected, highlighted, isSelfHovering])
     const currentDay = days.find((day) => String(day.id) === currentDayId)
     const editor = useItineraryItemEditor({
         tripId,
@@ -88,13 +103,38 @@ export function ScheduleItemCard({
 
     return (
         <div
-            ref={setNodeRef}
+            ref={(node) => {
+                setNodeRef(node)
+                cardRef.current = node
+            }}
             style={style}
-            onMouseEnter={() => onHoverChange?.(String(item.id))}
-            onMouseLeave={() => onHoverChange?.(null)}
-            className={`group relative rounded-lg border bg-white shadow-sm transition-[border-color,box-shadow] duration-150 ${highlighted ? 'border-brand ring-2 ring-brand/20' : 'border-slate-100 hover:border-slate-200 hover:shadow-md'}`}
+            onMouseEnter={() => {
+                setIsSelfHovering(true)
+                onHoverChange?.(String(item.id))
+            }}
+            onMouseLeave={() => {
+                setIsSelfHovering(false)
+                onHoverChange?.(null)
+            }}
+            onPointerMove={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect()
+                const x = ((event.clientX - rect.left) / rect.width) * 100
+                const y = ((event.clientY - rect.top) / rect.height) * 100
+                event.currentTarget.style.setProperty('--glare-x', `${x}%`)
+                event.currentTarget.style.setProperty('--glare-y', `${y}%`)
+            }}
+            className={`group relative overflow-hidden rounded-lg border bg-white shadow-sm transition-[border-color,box-shadow] duration-150 ease-out ${highlighted || selected ? 'border-brand ring-2 ring-brand/20 shadow-md' : 'border-slate-100 hover:border-slate-200 hover:shadow-md'}`}
         >
-            <div className="flex items-stretch">
+            {/* 마우스를 따라다니는 은은한 하이라이트 */}
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                style={{
+                    background:
+                        'radial-gradient(140px circle at var(--glare-x, 50%) var(--glare-y, 50%), rgba(255,255,255,0.9), transparent 70%)',
+                }}
+            />
+            <div className="relative z-10 flex items-stretch">
                 {/* 카테고리 컬러 스트라이프 */}
                 <div
                     className="w-1 shrink-0"
@@ -195,7 +235,7 @@ export function ScheduleItemCard({
 
             {/* 편집 폼 */}
             {editor.editing && (
-                <div className="border-t border-slate-100 px-3 pb-2.5 pt-2">
+                <div className="relative z-10 border-t border-slate-100 px-3 pb-2.5 pt-2">
                     <TimeRangeFields
                         startTime={editor.startTime}
                         endTime={editor.endTime}

@@ -21,6 +21,7 @@ import { OAuthCallback } from '@/views/oauth-callback'
 import { TripRoom, ScheduleKanbanPage } from '@/views/trip-room'
 import { Landing } from '@/views/landing'
 import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
+import { TripEmailInvitationPage } from '@/views/trip-email-invitation'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { getJwtExpirationTime } from '@/shared/lib'
@@ -83,44 +84,49 @@ function AppShell() {
     }
 
     return (
-        <div className="relative flex h-full w-full overflow-hidden bg-white">
-            <RealtimeSync />
-            {isGuestInvite ? (
-                <NavLink
-                    to="/"
-                    className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center"
-                    aria-label="랜딩 페이지로 이동"
-                    title="여지도 홈"
+        <div className="mp-scroll h-full w-full overflow-x-auto overflow-y-hidden bg-white">
+            <div className="relative flex h-full min-w-[1500px] bg-white">
+                <RealtimeSync />
+                {isGuestInvite ? (
+                    <NavLink
+                        to="/"
+                        className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center"
+                        aria-label="랜딩 페이지로 이동"
+                        title="여지도 홈"
+                    >
+                        <BrandLogo />
+                    </NavLink>
+                ) : (
+                    <Sidebar />
+                )}
+                <main
+                    className={`min-w-0 flex-1 bg-white ${isRoom ? 'overflow-hidden' : 'mp-scroll overflow-y-auto'}`}
                 >
-                    <BrandLogo />
-                </NavLink>
-            ) : (
-                <Sidebar />
-            )}
-            <main
-                className={`min-w-0 flex-1 bg-white ${isRoom ? 'overflow-hidden' : 'mp-scroll overflow-y-auto'}`}
-            >
-                <Routes>
-                    <Route index element={<Home />} />
-                    <Route path="explore" element={<Explore />} />
-                    <Route path="explore/:cardId" element={<ExploreDetail />} />
-                    <Route
-                        path="room/:roomId/schedule"
-                        element={<ScheduleKanbanPage />}
-                    />
-                    <Route
-                        path="room/:roomId/record"
-                        element={<TripRoom mode="record" />}
-                    />
-                    <Route path="room/:roomId?" element={<TripRoom />} />
-                    <Route
-                        path="room/invite/:inviteCode"
-                        element={<TripRoom />}
-                    />
-                    <Route path="updates" element={<Updates />} />
-                    <Route path="mypage" element={<MyPage />} />
-                </Routes>
-            </main>
+                    <Routes>
+                        <Route index element={<Home />} />
+                        <Route path="explore" element={<Explore />} />
+                        <Route
+                            path="explore/:cardId"
+                            element={<ExploreDetail />}
+                        />
+                        <Route
+                            path="room/:roomId/schedule"
+                            element={<ScheduleKanbanPage />}
+                        />
+                        <Route
+                            path="room/:roomId/record"
+                            element={<TripRoom mode="record" />}
+                        />
+                        <Route path="room/:roomId?" element={<TripRoom />} />
+                        <Route
+                            path="room/invite/:inviteCode"
+                            element={<TripRoom />}
+                        />
+                        <Route path="updates" element={<Updates />} />
+                        <Route path="mypage" element={<MyPage />} />
+                    </Routes>
+                </main>
+            </div>
         </div>
     )
 }
@@ -213,6 +219,7 @@ export function App() {
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
+                <Route path="/trip-invite/:token" element={<TripEmailInvitationPage />} />
                 <Route path="/app/*" element={<AppShell />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

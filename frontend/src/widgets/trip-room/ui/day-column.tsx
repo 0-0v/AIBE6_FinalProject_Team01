@@ -80,7 +80,7 @@ function DeparturePicker({
                     </p>
                 </div>
 
-                <div className="max-h-72 overflow-y-auto">
+                <div className="mp-scroll max-h-72 overflow-y-auto">
                     {/* 저장된 숙소 */}
                     {lodgingPlaces.length > 0 && (
                         <div>
@@ -510,6 +510,7 @@ type Props = {
     hoveredItemId?: string | null
     onItemHoverChange?: (itemId: string | null) => void
     onItemFocus?: (itemId: string) => void
+    selectedItemId?: string | null
 }
 
 
@@ -526,6 +527,7 @@ export function DayColumn({
     hoveredItemId,
     onItemHoverChange,
     onItemFocus,
+    selectedItemId,
 }: Props) {
     const [error, setError] = useState<string | null>(null)
     const [toggling, setToggling] = useState(false)
@@ -631,7 +633,7 @@ export function DayColumn({
                                     <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
                                         추가할 장소
                                     </p>
-                                    <div className="max-h-48 overflow-y-auto">
+                                    <div className="mp-scroll max-h-48 overflow-y-auto">
                                         {unscheduledPlaces.map((place) => (
                                             <button
                                                 key={place.id}
@@ -766,6 +768,10 @@ export function DayColumn({
                                             onDaysChange={onDaysChange}
                                             highlighted={
                                                 hoveredItemId ===
+                                                String(item.id)
+                                            }
+                                            selected={
+                                                selectedItemId ===
                                                 String(item.id)
                                             }
                                             onHoverChange={onItemHoverChange}

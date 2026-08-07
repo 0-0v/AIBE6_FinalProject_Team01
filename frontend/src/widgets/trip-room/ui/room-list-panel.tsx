@@ -317,9 +317,10 @@ export function RoomListPanel({
             {createOpen && (
                 <CreateTripModal
                     onClose={() => setCreateOpen(false)}
-                    onCreated={() => {
+                    onCreated={async (tripId) => {
                         setCreateOpen(false)
-                        onRetry()
+                        await onRetry()
+                        onSelectRoom(String(tripId))
                     }}
                 />
             )}

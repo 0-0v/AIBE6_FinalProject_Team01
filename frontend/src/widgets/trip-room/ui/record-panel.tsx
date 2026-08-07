@@ -376,7 +376,7 @@ export function RecordPanel({
                 </p>
             )}
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-4 overflow-hidden">
                 <div className="mp-scroll min-h-0 overflow-y-auto rounded-[22px] bg-white shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
                     <div className="flex items-center justify-between gap-4 px-10 pt-7 pb-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -405,7 +405,7 @@ export function RecordPanel({
                             곳 기록
                         </span>
                     </div>
-                    <div className="flex items-center gap-2 overflow-x-auto px-10 pb-2">
+                    <div className="mp-scroll flex items-center gap-2 overflow-x-auto px-10 pb-2">
                         {days.map((day) => (
                             <button
                                 key={day.day}
@@ -784,7 +784,7 @@ function RecordSummary({
     )
 
     return (
-        <aside className="hidden min-h-0 flex-col gap-3 overflow-hidden lg:flex">
+        <aside className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
                 <div className="flex items-center justify-between gap-2">
                     <h3 className="text-sm font-extrabold text-slate-900">
@@ -1027,7 +1027,7 @@ function RecordComposer({
                         />
                     </button>
                     {placeMenuOpen && !editing && (
-                        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(33,60,81,0.16)]">
+                        <div className="mp-scroll absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(33,60,81,0.16)]">
                             {places
                                 .filter((place) => place.status === 'saved')
                                 .map((place) => {
@@ -1266,7 +1266,7 @@ function ImageGalleryModal({
                     alt={`${currentIndex + 1}번째 여행 기록 사진`}
                     className="max-h-[78dvh] max-w-full rounded-2xl object-contain shadow-2xl"
                 />
-                <div className="mt-4 flex max-w-full snap-x gap-2 overflow-x-auto rounded-2xl bg-slate-950/35 p-2">
+                <div className="mp-scroll mt-4 flex max-w-full snap-x gap-2 overflow-x-auto rounded-2xl bg-slate-950/35 p-2">
                     {gallery.images.map((image, index) => (
                         <button
                             key={`${image}-${index}`}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import {
     ChevronRightIcon,
     HistoryIcon,
@@ -35,6 +36,7 @@ import type {
 } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { globalModal } from '@/shared/model'
+import { resolveMemberNickname } from '../lib/member-lookup'
 import { UNSAVED_DATE_MODAL_COPY } from '../lib/unsaved-date-modal-copy'
 import { ActivityLogPanel } from './activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
@@ -42,6 +44,7 @@ import { useNotificationStore } from '@/features/manage-notification'
 import { DateVotePanel } from './date-vote-panel'
 import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
+import { PlaceDetailOverlay } from './place-detail-overlay'
 import { RoomHeader } from './room-header'
 import type { PlaceCommentResponse } from '@/entities/trip'
 
@@ -102,6 +105,26 @@ function resolvePlaceSearchCenter(room: Room, places: Place[]) {
     }
 }
 type PlanTab = 'places' | 'itinerary' | 'schedule'
+type PlaceVoteFilter = 'all' | 'confirmed' | 'rejected' | 'pending'
+
+const PLACE_VOTE_FILTERS: { value: PlaceVoteFilter; label: string }[] = [
+    { value: 'all', label: '전체' },
+    { value: 'confirmed', label: '투표 종료 · 확정' },
+    { value: 'rejected', label: '투표 종료 · 탈락' },
+    { value: 'pending', label: '진행 중 · 투표 전' },
+]
+
+function matchesPlaceVoteFilter(place: Place, filter: PlaceVoteFilter) {
+    const vote = place.voteSummary
+    if (filter === 'confirmed') {
+        return vote?.status === 'CLOSED' && place.status === 'saved'
+    }
+    if (filter === 'rejected') {
+        return vote?.status === 'CLOSED' && place.status === 'rejected'
+    }
+    if (filter === 'pending') return !vote || vote.status === 'OPEN'
+    return true
+}
 export type TripRoomWorkspace = PlanTab
 
 type Props = {
@@ -109,6 +132,7 @@ type Props = {
     places: Place[]
     selectedId: string | null
     onSelectPlace: (id: string) => void
+    onDeselectPlace?: () => void
     onBack: () => void
     onManage: () => void
     onVisibilityManage: () => void
@@ -131,6 +155,16 @@ type Props = {
     aiPlaceRecommendations?: AiPlaceSearchRecommendation[] | null
     mapCollapsed?: boolean
     onToggleMap?: () => void
+    hoveredPlaceId?: string | null
+    onHoverPlace?: (placeId: string | null) => void
+    focusDayRequest?: { dayNumber: number; version: number } | null
+    onPlacePhotoResolved?: (
+        placeId: string,
+        photoUrl: string,
+        attribution: string | null,
+        attributionUrl: string | null,
+        sourceUrl: string,
+    ) => void
 }
 
 export function RoomDetailPanel({
@@ -138,6 +172,7 @@ export function RoomDetailPanel({
     places,
     selectedId,
     onSelectPlace,
+    onDeselectPlace,
     onBack,
     onManage,
     onVisibilityManage,
@@ -160,8 +195,25 @@ export function RoomDetailPanel({
     aiPlaceRecommendations,
     mapCollapsed = false,
     onToggleMap,
+    hoveredPlaceId = null,
+    onHoverPlace,
+    focusDayRequest = null,
+    onPlacePhotoResolved,
 }: Props) {
+    const navigate = useNavigate()
     const [planTab, setPlanTab] = useState<PlanTab>('places')
+
+    // 지도에서 날짜를 선택하면 일정 탭으로 전환해서 그 날짜로 포커싱한다.
+    const [prevFocusDayRequest, setPrevFocusDayRequest] =
+        useState(focusDayRequest)
+    if (focusDayRequest !== prevFocusDayRequest) {
+        setPrevFocusDayRequest(focusDayRequest)
+        if (focusDayRequest != null) {
+            setPlanTab('schedule')
+        }
+    }
+    const [placeVoteFilter, setPlaceVoteFilter] =
+        useState<PlaceVoteFilter>('all')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
@@ -190,6 +242,13 @@ export function RoomDetailPanel({
     const placeSearchCenter = useMemo(
         () => resolvePlaceSearchCenter(room, places),
         [room, places],
+    )
+    const filteredPlaces = useMemo(
+        () =>
+            places.filter((place) =>
+                matchesPlaceVoteFilter(place, placeVoteFilter),
+            ),
+        [placeVoteFilter, places],
     )
 
     const activeWorkspace: TripRoomWorkspace = planTab
@@ -284,11 +343,6 @@ export function RoomDetailPanel({
             () => startTripPlaceVote(tripId, Number(id)),
             '투표 신청에 실패했습니다.',
         )
-        if (voteSummary.placeStatus === 'REJECTED') {
-            onDeletePlace(id)
-            refreshCollaborationData()
-            return
-        }
         onUpdatePlace(id, (place) => ({
             ...place,
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
@@ -366,11 +420,6 @@ export function RoomDetailPanel({
                 ),
             '투표 응답에 실패했습니다.',
         )
-        if (voteSummary.placeStatus === 'REJECTED') {
-            onDeletePlace(id)
-            refreshCollaborationData()
-            return
-        }
         onUpdatePlace(id, (place) => ({
             ...place,
             status: apiStatusToPlaceStatus(voteSummary.placeStatus),
@@ -422,6 +471,11 @@ export function RoomDetailPanel({
             )
         }
     }
+
+    const selectedPlaceForOverlay =
+        selectedId != null
+            ? places.find((place) => place.id === selectedId)
+            : undefined
 
     return (
         <div className="relative flex min-h-0 flex-1 flex-col">
@@ -517,6 +571,7 @@ export function RoomDetailPanel({
                                     key={item.key}
                                     onClick={() => {
                                         if (active) return
+                                        onDeselectPlace?.()
                                         requestDiscardDateChanges(() => {
                                             setPlanTab(
                                                 item.key === 'schedule' &&
@@ -543,7 +598,7 @@ export function RoomDetailPanel({
             </div>
 
             {planTab !== 'places' && (
-                <div className="border-b border-slate-100 px-6 py-2.5">
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-2.5">
                     <nav
                         className="flex items-center gap-2"
                         aria-label="일정 준비 단계"
@@ -578,11 +633,37 @@ export function RoomDetailPanel({
                             일정
                         </button>
                     </nav>
+                    {planTab === 'schedule' && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                navigate(`/app/room/${room.id}/schedule`)
+                            }
+                            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/5 px-2.5 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand/10"
+                        >
+                            <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <rect x="3" y="3" width="7" height="7" />
+                                <rect x="14" y="3" width="7" height="7" />
+                                <rect x="14" y="14" width="7" height="7" />
+                                <rect x="3" y="14" width="7" height="7" />
+                            </svg>
+                            칸반 플래너로 열기
+                        </button>
+                    )}
                 </div>
             )}
 
             {planTab === 'places' && (
-                <>
+                <div className="relative flex min-h-0 flex-1 flex-col">
                     <div className="border-b border-slate-100">
                         {canPlanWrite && (
                             <PlaceSearch
@@ -608,24 +689,43 @@ export function RoomDetailPanel({
                                 {placeError ?? categoryError ?? loadError}
                             </p>
                         )}
+                        <div className="flex flex-wrap gap-1.5 px-4 pb-3 pt-2">
+                            {PLACE_VOTE_FILTERS.map((filter) => (
+                                <button
+                                    key={filter.value}
+                                    type="button"
+                                    onClick={() =>
+                                        setPlaceVoteFilter(filter.value)
+                                    }
+                                    className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold transition ${placeVoteFilter === filter.value ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                                >
+                                    {filter.label}{' '}
+                                    {
+                                        places.filter((place) =>
+                                            matchesPlaceVoteFilter(
+                                                place,
+                                                filter.value,
+                                            ),
+                                        ).length
+                                    }
+                                </button>
+                            ))}
+                        </div>
                     </div>
                     <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2.5 overflow-y-auto px-4 py-3 @min-[760px]:grid-cols-2">
-                        {places.length === 0 ? (
+                        {filteredPlaces.length === 0 ? (
                             <p className="py-16 text-center text-sm text-slate-400">
                                 해당하는 장소가 없어요
                             </p>
                         ) : (
-                            places.map((place) => (
+                            filteredPlaces.map((place) => (
                                 <PlaceCard
                                     key={place.id}
                                     place={place}
-                                    addedByNickname={
-                                        members.find(
-                                            (member) =>
-                                                member.memberId ===
-                                                Number(place.addedBy),
-                                        )?.nickname
-                                    }
+                                    addedByNickname={resolveMemberNickname(
+                                        members,
+                                        place.addedBy,
+                                    )}
                                     selected={selectedId === place.id}
                                     canWrite={canPlanWrite}
                                     onSelect={() => onSelectPlace(place.id)}
@@ -668,7 +768,18 @@ export function RoomDetailPanel({
                             ))
                         )}
                     </div>
-                </>
+                    {selectedPlaceForOverlay && onDeselectPlace && (
+                        <PlaceDetailOverlay
+                            place={selectedPlaceForOverlay}
+                            addedByNickname={resolveMemberNickname(
+                                members,
+                                selectedPlaceForOverlay.addedBy,
+                            )}
+                            onClose={onDeselectPlace}
+                            onPlacePhotoResolved={onPlacePhotoResolved}
+                        />
+                    )}
+                </div>
             )}
             {planTab === 'itinerary' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
@@ -678,6 +789,7 @@ export function RoomDetailPanel({
                         onDirtyChange={setDateAvailabilityDirty}
                         onCollaborationChanged={refreshCollaborationData}
                         onTripDatesChanged={() => {
+                            onDeselectPlace?.()
                             void Promise.resolve(onTripDatesChanged?.()).then(
                                 () => setPlanTab('schedule'),
                             )
@@ -691,12 +803,19 @@ export function RoomDetailPanel({
                     <SchedulePanel
                         key={`schedule-${itineraryVersion}`}
                         tripId={tripId}
-                        roomId={room.id}
                         places={places}
                         canWrite={canPlanWrite}
                         realtimeVersion={realtimeVersion}
                         onDaysLoaded={onItineraryDaysLoaded}
                         onPlaceFocus={onSelectPlace}
+                        hoveredPlaceId={hoveredPlaceId}
+                        onPlaceHoverChange={onHoverPlace}
+                        onPlacePhotoResolved={onPlacePhotoResolved}
+                        onPlaceDeselect={onDeselectPlace}
+                        selectedPlaceId={selectedId}
+                        members={members}
+                        focusDayNumber={focusDayRequest?.dayNumber ?? null}
+                        focusDayVersion={focusDayRequest?.version ?? 0}
                     />
                 </div>
             )}

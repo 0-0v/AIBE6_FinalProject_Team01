@@ -12,6 +12,8 @@ type Props = {
     preview?: boolean
     focused?: boolean
     outlined?: boolean
+    simplified?: boolean
+    anchor?: boolean
 }
 
 export function ItineraryMapMarker({
@@ -26,20 +28,36 @@ export function ItineraryMapMarker({
     preview = false,
     focused = false,
     outlined = false,
+    simplified = false,
+    anchor = false,
 }: Props) {
     const emphasized = selected || hovered
+
+    if (simplified && !emphasized && !focused) {
+        return (
+            <div
+                className="size-2.5 rounded-full border-2 border-white shadow-[0_2px_6px_rgba(15,23,42,0.35)] transition-transform duration-150 ease-out"
+                style={{ backgroundColor: color }}
+                title={categoryLabel ?? undefined}
+                aria-hidden
+            />
+        )
+    }
+
     const sizeClass = selected
         ? 'size-10'
         : emphasized
           ? 'size-9'
           : focused
             ? 'size-9'
-            : 'size-8'
+            : anchor
+              ? 'size-9'
+              : 'size-8'
     const hasOrderLabel = label != null
 
     return (
         <div
-            className={`relative flex flex-col items-center transition-transform ${
+            className={`relative flex flex-col items-center transition-transform duration-150 ease-out ${
                 emphasized ? 'scale-110' : ''
             }`}
         >

@@ -151,8 +151,8 @@ class PlaceVoteServiceTest {
     }
 
     @Test
-    @DisplayName("t3 전원이 응답했지만 과반 찬성이 없으면 투표를 종료하고 장소를 제거한다")
-    void t3_tieRemovesPlace() {
+    @DisplayName("t3 전원이 응답했지만 과반 찬성이 없으면 투표를 종료하고 탈락 이력을 보존한다")
+    void t3_tieKeepsRejectedPlaceHistory() {
         PlaceVoteRequest voteRequest = openRequest(2, 2);
         given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
         given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.of(voteRequest));
@@ -168,7 +168,8 @@ class PlaceVoteServiceTest {
 
         assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
         assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        then(tripPlaceRepository).should().delete(candidate);
+        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
+        then(tripPlaceRepository).should(never()).delete(candidate);
         then(collaborationEventService).should().record(
                 org.mockito.ArgumentMatchers.eq(1L),
                 org.mockito.ArgumentMatchers.eq(1L),
@@ -200,7 +201,8 @@ class PlaceVoteServiceTest {
 
         assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
         assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        then(tripPlaceRepository).should().delete(candidate);
+        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
+        then(tripPlaceRepository).should(never()).delete(candidate);
     }
 
     @Test
@@ -304,7 +306,8 @@ class PlaceVoteServiceTest {
 
         assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
         assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        then(tripPlaceRepository).should().delete(candidate);
+        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
+        then(tripPlaceRepository).should(never()).delete(candidate);
         then(voteResponseRepository).should(never()).saveAndFlush(any());
         then(collaborationEventService).should().record(
                 org.mockito.ArgumentMatchers.eq(1L),
