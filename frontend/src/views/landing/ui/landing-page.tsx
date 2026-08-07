@@ -1109,7 +1109,7 @@ export function Landing() {
                                 rotate: '3deg',
                                 ml: -10,
                                 label: '공유 링크',
-                                title: 'map.naver.com/p/entry/...',
+                                title: '지도 앱에서 공유하기',
                                 sub: '저장 12곳',
                                 icon: (
                                     <svg
@@ -1482,11 +1482,11 @@ export function Landing() {
                                     <span
                                         style={{
                                             fontSize: 13,
-                                            fontWeight: 600,
-                                            color: '#5B5F7E',
+                                            fontWeight: 700,
+                                            color: '#3A2A28',
                                         }}
                                     >
-                                        map.naver.com/p/entry/place/1934...
+                                        아라시야마 카페
                                     </span>
                                 </div>
                                 <div
@@ -1538,18 +1538,6 @@ export function Landing() {
                                             >
                                                 카페
                                             </span>
-                                            <span
-                                                style={{
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    background: '#EDE8FF',
-                                                    color: '#6B5FC7',
-                                                    padding: '3px 8px',
-                                                    borderRadius: 999,
-                                                }}
-                                            >
-                                                대나무숲 근처
-                                            </span>
                                         </div>
                                         <div
                                             style={{
@@ -1558,7 +1546,8 @@ export function Landing() {
                                                 fontWeight: 600,
                                             }}
                                         >
-                                            AI 메모 · "노을 시간대 추천"
+                                            교토부 우쿄구 사가노 · Google Maps
+                                            제공
                                         </div>
                                     </div>
                                 </div>
@@ -1753,9 +1742,8 @@ export function Landing() {
                                 fontWeight: 500,
                             }}
                         >
-                            멤버들이 장소마다 꼭 가기, 좋아요, 제외로 투표하고
-                            댓글을 남기면, 모두의 의견이 자연스럽게 하나로
-                            모여요.
+                            멤버들이 장소마다 찬성, 반대로 투표하고 댓글을
+                            남기면, 모두의 의견이 자연스럽게 하나로 모여요.
                         </p>
                     </div>
                 </div>
@@ -1869,35 +1857,21 @@ export function Landing() {
                                             borderRadius: 10,
                                         }}
                                     >
-                                        꼭 가기 · 3
+                                        찬성 · 3
                                     </div>
                                     <div
                                         style={{
                                             flex: 1,
                                             textAlign: 'center',
-                                            background: '#EDE8FF',
-                                            color: '#6B5FC7',
+                                            background: '#FDE2E7',
+                                            color: '#BE123C',
                                             fontWeight: 700,
                                             fontSize: 13,
                                             padding: '9px 0',
                                             borderRadius: 10,
                                         }}
                                     >
-                                        좋아요 · 1
-                                    </div>
-                                    <div
-                                        style={{
-                                            flex: 1,
-                                            textAlign: 'center',
-                                            background: '#F4F1EC',
-                                            color: '#8A8FA8',
-                                            fontWeight: 700,
-                                            fontSize: 13,
-                                            padding: '9px 0',
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        제외 · 0
+                                        반대 · 1
                                     </div>
                                 </div>
                                 <div
