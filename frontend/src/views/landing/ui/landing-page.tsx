@@ -64,7 +64,7 @@ const JOURNEY_STEPS: Array<[id: string, label: string]> = [
 
 // 레일 점의 좌우 패딩 — 커넥터 선을 점 중심에 맞추는 계산에도 같이 쓰인다
 const RAIL_DOT_PADDING_X = 6
-/** 커넥터 선(2px)이 점의 정중앙에 오도록 하는 marginLeft 계산 */
+/** 커넥터 선(2px)이 점의 정중앙에 오도록 하는 marginRight 계산 (레일이 우측 정렬이라 오른쪽 기준) */
 const railConnectorOffset = (dotSize: number) =>
     RAIL_DOT_PADDING_X + dotSize / 2 - 1
 
@@ -843,7 +843,7 @@ export function Landing() {
             <ScrollDownHint onClick={scrollTo('problem-section')} />
             </section>
 
-            {/* ── 여정 레일 (좌측 고정) — 호버하면 섹션 이름이 나열된 세로 네비바로 펼쳐진다 ── */}
+            {/* ── 여정 레일 (우측 고정) — 호버하면 섹션 이름이 나열된 세로 네비바로 펼쳐진다 ── */}
             {!isMobile && (
                 <div
                     onMouseEnter={() => setRailHovered(true)}
@@ -851,13 +851,13 @@ export function Landing() {
                     className="pl-rail"
                     style={{
                         position: 'fixed',
-                        left: 28,
+                        right: 28,
                         top: '50%',
                         transform: 'translateY(-50%)',
                         zIndex: 60,
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'flex-start',
+                        alignItems: 'flex-end',
                         gap: 2,
                         padding: '10px 8px',
                         borderRadius: 20,
@@ -887,6 +887,7 @@ export function Landing() {
                                     className="pl-rail-dot"
                                     style={{
                                         display: 'flex',
+                                        flexDirection: 'row-reverse',
                                         alignItems: 'center',
                                         gap: 10,
                                         padding: `4px ${RAIL_DOT_PADDING_X}px`,
@@ -939,14 +940,14 @@ export function Landing() {
                                         style={{
                                             width: 2,
                                             height: 22,
-                                            marginLeft: railConnectorOffset(
+                                            marginRight: railConnectorOffset(
                                                 active ? 12 : 8,
                                             ),
                                             background: passed
                                                 ? '#FFB4C6'
                                                 : '#EFE2D6',
                                             transition:
-                                                'background 0.35s ease, margin-left 0.35s ease',
+                                                'background 0.35s ease, margin-right 0.35s ease',
                                         }}
                                     />
                                 )}
