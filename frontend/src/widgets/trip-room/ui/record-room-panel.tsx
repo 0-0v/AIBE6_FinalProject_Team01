@@ -18,7 +18,6 @@ type Props = {
     onBack: () => void
     onManage: () => void
     onVisibilityManage: () => void
-    onOpenPlanPlace: (placeId: string) => void
     headerContainer?: HTMLElement | null
 }
 
@@ -33,7 +32,6 @@ export function RecordRoomPanel({
     onBack,
     onManage,
     onVisibilityManage,
-    onOpenPlanPlace,
     headerContainer,
 }: Props) {
     const [inviteOpen, setInviteOpen] = useState(false)
@@ -90,7 +88,6 @@ export function RecordRoomPanel({
                 canWrite={canManage}
                 startDate={room.startDate}
                 endDate={room.endDate}
-                onPlaceClick={onOpenPlanPlace}
                 onOpenExpenses={() => {
                     setEditingExpense(null)
                     setExpenseComposerOpen(true)

@@ -789,10 +789,6 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     onVisibilityManage={() =>
                                         setVisibilityOpen(true)
                                     }
-                                    onOpenPlanPlace={(placeId) => {
-                                        setSelectedId(placeId)
-                                        navigate(`/app/room/${room.id}`)
-                                    }}
                                 />
                             ) : room ? (
                                 <RoomDetailPanel
