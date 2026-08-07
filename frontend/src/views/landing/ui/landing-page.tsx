@@ -6,11 +6,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ConfettiButton } from '@/shared/ui/confetti-button'
 import { NumberTicker } from '@/shared/ui/number-ticker'
-import { ScrollProgressBar } from '@/shared/ui/scroll-progress-bar'
 import { WordRotate } from '@/shared/ui/word-rotate'
 import { useCurrentUserStore } from '@/shared/model'
 import { BrandLogo } from '@/shared/ui'
 import { HeroGlobe } from './hero-globe'
+
+// 여정 레일 라벨이 호버/포커스 시 펼쳐지는 최대 너비 — 인라인 스타일과 CSS 양쪽에서 재사용
+const RAIL_LABEL_MAX_WIDTH = 110
 
 const LANDING_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
@@ -33,6 +35,9 @@ const LANDING_STYLES = `
   .pl-cta-btn:hover { transform: translateY(-3px); box-shadow: 0 16px 28px rgba(255,90,60,0.42) !important; }
   .pl-ghost-btn:hover { transform: translateY(-3px); border-color: #FFB4C6 !important; }
   .pl-scroll-hint:hover { border-color: #FFB4C6 !important; animation-play-state: paused; }
+  .pl-rail-dot:focus-visible { outline: 2px solid #FF7A59; outline-offset: 2px; border-radius: 10px; }
+  .pl-rail:focus-within { background: #FFFDF9 !important; border-color: #EFE2D6 !important; box-shadow: 0 12px 28px rgba(58,42,40,0.1) !important; }
+  .pl-rail:focus-within .pl-rail-label { max-width: ${RAIL_LABEL_MAX_WIDTH}px !important; opacity: 1 !important; }
   .pl-h2-hover:hover { transform: scale(1.015); }
   @media (prefers-reduced-motion: reduce) {
     * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
@@ -46,6 +51,22 @@ const LANDING_STYLES = `
 /** 반복되는 fadeUpIn 애니메이션 문자열 생성 헬퍼 */
 const fadeUpIn = (delayMs: number) =>
     `pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) ${delayMs}ms both`
+
+/** 좌측 여정 레일에 표시되는 섹션 목록 — 값이 고정이라 렌더마다 새로 만들 필요가 없다 */
+const JOURNEY_STEPS: Array<[id: string, label: string]> = [
+    ['problem', '흩어진 계획'],
+    ['place', '장소 저장'],
+    ['vote', '투표 결정'],
+    ['ai', 'AI 일정 추천'],
+    ['expense', '정산 N빵'],
+    ['cta', '시작하기'],
+]
+
+// 레일 점의 좌우 패딩 — 커넥터 선을 점 중심에 맞추는 계산에도 같이 쓰인다
+const RAIL_DOT_PADDING_X = 6
+/** 커넥터 선(2px)이 점의 정중앙에 오도록 하는 marginRight 계산 (레일이 우측 정렬이라 오른쪽 기준) */
+const railConnectorOffset = (dotSize: number) =>
+    RAIL_DOT_PADDING_X + dotSize / 2 - 1
 
 /** 씬 섹션(문제/장소/투표/AI/정산/CTA) 6곳이 공유하는 위아래 패딩 비율 */
 const SCENE_SECTION_PADDING =
@@ -122,6 +143,7 @@ export function Landing() {
     )
     const [ctaHover, setCtaHover] = useState(false)
     const [activeSection, setActiveSection] = useState('problem')
+    const [railHovered, setRailHovered] = useState(false)
     const [smx, setSmx] = useState(0)
     const [smy, setSmy] = useState(0)
 
@@ -367,15 +389,6 @@ export function Landing() {
         transition: 'transform 0.45s cubic-bezier(.22,1,.36,1)',
     }
 
-    const journeySteps = [
-        ['problem', '문제'],
-        ['place', '장소'],
-        ['vote', '투표'],
-        ['ai', 'AI'],
-        ['expense', '정산'],
-        ['cta', '출발'],
-    ]
-
     // 공용 스타일 상수
     const CARD_BASE: React.CSSProperties = {
         background: '#FFFDF8',
@@ -403,8 +416,6 @@ export function Landing() {
                 WebkitFontSmoothing: 'antialiased',
             }}
         >
-            <ScrollProgressBar color="#FF7A59" />
-
             {/* ── NAV ── */}
             <nav
                 style={{
@@ -832,55 +843,111 @@ export function Landing() {
             <ScrollDownHint onClick={scrollTo('problem-section')} />
             </section>
 
-            {/* ── 여정 레일 (좌측 고정) ── */}
+            {/* ── 여정 레일 (우측 고정) — 호버하면 섹션 이름이 나열된 세로 네비바로 펼쳐진다 ── */}
             {!isMobile && (
                 <div
+                    onMouseEnter={() => setRailHovered(true)}
+                    onMouseLeave={() => setRailHovered(false)}
+                    className="pl-rail"
                     style={{
                         position: 'fixed',
-                        left: 28,
+                        right: 28,
                         top: '50%',
                         transform: 'translateY(-50%)',
                         zIndex: 60,
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center',
+                        alignItems: 'flex-end',
                         gap: 2,
+                        padding: '10px 8px',
+                        borderRadius: 20,
+                        background: railHovered ? '#FFFDF9' : 'transparent',
+                        border: railHovered
+                            ? '1.5px solid #EFE2D6'
+                            : '1.5px solid transparent',
+                        boxShadow: railHovered
+                            ? '0 12px 28px rgba(58,42,40,0.1)'
+                            : 'none',
+                        transition:
+                            'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
                     }}
                 >
-                    {journeySteps.map(([id, label], i) => {
-                        const idx = journeySteps.findIndex(
+                    {JOURNEY_STEPS.map(([id, label], i) => {
+                        const idx = JOURNEY_STEPS.findIndex(
                             ([oid]) => oid === activeSection,
                         )
                         const active = id === activeSection
                         const passed = idx > i
                         return (
                             <React.Fragment key={id}>
-                                <div
-                                    title={label}
+                                <button
+                                    type="button"
+                                    aria-label={`${label} 섹션으로 이동`}
+                                    onClick={scrollTo(`${id}-section`)}
+                                    className="pl-rail-dot"
                                     style={{
-                                        width: active ? 12 : 8,
-                                        height: active ? 12 : 8,
-                                        borderRadius: '50%',
-                                        background: active
-                                            ? '#FF7A59'
-                                            : passed
-                                              ? '#FFB4C6'
-                                              : '#EFE2D6',
-                                        transition: 'all 0.35s ease',
-                                        boxShadow: active
-                                            ? '0 0 0 5px rgba(255,122,89,0.16)'
-                                            : 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row-reverse',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        padding: `4px ${RAIL_DOT_PADDING_X}px`,
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
                                     }}
-                                />
-                                {i < journeySteps.length - 1 && (
+                                >
+                                    <span
+                                        style={{
+                                            display: 'block',
+                                            flexShrink: 0,
+                                            width: active ? 12 : 8,
+                                            height: active ? 12 : 8,
+                                            borderRadius: '50%',
+                                            background: active
+                                                ? '#FF7A59'
+                                                : passed
+                                                  ? '#FFB4C6'
+                                                  : '#EFE2D6',
+                                            transition: 'all 0.35s ease',
+                                            boxShadow: active
+                                                ? '0 0 0 5px rgba(255,122,89,0.16)'
+                                                : 'none',
+                                        }}
+                                    />
+                                    <span
+                                        className="pl-rail-label"
+                                        style={{
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            color: active
+                                                ? '#FF7A59'
+                                                : '#8A8FA8',
+                                            whiteSpace: 'nowrap',
+                                            maxWidth: railHovered
+                                                ? RAIL_LABEL_MAX_WIDTH
+                                                : 0,
+                                            opacity: railHovered ? 1 : 0,
+                                            overflow: 'hidden',
+                                            transition:
+                                                'max-width 0.25s ease, opacity 0.2s ease',
+                                        }}
+                                    >
+                                        {label}
+                                    </span>
+                                </button>
+                                {i < JOURNEY_STEPS.length - 1 && (
                                     <div
                                         style={{
                                             width: 2,
                                             height: 22,
+                                            marginRight: railConnectorOffset(
+                                                active ? 12 : 8,
+                                            ),
                                             background: passed
                                                 ? '#FFB4C6'
                                                 : '#EFE2D6',
-                                            transition: 'background 0.35s ease',
+                                            transition:
+                                                'background 0.35s ease, margin-right 0.35s ease',
                                         }}
                                     />
                                 )}
@@ -1043,7 +1110,7 @@ export function Landing() {
                                 rotate: '3deg',
                                 ml: -10,
                                 label: '공유 링크',
-                                title: 'map.naver.com/p/entry/...',
+                                title: '지도 앱에서 공유하기',
                                 sub: '저장 12곳',
                                 icon: (
                                     <svg
@@ -1416,11 +1483,11 @@ export function Landing() {
                                     <span
                                         style={{
                                             fontSize: 13,
-                                            fontWeight: 600,
-                                            color: '#5B5F7E',
+                                            fontWeight: 700,
+                                            color: '#3A2A28',
                                         }}
                                     >
-                                        map.naver.com/p/entry/place/1934...
+                                        아라시야마 카페
                                     </span>
                                 </div>
                                 <div
@@ -1472,18 +1539,6 @@ export function Landing() {
                                             >
                                                 카페
                                             </span>
-                                            <span
-                                                style={{
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    background: '#EDE8FF',
-                                                    color: '#6B5FC7',
-                                                    padding: '3px 8px',
-                                                    borderRadius: 999,
-                                                }}
-                                            >
-                                                대나무숲 근처
-                                            </span>
                                         </div>
                                         <div
                                             style={{
@@ -1492,7 +1547,8 @@ export function Landing() {
                                                 fontWeight: 600,
                                             }}
                                         >
-                                            AI 메모 · "노을 시간대 추천"
+                                            교토부 우쿄구 사가노 · Google Maps
+                                            제공
                                         </div>
                                     </div>
                                 </div>
@@ -1687,9 +1743,8 @@ export function Landing() {
                                 fontWeight: 500,
                             }}
                         >
-                            멤버들이 장소마다 꼭 가기, 좋아요, 제외로 투표하고
-                            댓글을 남기면, 모두의 의견이 자연스럽게 하나로
-                            모여요.
+                            멤버들이 장소마다 찬성, 반대로 투표하고 댓글을
+                            남기면, 모두의 의견이 자연스럽게 하나로 모여요.
                         </p>
                     </div>
                 </div>
@@ -1803,35 +1858,21 @@ export function Landing() {
                                             borderRadius: 10,
                                         }}
                                     >
-                                        꼭 가기 · 3
+                                        찬성 · 3
                                     </div>
                                     <div
                                         style={{
                                             flex: 1,
                                             textAlign: 'center',
-                                            background: '#EDE8FF',
-                                            color: '#6B5FC7',
+                                            background: '#FDE2E7',
+                                            color: '#BE123C',
                                             fontWeight: 700,
                                             fontSize: 13,
                                             padding: '9px 0',
                                             borderRadius: 10,
                                         }}
                                     >
-                                        좋아요 · 1
-                                    </div>
-                                    <div
-                                        style={{
-                                            flex: 1,
-                                            textAlign: 'center',
-                                            background: '#F4F1EC',
-                                            color: '#8A8FA8',
-                                            fontWeight: 700,
-                                            fontSize: 13,
-                                            padding: '9px 0',
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        제외 · 0
+                                        반대 · 1
                                     </div>
                                 </div>
                                 <div
