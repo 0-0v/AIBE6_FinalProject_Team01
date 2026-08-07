@@ -36,6 +36,7 @@ public enum TripErrorCode implements ErrorCode {
     EMPTY_COVER_IMAGE(HttpStatus.BAD_REQUEST, "TRIP_COVER_400_1", "여행방 이미지를 선택해 주세요."),
     INVALID_COVER_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "TRIP_COVER_400_2", "JPG, PNG, WEBP 이미지만 등록할 수 있습니다."),
     COVER_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "TRIP_COVER_400_3", "여행방 이미지는 10MB 이하여야 합니다."),
+    INVALID_COVER_IMAGE_PRESET(HttpStatus.BAD_REQUEST, "TRIP_COVER_400_4", "존재하지 않는 기본 이미지입니다."),
     COVER_IMAGE_STORAGE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "TRIP_COVER_500_1", "여행방 이미지 저장에 실패했습니다.");
 
     private final HttpStatus status;

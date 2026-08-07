@@ -98,7 +98,10 @@ export function RecordPanel({
         () =>
             [...itineraryDays]
                 .sort((left, right) => left.dayNumber - right.dayNumber)
-                .map((day) => ({ day: day.dayNumber, date: day.itineraryDate })),
+                .map((day) => ({
+                    day: day.dayNumber,
+                    date: day.itineraryDate,
+                })),
         [itineraryDays],
     )
     const effectiveSelectedDay =
@@ -418,7 +421,7 @@ export function RecordPanel({
                             </button>
                         ))}
                     </div>
-                    <div className="mx-10 mt-3 h-44 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
+                    <div className="mx-10 mt-3 h-70 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
                         <MapCanvas
                             key={`record-route-${effectiveSelectedDay}`}
                             places={places.filter(
