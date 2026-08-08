@@ -48,8 +48,11 @@ import {
 // DeparturePicker
 // ────────────────────────────────────────────────────────────
 type DeparturePickerProps = {
+    dayNumber: number
     lodgingPlaces: Place[]
     savedPlaces: Place[]
+    updating: boolean
+    error: string | null
     onSelect: (
         payload:
             | { type: 'TRIP_PLACE'; tripPlaceId: number; name: string }
@@ -59,38 +62,74 @@ type DeparturePickerProps = {
 }
 
 function DeparturePicker({
+    dayNumber,
     lodgingPlaces,
     savedPlaces,
+    updating,
+    error,
     onSelect,
     onClose,
 }: DeparturePickerProps) {
     const nonLodgingPlaces = savedPlaces.filter((p) => p.category !== 'lodging')
 
     return (
-        <>
-            {/* 배경 클릭 닫기 */}
-            <div className="fixed inset-0 z-40" onClick={onClose} />
-            <div className="absolute left-0 top-full z-50 mt-1 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-                <div className="border-b border-slate-100 px-3 py-2.5">
-                    <p className="text-xs font-bold text-slate-700">
-                        저장된 장소에서 선택
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-slate-400">
-                        출발지로 사용할 장소를 선택해주세요.
-                    </p>
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="relative overflow-hidden bg-gradient-to-br from-brand-50 to-brand-100/60 px-5 py-4">
+                    <div
+                        aria-hidden
+                        className="pointer-events-none absolute -right-6 -top-8 size-28 rounded-full bg-brand/15 blur-2xl"
+                    />
+                    <div className="relative flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-sm">
+                                <MapPinIcon size={17} aria-hidden />
+                            </span>
+                            <div className="min-w-0 pt-0.5">
+                                <h2 className="text-base font-extrabold text-slate-900">
+                                    Day {dayNumber} 출발지 변경
+                                </h2>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                    이날 첫 일정 전에 출발할 장소를
+                                    선택해주세요.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="닫기"
+                            className="shrink-0 rounded-full bg-white/80 p-1.5 text-slate-400 shadow-sm hover:bg-white hover:text-slate-700"
+                        >
+                            <XIcon size={18} />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="mp-scroll max-h-72 overflow-y-auto">
+                {error && (
+                    <p className="border-b border-red-100 bg-red-50 px-5 py-2.5 text-xs font-semibold text-red-500">
+                        {error}
+                    </p>
+                )}
+
+                <div className="mp-scroll max-h-96 overflow-y-auto p-2">
                     {/* 저장된 숙소 */}
                     {lodgingPlaces.length > 0 && (
                         <div>
-                            <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                            <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
                                 저장된 숙소
                             </p>
                             {lodgingPlaces.map((place) => (
                                 <button
                                     key={place.id}
                                     type="button"
+                                    disabled={updating}
                                     onClick={() =>
                                         onSelect({
                                             type: 'TRIP_PLACE',
@@ -98,18 +137,25 @@ function DeparturePicker({
                                             name: place.name,
                                         })
                                     }
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
+                                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-50 disabled:opacity-40"
                                 >
                                     <span
+                                        className="flex size-8 shrink-0 items-center justify-center rounded-full"
                                         style={{
+                                            backgroundColor: `${CATEGORY_META.lodging.color}18`,
                                             color: CATEGORY_META.lodging.color,
                                         }}
                                     >
-                                        <CategoryIcon icon="HOTEL" size={12} />
+                                        <CategoryIcon icon="HOTEL" size={15} />
                                     </span>
-                                    <span className="truncate text-xs font-medium text-slate-700">
+                                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">
                                         {place.name}
                                     </span>
+                                    <ChevronRightIcon
+                                        size={14}
+                                        className="shrink-0 text-slate-300"
+                                        aria-hidden
+                                    />
                                 </button>
                             ))}
                         </div>
@@ -118,62 +164,78 @@ function DeparturePicker({
                     {/* 저장된 다른 장소 */}
                     {nonLodgingPlaces.length > 0 && (
                         <div>
-                            <p className="border-t border-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                            <p className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
                                 저장된 장소
                             </p>
-                            {nonLodgingPlaces.map((place) => (
-                                <button
-                                    key={place.id}
-                                    type="button"
-                                    onClick={() =>
-                                        onSelect({
-                                            type: 'TRIP_PLACE',
-                                            tripPlaceId: Number(place.id),
-                                            name: place.name,
-                                        })
-                                    }
-                                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
-                                >
-                                    {place.categoryIcon && (
+                            {nonLodgingPlaces.map((place) => {
+                                const color = place.categoryColor ?? '#94a3b8'
+                                return (
+                                    <button
+                                        key={place.id}
+                                        type="button"
+                                        disabled={updating}
+                                        onClick={() =>
+                                            onSelect({
+                                                type: 'TRIP_PLACE',
+                                                tripPlaceId: Number(place.id),
+                                                name: place.name,
+                                            })
+                                        }
+                                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-50 disabled:opacity-40"
+                                    >
                                         <span
+                                            className="flex size-8 shrink-0 items-center justify-center rounded-full"
                                             style={{
-                                                color:
-                                                    place.categoryColor ??
-                                                    '#94a3b8',
+                                                backgroundColor: `${color}18`,
+                                                color,
                                             }}
                                         >
-                                            <CategoryIcon
-                                                icon={place.categoryIcon}
-                                                size={12}
-                                            />
+                                            {place.categoryIcon ? (
+                                                <CategoryIcon
+                                                    icon={place.categoryIcon}
+                                                    size={15}
+                                                />
+                                            ) : (
+                                                <MapPinIcon size={15} />
+                                            )}
                                         </span>
-                                    )}
-                                    <span className="truncate text-xs font-medium text-slate-700">
-                                        {place.name}
-                                    </span>
-                                </button>
-                            ))}
+                                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">
+                                            {place.name}
+                                        </span>
+                                        <ChevronRightIcon
+                                            size={14}
+                                            className="shrink-0 text-slate-300"
+                                            aria-hidden
+                                        />
+                                    </button>
+                                )
+                            })}
                         </div>
                     )}
 
                     {savedPlaces.length === 0 && (
-                        <p className="px-3 py-4 text-center text-xs text-slate-400">
+                        <p className="px-3 py-6 text-center text-sm text-slate-400">
                             저장된 장소가 없습니다.
                         </p>
                     )}
 
                     {/* 출발지 없음 */}
-                    <button
-                        type="button"
-                        onClick={() => onSelect({ type: 'NONE' })}
-                        className="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-xs text-slate-400 hover:bg-slate-50"
-                    >
-                        <XIcon size={12} />
-                        출발지 없음
-                    </button>
+                    <div className="mt-1 border-t border-slate-100 pt-1">
+                        <button
+                            type="button"
+                            disabled={updating}
+                            onClick={() => onSelect({ type: 'NONE' })}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-400 transition hover:bg-slate-50 disabled:opacity-40"
+                        >
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                                <XIcon size={15} />
+                            </span>
+                            출발지 없음
+                        </button>
+                    </div>
                 </div>
             </div>
-        </>
+        </div>
     )
 }
 
@@ -182,6 +244,7 @@ function DeparturePicker({
 // ────────────────────────────────────────────────────────────
 type DepartureRowProps = {
     departure: ItineraryDayDeparture | null
+    dayNumber: number
     tripId: number
     dayId: string
     canWrite: boolean
@@ -193,6 +256,7 @@ type DepartureRowProps = {
 
 function DepartureRow({
     departure,
+    dayNumber,
     tripId,
     dayId,
     canWrite,
@@ -203,15 +267,16 @@ function DepartureRow({
 }: DepartureRowProps) {
     const [open, setOpen] = useState(false)
     const [updating, setUpdating] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     async function handleSelect(
         payload:
             | { type: 'TRIP_PLACE'; tripPlaceId: number; name: string }
             | { type: 'NONE' },
     ) {
-        setOpen(false)
         if (updating) return
         setUpdating(true)
+        setError(null)
         try {
             const updated = await updateDayDeparture(
                 tripId,
@@ -219,8 +284,9 @@ function DepartureRow({
                 payload,
             )
             onDaysChange(days.map((d) => (d.id === updated.id ? updated : d)))
-        } catch {
-            /* ignore — 사용자 피드백은 상위에서 처리 */
+            setOpen(false)
+        } catch (err) {
+            setError(getApiErrorMessage(err, '출발지를 변경하지 못했습니다.'))
         } finally {
             setUpdating(false)
         }
@@ -258,17 +324,27 @@ function DepartureRow({
                 <button
                     type="button"
                     disabled={updating}
-                    onClick={() => setOpen((v) => !v)}
-                    className="shrink-0 rounded-md px-1.5 py-1 text-[10px] font-bold text-brand transition hover:bg-brand/10 disabled:opacity-40"
-                    aria-label={departure ? '출발지 변경' : '출발지 선택'}
+                    onClick={() => {
+                        setError(null)
+                        setOpen((v) => !v)
+                    }}
+                    className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand transition hover:border-brand hover:bg-brand-100 disabled:opacity-40"
+                    aria-label={
+                        departure
+                            ? `Day ${dayNumber} 출발지 변경`
+                            : `Day ${dayNumber} 출발지 선택`
+                    }
                 >
-                    {departure ? '변경' : '출발지 선택'}
+                    {departure ? '출발지 변경' : '출발지 선택'}
                 </button>
             )}
             {open && (
                 <DeparturePicker
+                    dayNumber={dayNumber}
                     lodgingPlaces={lodgingPlaces}
                     savedPlaces={savedPlaces}
+                    updating={updating}
+                    error={error}
                     onSelect={handleSelect}
                     onClose={() => setOpen(false)}
                 />
@@ -709,6 +785,7 @@ export function DayColumn({
             {!collapsed && (
             <DepartureRow
                 departure={day.departure}
+                dayNumber={day.dayNumber}
                 tripId={tripId}
                 dayId={String(day.id)}
                 canWrite={canWrite}
