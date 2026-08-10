@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
     CheckIcon,
     ChevronDownIcon,
@@ -41,7 +41,6 @@ type Props = {
     canWrite: boolean
     startDate: string | null
     endDate: string | null
-    onPlaceClick: (placeId: string) => void
     onChanged?: () => void
     onOpenExpenses?: () => void
     onEditExpense?: (expense: ExpenseResponse) => void
@@ -62,7 +61,6 @@ export function RecordPanel({
     canWrite,
     startDate,
     endDate,
-    onPlaceClick,
     onChanged,
     onOpenExpenses,
     onEditExpense,
@@ -91,6 +89,8 @@ export function RecordPanel({
     const [mapSelectedPlaceId, setMapSelectedPlaceId] = useState<string | null>(
         null,
     )
+    const [mapFocusRequestVersion, setMapFocusRequestVersion] = useState(0)
+    const mapContainerRef = useRef<HTMLDivElement>(null)
     const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
     const [completingKey, setCompletingKey] = useState<string | null>(null)
 
@@ -155,6 +155,15 @@ export function RecordPanel({
             )
             .map(String)
     }, [dayRecords, scheduledItems])
+
+    function focusPlaceOnMap(placeId: string) {
+        setMapSelectedPlaceId(placeId)
+        setMapFocusRequestVersion((current) => current + 1)
+        mapContainerRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+        })
+    }
 
     function openComposer(placeId?: string | null) {
         setEditingRecordId(null)
@@ -421,13 +430,17 @@ export function RecordPanel({
                             </button>
                         ))}
                     </div>
-                    <div className="mx-10 mt-3 h-70 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100">
+                    <div
+                        ref={mapContainerRef}
+                        className="mx-10 mt-3 h-70 overflow-hidden rounded-2xl border border-slate-100 bg-slate-100"
+                    >
                         <MapCanvas
                             key={`record-route-${effectiveSelectedDay}`}
                             places={places.filter(
                                 (place) => place.status === 'saved',
                             )}
                             selectedId={mapSelectedPlaceId}
+                            focusRequestVersion={mapFocusRequestVersion}
                             onSelect={setMapSelectedPlaceId}
                             onDeselect={() => setMapSelectedPlaceId(null)}
                             days={
@@ -467,7 +480,7 @@ export function RecordPanel({
                                 records={dayRecords}
                                 places={places}
                                 canWrite={canWrite && effectiveSelectedDay > 0}
-                                onPlaceClick={onPlaceClick}
+                                onPlaceClick={focusPlaceOnMap}
                                 onRecordAdd={openComposer}
                                 onRecordEdit={openRecordEditor}
                                 onRecordDelete={(recordId) =>
@@ -607,7 +620,7 @@ function ScheduleRecordTimeline({
                                     type="button"
                                     onClick={() =>
                                         item.tripPlaceId &&
-                                        onPlaceClick(item.tripPlaceId)
+                                        onPlaceClick(String(item.tripPlaceId))
                                     }
                                     className="min-w-0 flex-1 text-left"
                                 >
