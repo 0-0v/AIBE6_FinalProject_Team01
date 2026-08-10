@@ -1,6 +1,6 @@
 package back.backend.domain.place.service;
 
-import back.backend.domain.place.repository.TripAccessRepository;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityContextAccessor;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class TripAccessChecker {
 
-    private final TripAccessRepository tripAccessRepository;
+    private final TripMemberRepository tripMemberRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final GuestTripAccessService guestTripAccessService;
     private final HttpServletRequest request;
@@ -24,7 +24,7 @@ public class TripAccessChecker {
         var principal = securityContextAccessor.getCurrentPrincipal();
         if (principal.isPresent()) {
             Long memberId = principal.get().getMemberId();
-            if (tripAccessRepository.canView(tripId, memberId)) {
+            if (tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
                 return memberId;
             }
         }
@@ -40,7 +40,7 @@ public class TripAccessChecker {
 
     public Long requireEdit(Long tripId) {
         Long memberId = securityContextAccessor.getCurrentMemberId();
-        if (!tripAccessRepository.canEdit(tripId, memberId)) {
+        if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
         return memberId;

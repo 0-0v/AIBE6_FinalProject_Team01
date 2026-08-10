@@ -4,8 +4,6 @@ import back.backend.domain.place.entity.TripPlace;
 
 final class GeoDistanceCalculator {
 
-    private static final double EARTH_RADIUS_METERS = 6_371_000;
-
     private GeoDistanceCalculator() {
     }
 
@@ -24,17 +22,11 @@ final class GeoDistanceCalculator {
             double latitude2,
             double longitude2
     ) {
-        double lat1 = Math.toRadians(latitude1);
-        double lat2 = Math.toRadians(latitude2);
-        double latitudeDelta = lat2 - lat1;
-        double longitudeDelta = Math.toRadians(longitude2 - longitude1);
-        double haversine = Math.pow(Math.sin(latitudeDelta / 2), 2)
-                + Math.cos(lat1)
-                * Math.cos(lat2)
-                * Math.pow(Math.sin(longitudeDelta / 2), 2);
-        return EARTH_RADIUS_METERS * 2 * Math.atan2(
-                Math.sqrt(haversine),
-                Math.sqrt(1 - haversine)
+        return back.backend.global.util.GeoDistanceCalculator.distanceMeters(
+                latitude1,
+                longitude1,
+                latitude2,
+                longitude2
         );
     }
 }

@@ -11,6 +11,13 @@ export default defineConfig([
         rules: {
             semi: ['error', 'never'],
             quotes: ['error', 'single', { avoidEscape: true }],
+            eqeqeq: ['error', 'smart'],
+            'no-console': 'error',
+            'import/no-duplicates': 'error',
+            'no-duplicate-imports': [
+                'error',
+                { allowSeparateTypeImports: true },
+            ],
             'no-restricted-imports': [
                 'error',
                 {

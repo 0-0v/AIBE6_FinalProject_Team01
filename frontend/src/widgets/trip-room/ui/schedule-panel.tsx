@@ -359,58 +359,58 @@ export function SchedulePanel({
                                     }
                                 }}
                             >
-                            <DayColumn
-                                day={day}
-                                tripId={tripId}
-                                canWrite={canWrite && !saving}
-                                days={days}
-                                isDragging={isDragging}
-                                unscheduledPlaces={unscheduledPlaces}
-                                allPlaces={places}
-                                onAddPlace={(placeId) =>
-                                    void addPlaceToDay(
-                                        placeId,
-                                        String(day.id),
-                                    )
-                                }
-                                onDaysChange={setDays}
-                                onItemFocus={(itemId) => {
-                                    const item = day.items.find(
-                                        (candidate) =>
-                                            String(candidate.id) === itemId,
-                                    )
-                                    if (item?.tripPlaceId != null) {
-                                        onPlaceFocus?.(
-                                            String(item.tripPlaceId),
+                                <DayColumn
+                                    day={day}
+                                    tripId={tripId}
+                                    canWrite={canWrite && !saving}
+                                    days={days}
+                                    isDragging={isDragging}
+                                    unscheduledPlaces={unscheduledPlaces}
+                                    allPlaces={places}
+                                    onAddPlace={(placeId) =>
+                                        void addPlaceToDay(
+                                            placeId,
+                                            String(day.id),
                                         )
                                     }
-                                }}
-                                hoveredItemId={
-                                    hoveredItem != null
-                                        ? String(hoveredItem.id)
-                                        : null
-                                }
-                                selectedItemId={
-                                    selectedItem != null
-                                        ? String(selectedItem.id)
-                                        : null
-                                }
-                                onItemHoverChange={(itemId) => {
-                                    if (itemId == null) {
-                                        onPlaceHoverChange?.(null)
-                                        return
+                                    onDaysChange={setDays}
+                                    onItemFocus={(itemId) => {
+                                        const item = day.items.find(
+                                            (candidate) =>
+                                                String(candidate.id) === itemId,
+                                        )
+                                        if (item?.tripPlaceId != null) {
+                                            onPlaceFocus?.(
+                                                String(item.tripPlaceId),
+                                            )
+                                        }
+                                    }}
+                                    hoveredItemId={
+                                        hoveredItem != null
+                                            ? String(hoveredItem.id)
+                                            : null
                                     }
-                                    const item = day.items.find(
-                                        (candidate) =>
-                                            String(candidate.id) === itemId,
-                                    )
-                                    onPlaceHoverChange?.(
-                                        item?.tripPlaceId != null
-                                            ? String(item.tripPlaceId)
-                                            : null,
-                                    )
-                                }}
-                            />
+                                    selectedItemId={
+                                        selectedItem != null
+                                            ? String(selectedItem.id)
+                                            : null
+                                    }
+                                    onItemHoverChange={(itemId) => {
+                                        if (itemId == null) {
+                                            onPlaceHoverChange?.(null)
+                                            return
+                                        }
+                                        const item = day.items.find(
+                                            (candidate) =>
+                                                String(candidate.id) === itemId,
+                                        )
+                                        onPlaceHoverChange?.(
+                                            item?.tripPlaceId != null
+                                                ? String(item.tripPlaceId)
+                                                : null,
+                                        )
+                                    }}
+                                />
                             </div>
                         )
                     })}

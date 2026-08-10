@@ -219,7 +219,10 @@ export function App() {
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
-                <Route path="/trip-invite/:token" element={<TripEmailInvitationPage />} />
+                <Route
+                    path="/trip-invite/:token"
+                    element={<TripEmailInvitationPage />}
+                />
                 <Route path="/app/*" element={<AppShell />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

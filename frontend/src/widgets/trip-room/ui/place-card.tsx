@@ -42,7 +42,10 @@ export function PlaceCard({
     const cardRef = useRef<HTMLElement>(null)
     useEffect(() => {
         if (selected) {
-            cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+            cardRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+            })
         }
     }, [selected])
 
@@ -142,48 +145,48 @@ export function PlaceCard({
                         </div>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
-                    {voteOpen ? (
-                        <span className="inline-flex rounded-full border border-orange-200 bg-orange-100 px-2.5 py-1 text-[11px] font-extrabold text-orange-700">
-                            투표 진행 중 {vote.responseCount}/
-                            {vote.requiredResponseCount}명
-                        </span>
-                    ) : voteClosed && place.status === 'rejected' ? (
-                        <span className="inline-flex rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-[11px] font-extrabold text-rose-700">
-                            투표 종료 · 탈락
-                        </span>
-                    ) : voteClosed ? (
-                        <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700">
-                            투표 종료 · 확정 · 찬성 {agreeRate}%
-                        </span>
-                    ) : place.status === 'saved' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
-                            <CheckIcon size={10} /> 투표 전
-                        </span>
-                    ) : place.status === 'rejected' ? (
-                        <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-[10px] font-extrabold text-rose-600">
-                            탈락
-                        </span>
-                    ) : (
-                        <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
-                            투표중
-                        </span>
-                    )}
-                    {!voteOpen && (
-                        <button
-                            disabled={!canWrite || submittingVote}
-                            onClick={(event) => {
-                                event.stopPropagation()
-                                void submitVote(onStartVote)
-                            }}
-                            className="shrink-0 rounded-md border border-orange-300 bg-orange-50 px-2 py-1 text-[10px] font-extrabold text-orange-700 transition hover:bg-orange-100 disabled:opacity-40"
-                        >
-                            {submittingVote
-                                ? '신청 중'
-                                : voteClosed
-                                  ? '다시 투표'
-                                  : '투표 시작'}
-                        </button>
-                    )}
+                        {voteOpen ? (
+                            <span className="inline-flex rounded-full border border-orange-200 bg-orange-100 px-2.5 py-1 text-[11px] font-extrabold text-orange-700">
+                                투표 진행 중 {vote.responseCount}/
+                                {vote.requiredResponseCount}명
+                            </span>
+                        ) : voteClosed && place.status === 'rejected' ? (
+                            <span className="inline-flex rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-[11px] font-extrabold text-rose-700">
+                                투표 종료 · 탈락
+                            </span>
+                        ) : voteClosed ? (
+                            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700">
+                                투표 종료 · 확정 · 찬성 {agreeRate}%
+                            </span>
+                        ) : place.status === 'saved' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-[10px] font-extrabold text-brand-700">
+                                <CheckIcon size={10} /> 투표 전
+                            </span>
+                        ) : place.status === 'rejected' ? (
+                            <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-[10px] font-extrabold text-rose-600">
+                                탈락
+                            </span>
+                        ) : (
+                            <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                                투표중
+                            </span>
+                        )}
+                        {!voteOpen && (
+                            <button
+                                disabled={!canWrite || submittingVote}
+                                onClick={(event) => {
+                                    event.stopPropagation()
+                                    void submitVote(onStartVote)
+                                }}
+                                className="shrink-0 rounded-md border border-orange-300 bg-orange-50 px-2 py-1 text-[10px] font-extrabold text-orange-700 transition hover:bg-orange-100 disabled:opacity-40"
+                            >
+                                {submittingVote
+                                    ? '신청 중'
+                                    : voteClosed
+                                      ? '다시 투표'
+                                      : '투표 시작'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

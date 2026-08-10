@@ -1,39 +1,21 @@
-import { useNavigate } from 'react-router-dom'
 import { BellIcon, RotateCwIcon } from 'lucide-react'
-import type { Notification } from '@/entities/notification'
-import { useCurrentUserStore } from '@/shared/model'
 import {
     formatNotificationDate,
     notificationStyle,
 } from '../lib/notification-presentation'
-import { useNotificationStore } from '../model/notification-store'
+import { useNotificationFeed } from '../model/use-notification-feed'
 
 export function NotificationList() {
-    const navigate = useNavigate()
-    const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const notifications = useNotificationStore((state) => state.notifications)
-    const unreadCount = useNotificationStore((state) => state.unreadCount)
-    const isLoading = useNotificationStore((state) => state.isLoading)
-    const error = useNotificationStore((state) => state.error)
-    const loadNotifications = useNotificationStore(
-        (state) => state.loadNotifications,
-    )
-    const readNotification = useNotificationStore(
-        (state) => state.readNotification,
-    )
-    const readAllNotifications = useNotificationStore(
-        (state) => state.readAllNotifications,
-    )
-
-    async function openNotification(notification: Notification) {
-        await readNotification(notification.id)
-        if (
-            notification.targetType === 'TRIP_COMPLETION_CONFIRMATION' &&
-            notification.targetId
-        ) {
-            navigate(`/app/room/${notification.targetId}`)
-        }
-    }
+    const {
+        currentUser,
+        notifications,
+        unreadCount,
+        isLoading,
+        error,
+        loadNotifications,
+        readAllNotifications,
+        openNotification,
+    } = useNotificationFeed()
 
     if (!currentUser) {
         return <ListMessage message="로그인하면 알림을 확인할 수 있어요." />

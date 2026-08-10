@@ -86,8 +86,7 @@ export function ExpenseSettlementCard({
             {expanded ? (
                 <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-2.5">
                     {expense.participants.map((participant) => {
-                        const isPayer =
-                            participant.memberId === expense.payerId
+                        const isPayer = participant.memberId === expense.payerId
                         const canSettle =
                             !isPayer &&
                             participant.status === 'PENDING' &&
@@ -166,10 +165,7 @@ export function ExpenseSettlementCard({
                             className="flex w-full items-center justify-center gap-1 pt-1 text-[9px] font-bold text-slate-300"
                         >
                             접기{' '}
-                            <ChevronDownIcon
-                                size={11}
-                                className="rotate-180"
-                            />
+                            <ChevronDownIcon size={11} className="rotate-180" />
                         </button>
                     )}
                 </div>

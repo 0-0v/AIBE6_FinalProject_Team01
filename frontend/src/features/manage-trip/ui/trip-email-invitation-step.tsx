@@ -1,5 +1,11 @@
 import { FormEvent, useState } from 'react'
-import { CheckCircle2Icon, MailPlusIcon, PlusIcon, SendIcon, XIcon } from 'lucide-react'
+import {
+    CheckCircle2Icon,
+    MailPlusIcon,
+    PlusIcon,
+    SendIcon,
+    XIcon,
+} from 'lucide-react'
 import { errorMessage } from '@/shared/lib'
 import {
     sendTripEmailInvitations,
@@ -83,7 +89,9 @@ export function TripEmailInvitationStep({ tripId, onComplete }: Props) {
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
                         <MailPlusIcon size={24} />
                     </span>
-                    <h2 className="mt-4 text-2xl font-extrabold">함께 여행할 멤버를 초대해 보세요</h2>
+                    <h2 className="mt-4 text-2xl font-extrabold">
+                        함께 여행할 멤버를 초대해 보세요
+                    </h2>
                     <p className="mt-2 text-sm font-semibold text-white/85">
                         Plamingo에 가입된 계정 이메일만 초대할 수 있어요.
                     </p>
@@ -96,7 +104,9 @@ export function TripEmailInvitationStep({ tripId, onComplete }: Props) {
                             <input
                                 type="email"
                                 value={email}
-                                onChange={(event) => setEmail(event.target.value)}
+                                onChange={(event) =>
+                                    setEmail(event.target.value)
+                                }
                                 placeholder="friend@example.com"
                                 autoFocus
                                 className="min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
@@ -112,7 +122,11 @@ export function TripEmailInvitationStep({ tripId, onComplete }: Props) {
                         </div>
                     </label>
 
-                    {error && <p className="mt-3 text-sm font-semibold text-red-500">{error}</p>}
+                    {error && (
+                        <p className="mt-3 text-sm font-semibold text-red-500">
+                            {error}
+                        </p>
+                    )}
 
                     {emails.length > 0 && (
                         <div className="mt-5 rounded-2xl bg-slate-50 p-4">
@@ -125,13 +139,22 @@ export function TripEmailInvitationStep({ tripId, onComplete }: Props) {
                                         key={targetEmail}
                                         className="flex items-center gap-2 text-sm font-semibold text-slate-700"
                                     >
-                                        <CheckCircle2Icon className="text-emerald-500" size={15} />
-                                        <span className="min-w-0 flex-1 truncate">{targetEmail}</span>
+                                        <CheckCircle2Icon
+                                            className="text-emerald-500"
+                                            size={15}
+                                        />
+                                        <span className="min-w-0 flex-1 truncate">
+                                            {targetEmail}
+                                        </span>
                                         <button
                                             type="button"
                                             onClick={() =>
                                                 setEmails((current) =>
-                                                    current.filter((item) => item !== targetEmail),
+                                                    current.filter(
+                                                        (item) =>
+                                                            item !==
+                                                            targetEmail,
+                                                    ),
                                                 )
                                             }
                                             aria-label={`${targetEmail} 삭제`}
@@ -148,11 +171,15 @@ export function TripEmailInvitationStep({ tripId, onComplete }: Props) {
                     <button
                         type="button"
                         onClick={sendAll}
-                        disabled={emails.length === 0 || isSending || isValidating}
+                        disabled={
+                            emails.length === 0 || isSending || isValidating
+                        }
                         className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                     >
                         <SendIcon size={16} />
-                        {isSending ? '초대 메일 발송 중' : `${emails.length}명에게 한 번에 보내기`}
+                        {isSending
+                            ? '초대 메일 발송 중'
+                            : `${emails.length}명에게 한 번에 보내기`}
                     </button>
                     <button
                         type="button"

@@ -6,6 +6,7 @@ import back.backend.domain.place.dto.response.PlaceOperationalDetails;
 import back.backend.domain.place.dto.response.DestinationMetadataResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.util.GeoDistanceCalculator;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.LocalDate;
@@ -28,7 +29,6 @@ public class PlaceSearchService {
 
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
     private static final double ROOM_SEARCH_RADIUS_METERS = 50_000.0;
-    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
     private static final String FIELD_MASK =
             "places.id,places.displayName,places.formattedAddress,places.location," +
             "places.primaryType,places.types," +
@@ -114,7 +114,7 @@ public class PlaceSearchService {
             return results;
         }
         return results.stream()
-                .filter(place -> distanceMeters(
+                .filter(place -> GeoDistanceCalculator.distanceMeters(
                         latitude, longitude, place.latitude(), place.longitude())
                         <= ROOM_SEARCH_RADIUS_METERS)
                 .toList();
@@ -160,24 +160,6 @@ public class PlaceSearchService {
                 && latitude <= 90.0
                 && longitude >= -180.0
                 && longitude <= 180.0;
-    }
-
-    private double distanceMeters(
-            double originLatitude,
-            double originLongitude,
-            double destinationLatitude,
-            double destinationLongitude
-    ) {
-        double latitudeDelta = Math.toRadians(destinationLatitude - originLatitude);
-        double longitudeDelta = Math.toRadians(destinationLongitude - originLongitude);
-        double originLatitudeRadians = Math.toRadians(originLatitude);
-        double destinationLatitudeRadians = Math.toRadians(destinationLatitude);
-        double haversine = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
-                + Math.cos(originLatitudeRadians) * Math.cos(destinationLatitudeRadians)
-                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
-        double normalizedHaversine = Math.max(0.0, Math.min(1.0, haversine));
-        return EARTH_RADIUS_METERS * 2 * Math.atan2(
-                Math.sqrt(normalizedHaversine), Math.sqrt(1 - normalizedHaversine));
     }
 
     private List<PlaceSearchResponse> callGooglePlacesApi(

@@ -2,384 +2,50 @@
 
 /* eslint-disable react/no-unescaped-entities */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ConfettiButton } from '@/shared/ui/confetti-button'
 import { NumberTicker } from '@/shared/ui/number-ticker'
 import { WordRotate } from '@/shared/ui/word-rotate'
 import { useCurrentUserStore } from '@/shared/model'
-import { BrandLogo } from '@/shared/ui'
 import { HeroGlobe } from './hero-globe'
-
-// 여정 레일 라벨이 호버/포커스 시 펼쳐지는 최대 너비 — 인라인 스타일과 CSS 양쪽에서 재사용
-const RAIL_LABEL_MAX_WIDTH = 110
-
-const LANDING_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
-  @font-face {
-    font-family: 'BMDOHYEON';
-    src: url('https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff2') format('woff2'),
-         url('https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-  }
-  @keyframes pl-fadeUpIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes pl-heroBody { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
-  @keyframes pl-heroBag { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-2px); } }
-  @keyframes pl-twinkle { 0%,100% { opacity: 0.5; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
-  @keyframes pl-scrollBounce { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(7px); } }
-  .pl-h { font-family: 'BMDOHYEON', 'Gothic A1', 'Manrope', sans-serif !important; font-weight: 400 !important; letter-spacing: 0 !important; word-break: keep-all; }
-  .pl-nav-link { font-weight: 600; font-size: 15px; color: #3A2A28; position: relative; padding-bottom: 2px; background-image: linear-gradient(#FF7A59, #FF7A59); background-size: 0% 2px; background-repeat: no-repeat; background-position: left bottom; transition: background-size 0.25s ease; text-decoration: none; }
-  .pl-nav-link:hover { background-size: 100% 2px; }
-  .pl-cta-btn:hover { transform: translateY(-3px); box-shadow: 0 16px 28px rgba(255,90,60,0.42) !important; }
-  .pl-ghost-btn:hover { transform: translateY(-3px); border-color: #FFB4C6 !important; }
-  .pl-scroll-hint:hover { border-color: #FFB4C6 !important; animation-play-state: paused; }
-  .pl-rail-dot:focus-visible { outline: 2px solid #FF7A59; outline-offset: 2px; border-radius: 10px; }
-  .pl-rail:focus-within { background: #FFFDF9 !important; border-color: #EFE2D6 !important; box-shadow: 0 12px 28px rgba(58,42,40,0.1) !important; }
-  .pl-rail:focus-within .pl-rail-label { max-width: ${RAIL_LABEL_MAX_WIDTH}px !important; opacity: 1 !important; }
-  .pl-h2-hover:hover { transform: scale(1.015); }
-  @media (prefers-reduced-motion: reduce) {
-    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-  }
-  @media (max-width: 720px) {
-    #pl-hero { flex-wrap: wrap !important; min-height: auto !important; }
-    #pl-hero > div { flex-basis: 100% !important; }
-  }
-`
-
-/** 반복되는 fadeUpIn 애니메이션 문자열 생성 헬퍼 */
-const fadeUpIn = (delayMs: number) =>
-    `pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) ${delayMs}ms both`
-
-/** 좌측 여정 레일에 표시되는 섹션 목록 — 값이 고정이라 렌더마다 새로 만들 필요가 없다 */
-const JOURNEY_STEPS: Array<[id: string, label: string]> = [
-    ['problem', '흩어진 계획'],
-    ['place', '장소 저장'],
-    ['vote', '투표 결정'],
-    ['ai', 'AI 일정 추천'],
-    ['expense', '정산 N빵'],
-    ['cta', '시작하기'],
-]
-
-// 레일 점의 좌우 패딩 — 커넥터 선을 점 중심에 맞추는 계산에도 같이 쓰인다
-const RAIL_DOT_PADDING_X = 6
-/** 커넥터 선(2px)이 점의 정중앙에 오도록 하는 marginRight 계산 (레일이 우측 정렬이라 오른쪽 기준) */
-const railConnectorOffset = (dotSize: number) =>
-    RAIL_DOT_PADDING_X + dotSize / 2 - 1
-
-/** 씬 섹션(문제/장소/투표/AI/정산/CTA) 6곳이 공유하는 위아래 패딩 비율 */
-const SCENE_SECTION_PADDING =
-    'calc(min(5vw,48px) + 64px) clamp(20px,6vw,80px) calc(min(5vw,48px) + 16px)'
-
-/** 씬 섹션 제목(h2)이 공유하는 기본 스타일 — margin만 섹션별로 다르게 덮어쓴다 */
-const SCENE_H2_BASE: React.CSSProperties = {
-    fontSize: 'clamp(32px,4.6vw,52px)',
-    lineHeight: 1.36,
-    transition: 'transform 0.3s ease',
-}
-
-/** 마지막 섹션을 제외한 각 섹션 하단에 두는 "아래로 스크롤" 유도 버튼 —
- * 클릭하면 다음 섹션으로 바로 이동한다. */
-function ScrollDownHint({
-    onClick,
-}: {
-    onClick?: (e: React.MouseEvent) => void
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-label="다음 섹션으로 스크롤"
-            className="pl-scroll-hint"
-            style={{
-                position: 'absolute',
-                left: '50%',
-                bottom: 'clamp(14px,2.5vw,28px)',
-                transform: 'translateX(-50%)',
-                zIndex: 2,
-                width: 44,
-                height: 44,
-                borderRadius: '50%',
-                background: '#FFFDF9',
-                border: '1.5px solid #EFE2D6',
-                boxShadow: '0 8px 18px rgba(58,42,40,0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                animation: 'pl-scrollBounce 1.8s ease-in-out infinite',
-            }}
-        >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path
-                    d="M5 9l7 7 7-7"
-                    stroke="#FF7A59"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                />
-            </svg>
-        </button>
-    )
-}
-
+import { LandingFooter } from './landing-footer'
+import { LandingNavigation } from './landing-navigation'
+import { LandingJourneyRail } from './landing-journey-rail'
+import {
+    fadeUpIn,
+    LANDING_STYLES,
+    SCENE_H2_BASE,
+    SCENE_SECTION_PADDING,
+    ScrollDownHint,
+} from './landing-scene-shared'
+import { useLandingInteractions } from '../model/use-landing-interactions'
 export function Landing() {
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const isInitialized = useCurrentUserStore((state) => state.isInitialized)
 
-    const [scrolled, setScrolled] = useState(false)
-    // 히어로(첫 섹션)에서만 헤더를 보여주고, 다른 섹션으로 넘어가면 숨긴다.
-    const [showNav, setShowNav] = useState(true)
-    const [revealed, setRevealed] = useState<Record<string, boolean>>({})
-    const [isMobile, setIsMobile] = useState(
-        () => typeof window !== 'undefined' && window.innerWidth <= 768,
-    )
-    const [reduced, setReduced] = useState(
-        () =>
-            typeof window !== 'undefined' &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    )
-    const [ctaHover, setCtaHover] = useState(false)
-    const [activeSection, setActiveSection] = useState('problem')
-    const [railHovered, setRailHovered] = useState(false)
-    const [smx, setSmx] = useState(0)
-    const [smy, setSmy] = useState(0)
+    const {
+        scrolled,
+        showNav,
+        revealed,
+        isMobile,
+        reduced,
+        ctaHover,
+        setCtaHover,
+        activeSection,
+        smx,
+        smy,
+        scrollTo,
+        reveal,
+        revealCard,
+        sceneParallax,
+    } = useLandingInteractions(LANDING_STYLES)
 
     const startService = useCallback(() => {
         if (!isInitialized) return
         navigate(currentUser ? '/app' : '/login')
     }, [currentUser, isInitialized, navigate])
-
-    const targetMxRef = useRef(0)
-    const targetMyRef = useRef(0)
-    const smxRef = useRef(0)
-    const smyRef = useRef(0)
-    const smoothRafRef = useRef<number | null>(null)
-    const scrollRafRef = useRef<number | null>(null)
-    const ioRef = useRef<IntersectionObserver | null>(null)
-
-    // CSS 주입
-    useEffect(() => {
-        const style = document.createElement('style')
-        style.textContent = LANDING_STYLES
-        document.head.appendChild(style)
-        return () => {
-            document.head.removeChild(style)
-        }
-    }, [])
-
-    // 스크롤 감지
-    useEffect(() => {
-        const onScroll = () => {
-            if (scrollRafRef.current) return
-            scrollRafRef.current = requestAnimationFrame(() => {
-                scrollRafRef.current = null
-                setScrolled(window.scrollY > 24)
-                const heroHeight =
-                    document.getElementById('pl-hero')?.getBoundingClientRect()
-                        .height ?? window.innerHeight
-                setShowNav(window.scrollY < heroHeight * 0.6)
-            })
-        }
-        window.addEventListener('scroll', onScroll, { passive: true })
-        return () => window.removeEventListener('scroll', onScroll)
-    }, [])
-
-    // 모바일 감지 + reduced motion
-    useEffect(() => {
-        const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-        const onResize = () => setIsMobile(window.innerWidth <= 768)
-        const onMotionChange = (event: MediaQueryListEvent) =>
-            setReduced(event.matches)
-        window.addEventListener('resize', onResize)
-        mq.addEventListener('change', onMotionChange)
-        return () => {
-            window.removeEventListener('resize', onResize)
-            mq.removeEventListener('change', onMotionChange)
-        }
-    }, [])
-
-    // 마우스 패럴랙스
-    useEffect(() => {
-        const onMouse = (e: MouseEvent) => {
-            if (window.innerWidth <= 768) return
-            targetMxRef.current = e.clientX / window.innerWidth - 0.5
-            targetMyRef.current = e.clientY / window.innerHeight - 0.5
-        }
-        window.addEventListener('mousemove', onMouse)
-
-        const loop = () => {
-            smxRef.current += (targetMxRef.current - smxRef.current) * 0.08
-            smyRef.current += (targetMyRef.current - smyRef.current) * 0.08
-            setSmx(smxRef.current)
-            setSmy(smyRef.current)
-            smoothRafRef.current = requestAnimationFrame(loop)
-        }
-        smoothRafRef.current = requestAnimationFrame(loop)
-
-        return () => {
-            window.removeEventListener('mousemove', onMouse)
-            if (smoothRafRef.current) cancelAnimationFrame(smoothRafRef.current)
-        }
-    }, [])
-
-    // IntersectionObserver 스크롤 리빌
-    useEffect(() => {
-        ioRef.current = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        const id = entry.target.getAttribute('data-reveal-root')
-                        if (id) {
-                            setRevealed((prev) => ({ ...prev, [id]: true }))
-                            ioRef.current?.unobserve(entry.target)
-                        }
-                    }
-                })
-            },
-            { threshold: 0.22 },
-        )
-        document
-            .querySelectorAll('[data-reveal-root]')
-            .forEach((el) => ioRef.current?.observe(el))
-        return () => {
-            ioRef.current?.disconnect()
-            ioRef.current = null
-        }
-    }, [])
-
-    // 활성 섹션 추적
-    useEffect(() => {
-        const update = () => {
-            const centerY = window.innerHeight / 2
-            let best: string | null = null
-            let bestDist = Infinity
-            document.querySelectorAll('[data-reveal-root]').forEach((el) => {
-                const rect = el.getBoundingClientRect()
-                const mid = rect.top + rect.height / 2
-                const d = Math.abs(mid - centerY)
-                if (d < bestDist) {
-                    bestDist = d
-                    best = el.getAttribute('data-reveal-root')
-                }
-            })
-            if (best) setActiveSection(best)
-        }
-        update()
-        window.addEventListener('scroll', update, { passive: true })
-        window.addEventListener('resize', update)
-        return () => {
-            window.removeEventListener('scroll', update)
-            window.removeEventListener('resize', update)
-        }
-    }, [])
-
-    // 파워포인트 슬라이드처럼 휠을 한 번 굴릴 때마다 다음/이전 섹션으로 즉시 전환한다.
-    // (스크롤이 흐르듯 이어지지 않도록 기본 스크롤을 막고 섹션 단위로만 점프시킨다)
-    useEffect(() => {
-        if (isMobile || reduced) return
-
-        const sectionIds = [
-            'pl-hero',
-            'problem-section',
-            'place-section',
-            'vote-section',
-            'ai-section',
-            'expense-section',
-            'cta-section',
-        ]
-        let locked = false
-
-        const onWheel = (e: WheelEvent) => {
-            if (locked) {
-                e.preventDefault()
-                return
-            }
-
-            let currentIndex = 0
-            sectionIds.forEach((id, index) => {
-                const top = document.getElementById(id)?.getBoundingClientRect().top
-                if (top != null && top <= 1) currentIndex = index
-            })
-
-            const nextIndex = currentIndex + (e.deltaY > 0 ? 1 : -1)
-            if (nextIndex < 0 || nextIndex >= sectionIds.length) return
-
-            e.preventDefault()
-            locked = true
-            document.getElementById(sectionIds[nextIndex])?.scrollIntoView({
-                behavior: 'auto',
-                block: 'start',
-            })
-            window.setTimeout(() => {
-                locked = false
-            }, 750)
-        }
-
-        window.addEventListener('wheel', onWheel, { passive: false })
-        return () => window.removeEventListener('wheel', onWheel)
-    }, [isMobile, reduced])
-
-    // 헬퍼
-    const scrollTo = useCallback(
-        (id: string) => (e: React.MouseEvent) => {
-            e.preventDefault()
-            document.getElementById(id)?.scrollIntoView({
-                behavior: reduced ? 'auto' : 'smooth',
-                block: 'start',
-            })
-        },
-        [reduced],
-    )
-
-    const reveal = (
-        id: string,
-        delay = 0,
-        dist = 26,
-        extra: { scale?: number; rotate?: number } = {},
-    ): React.CSSProperties => {
-        const shown = reduced || revealed[id]
-        return {
-            opacity: shown ? 1 : 0,
-            transform: shown
-                ? 'translateY(0) scale(1) rotate(0deg)'
-                : `translateY(${dist}px) scale(${extra.scale ?? 1}) rotate(${extra.rotate ?? 0}deg)`,
-            transition: `opacity 0.85s cubic-bezier(.22,1,.36,1) ${delay}ms, transform 0.85s cubic-bezier(.22,1,.36,1) ${delay}ms`,
-        }
-    }
-
-    const revealCard = (
-        id: string,
-        delay: number,
-        hiddenT: string,
-        shownT: string,
-    ): React.CSSProperties => {
-        const shown = reduced || revealed[id]
-        return {
-            opacity: shown ? 1 : 0,
-            transform: shown ? shownT : hiddenT,
-            transition: `opacity 0.95s cubic-bezier(.22,1,.36,1) ${delay}ms, transform 0.95s cubic-bezier(.22,1,.36,1) ${delay}ms`,
-        }
-    }
-
-    const sceneParallax = (
-        id: string,
-        strength: number,
-    ): React.CSSProperties => {
-        if (isMobile || reduced) return {}
-        const el = document.getElementById(id)
-        if (!el) return {}
-        const rect = el.getBoundingClientRect()
-        const vh = window.innerHeight || 1
-        const progress = (rect.top + rect.height / 2 - vh / 2) / vh
-        const offset = Math.max(-26, Math.min(26, progress * strength))
-        return {
-            transform: `translateY(${offset}px)`,
-            transition: 'transform 0.12s linear',
-        }
-    }
 
     const gazeRotate =
         isMobile || reduced ? 0 : Math.max(-3, Math.min(3, smx * 6))
@@ -416,122 +82,13 @@ export function Landing() {
                 WebkitFontSmoothing: 'antialiased',
             }}
         >
-            {/* ── NAV ── */}
-            <nav
-                style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    zIndex: 100,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 16,
-                    padding: '18px clamp(20px,5vw,64px)',
-                    transform: showNav
-                        ? 'translateY(0)'
-                        : 'translateY(-100%)',
-                    opacity: showNav ? 1 : 0,
-                    pointerEvents: showNav ? 'auto' : 'none',
-                    transition:
-                        'background 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease, opacity 0.35s ease',
-                }}
-            >
-                {/* nav 배경 블러 레이어 */}
-                <div
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        zIndex: -1,
-                        background: scrolled
-                            ? 'rgba(255,247,238,0.86)'
-                            : 'transparent',
-                        backdropFilter: scrolled ? 'blur(16px)' : 'none',
-                        boxShadow: scrolled
-                            ? '0 1.5px 0 rgba(35,38,75,0.06)'
-                            : 'none',
-                        transition:
-                            'background 0.35s ease, box-shadow 0.35s ease',
-                    }}
-                />
-                <a
-                    href="#pl-hero"
-                    onClick={scrollTo('pl-hero')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontWeight: 800,
-                        fontSize: 20,
-                        color: '#3A2A28',
-                        zIndex: 1,
-                        textDecoration: 'none',
-                    }}
-                >
-                    <BrandLogo className="h-[34px] w-[34px]" />
-                    Plamingo
-                </a>
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'clamp(16px,3vw,36px)',
-                        zIndex: 1,
-                        flexWrap: 'wrap',
-                    }}
-                >
-                    <a
-                        href="#place-section"
-                        onClick={scrollTo('place-section')}
-                        className="pl-nav-link"
-                    >
-                        주요 기능
-                    </a>
-                    <a
-                        href="#vote-section"
-                        onClick={scrollTo('vote-section')}
-                        className="pl-nav-link"
-                    >
-                        이용 방법
-                    </a>
-                    <a
-                        href="#ai-section"
-                        onClick={scrollTo('ai-section')}
-                        className="pl-nav-link"
-                    >
-                        AI 여행 계획
-                    </a>
-                </div>
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        zIndex: 1,
-                    }}
-                >
-                    <button
-                        onClick={startService}
-                        disabled={!isInitialized}
-                        style={{
-                            background: '#FF7A59',
-                            color: '#FDF3E7',
-                            fontWeight: 700,
-                            fontSize: 14,
-                            padding: '9px 20px',
-                            borderRadius: 999,
-                            border: 'none',
-                            cursor: isInitialized ? 'pointer' : 'wait',
-                            opacity: isInitialized ? 1 : 0.65,
-                            boxShadow: '0 8px 18px rgba(255,90,60,0.28)',
-                            fontFamily: "'Manrope', sans-serif",
-                        }}
-                    >
-                        시작하기
-                    </button>
-                </div>
-            </nav>
+            <LandingNavigation
+                isVisible={showNav}
+                isScrolled={scrolled}
+                isInitialized={isInitialized}
+                onNavigate={scrollTo}
+                onStart={startService}
+            />
 
             {/* ── HERO ── */}
             <section
@@ -840,121 +397,14 @@ export function Landing() {
                         </div>
                     </div>
                 </div>
-            <ScrollDownHint onClick={scrollTo('problem-section')} />
+                <ScrollDownHint onClick={scrollTo('problem-section')} />
             </section>
 
-            {/* ── 여정 레일 (우측 고정) — 호버하면 섹션 이름이 나열된 세로 네비바로 펼쳐진다 ── */}
             {!isMobile && (
-                <div
-                    onMouseEnter={() => setRailHovered(true)}
-                    onMouseLeave={() => setRailHovered(false)}
-                    className="pl-rail"
-                    style={{
-                        position: 'fixed',
-                        right: 28,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        zIndex: 60,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-end',
-                        gap: 2,
-                        padding: '10px 8px',
-                        borderRadius: 20,
-                        background: railHovered ? '#FFFDF9' : 'transparent',
-                        border: railHovered
-                            ? '1.5px solid #EFE2D6'
-                            : '1.5px solid transparent',
-                        boxShadow: railHovered
-                            ? '0 12px 28px rgba(58,42,40,0.1)'
-                            : 'none',
-                        transition:
-                            'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
-                    }}
-                >
-                    {JOURNEY_STEPS.map(([id, label], i) => {
-                        const idx = JOURNEY_STEPS.findIndex(
-                            ([oid]) => oid === activeSection,
-                        )
-                        const active = id === activeSection
-                        const passed = idx > i
-                        return (
-                            <React.Fragment key={id}>
-                                <button
-                                    type="button"
-                                    aria-label={`${label} 섹션으로 이동`}
-                                    onClick={scrollTo(`${id}-section`)}
-                                    className="pl-rail-dot"
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'row-reverse',
-                                        alignItems: 'center',
-                                        gap: 10,
-                                        padding: `4px ${RAIL_DOT_PADDING_X}px`,
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            display: 'block',
-                                            flexShrink: 0,
-                                            width: active ? 12 : 8,
-                                            height: active ? 12 : 8,
-                                            borderRadius: '50%',
-                                            background: active
-                                                ? '#FF7A59'
-                                                : passed
-                                                  ? '#FFB4C6'
-                                                  : '#EFE2D6',
-                                            transition: 'all 0.35s ease',
-                                            boxShadow: active
-                                                ? '0 0 0 5px rgba(255,122,89,0.16)'
-                                                : 'none',
-                                        }}
-                                    />
-                                    <span
-                                        className="pl-rail-label"
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            color: active
-                                                ? '#FF7A59'
-                                                : '#8A8FA8',
-                                            whiteSpace: 'nowrap',
-                                            maxWidth: railHovered
-                                                ? RAIL_LABEL_MAX_WIDTH
-                                                : 0,
-                                            opacity: railHovered ? 1 : 0,
-                                            overflow: 'hidden',
-                                            transition:
-                                                'max-width 0.25s ease, opacity 0.2s ease',
-                                        }}
-                                    >
-                                        {label}
-                                    </span>
-                                </button>
-                                {i < JOURNEY_STEPS.length - 1 && (
-                                    <div
-                                        style={{
-                                            width: 2,
-                                            height: 22,
-                                            marginRight: railConnectorOffset(
-                                                active ? 12 : 8,
-                                            ),
-                                            background: passed
-                                                ? '#FFB4C6'
-                                                : '#EFE2D6',
-                                            transition:
-                                                'background 0.35s ease, margin-right 0.35s ease',
-                                        }}
-                                    />
-                                )}
-                            </React.Fragment>
-                        )
-                    })}
-                </div>
+                <LandingJourneyRail
+                    activeSection={activeSection}
+                    onNavigate={scrollTo}
+                />
             )}
 
             {/* ── SCENE 01 PROBLEM ── */}
@@ -1056,8 +506,7 @@ export function Landing() {
                         }}
                     >
                         지도 검색 따로, 캡처 따로, 공유 따로.
-                        <br />
-                        이 번거로운 무한 굴레.
+                        <br />이 번거로운 무한 굴레.
                     </h2>
                 </div>
 
@@ -1388,7 +837,7 @@ export function Landing() {
                         )}
                     </div>
                 </div>
-            <ScrollDownHint onClick={scrollTo('place-section')} />
+                <ScrollDownHint onClick={scrollTo('place-section')} />
             </section>
 
             {/* ── SCENE 02 PLACE ── */}
@@ -1645,7 +1094,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('vote-section')} />
+                <ScrollDownHint onClick={scrollTo('vote-section')} />
             </section>
 
             {/* ── SCENE 03 VOTE ── */}
@@ -1943,7 +1392,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('ai-section')} />
+                <ScrollDownHint onClick={scrollTo('ai-section')} />
             </section>
 
             {/* ── SCENE 04 AI ── */}
@@ -2241,7 +1690,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('expense-section')} />
+                <ScrollDownHint onClick={scrollTo('expense-section')} />
             </section>
 
             {/* ── SCENE 05 EXPENSE ── */}
@@ -2393,7 +1842,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('cta-section')} />
+                <ScrollDownHint onClick={scrollTo('cta-section')} />
             </section>
 
             {/* ── SCENE 06 CTA ── */}
@@ -2587,73 +2036,7 @@ export function Landing() {
                 </div>
             </section>
 
-            {/* ── FOOTER ── */}
-            <footer
-                id="footer-section"
-                style={{
-                    padding: '36px clamp(20px,6vw,80px)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 16,
-                    flexWrap: 'wrap',
-                    borderTop: '1.5px solid #F0E4D8',
-                }}
-            >
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontWeight: 800,
-                        fontSize: 15,
-                        color: '#3A2A28',
-                    }}
-                >
-                    <BrandLogo className="h-6 w-6" />
-                    Plamingo
-                </div>
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: 24,
-                        flexWrap: 'wrap',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: '#8A8FA8',
-                    }}
-                >
-                    <Link
-                        to="/terms"
-                        style={{ color: '#8A8FA8', textDecoration: 'none' }}
-                    >
-                        이용약관
-                    </Link>
-                    <Link
-                        to="/privacy"
-                        style={{ color: '#8A8FA8', textDecoration: 'none' }}
-                    >
-                        개인정보처리방침
-                    </Link>
-                    <a
-                        href="https://github.com/prgrms-aibe-devcourse/AIBE6_FinalProject_Team01"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: '#8A8FA8', textDecoration: 'none' }}
-                    >
-                        GitHub
-                    </a>
-                </div>
-                <div
-                    style={{
-                        fontSize: 12.5,
-                        color: '#B7BBCF',
-                        fontWeight: 600,
-                    }}
-                >
-                    © 2026 Plamingo
-                </div>
-            </footer>
+            <LandingFooter />
         </div>
     )
 }

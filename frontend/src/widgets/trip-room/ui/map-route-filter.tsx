@@ -109,8 +109,7 @@ export function MapRouteFilter({ routes, selectedDay, onSelect }: Props) {
                     <span
                         className="size-2 rounded-full"
                         style={{
-                            backgroundColor:
-                                selectedRoute?.color ?? '#64748b',
+                            backgroundColor: selectedRoute?.color ?? '#64748b',
                         }}
                     />
                     {selectedRoute == null
@@ -147,17 +146,14 @@ export function MapRouteFilter({ routes, selectedDay, onSelect }: Props) {
                             )}
                         </button>
                         {routes.map((route) => {
-                            const isSelected =
-                                selectedDay === route.dayNumber
+                            const isSelected = selectedDay === route.dayNumber
                             return (
                                 <button
                                     key={route.dayId}
                                     type="button"
                                     role="option"
                                     aria-selected={isSelected}
-                                    onClick={() =>
-                                        selectDay(route.dayNumber)
-                                    }
+                                    onClick={() => selectDay(route.dayNumber)}
                                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold transition ${
                                         isSelected
                                             ? 'bg-slate-100 text-slate-800'
@@ -174,10 +170,7 @@ export function MapRouteFilter({ routes, selectedDay, onSelect }: Props) {
                                         Day {route.dayNumber}
                                     </span>
                                     {isSelected && (
-                                        <CheckIcon
-                                            size={14}
-                                            aria-hidden
-                                        />
+                                        <CheckIcon size={14} aria-hidden />
                                     )}
                                 </button>
                             )
@@ -190,8 +183,7 @@ export function MapRouteFilter({ routes, selectedDay, onSelect }: Props) {
                 type="button"
                 aria-label="다음 Day 보기"
                 disabled={
-                    selectedDay != null &&
-                    selectedIndex === routes.length - 1
+                    selectedDay != null && selectedIndex === routes.length - 1
                 }
                 onClick={selectNextDay}
                 className="flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-30"

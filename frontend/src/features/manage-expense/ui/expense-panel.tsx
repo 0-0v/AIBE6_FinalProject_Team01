@@ -22,7 +22,10 @@ import type {
     ExpenseResponse,
     SettlementSummary,
 } from '../api/expense-api'
-import { ExpenseSettlementCard, isExpenseSettled } from './expense-settlement-card'
+import {
+    ExpenseSettlementCard,
+    isExpenseSettled,
+} from './expense-settlement-card'
 
 type Props = {
     tripId: number
@@ -73,9 +76,7 @@ export function ExpensePanel({
         initialEditingExpense?.category ?? 'ETC',
     )
     const [amount, setAmount] = useState(
-        initialEditingExpense
-            ? String(initialEditingExpense.totalAmount)
-            : '',
+        initialEditingExpense ? String(initialEditingExpense.totalAmount) : '',
     )
     const [expenseDate, setExpenseDate] = useState(
         initialEditingExpense?.expenseDate ?? '',

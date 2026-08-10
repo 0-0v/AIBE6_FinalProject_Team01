@@ -14,7 +14,7 @@ import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceCommentRepository;
 import back.backend.domain.place.repository.PlaceRepository;
-import back.backend.domain.place.repository.TripAccessRepository;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
@@ -52,7 +52,7 @@ class TripPlaceServiceTest {
     private TripPlaceRepository tripPlaceRepository;
 
     @Mock
-    private TripAccessRepository tripAccessRepository;
+    private TripMemberRepository tripMemberRepository;
 
     @Mock
     private ItineraryDayRepository itineraryDayRepository;
@@ -88,8 +88,7 @@ class TripPlaceServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
-        lenient().when(tripAccessRepository.canView(1L, 1L)).thenReturn(true);
-        lenient().when(tripAccessRepository.canEdit(1L, 1L)).thenReturn(true);
+        lenient().when(tripMemberRepository.existsByTripIdAndMemberId(1L, 1L)).thenReturn(true);
         lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
         lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
 

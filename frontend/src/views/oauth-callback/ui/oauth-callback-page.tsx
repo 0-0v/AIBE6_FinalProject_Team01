@@ -32,15 +32,10 @@ export function OAuthCallback() {
                     throw new Error('사용자 정보를 불러오지 못했습니다.')
                 }
                 setCurrentUser(user)
-                if (
-                    user.provider === 'GOOGLE' ||
-                    user.provider === 'KAKAO'
-                ) {
+                if (user.provider === 'GOOGLE' || user.provider === 'KAKAO') {
                     setLastLoginProvider(user.provider)
                 }
-                const returnPath = sessionStorage.getItem(
-                    'postLoginReturnPath',
-                )
+                const returnPath = sessionStorage.getItem('postLoginReturnPath')
                 sessionStorage.removeItem('postLoginReturnPath')
                 navigate(returnPath ?? '/app', { replace: true })
             })

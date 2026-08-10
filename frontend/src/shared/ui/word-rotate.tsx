@@ -10,7 +10,12 @@ interface WordRotateProps {
     style?: React.CSSProperties
 }
 
-export function WordRotate({ words, interval = 2400, className, style }: WordRotateProps) {
+export function WordRotate({
+    words,
+    interval = 2400,
+    className,
+    style,
+}: WordRotateProps) {
     const [index, setIndex] = useState(0)
 
     useEffect(() => {

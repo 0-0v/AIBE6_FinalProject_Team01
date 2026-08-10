@@ -1,11 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-    Client,
-    ReconnectionTimeMode,
-    type IMessage,
-} from '@stomp/stompjs'
+import { Client, ReconnectionTimeMode, type IMessage } from '@stomp/stompjs'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
 import { markTripPresence, useTripStore } from '@/features/manage-trip'
@@ -141,14 +137,10 @@ export function RealtimeSync() {
                 )
                 client.subscribe('/topic/public-cards', handlePublicCardChange)
                 if (tripId != null) {
-                    client.subscribe(
-                        `/topic/trips/${tripId}`,
-                        handleTripChange,
-                    )
+                    client.subscribe(`/topic/trips/${tripId}`, handleTripChange)
                 }
             },
-            onDisconnect: () =>
-                useRealtimeStore.getState().setConnected(false),
+            onDisconnect: () => useRealtimeStore.getState().setConnected(false),
             onWebSocketClose: () =>
                 useRealtimeStore.getState().setConnected(false),
         })

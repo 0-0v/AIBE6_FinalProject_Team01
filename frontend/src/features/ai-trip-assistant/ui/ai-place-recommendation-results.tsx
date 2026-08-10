@@ -174,7 +174,8 @@ export function AiPlaceRecommendationResults({
             <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50/60">
                 <div className="border-b border-slate-200 bg-white px-5 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.12em] text-brand">
-                        Day {routeContext.dayNumber} · {routeContext.itineraryDate}
+                        Day {routeContext.dayNumber} ·{' '}
+                        {routeContext.itineraryDate}
                     </p>
                     <p className="mt-1 truncate text-xs font-extrabold text-slate-700">
                         {routeContext.from.placeName ?? '이전 일정'} →{' '}

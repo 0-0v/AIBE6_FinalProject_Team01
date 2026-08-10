@@ -88,8 +88,7 @@ export function ItineraryRoutePolyline({
         const tick = (timestamp: number) => {
             if (lastTimestamp == null) lastTimestamp = timestamp
             offset =
-                (offset +
-                    (timestamp - lastTimestamp) * FLOW_SPEED_PX_PER_MS) %
+                (offset + (timestamp - lastTimestamp) * FLOW_SPEED_PX_PER_MS) %
                 repeatPx
             lastTimestamp = timestamp
             // 마운트 직후엔 Polyline 인스턴스가 아직 ref에 안 잡혔을 수 있어 매 프레임 새로 읽는다.

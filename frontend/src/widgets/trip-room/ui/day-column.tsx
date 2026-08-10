@@ -589,7 +589,6 @@ type Props = {
     selectedItemId?: string | null
 }
 
-
 export function DayColumn({
     day,
     tripId,
@@ -783,23 +782,25 @@ export function DayColumn({
 
             {/* 출발지 행 + 아이템 목록 (접으면 함께 숨김) */}
             {!collapsed && (
-            <DepartureRow
-                departure={day.departure}
-                dayNumber={day.dayNumber}
-                tripId={tripId}
-                dayId={String(day.id)}
-                canWrite={canWrite}
-                lodgingPlaces={allPlaces.filter(
-                    (p) => p.category === 'lodging',
-                )}
-                savedPlaces={allPlaces}
-                days={days}
-                onDaysChange={onDaysChange}
-            />
+                <DepartureRow
+                    departure={day.departure}
+                    dayNumber={day.dayNumber}
+                    tripId={tripId}
+                    dayId={String(day.id)}
+                    canWrite={canWrite}
+                    lodgingPlaces={allPlaces.filter(
+                        (p) => p.category === 'lodging',
+                    )}
+                    savedPlaces={allPlaces}
+                    days={days}
+                    onDaysChange={onDaysChange}
+                />
             )}
 
             {!collapsed && (
-                <div className={`flex flex-col gap-0.5 px-2.5 ${isDragging ? 'pb-12' : 'pb-2.5'}`}>
+                <div
+                    className={`flex flex-col gap-0.5 px-2.5 ${isDragging ? 'pb-12' : 'pb-2.5'}`}
+                >
                     <SortableContext
                         id={String(day.id)}
                         items={day.items.map((i) => i.id)}

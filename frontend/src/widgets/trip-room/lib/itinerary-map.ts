@@ -20,7 +20,7 @@ export const ITINERARY_DAY_COLORS = [
 
 export function getItineraryDayColor(dayNumber: number): string {
     const index =
-        ((dayNumber - 1) % ITINERARY_DAY_COLORS.length +
+        (((dayNumber - 1) % ITINERARY_DAY_COLORS.length) +
             ITINERARY_DAY_COLORS.length) %
         ITINERARY_DAY_COLORS.length
     return ITINERARY_DAY_COLORS[index]

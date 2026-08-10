@@ -119,7 +119,10 @@ export function RoomListPanel({
             setScopeRoom(null)
             setVisibilityRoom(room)
             setVisibilityError(
-                getApiErrorMessage(cause, '공개 범위 정보를 불러오지 못했습니다.'),
+                getApiErrorMessage(
+                    cause,
+                    '공개 범위 정보를 불러오지 못했습니다.',
+                ),
             )
         } finally {
             setScopeLoading(false)

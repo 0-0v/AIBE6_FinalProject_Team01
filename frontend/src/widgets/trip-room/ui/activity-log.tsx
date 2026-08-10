@@ -101,7 +101,10 @@ export function ActivityLogPanel({ tripId, allowGuest = false }: Props) {
                     className="ml-auto rounded-md p-1 hover:bg-slate-100 disabled:opacity-50"
                     aria-label="활동 로그 새로고침"
                 >
-                    <RefreshCwIcon size={12} className={isLoading ? 'animate-spin' : ''} />
+                    <RefreshCwIcon
+                        size={12}
+                        className={isLoading ? 'animate-spin' : ''}
+                    />
                 </button>
             </div>
             <div className="space-y-1">

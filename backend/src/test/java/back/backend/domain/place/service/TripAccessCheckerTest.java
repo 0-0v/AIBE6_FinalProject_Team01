@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-import back.backend.domain.place.repository.TripAccessRepository;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.global.exception.BusinessException;
@@ -26,7 +26,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 @ExtendWith(MockitoExtension.class)
 class TripAccessCheckerTest {
 
-    @Mock TripAccessRepository tripAccessRepository;
+    @Mock TripMemberRepository tripMemberRepository;
     @Mock SecurityContextAccessor securityContextAccessor;
     @Mock GuestTripAccessService guestTripAccessService;
     @Mock HttpServletRequest request;
@@ -36,7 +36,7 @@ class TripAccessCheckerTest {
     @BeforeEach
     void setUp() {
         checker = new TripAccessChecker(
-                tripAccessRepository, securityContextAccessor, guestTripAccessService, request);
+                tripMemberRepository, securityContextAccessor, guestTripAccessService, request);
     }
 
     @Test
@@ -45,7 +45,7 @@ class TripAccessCheckerTest {
         MemberPrincipal principal = new MemberPrincipal(
                 1L, "user@example.com", List.of(new SimpleGrantedAuthority("ROLE_USER")));
         when(securityContextAccessor.getCurrentPrincipal()).thenReturn(Optional.of(principal));
-        when(tripAccessRepository.canView(10L, 1L)).thenReturn(true);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
 
         assertThat(checker.requireView(10L)).isEqualTo(1L);
     }
@@ -92,7 +92,7 @@ class TripAccessCheckerTest {
         MemberPrincipal principal = new MemberPrincipal(
                 1L, "user@example.com", List.of(new SimpleGrantedAuthority("ROLE_USER")));
         when(securityContextAccessor.getCurrentPrincipal()).thenReturn(Optional.of(principal));
-        when(tripAccessRepository.canView(10L, 1L)).thenReturn(false);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(false);
         when(request.getCookies()).thenReturn(
                 new Cookie[]{new Cookie(GuestAccessCookieProvider.COOKIE_NAME, "guest-token")});
         when(guestTripAccessService.canView(10L, "guest-token")).thenReturn(true);

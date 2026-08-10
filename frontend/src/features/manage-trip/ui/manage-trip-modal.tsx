@@ -15,17 +15,8 @@ import {
     type DestinationResult,
 } from './destination-autocomplete'
 import { MAX_TRAVEL_STYLE_COUNT } from '../model/travel-style-policy'
-
-const STYLES: { value: TravelStyle; label: string }[] = [
-    { value: 'ACTIVITY', label: '액티비티' },
-    { value: 'SNS_HOT_PLACE', label: 'SNS 핫플레이스' },
-    { value: 'NATURE', label: '자연과 함께' },
-    { value: 'FAMOUS_ATTRACTIONS', label: '유명관광지 필수' },
-    { value: 'RELAXATION', label: '여유롭게 힐링' },
-    { value: 'CULTURE_ART_HISTORY', label: '문화/예술/역사' },
-    { value: 'SHOPPING', label: '쇼핑' },
-    { value: 'FOOD', label: '맛집 먹거리' },
-]
+import { TravelStyleSelector } from './travel-style-selector'
+import { TripDateFields } from './trip-date-fields'
 
 type Props = {
     trip: TripResponse
@@ -63,7 +54,9 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             return false
         }
         if (styles.length > MAX_TRAVEL_STYLE_COUNT) {
-            setError(`여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`)
+            setError(
+                `여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`,
+            )
             return false
         }
         if ((startDate && !endDate) || (!startDate && endDate)) {
@@ -237,28 +230,10 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                 className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
                             />
                         </label>
-                        <fieldset className="mt-3.5">
-                            <legend className="text-sm font-bold">
-                                여행 스타일{' '}
-                                <span className="font-normal text-slate-400">(최대 3개)</span>
-                            </legend>
-                            <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {STYLES.map((style) => (
-                                    <button
-                                        key={style.value}
-                                        type="button"
-                                        onClick={() => toggleStyle(style.value)}
-                                        disabled={
-                                            styles.length >= MAX_TRAVEL_STYLE_COUNT &&
-                                            !styles.includes(style.value)
-                                        }
-                                        className={`rounded-full px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40 ${styles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}
-                                    >
-                                        {style.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </fieldset>
+                        <TravelStyleSelector
+                            selectedStyles={styles}
+                            onToggle={toggleStyle}
+                        />
                         <label className="mt-3.5 block text-sm font-bold">
                             여행 장소
                             <DestinationAutocomplete
@@ -270,31 +245,12 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                 placeholder="예: 오사카, 제주도, 파리"
                             />
                         </label>
-                        <div className="mt-3.5 grid grid-cols-2 gap-3">
-                            <label className="text-sm font-bold">
-                                시작일
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(event) =>
-                                        setStartDate(event.target.value)
-                                    }
-                                    className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
-                                />
-                            </label>
-                            <label className="text-sm font-bold">
-                                종료일
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    min={startDate || undefined}
-                                    onChange={(event) =>
-                                        setEndDate(event.target.value)
-                                    }
-                                    className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
-                                />
-                            </label>
-                        </div>
+                        <TripDateFields
+                            startDate={startDate}
+                            endDate={endDate}
+                            onStartDateChange={setStartDate}
+                            onEndDateChange={setEndDate}
+                        />
                         {error && (
                             <p className="mt-3 text-sm font-semibold text-red-500">
                                 {error}

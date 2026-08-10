@@ -20,7 +20,12 @@ const GLOBE_MARKERS: GlobeMarker[] = [
     // 아시아
     { id: 'seoul', label: '서울', location: [37.5665, 126.978], size: 0.035 },
     { id: 'tokyo', label: '도쿄', location: [35.6762, 139.6503], size: 0.035 },
-    { id: 'bangkok', label: '방콕', location: [13.7563, 100.5018], size: 0.035 },
+    {
+        id: 'bangkok',
+        label: '방콕',
+        location: [13.7563, 100.5018],
+        size: 0.035,
+    },
     // 중동
     { id: 'dubai', label: '두바이', location: [25.2048, 55.2708], size: 0.035 },
     // 유럽

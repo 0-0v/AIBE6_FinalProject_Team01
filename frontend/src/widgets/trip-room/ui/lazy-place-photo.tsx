@@ -73,7 +73,9 @@ export function LazyPlacePhoto({
         const resolved = resolvedPhotoMetadata.get(googlePlaceId)
         if (resolved) {
             applyMetadata(resolved)
-            return () => { cancelled = true }
+            return () => {
+                cancelled = true
+            }
         }
 
         // 진행 중인 요청이 있으면 그 결과를 공유, 없으면 새로 요청
@@ -83,7 +85,10 @@ export function LazyPlacePhoto({
             pendingPhotoMetadataRequests.set(googlePlaceId, request)
             void request
                 .finally(() => {
-                    if (pendingPhotoMetadataRequests.get(googlePlaceId) === request) {
+                    if (
+                        pendingPhotoMetadataRequests.get(googlePlaceId) ===
+                        request
+                    ) {
                         pendingPhotoMetadataRequests.delete(googlePlaceId)
                     }
                 })

@@ -356,87 +356,103 @@ export function AiDashboardActions({
                                                 className="w-full"
                                             />
                                             <div className="mp-scroll mt-3 grid max-h-[268px] gap-2 overflow-y-auto pr-1 md:grid-cols-2">
-                                            {visibleRouteSegments.map((segment) => {
-                                                const isSelected =
-                                                    selectedSegment?.key ===
-                                                    segment.key
-                                                return (
-                                                    <button
-                                                        key={segment.key}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSelectedSegmentKey(
-                                                                segment.key,
-                                                            )
-                                                            setError(null)
-                                                            setEmptyResult(
-                                                                false,
-                                                            )
-                                                        }}
-                                                        className={`w-full rounded-2xl border p-3 text-left transition ${
-                                                            isSelected
-                                                                ? 'border-brand bg-rose-50 shadow-[0_6px_18px_rgba(225,91,116,0.12)]'
-                                                                : 'border-slate-200 bg-white hover:border-rose-200'
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <span
-                                                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                                                {visibleRouteSegments.map(
+                                                    (segment) => {
+                                                        const isSelected =
+                                                            selectedSegment?.key ===
+                                                            segment.key
+                                                        return (
+                                                            <button
+                                                                key={
+                                                                    segment.key
+                                                                }
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedSegmentKey(
+                                                                        segment.key,
+                                                                    )
+                                                                    setError(
+                                                                        null,
+                                                                    )
+                                                                    setEmptyResult(
+                                                                        false,
+                                                                    )
+                                                                }}
+                                                                className={`w-full rounded-2xl border p-3 text-left transition ${
                                                                     isSelected
-                                                                        ? 'bg-brand text-white'
-                                                                        : 'bg-slate-100 text-slate-500'
+                                                                        ? 'border-brand bg-rose-50 shadow-[0_6px_18px_rgba(225,91,116,0.12)]'
+                                                                        : 'border-slate-200 bg-white hover:border-rose-200'
                                                                 }`}
                                                             >
-                                                                {
-                                                                    segment.dayNumber
-                                                                }
-                                                            </span>
-                                                            <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-700">
-                                                                {segment.from
-                                                                    .placeName ??
-                                                                    '출발 장소'}
-                                                            </span>
-                                                            <ArrowRightIcon
-                                                                className="shrink-0 text-brand"
-                                                                size={14}
-                                                            />
-                                                            <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-700">
-                                                                {segment.to
-                                                                    .placeName ??
-                                                                    '도착 장소'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="mt-2 flex items-center gap-1 pl-8 text-[10px] font-medium text-slate-400">
-                                                            <Clock3Icon
-                                                                size={11}
-                                                            />
-                                                            Day{' '}
-                                                            {segment.dayNumber}{' '}
-                                                            · 구간{' '}
-                                                            {
-                                                                segment.segmentNumber
-                                                            }{' '}
-                                                            ·{' '}
-                                                            {
-                                                                segment.itineraryDate
-                                                            }{' '}
-                                                            ·{' '}
-                                                            {segment.from
-                                                                .startTime ??
-                                                                '시간 미정'}{' '}
-                                                            →{' '}
-                                                            {segment.to
-                                                                .startTime ??
-                                                                '시간 미정'}
-                                                        </div>
-                                                    </button>
-                                                )
-                                            })}
+                                                                <div className="flex items-center gap-2">
+                                                                    <span
+                                                                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                                                                            isSelected
+                                                                                ? 'bg-brand text-white'
+                                                                                : 'bg-slate-100 text-slate-500'
+                                                                        }`}
+                                                                    >
+                                                                        {
+                                                                            segment.dayNumber
+                                                                        }
+                                                                    </span>
+                                                                    <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-700">
+                                                                        {segment
+                                                                            .from
+                                                                            .placeName ??
+                                                                            '출발 장소'}
+                                                                    </span>
+                                                                    <ArrowRightIcon
+                                                                        className="shrink-0 text-brand"
+                                                                        size={
+                                                                            14
+                                                                        }
+                                                                    />
+                                                                    <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-700">
+                                                                        {segment
+                                                                            .to
+                                                                            .placeName ??
+                                                                            '도착 장소'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="mt-2 flex items-center gap-1 pl-8 text-[10px] font-medium text-slate-400">
+                                                                    <Clock3Icon
+                                                                        size={
+                                                                            11
+                                                                        }
+                                                                    />
+                                                                    Day{' '}
+                                                                    {
+                                                                        segment.dayNumber
+                                                                    }{' '}
+                                                                    · 구간{' '}
+                                                                    {
+                                                                        segment.segmentNumber
+                                                                    }{' '}
+                                                                    ·{' '}
+                                                                    {
+                                                                        segment.itineraryDate
+                                                                    }{' '}
+                                                                    ·{' '}
+                                                                    {segment
+                                                                        .from
+                                                                        .startTime ??
+                                                                        '시간 미정'}{' '}
+                                                                    →{' '}
+                                                                    {segment.to
+                                                                        .startTime ??
+                                                                        '시간 미정'}
+                                                                </div>
+                                                            </button>
+                                                        )
+                                                    },
+                                                )}
                                             </div>
                                             {visibleRouteSegments.length >
                                                 6 && (
                                                 <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">
-                                                    아래로 스크롤해 나머지 동선을 확인하세요.
+                                                    아래로 스크롤해 나머지
+                                                    동선을 확인하세요.
                                                 </p>
                                             )}
                                         </div>

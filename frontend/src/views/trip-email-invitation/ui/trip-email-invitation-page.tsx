@@ -33,7 +33,11 @@ export function TripEmailInvitationPage() {
                 navigate(`/app/room/${result.tripId}`, { replace: true })
             })
             .catch((caught: unknown) => {
-                setError(caught instanceof Error ? caught.message : '초대 링크를 사용할 수 없습니다.')
+                setError(
+                    caught instanceof Error
+                        ? caught.message
+                        : '초대 링크를 사용할 수 없습니다.',
+                )
             })
     }, [moveToLogin, navigate, token])
 
@@ -44,10 +48,13 @@ export function TripEmailInvitationPage() {
                     <BrandLogo />
                 </span>
                 <h1 className="mt-5 text-2xl font-extrabold text-slate-900">
-                    {error ? '초대 링크를 확인해 주세요' : '여행방에 참여하고 있어요'}
+                    {error
+                        ? '초대 링크를 확인해 주세요'
+                        : '여행방에 참여하고 있어요'}
                 </h1>
                 <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
-                    {error ?? '초대받은 계정으로 로그인한 뒤 여행방으로 이동합니다.'}
+                    {error ??
+                        '초대받은 계정으로 로그인한 뒤 여행방으로 이동합니다.'}
                 </p>
                 {error && (
                     <button
