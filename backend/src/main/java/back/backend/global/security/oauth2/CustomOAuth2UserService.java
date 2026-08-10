@@ -42,6 +42,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     if (existing.getStatus() == MemberStatus.WITHDRAWN) {
                         throw withdrawnAccountRetained();
                     }
+                    if (existing.getStatus() == MemberStatus.SUSPENDED) {
+                        throw suspendedAccount();
+                    }
                     existing.recordLogin();
                     return existing;
                 })
@@ -50,7 +53,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return new MemberPrincipal(
                 member.getId(),
                 member.getEmail(),
-                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                member.getRole() == back.backend.domain.member.entity.MemberRole.ADMIN
+                        ? List.of(
+                                new SimpleGrantedAuthority("ROLE_USER"),
+                                new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        : List.of(new SimpleGrantedAuthority("ROLE_USER")),
                 oAuth2User.getAttributes()
         );
     }
@@ -87,6 +94,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return new OAuth2AuthenticationException(
                 new OAuth2Error("withdrawn_account_retained"),
                 "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 재가입할 수 없습니다."
+        );
+    }
+
+    private OAuth2AuthenticationException suspendedAccount() {
+        return new OAuth2AuthenticationException(
+                new OAuth2Error("suspended_account"),
+                "관리자에 의해 이용이 정지된 계정입니다."
         );
     }
 }
