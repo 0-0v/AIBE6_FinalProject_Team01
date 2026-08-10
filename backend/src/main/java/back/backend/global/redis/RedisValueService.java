@@ -55,6 +55,19 @@ public class RedisValueService {
         return Optional.of(Duration.ofMillis(milliseconds));
     }
 
+    public long increment(String key, Duration ttl) {
+        validateKey(key);
+        Objects.requireNonNull(ttl, "ttl must not be null");
+        if (ttl.isZero() || ttl.isNegative()) {
+            throw new IllegalArgumentException("ttl must be positive");
+        }
+        Long count = redisTemplate.opsForValue().increment(key);
+        if (count != null && count == 1L) {
+            redisTemplate.expire(key, ttl);
+        }
+        return count == null ? 0L : count;
+    }
+
     private void validateKey(String key) {
         if (key == null || key.isBlank()) {
             throw new IllegalArgumentException("key must not be blank");

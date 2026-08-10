@@ -18,6 +18,7 @@ import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.security.jwt.RefreshTokenCookieProvider;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -99,9 +100,10 @@ public class AuthController {
     @PostMapping("/admin/login")
     @io.swagger.v3.oas.annotations.Operation(summary = "관리자 로그인 OTP 발송")
     public ApiResponse<AdminOtpChallengeResponse> requestAdminOtp(
-            @Valid @RequestBody LoginRequest request
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest
     ) {
-        return ApiResponse.success(adminOtpService.request(request));
+        return ApiResponse.success(adminOtpService.request(request, servletRequest.getRemoteAddr()));
     }
 
     @PostMapping("/admin/login/verify")

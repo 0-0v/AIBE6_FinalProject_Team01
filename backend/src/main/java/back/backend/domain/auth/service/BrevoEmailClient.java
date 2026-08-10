@@ -115,7 +115,9 @@ public class BrevoEmailClient {
     }
 
     public void sendAdminOtpEmail(String email, String code, long expirationMinutes) {
-        validateHtmlEmailConfiguration();
+        if (!StringUtils.hasText(properties.getFrom())) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
         String html = """
                 <!doctype html><html><body style="margin:0;background:#fff7f8;font-family:Arial,sans-serif;color:#213c51">
                 <div style="max-width:520px;margin:32px auto;background:#fff;border:1px solid #f8d9df;border-radius:24px;overflow:hidden">
@@ -126,15 +128,22 @@ public class BrevoEmailClient {
                   <p style="font-size:12px;color:#94a3b8">인증번호는 %d분 동안 유효합니다. 본인이 요청하지 않았다면 이 메일을 무시해 주세요.</p></div>
                 </div></body></html>
                 """.formatted(code, expirationMinutes);
-        SendHtmlEmailRequest request = new SendHtmlEmailRequest(
-                new Sender("Plamingo", properties.getFrom()), List.of(new Recipient(email)),
-                "[Plamingo] 관리자 로그인 인증번호", html);
+        sendAdminOtpWithSmtp(email, html);
+    }
+
+    private void sendAdminOtpWithSmtp(String email, String html) {
+        if (mailSender == null) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
         try {
-            restClient.post().uri("/smtp/email")
-                    .header("api-key", properties.getBrevoApiKey())
-                    .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON)
-                    .body(request).retrieve().toBodilessEntity();
-        } catch (RestClientException exception) {
+            var message = mailSender.createMimeMessage();
+            var helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(properties.getFrom());
+            helper.setTo(email);
+            helper.setSubject("[Plamingo] 관리자 로그인 인증번호");
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (jakarta.mail.MessagingException | MailException exception) {
             throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
         }
     }
@@ -181,13 +190,6 @@ public class BrevoEmailClient {
             throw new IllegalStateException(
                     "BREVO_API_KEY와 BREVO_EMAIL_VERIFICATION_TEMPLATE_ID 설정이 필요합니다."
             );
-        }
-    }
-
-    private void validateHtmlEmailConfiguration() {
-        if (!StringUtils.hasText(properties.getBrevoApiKey())
-                || !StringUtils.hasText(properties.getFrom())) {
-            throw new IllegalStateException("BREVO_API_KEY와 BREVO_FROM_EMAIL 설정이 필요합니다.");
         }
     }
 

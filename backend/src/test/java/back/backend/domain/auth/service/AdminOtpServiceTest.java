@@ -106,4 +106,20 @@ class AdminOtpServiceTest {
         verify(redisValueService).set("admin-login-otp:challenge", "1|otp-hash|1",
                 Duration.ofSeconds(40));
     }
+
+    @Test
+    @DisplayName("t5 동일 관리자와 클라이언트의 로그인 실패가 제한을 초과하면 자격 증명을 검사하지 않는다")
+    void t5_requestRejectsExcessiveCredentialAttempts() {
+        when(redisValueService.increment(
+                org.mockito.ArgumentMatchers.startsWith("admin-login-attempt:"),
+                org.mockito.ArgumentMatchers.eq(Duration.ofMinutes(10))))
+                .thenReturn(6L);
+
+        assertThatThrownBy(() -> adminOtpService.request(
+                new LoginRequest("admin12", "wrong-password"), "127.0.0.1"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(AuthErrorCode.ADMIN_OTP_RATE_LIMITED);
+        org.mockito.Mockito.verifyNoInteractions(authService);
+    }
 }

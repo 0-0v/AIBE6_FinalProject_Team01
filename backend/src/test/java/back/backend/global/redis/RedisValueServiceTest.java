@@ -66,4 +66,16 @@ class RedisValueServiceTest {
         assertThat(redisValueService.delete("key")).isTrue();
         verify(redisTemplate).delete("key");
     }
+
+    @Test
+    @DisplayName("t5 첫 요청 횟수를 증가시키면 지정한 차단 시간으로 키를 만료시킨다")
+    void t5_firstIncrementAppliesAttemptWindow() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment("attempt-key")).thenReturn(1L);
+
+        long count = redisValueService.increment("attempt-key", Duration.ofMinutes(10));
+
+        assertThat(count).isEqualTo(1L);
+        verify(redisTemplate).expire("attempt-key", Duration.ofMinutes(10));
+    }
 }

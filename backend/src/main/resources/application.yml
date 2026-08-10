@@ -81,6 +81,8 @@ app:
       verified-expiration: ${EMAIL_VERIFICATION_VERIFIED_EXPIRATION:10m}
       admin-otp-expiration: ${ADMIN_OTP_EXPIRATION:5m}
       admin-otp-resend-interval: ${ADMIN_OTP_RESEND_INTERVAL:60s}
+      admin-login-attempt-window: ${ADMIN_LOGIN_ATTEMPT_WINDOW:10m}
+      admin-login-max-attempts: ${ADMIN_LOGIN_MAX_ATTEMPTS:5}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}

@@ -11,6 +11,9 @@ import back.backend.global.exception.BusinessException;
 import back.backend.global.redis.RedisKeyFactory;
 import back.backend.global.redis.RedisValueService;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,7 @@ public class AdminOtpService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String CHALLENGE_NAMESPACE = "admin-login-otp";
     private static final String RATE_NAMESPACE = "admin-login-otp-rate";
+    private static final String ATTEMPT_NAMESPACE = "admin-login-attempt";
 
     private final AuthService authService;
     private final BrevoEmailClient emailClient;
@@ -39,7 +43,18 @@ public class AdminOtpService {
     }
 
     public AdminOtpChallengeResponse request(LoginRequest request) {
+        return request(request, "unknown");
+    }
+
+    public AdminOtpChallengeResponse request(LoginRequest request, String clientAddress) {
+        String attemptKey = attemptKey(request.identifier(), clientAddress);
+        long attempts = redisValueService.increment(
+                attemptKey, properties.getAdminLoginAttemptWindow());
+        if (attempts > properties.getAdminLoginMaxAttempts()) {
+            throw new BusinessException(AuthErrorCode.ADMIN_OTP_RATE_LIMITED);
+        }
         Member admin = authService.requireAdminCredentials(request);
+        redisValueService.delete(attemptKey);
         String rateKey = RedisKeyFactory.create(RATE_NAMESPACE, admin.getId().toString());
         if (redisValueService.exists(rateKey)) {
             throw new BusinessException(AuthErrorCode.ADMIN_OTP_RATE_LIMITED);
@@ -98,6 +113,18 @@ public class AdminOtpService {
 
     private String challengeKey(String token) {
         return RedisKeyFactory.create(CHALLENGE_NAMESPACE, token);
+    }
+
+    private String attemptKey(String identifier, String clientAddress) {
+        String source = identifier.strip().toLowerCase() + "|" + clientAddress;
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(source.getBytes(StandardCharsets.UTF_8));
+            return RedisKeyFactory.create(ATTEMPT_NAMESPACE,
+                    Base64.getUrlEncoder().withoutPadding().encodeToString(digest));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", exception);
+        }
     }
 
     private String maskEmail(String email) {
