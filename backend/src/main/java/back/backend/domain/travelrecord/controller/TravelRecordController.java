@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/trips/{tripId}")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "여행 기록·회고")
 public class TravelRecordController {
 
     private final TravelRecordService travelRecordService;
@@ -21,6 +22,7 @@ public class TravelRecordController {
     }
 
     @PostMapping("/travel-records")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 기록 등록")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TravelRecordResponse> create(
             @PathVariable Long tripId,
@@ -33,6 +35,7 @@ public class TravelRecordController {
             value = "/travel-record-photos",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 기록 사진 업로드")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TravelPhotoUploadResponse> uploadPhoto(
             @PathVariable Long tripId,
@@ -42,11 +45,13 @@ public class TravelRecordController {
     }
 
     @GetMapping("/travel-records")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 기록 목록 조회")
     public ApiResponse<List<TravelRecordResponse>> getRecords(@PathVariable Long tripId) {
         return ApiResponse.success(travelRecordService.getRecords(tripId));
     }
 
     @PutMapping("/travel-records/{recordId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 기록 수정")
     public ApiResponse<TravelRecordResponse> update(
             @PathVariable Long tripId,
             @PathVariable Long recordId,
@@ -56,12 +61,14 @@ public class TravelRecordController {
     }
 
     @DeleteMapping("/travel-records/{recordId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 기록 삭제")
     public ApiResponse<Void> delete(@PathVariable Long tripId, @PathVariable Long recordId) {
         travelRecordService.delete(tripId, recordId);
         return ApiResponse.success(null);
     }
 
     @PutMapping("/retrospective")
+    @io.swagger.v3.oas.annotations.Operation(summary = "내 여행 회고 저장")
     public ApiResponse<RetrospectiveResponse> saveRetrospective(
             @PathVariable Long tripId,
             @Valid @RequestBody RetrospectiveRequest request
@@ -70,6 +77,7 @@ public class TravelRecordController {
     }
 
     @GetMapping("/retrospective/me")
+    @io.swagger.v3.oas.annotations.Operation(summary = "내 여행 회고 조회")
     public ApiResponse<RetrospectiveResponse> getMyRetrospective(@PathVariable Long tripId) {
         return ApiResponse.success(travelRecordService.getMyRetrospective(tripId));
     }

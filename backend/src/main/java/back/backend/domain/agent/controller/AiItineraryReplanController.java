@@ -19,6 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/trips/{tripId}/itinerary/replan")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "AI 여행")
 public class AiItineraryReplanController {
 
     private final AiItineraryReplanService replanService;
@@ -37,7 +38,7 @@ public class AiItineraryReplanController {
 
     @PostMapping("/apply")
     @Operation(
-            summary = "AI 일정 재배치 승인",
+            summary = "AI 일정 재배치 적용",
             description = "지난 일정을 변경하지 않는지 검증한 뒤 승인된 재배치안을 적용합니다."
     )
     public ApiResponse<List<ItineraryDayResponse>> apply(

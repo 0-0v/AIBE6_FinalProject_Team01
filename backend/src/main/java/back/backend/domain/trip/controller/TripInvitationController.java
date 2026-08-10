@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "여행방 초대")
 public class TripInvitationController {
     private final TripInvitationService invitationService;
     private final GuestTripAccessService guestTripAccessService;

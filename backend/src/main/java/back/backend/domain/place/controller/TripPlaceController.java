@@ -16,11 +16,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/trips/{tripId}/places")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "장소")
 public class TripPlaceController {
 
     private final TripPlaceService tripPlaceService;
 
     @PostMapping
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행방에 장소 등록")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TripPlaceResponse> addPlace(
             @PathVariable Long tripId,
@@ -30,6 +32,7 @@ public class TripPlaceController {
     }
 
     @GetMapping
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행방 장소 목록 조회")
     public ApiResponse<List<TripPlaceResponse>> getPlaces(
             @PathVariable Long tripId,
             @RequestParam(required = false) TripPlaceStatus status
@@ -38,11 +41,13 @@ public class TripPlaceController {
     }
 
     @GetMapping("/access")
+    @io.swagger.v3.oas.annotations.Operation(summary = "장소 편집 권한 확인")
     public ApiResponse<Boolean> getAccess(@PathVariable Long tripId) {
         return ApiResponse.success(tripPlaceService.canEdit(tripId));
     }
 
     @DeleteMapping("/{tripPlaceId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행방 장소 삭제")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deletePlace(
             @PathVariable Long tripId,
@@ -52,6 +57,7 @@ public class TripPlaceController {
     }
 
     @PutMapping("/{tripPlaceId}/category")
+    @io.swagger.v3.oas.annotations.Operation(summary = "장소 카테고리 변경")
     public ApiResponse<TripPlaceResponse> updateCategory(
             @PathVariable Long tripId,
             @PathVariable Long tripPlaceId,

@@ -17,16 +17,19 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/trips/{tripId}/itinerary")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "일정")
 public class ItineraryController {
 
     private final ItineraryService itineraryService;
 
     @GetMapping
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 일정 조회")
     public ApiResponse<List<ItineraryDayResponse>> getItinerary(@PathVariable Long tripId) {
         return ApiResponse.success(itineraryService.getItinerary(tripId));
     }
 
     @PostMapping("/initialize")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 기간별 일정 초기화")
     public ApiResponse<List<ItineraryDayResponse>> initializeItinerary(
             @PathVariable Long tripId
     ) {
@@ -34,6 +37,7 @@ public class ItineraryController {
     }
 
     @PostMapping("/days/{dayId}/items")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정에 장소 추가")
     public ApiResponse<ItineraryDayResponse> addItem(
             @PathVariable Long tripId,
             @PathVariable Long dayId,
@@ -42,6 +46,7 @@ public class ItineraryController {
     }
 
     @DeleteMapping("/items/{itemId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정 항목 삭제")
     public ResponseEntity<Void> removeItem(
             @PathVariable Long tripId,
             @PathVariable Long itemId) {
@@ -50,6 +55,7 @@ public class ItineraryController {
     }
 
     @PatchMapping("/items/{itemId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정 항목 수정")
     public ApiResponse<ItineraryItemResponse> updateItem(
             @PathVariable Long tripId,
             @PathVariable Long itemId,
@@ -58,6 +64,7 @@ public class ItineraryController {
     }
 
     @PatchMapping("/items/{itemId}/transport-mode")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정 이동수단 변경")
     public ApiResponse<ItineraryItemResponse> updateTransportMode(
             @PathVariable Long tripId,
             @PathVariable Long itemId,
@@ -69,6 +76,7 @@ public class ItineraryController {
     }
 
     @PatchMapping("/items/{itemId}/move")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정 항목 날짜 이동")
     public ApiResponse<ItineraryItemResponse> moveItem(
             @PathVariable Long tripId,
             @PathVariable Long itemId,
@@ -77,6 +85,7 @@ public class ItineraryController {
     }
 
     @PatchMapping("/days/{dayId}/items/reorder")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정 항목 순서 변경")
     public ApiResponse<ItineraryDayResponse> reorderItems(
             @PathVariable Long tripId,
             @PathVariable Long dayId,
@@ -85,6 +94,7 @@ public class ItineraryController {
     }
 
     @PatchMapping("/days/{dayId}/departure")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정 출발 장소 변경")
     public ApiResponse<ItineraryDayResponse> updateDeparture(
             @PathVariable Long tripId,
             @PathVariable Long dayId,
@@ -93,6 +103,7 @@ public class ItineraryController {
     }
 
     @PatchMapping("/days/{dayId}/status")
+    @io.swagger.v3.oas.annotations.Operation(summary = "일정 수행 상태 변경")
     public ApiResponse<ItineraryDayResponse> updateDayStatus(
             @PathVariable Long tripId,
             @PathVariable Long dayId,
@@ -101,6 +112,7 @@ public class ItineraryController {
     }
 
     @PostMapping("/route-plan/preview")
+    @io.swagger.v3.oas.annotations.Operation(summary = "AI 동선 초안 미리보기")
     public ApiResponse<List<RoutePlanOption>> previewRoutePlan(
             @PathVariable Long tripId,
             @RequestBody(required = false) RoutePlanSettingsRequest settings
@@ -109,6 +121,7 @@ public class ItineraryController {
     }
 
     @PostMapping("/route-plan/apply")
+    @io.swagger.v3.oas.annotations.Operation(summary = "AI 동선 초안 적용")
     public ApiResponse<List<ItineraryDayResponse>> applyRoutePlan(
             @PathVariable Long tripId,
             @RequestBody @Valid RoutePlanPreviewResponse plan

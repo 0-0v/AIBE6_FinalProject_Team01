@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "인증")
 public class AuthController {
 
     private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
@@ -48,18 +49,21 @@ public class AuthController {
     }
 
     @PostMapping("/email-verifications")
+    @io.swagger.v3.oas.annotations.Operation(summary = "이메일 인증번호 발송")
     public ApiResponse<Void> sendVerificationCode(@Valid @RequestBody EmailRequest request) {
         emailVerificationService.sendCode(request.email(), request.purpose());
         return ApiResponse.successMessage("인증번호 발송 요청을 처리했습니다.");
     }
 
     @PostMapping("/email-verifications/confirm")
+    @io.swagger.v3.oas.annotations.Operation(summary = "이메일 인증번호 확인")
     public ApiResponse<Void> verifyEmailCode(@Valid @RequestBody EmailCodeVerificationRequest request) {
         emailVerificationService.verifyCode(request.email(), request.code(), request.purpose());
         return ApiResponse.successMessage("이메일 인증이 완료되었습니다.");
     }
 
     @PostMapping("/signup")
+    @io.swagger.v3.oas.annotations.Operation(summary = "이메일 회원가입")
     public ApiResponse<AccessTokenResponse> signup(
             @Valid @RequestBody SignupRequest request,
             HttpServletResponse response
@@ -68,6 +72,7 @@ public class AuthController {
     }
 
     @PostMapping("/nickname-availability")
+    @io.swagger.v3.oas.annotations.Operation(summary = "가입 닉네임 중복 확인")
     public ApiResponse<NicknameAvailabilityResponse> checkNicknameAvailability(
             @Valid @RequestBody NicknameAvailabilityRequest request
     ) {
@@ -77,6 +82,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @io.swagger.v3.oas.annotations.Operation(summary = "이메일 로그인")
     public ApiResponse<AccessTokenResponse> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletResponse response
@@ -85,12 +91,14 @@ public class AuthController {
     }
 
     @PostMapping("/password-reset")
+    @io.swagger.v3.oas.annotations.Operation(summary = "비밀번호 재설정")
     public ApiResponse<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         authService.resetPassword(request);
         return ApiResponse.successMessage("비밀번호가 변경되었습니다.");
     }
 
     @PostMapping("/reissue")
+    @io.swagger.v3.oas.annotations.Operation(summary = "액세스 토큰 재발급")
     public ResponseEntity<ApiResponse<AccessTokenResponse>> reissue(
             @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
             HttpServletResponse response
@@ -104,6 +112,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @io.swagger.v3.oas.annotations.Operation(summary = "로그아웃")
     public ApiResponse<Void> logout(HttpServletResponse response) {
         authService.logout(securityContextAccessor.getCurrentMemberId());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.expire().toString());
