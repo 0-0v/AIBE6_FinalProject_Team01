@@ -13,6 +13,7 @@ import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.util.GeoDistanceCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AiPlaceRecommendationService {
 
-    private static final double EARTH_RADIUS_METERS = 6_371_000;
     private static final double DEFAULT_SEARCH_RADIUS_METERS = 5_000;
 
     private final TripAccessChecker accessChecker;
@@ -211,7 +211,7 @@ public class AiPlaceRecommendationService {
         double centerLat = average(points, 0);
         double centerLng = average(points, 1);
         double farthest = points.stream()
-                .mapToDouble(point -> distanceMeters(
+                .mapToDouble(point -> GeoDistanceCalculator.distanceMeters(
                         centerLat,
                         centerLng,
                         point[0],
@@ -230,16 +230,17 @@ public class AiPlaceRecommendationService {
         if (routePoints.size() == 2) {
             double[] from = routePoints.get(0);
             double[] to = routePoints.get(1);
-            double throughCandidate = distanceMeters(
+            double throughCandidate = GeoDistanceCalculator.distanceMeters(
                     from[0], from[1], place.latitude(), place.longitude()
-            ) + distanceMeters(
+            ) + GeoDistanceCalculator.distanceMeters(
                     place.latitude(), place.longitude(), to[0], to[1]
             );
-            double direct = distanceMeters(from[0], from[1], to[0], to[1]);
+            double direct = GeoDistanceCalculator.distanceMeters(
+                    from[0], from[1], to[0], to[1]);
             return (int) Math.round(Math.max(0, throughCandidate - direct));
         }
         return (int) Math.round(routePoints.stream()
-                .mapToDouble(point -> distanceMeters(
+                .mapToDouble(point -> GeoDistanceCalculator.distanceMeters(
                         place.latitude(),
                         place.longitude(),
                         point[0],
@@ -247,26 +248,6 @@ public class AiPlaceRecommendationService {
                 ))
                 .min()
                 .orElse(0));
-    }
-
-    private double distanceMeters(
-            double latitude1,
-            double longitude1,
-            double latitude2,
-            double longitude2
-    ) {
-        double lat1 = Math.toRadians(latitude1);
-        double lat2 = Math.toRadians(latitude2);
-        double latitudeDelta = lat2 - lat1;
-        double longitudeDelta = Math.toRadians(longitude2 - longitude1);
-        double haversine = Math.pow(Math.sin(latitudeDelta / 2), 2)
-                + Math.cos(lat1)
-                * Math.cos(lat2)
-                * Math.pow(Math.sin(longitudeDelta / 2), 2);
-        return EARTH_RADIUS_METERS * 2 * Math.atan2(
-                Math.sqrt(haversine),
-                Math.sqrt(1 - haversine)
-        );
     }
 
     private boolean isPastSegment(
