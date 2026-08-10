@@ -6,6 +6,8 @@ export type CurrentUser = {
     nickname: string
     profileImageUrl: string | null
     provider: 'LOCAL' | 'GOOGLE' | 'KAKAO' | 'NAVER' | 'APPLE'
+    role: 'USER' | 'ADMIN'
+    status: 'ACTIVE' | 'SUSPENDED' | 'WITHDRAWN'
 }
 
 type CurrentUserState = {

@@ -23,6 +23,8 @@ import { Landing } from '@/views/landing'
 import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
 import { TripEmailInvitationPage } from '@/views/trip-email-invitation'
 import { ColorPalettePage } from '@/views/design-system'
+import { AdminLoginPage } from '@/views/admin-login'
+import { AdminDashboardPage } from '@/views/admin-dashboard'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
 import { getJwtExpirationTime } from '@/shared/lib'
@@ -129,6 +131,16 @@ function AppShell() {
                         />
                         <Route path="updates" element={<Updates />} />
                         <Route path="mypage" element={<MyPage />} />
+                        <Route
+                            path="admin"
+                            element={
+                                currentUser?.role === 'ADMIN' ? (
+                                    <AdminDashboardPage />
+                                ) : (
+                                    <Navigate to="/app" replace />
+                                )
+                            }
+                        />
                     </Routes>
                 </main>
             </div>
@@ -219,6 +231,7 @@ export function App() {
             <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/password-reset" element={<PasswordResetPage />} />
                 <Route path="/terms" element={<TermsPage />} />

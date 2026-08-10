@@ -10,6 +10,7 @@ import {
     LogOutIcon,
     MapIcon,
     NotebookTabsIcon,
+    ShieldCheckIcon,
 } from 'lucide-react'
 import { useTripStore } from '@/features/manage-trip'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -50,6 +51,13 @@ export function Sidebar() {
         avatarColor: DEFAULT_AVATAR_COLOR,
         imageUrl: resolveMediaUrl(currentUser?.profileImageUrl),
     }
+    const visibleNav =
+        currentUser?.role === 'ADMIN'
+            ? [
+                  ...nav,
+                  { to: '/app/admin', label: '관리자', icon: ShieldCheckIcon },
+              ]
+            : nav
 
     useEffect(() => {
         if (currentUser) {
@@ -108,7 +116,7 @@ export function Sidebar() {
                 className="mt-16 flex flex-1 flex-col gap-3"
                 aria-label="주요 메뉴"
             >
-                {nav.map((item) => {
+                {visibleNav.map((item) => {
                     const badge = item.to === '/app/updates' ? unreadCount : 0
                     return (
                         <React.Fragment key={item.to}>
