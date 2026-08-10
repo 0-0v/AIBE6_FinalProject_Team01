@@ -93,6 +93,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/cards/public").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/*/detail").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/*/comments").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/trip-cover-presets").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
