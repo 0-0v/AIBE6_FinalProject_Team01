@@ -66,7 +66,7 @@ export function Sidebar() {
 
     return (
         <aside
-            className={`relative z-40 flex shrink-0 flex-col overflow-visible border-r border-slate-100 bg-white py-7 transition-[width] duration-300 ease-out ${
+            className={`relative z-40 flex shrink-0 flex-col overflow-visible border-r border-slate-100 bg-white py-7 shadow-[4px_0_12px_-4px_rgba(15,23,42,0.08)] transition-[width] duration-300 ease-out ${
                 isExpanded ? 'w-[248px] px-5' : 'w-[86px] px-3'
             }`}
         >
