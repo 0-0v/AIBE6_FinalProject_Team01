@@ -42,11 +42,11 @@ export function LandingNavigation({
                     inset: 0,
                     zIndex: -1,
                     background: isScrolled
-                        ? 'rgba(255,247,238,0.86)'
+                        ? 'rgb(var(--rgb-landing-nav)/0.86)'
                         : 'transparent',
                     backdropFilter: isScrolled ? 'blur(16px)' : 'none',
                     boxShadow: isScrolled
-                        ? '0 1.5px 0 rgba(35,38,75,0.06)'
+                        ? '0 1.5px 0 rgb(var(--rgb-landing-deep)/0.06)'
                         : 'none',
                     transition: 'background 0.35s ease, box-shadow 0.35s ease',
                 }}
@@ -60,7 +60,7 @@ export function LandingNavigation({
                     gap: 8,
                     fontWeight: 800,
                     fontSize: 20,
-                    color: '#3A2A28',
+                    color: 'var(--color-landing-ink)',
                     zIndex: 1,
                     textDecoration: 'none',
                 }}
@@ -104,8 +104,8 @@ export function LandingNavigation({
                 disabled={!isInitialized}
                 style={{
                     zIndex: 1,
-                    background: '#FF7A59',
-                    color: '#FDF3E7',
+                    background: 'var(--color-landing-coral)',
+                    color: 'var(--color-landing-cream)',
                     fontWeight: 700,
                     fontSize: 14,
                     padding: '9px 20px',
@@ -113,8 +113,9 @@ export function LandingNavigation({
                     border: 'none',
                     cursor: isInitialized ? 'pointer' : 'wait',
                     opacity: isInitialized ? 1 : 0.65,
-                    boxShadow: '0 8px 18px rgba(255,90,60,0.28)',
-                    fontFamily: "'Manrope', sans-serif",
+                    boxShadow:
+                        '0 8px 18px rgb(var(--rgb-landing-coral-strong)/0.28)',
+                    fontFamily: 'var(--font-landing)',
                 }}
             >
                 시작하기

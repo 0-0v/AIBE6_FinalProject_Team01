@@ -3,6 +3,7 @@ package back.backend.domain.itinerary.repository;
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,6 +11,14 @@ import java.util.Optional;
 import java.util.List;
 
 public interface ItineraryItemRepository extends JpaRepository<ItineraryItem, Long> {
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE itinerary_items
+            SET sort_order = -id
+            WHERE id IN (:itemIds)
+            """, nativeQuery = true)
+    void parkSortOrdersByIds(@Param("itemIds") List<Long> itemIds);
 
     @Query("SELECT i FROM ItineraryItem i JOIN i.itineraryDay d WHERE i.id = :itemId AND d.tripId = :tripId")
     Optional<ItineraryItem> findByIdAndTripId(@Param("itemId") Long itemId, @Param("tripId") Long tripId);

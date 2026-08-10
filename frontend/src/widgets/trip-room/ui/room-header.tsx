@@ -59,7 +59,7 @@ export function RoomHeader({
                     </button>
                 )}
                 <div className="min-w-0 flex-1">
-                    <div className="border-l-4 border-[#213C51] py-1 pl-4">
+                    <div className="border-l-4 border-[var(--color-app-navy)] py-1 pl-4">
                         <div className="flex items-center gap-2">
                             <h1 className="truncate text-2xl font-extrabold tracking-tight">
                                 {title}
@@ -91,11 +91,11 @@ export function RoomHeader({
                             )}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            <span className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 shadow-[0_4px_12px_rgba(15,23,42,0.08)]">
+                            <span className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 shadow-[0_4px_12px_rgb(var(--rgb-app-ink)/0.08)]">
                                 <MapPinIcon size={12} />
                                 {location}
                             </span>
-                            <span className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 shadow-[0_4px_12px_rgba(15,23,42,0.08)]">
+                            <span className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 shadow-[0_4px_12px_rgb(var(--rgb-app-ink)/0.08)]">
                                 <CalendarDaysIcon size={12} />
                                 {date}
                             </span>
@@ -104,7 +104,7 @@ export function RoomHeader({
                 </div>
                 <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                     {canWrite ? (
-                        <span className="rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-bold text-brand-700 shadow-[0_4px_12px_rgba(235,94,119,0.12)]">
+                        <span className="rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-bold text-brand-700 shadow-[0_4px_12px_rgb(var(--rgb-brand-soft)/0.12)]">
                             편집 모드
                         </span>
                     ) : (

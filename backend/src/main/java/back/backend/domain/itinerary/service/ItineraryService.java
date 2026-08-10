@@ -559,17 +559,9 @@ public class ItineraryService {
                 days,
                 expectedPlaces
         );
-        Map<Long, ItineraryDay> dayById = days.stream()
-                .collect(Collectors.toMap(ItineraryDay::getId, day -> day));
         List<ItineraryItem> existingItems = days.stream()
                 .flatMap(day -> day.getItems().stream())
                 .toList();
-        Map<Long, ItineraryItem> itemByTripPlaceId = existingItems.stream()
-                .filter(item -> item.getTripPlaceId() != null)
-                .collect(Collectors.toMap(
-                        ItineraryItem::getTripPlaceId,
-                        item -> item
-                ));
         Set<Long> plannedTripPlaceIds = effectivePlan.days().stream()
                 .flatMap(day -> day.items().stream())
                 .map(item -> item.tripPlaceId())
@@ -585,12 +577,24 @@ public class ItineraryService {
         List<ItineraryItem> retainedItems = existingItems.stream()
                 .filter(item -> plannedTripPlaceIds.contains(item.getTripPlaceId()))
                 .toList();
-        for (int index = 0; index < retainedItems.size(); index++) {
-            retainedItems.get(index).updateSortOrder(-(index + 1));
-        }
         if (!retainedItems.isEmpty()) {
-            itemRepository.saveAllAndFlush(retainedItems);
+            itemRepository.parkSortOrdersByIds(retainedItems.stream()
+                    .map(ItineraryItem::getId)
+                    .toList());
+            days = dayRepository.findAllWithItemsByTripId(tripId);
+            existingItems = days.stream()
+                    .flatMap(day -> day.getItems().stream())
+                    .toList();
         }
+
+        Map<Long, ItineraryDay> dayById = days.stream()
+                .collect(Collectors.toMap(ItineraryDay::getId, day -> day));
+        Map<Long, ItineraryItem> itemByTripPlaceId = existingItems.stream()
+                .filter(item -> item.getTripPlaceId() != null)
+                .collect(Collectors.toMap(
+                        ItineraryItem::getTripPlaceId,
+                        item -> item
+                ));
 
         List<ItineraryItem> plannedItems = new ArrayList<>();
         for (var plannedDay : effectivePlan.days()) {

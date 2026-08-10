@@ -1177,6 +1177,40 @@ class ItineraryServiceTest {
         ));
     }
 
+    @Test
+    @DisplayName("t42 AI 동선 적용 전 기존 일정 순번을 DB에서 안전한 임시 순번으로 이동한다")
+    void t42_applyRoutePlanParksExistingSortOrdersBeforeFinalAssignment() {
+        ItineraryItem existingItem = ItineraryItem.create(day, TRIP_PLACE_ID, 0);
+        ReflectionTestUtils.setField(existingItem, "id", ITEM_ID);
+        ReflectionTestUtils.setField(day, "items", new ArrayList<>(List.of(existingItem)));
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "추천 동선",
+                1,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        0,
+                        List.of(routePlanItem(TRIP_PLACE_ID, "테스트 장소"))
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(
+                TRIP_ID,
+                TripPlaceStatus.SAVED
+        )).willReturn(List.of(savedTripPlace));
+        given(itemRepository.saveAllAndFlush(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        itineraryService.applyRoutePlan(TRIP_ID, preview);
+
+        var ordered = inOrder(itemRepository);
+        ordered.verify(itemRepository).parkSortOrdersByIds(List.of(ITEM_ID));
+        ordered.verify(itemRepository).saveAllAndFlush(anyList());
+    }
+
     private RoutePlanItemResponse routePlanItem(Long tripPlaceId, String name) {
         return new RoutePlanItemResponse(
                 tripPlaceId,

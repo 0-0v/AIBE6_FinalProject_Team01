@@ -67,13 +67,13 @@ type SurfaceId =
     | 'notifications'
 
 const initialColors: Record<SurfaceId, string> = {
-    travel: '#213C51',
-    tasks: '#ffffff',
-    activity: '#ffffff',
-    calendar: '#ffffff',
-    schedule: '#ffffff',
-    expenses: '#ffffff',
-    notifications: '#ffffff',
+    travel: 'var(--color-app-navy)',
+    tasks: 'var(--color-app-surface)',
+    activity: 'var(--color-app-surface)',
+    calendar: 'var(--color-app-surface)',
+    schedule: 'var(--color-app-surface)',
+    expenses: 'var(--color-app-surface)',
+    notifications: 'var(--color-app-surface)',
 }
 
 const DASHBOARD_SCHEDULE_ITEM_LIMIT = 6
@@ -143,7 +143,7 @@ export function Home() {
             members: 0,
             cover: '/ec246eb2-6c56-4a2e-aa65-d09ffc9a62c9.jpg',
             status: '준비 전',
-            color: '#e7657a',
+            color: 'var(--color-brand)',
         }
     const {
         tasks,
@@ -252,7 +252,7 @@ export function Home() {
     }
 
     return (
-        <div className="min-h-full bg-[#f9fafb] px-8 py-7">
+        <div className="min-h-full bg-[var(--color-app-background-alt)] px-8 py-7">
             <header className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)_320px] items-center gap-4 px-1">
                 <div className="min-w-0">
                     <h1 className="text-[30px] font-extrabold tracking-[-0.05em] text-slate-950">
@@ -275,16 +275,16 @@ export function Home() {
                                 onClick={() =>
                                     setIsTripSelectorOpen((open) => !open)
                                 }
-                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-xl bg-[#fdeef1] px-3 py-1.5 text-left transition hover:bg-[#f2647c] hover:shadow-[0_10px_24px_rgba(242,100,124,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
+                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-xl bg-[var(--color-brand-highlight)] px-3 py-1.5 text-left transition hover:bg-[var(--color-brand-vivid)] hover:shadow-[0_10px_24px_rgb(var(--rgb-brand-vivid)/0.35)] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <span className="min-w-0 break-keep text-2xl font-extrabold tracking-[-0.02em] text-[#c94c63] transition-colors group-hover:text-white">
+                                <span className="min-w-0 break-keep text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-brand-700)] transition-colors group-hover:text-white">
                                     {rooms.length > 0
                                         ? activeTrip.location
                                         : '아직 미정'}
                                 </span>
                                 <ChevronDownIcon
                                     size={17}
-                                    className={`shrink-0 text-[#c94c63] transition-transform group-hover:text-white ${
+                                    className={`shrink-0 text-[var(--color-brand-700)] transition-transform group-hover:text-white ${
                                         isTripSelectorOpen ? 'rotate-180' : ''
                                     }`}
                                 />
@@ -293,7 +293,7 @@ export function Home() {
                                 <div
                                     role="listbox"
                                     aria-label="여행방 목록"
-                                    className="mp-scroll absolute left-0 top-[calc(100%+8px)] z-50 max-h-64 min-w-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
+                                    className="mp-scroll absolute left-0 top-[calc(100%+8px)] z-50 max-h-64 min-w-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgb(var(--rgb-app-ink)/0.16)]"
                                 >
                                     {rooms.map((room) => {
                                         const isSelected =
@@ -310,7 +310,7 @@ export function Home() {
                                                 }}
                                                 className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-extrabold transition ${
                                                     isSelected
-                                                        ? 'bg-[#fff0f2] text-[#c94c63]'
+                                                        ? 'bg-[var(--color-brand-50)] text-[var(--color-brand-700)]'
                                                         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                                                 }`}
                                             >
@@ -355,10 +355,10 @@ export function Home() {
 
             {view === 'list' ? (
                 <div className="mx-auto mt-6 max-w-[1440px] space-y-5 px-1">
-                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-5 shadow-[0_10px_30px_rgb(var(--rgb-app-ink)/0.04)]">
                         <TravelRooms embedded compact />
                     </section>
-                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+                    <section className="rounded-[24px] border border-slate-100 bg-white/60 p-5 shadow-[0_10px_30px_rgb(var(--rgb-app-ink)/0.04)]">
                         <SectionTitle
                             title="북마크한 여행 카드"
                             action={
@@ -467,7 +467,7 @@ export function Home() {
                                                             .map((tag) => (
                                                                 <span
                                                                     key={`${tag.style}-${tag.label}`}
-                                                                    className={`max-w-24 truncate rounded-full px-2 py-1 text-[10px] font-bold ${tag.style ? 'bg-[#213C51]/10 text-[#213C51]' : 'bg-brand-50 text-brand-700'}`}
+                                                                    className={`max-w-24 truncate rounded-full px-2 py-1 text-[10px] font-bold ${tag.style ? 'bg-[var(--color-app-navy)]/10 text-[var(--color-app-navy)]' : 'bg-brand-50 text-brand-700'}`}
                                                                 >
                                                                     #{tag.label}
                                                                 </span>
@@ -548,18 +548,18 @@ export function Home() {
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.32 }}
-                                        className="relative h-full overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,#213C51_0%,#29485E_60%,#315A75_100%)] shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+                                        className="relative h-full overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,var(--color-app-navy)_0%,var(--color-app-navy-700)_60%,var(--color-app-navy-600)_100%)] shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.12)]"
                                     >
-                                        <span className="absolute right-[80px] top-0 z-10 h-6 w-6 -translate-y-1/2 rounded-full bg-[#f9fafb]" />
-                                        <span className="absolute right-[80px] bottom-0 z-10 h-6 w-6 translate-y-1/2 rounded-full bg-[#f9fafb]" />
+                                        <span className="absolute right-[80px] top-0 z-10 h-6 w-6 -translate-y-1/2 rounded-full bg-[var(--color-app-background-alt)]" />
+                                        <span className="absolute right-[80px] bottom-0 z-10 h-6 w-6 translate-y-1/2 rounded-full bg-[var(--color-app-background-alt)]" />
                                         <div className="relative flex h-full flex-col pb-6 pr-[92px]">
                                             <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-6">
                                                 <div className="flex items-center gap-3">
-                                                    <p className="font-['Inter'] text-xs font-bold uppercase tracking-[0.24em] text-[#9bbbd1]">
+                                                    <p className="font-display text-xs font-bold uppercase tracking-[0.24em] text-[var(--color-app-navy-muted)]">
                                                         Boarding pass
                                                     </p>
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-300 px-2.5 py-1 text-[10px] font-black text-[#213C51]">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-[#213C51]" />
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-300 px-2.5 py-1 text-[10px] font-black text-[var(--color-app-navy)]">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-app-navy)]" />
                                                         {getTripStatusLabel(
                                                             activeTripData?.startDate,
                                                             activeTripData?.endDate,
@@ -577,7 +577,7 @@ export function Home() {
                                                         )
                                                     }
                                                     disabled={!activeTrip.id}
-                                                    className="flex items-center gap-1 rounded-full bg-[#EEEEEE]/10 px-3 py-2 text-xs font-extrabold text-[#EEEEEE] transition hover:bg-[#EEEEEE]/20 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    className="flex items-center gap-1 rounded-full bg-[var(--color-app-neutral)]/10 px-3 py-2 text-xs font-extrabold text-[var(--color-app-neutral)] transition hover:bg-[var(--color-app-neutral)]/20 disabled:cursor-not-allowed disabled:opacity-40"
                                                 >
                                                     여행방 열기
                                                     <ChevronRightIcon
@@ -588,16 +588,16 @@ export function Home() {
 
                                             <div className="mt-5 px-6">
                                                 <div className="grid grid-cols-[auto_minmax(90px,1fr)_auto] gap-3">
-                                                    <p className="font-['Inter'] text-[10px] font-bold uppercase tracking-[0.2em] text-[#9bbbd1]">
+                                                    <p className="font-display text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)]">
                                                         From
                                                     </p>
                                                     <span />
-                                                    <p className="text-right font-['Inter'] text-[10px] font-bold uppercase tracking-[0.2em] text-[#9bbbd1]">
+                                                    <p className="text-right font-display text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)]">
                                                         To
                                                     </p>
                                                 </div>
                                                 <div className="mt-1 grid grid-cols-[auto_minmax(90px,1fr)_auto] items-center gap-3">
-                                                    <strong className="block whitespace-nowrap font-['Inter'] text-[clamp(2.25rem,2.4vw,3rem)] font-black tracking-[-0.04em] text-[#EEEEEE]">
+                                                    <strong className="block whitespace-nowrap font-display text-[clamp(2.25rem,2.4vw,3rem)] font-black tracking-[-0.04em] text-[var(--color-app-neutral)]">
                                                         {getOriginCode(
                                                             activeTrip,
                                                         )}
@@ -606,11 +606,11 @@ export function Home() {
                                                         className="relative flex items-center"
                                                         aria-hidden="true"
                                                     >
-                                                        <span className="mx-auto w-full max-w-[60%] border-t-2 border-dashed border-[#6f93ad]/55" />
-                                                        <span className="absolute left-1/2 flex h-8 w-10 -translate-x-1/2 items-center justify-center bg-[#29485E]">
+                                                        <span className="mx-auto w-full max-w-[60%] border-t-2 border-dashed border-[var(--color-app-navy-soft)]/55" />
+                                                        <span className="absolute left-1/2 flex h-8 w-10 -translate-x-1/2 items-center justify-center bg-[var(--color-app-navy-700)]">
                                                             <PlaneIcon
                                                                 size={30}
-                                                                className="rotate-45 text-[#F2647C]"
+                                                                className="rotate-45 text-[var(--color-brand-vivid)]"
                                                             />
                                                         </span>
                                                     </div>
@@ -618,13 +618,13 @@ export function Home() {
                                                         {isDestinationSet(
                                                             activeTrip.location,
                                                         ) ? (
-                                                            <strong className="block whitespace-nowrap font-['Inter'] text-[clamp(2.25rem,2.4vw,3rem)] font-black tracking-[-0.04em] text-[#EEEEEE]">
+                                                            <strong className="block whitespace-nowrap font-display text-[clamp(2.25rem,2.4vw,3rem)] font-black tracking-[-0.04em] text-[var(--color-app-neutral)]">
                                                                 {getTicketDestinationCode(
                                                                     activeTrip,
                                                                 )}
                                                             </strong>
                                                         ) : (
-                                                            <strong className="inline-flex rounded-xl border-2 border-dashed border-[#6f93ad]/70 px-3 py-1 font-['Inter'] text-4xl font-black tracking-[0.08em] text-[#9bbbd1]">
+                                                            <strong className="inline-flex rounded-xl border-2 border-dashed border-[var(--color-app-navy-soft)]/70 px-3 py-1 font-display text-4xl font-black tracking-[0.08em] text-[var(--color-app-navy-muted)]">
                                                                 ???
                                                             </strong>
                                                         )}
@@ -632,26 +632,26 @@ export function Home() {
                                                 </div>
                                             </div>
 
-                                            <div className="mx-6 mt-auto grid grid-cols-[0.9fr_1.25fr] items-end gap-4 border-t border-dashed border-[#6f93ad]/55 pt-4">
+                                            <div className="mx-6 mt-auto grid grid-cols-[0.9fr_1.25fr] items-end gap-4 border-t border-dashed border-[var(--color-app-navy-soft)]/55 pt-4">
                                                 <div>
-                                                    <p className="font-['Inter'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#9bbbd1]">
+                                                    <p className="font-display text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-app-navy-muted)]">
                                                         Traveler
                                                     </p>
                                                     <div className="mt-2 flex items-center">
-                                                        <span className="rounded-full bg-[#EEEEEE] p-0.5 shadow-sm">
+                                                        <span className="rounded-full bg-[var(--color-app-neutral)] p-0.5 shadow-sm">
                                                             <Avatar
                                                                 name={
                                                                     currentUser?.nickname ??
                                                                     '여행자'
                                                                 }
-                                                                color="#e7657a"
+                                                                color="var(--color-brand)"
                                                                 imageUrl={resolveMediaUrl(
                                                                     currentUser?.profileImageUrl,
                                                                 )}
                                                                 size={30}
                                                             />
                                                         </span>
-                                                        <span className="ml-2 truncate text-xs font-extrabold text-[#EEEEEE]">
+                                                        <span className="ml-2 truncate text-xs font-extrabold text-[var(--color-app-neutral)]">
                                                             {currentUser?.nickname ??
                                                                 '여행자'}{' '}
                                                             외{' '}
@@ -666,11 +666,11 @@ export function Home() {
                                                 </div>
 
                                                 <div>
-                                                    <p className="font-['Inter'] text-[10px] font-bold uppercase tracking-[0.18em] text-[#9bbbd1]">
+                                                    <p className="font-display text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-app-navy-muted)]">
                                                         Travel date
                                                     </p>
                                                     <div className="mt-2">
-                                                        <span className="text-sm font-black text-[#EEEEEE]">
+                                                        <span className="text-sm font-black text-[var(--color-app-neutral)]">
                                                             {formatTripDateRange(
                                                                 activeTripData?.startDate,
                                                                 activeTripData?.endDate,
@@ -679,11 +679,11 @@ export function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="absolute bottom-0 right-0 top-0 flex w-[92px] flex-col items-center justify-between border-l-2 border-dashed border-[#6f93ad]/65 py-7">
-                                                <span className="font-['Inter'] text-[9px] font-bold uppercase tracking-[0.2em] text-[#9bbbd1] [writing-mode:vertical-rl]">
+                                            <div className="absolute bottom-0 right-0 top-0 flex w-[92px] flex-col items-center justify-between border-l-2 border-dashed border-[var(--color-app-navy-soft)]/65 py-7">
+                                                <span className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)] [writing-mode:vertical-rl]">
                                                     Departure
                                                 </span>
-                                                <strong className="font-['Inter'] text-3xl font-black text-[#F2647C] [writing-mode:vertical-rl]">
+                                                <strong className="font-display text-3xl font-black text-[var(--color-brand-vivid)] [writing-mode:vertical-rl]">
                                                     {tripCountdownLabel}
                                                 </strong>
                                                 <span aria-hidden="true" />
@@ -697,9 +697,9 @@ export function Home() {
                                     'tasks',
                                     '투표 대기',
                                     <section
-                                        className={`flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border p-5 shadow-[0_12px_30px_rgba(15,23,42,0.07)] transition-colors duration-500 ${
+                                        className={`flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border p-5 shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.07)] transition-colors duration-500 ${
                                             visibleInsightSlide === 0
-                                                ? 'border-rose-200 bg-[#fff7f8]'
+                                                ? 'border-rose-200 bg-[var(--color-brand-surface)]'
                                                 : 'border-slate-200 bg-white'
                                         }`}
                                     >
@@ -724,25 +724,25 @@ export function Home() {
                                                 >
                                                     <div className="flex items-start gap-3">
                                                         <span className="relative h-11 w-11 shrink-0">
-                                                            <span className="absolute bottom-0 left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[#ec6680] text-white">
+                                                            <span className="absolute bottom-0 left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-brand-accent)] text-white">
                                                                 <ThumbsUpIcon
                                                                     size={18}
                                                                 />
                                                             </span>
                                                             {pendingVoteCount >
                                                                 0 && (
-                                                                <span className="absolute right-0 top-0 z-20 block h-3.5 w-3.5 rounded-full border-2 border-[#fff7f8] bg-orange-400 shadow-sm" />
+                                                                <span className="absolute right-0 top-0 z-20 block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-brand-surface)] bg-orange-400 shadow-sm" />
                                                             )}
                                                         </span>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-base font-black text-[#a94359]">
+                                                            <p className="text-base font-black text-[var(--color-brand-deep)]">
                                                                 투표 대기{' '}
                                                                 {
                                                                     pendingVoteCount
                                                                 }
                                                                 건
                                                             </p>
-                                                            <p className="mt-0.5 text-[11px] font-semibold text-[#cc788a]">
+                                                            <p className="mt-0.5 text-[11px] font-semibold text-[var(--color-brand-muted)]">
                                                                 내 투표를
                                                                 기다리고 있어요
                                                             </p>
@@ -756,7 +756,7 @@ export function Home() {
                                                                         `/app/room/${activeTrip.id}`,
                                                                     )
                                                                 }
-                                                                className="ml-auto inline-flex shrink-0 items-center gap-1 pt-1 text-xs font-black text-[#d84f68]"
+                                                                className="ml-auto inline-flex shrink-0 items-center gap-1 pt-1 text-xs font-black text-[var(--color-brand-dark)]"
                                                             >
                                                                 투표하기
                                                                 <ChevronRightIcon
@@ -827,7 +827,7 @@ export function Home() {
                                                                                         완료
                                                                                     </span>
                                                                                 ) : (
-                                                                                    <span className="block text-right text-sm font-black text-[#d84f68]">
+                                                                                    <span className="block text-right text-sm font-black text-[var(--color-brand-dark)]">
                                                                                         {
                                                                                             vote.responseCount
                                                                                         }
@@ -840,7 +840,7 @@ export function Home() {
                                                                                 )}
                                                                                 <span className="mt-2 block h-2 overflow-hidden rounded-full bg-rose-100">
                                                                                     <span
-                                                                                        className="block h-full rounded-full bg-[#e7657a]"
+                                                                                        className="block h-full rounded-full bg-[var(--color-brand)]"
                                                                                         style={{
                                                                                             width: `${voteProgress}%`,
                                                                                         }}
@@ -870,7 +870,7 @@ export function Home() {
                                                                     disabled={
                                                                         !activeTrip.id
                                                                     }
-                                                                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#d84f68] disabled:opacity-40"
+                                                                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-extrabold text-[var(--color-brand-dark)] disabled:opacity-40"
                                                                 >
                                                                     투표하러
                                                                     가기
@@ -911,7 +911,7 @@ export function Home() {
                                                                             }
                                                                             className="relative pb-5 last:pb-1"
                                                                         >
-                                                                            <span className="absolute -left-[25px] top-1 h-2.5 w-2.5 rounded-full bg-[#e7657a] ring-2 ring-white" />
+                                                                            <span className="absolute -left-[25px] top-1 h-2.5 w-2.5 rounded-full bg-[var(--color-brand)] ring-2 ring-white" />
                                                                             <time className="block text-xs font-semibold text-slate-400">
                                                                                 {new Intl.DateTimeFormat(
                                                                                     'ko-KR',
@@ -963,7 +963,7 @@ export function Home() {
                                                             disabled={
                                                                 !activeTrip.id
                                                             }
-                                                            className="absolute right-0 top-0 inline-flex items-center gap-0.5 text-[10px] font-black text-[#213C51] transition-colors hover:text-[#e7657a] disabled:opacity-40"
+                                                            className="absolute right-0 top-0 inline-flex items-center gap-0.5 text-[10px] font-black text-[var(--color-app-navy)] transition-colors hover:text-[var(--color-brand)] disabled:opacity-40"
                                                         >
                                                             정산 내역
                                                             <ChevronRightIcon
@@ -971,7 +971,7 @@ export function Home() {
                                                             />
                                                         </button>
                                                         <div className="text-center">
-                                                            <p className="font-['Inter'] text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">
+                                                            <p className="font-display text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">
                                                                 Receipt
                                                             </p>
                                                             <p className="mt-0.5 truncate text-xs font-black text-slate-800">
@@ -1030,7 +1030,7 @@ export function Home() {
                                                             </div>
                                                         )}
                                                         <div className="mt-2 flex items-end justify-between border-t border-dashed border-slate-300 pt-2">
-                                                            <span className="font-['Inter'] text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                                            <span className="font-display text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
                                                                 Total
                                                             </span>
                                                             <strong className="text-lg font-black text-slate-900">
@@ -1050,7 +1050,7 @@ export function Home() {
                                                             disabled={
                                                                 !activeTrip.apiTripId
                                                             }
-                                                            className="mt-2 inline-flex h-8 w-full shrink-0 items-center justify-center gap-1 rounded-xl bg-[#213C51] text-[11px] font-black text-white transition-colors hover:bg-[#172d3d] disabled:cursor-not-allowed disabled:opacity-40"
+                                                            className="mt-2 inline-flex h-8 w-full shrink-0 items-center justify-center gap-1 rounded-xl bg-[var(--color-app-navy)] text-[11px] font-black text-white transition-colors hover:bg-[var(--color-app-navy-900)] disabled:cursor-not-allowed disabled:opacity-40"
                                                         >
                                                             <PlusIcon
                                                                 size={13}
@@ -1088,7 +1088,7 @@ export function Home() {
                                                         className={`h-2 rounded-full transition-all ${
                                                             visibleInsightSlide ===
                                                             index
-                                                                ? 'w-5 bg-[#e7657a]'
+                                                                ? 'w-5 bg-[var(--color-brand)]'
                                                                 : 'w-2 bg-rose-200 hover:bg-rose-300'
                                                         }`}
                                                     />
@@ -1100,10 +1100,10 @@ export function Home() {
                                 )}
                             </div>
 
-                            <section className="flex h-[560px] flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.06)]">
+                            <section className="flex h-[560px] flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgb(var(--rgb-app-ink)/0.06)]">
                                 <div className="flex items-center justify-between px-6 py-5">
                                     <div>
-                                        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#d84f68]">
+                                        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--color-brand-dark)]">
                                             Selected day
                                         </p>
                                         <h2 className="mt-1 text-lg font-black text-slate-900">
@@ -1147,7 +1147,7 @@ export function Home() {
                                                         categoryId: null,
                                                         categoryName: 'AI 추천',
                                                         categoryColor:
-                                                            '#e7657a',
+                                                            'var(--color-brand)',
                                                         categoryIcon: 'HEART',
                                                         status: 'hold',
                                                         image: '',
@@ -1229,7 +1229,7 @@ export function Home() {
                                             aria-pressed={selectedDate == null}
                                             className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
                                                 selectedDate == null
-                                                    ? 'border-transparent bg-[#334155] text-white'
+                                                    ? 'border-transparent bg-[var(--color-app-text)] text-white'
                                                     : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
                                             }`}
                                         >
@@ -1252,7 +1252,7 @@ export function Home() {
                                                     aria-pressed={isActive}
                                                     className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
                                                         isActive
-                                                            ? 'border-transparent bg-[#e7657a] text-white'
+                                                            ? 'border-transparent bg-[var(--color-brand)] text-white'
                                                             : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
                                                     }`}
                                                 >
@@ -1444,9 +1444,9 @@ export function Home() {
                                             aria-pressed={
                                                 room.id === activeTrip.id
                                             }
-                                            className={`group relative min-h-[205px] overflow-hidden rounded-sm border bg-white p-3 text-left shadow-[0_7px_14px_rgba(15,23,42,0.08)] transition hover:shadow-md ${room.id === activeTrip.id ? 'border-brand ring-2 ring-brand/20' : 'border-slate-200'}`}
+                                            className={`group relative min-h-[205px] overflow-hidden rounded-sm border bg-white p-3 text-left shadow-[0_7px_14px_rgb(var(--rgb-app-ink)/0.08)] transition hover:shadow-md ${room.id === activeTrip.id ? 'border-brand ring-2 ring-brand/20' : 'border-slate-200'}`}
                                         >
-                                            <div className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 rounded-b bg-[#d9d4c6]/90" />
+                                            <div className="absolute left-1/2 top-0 h-5 w-16 -translate-x-1/2 rounded-b bg-[var(--color-app-ticket-notch)]/90" />
                                             <img
                                                 src={room.cover}
                                                 alt=""
@@ -1500,7 +1500,7 @@ export function Home() {
                                                             ),
                                                         })
                                                     }
-                                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[var(--color-brand-700)] hover:bg-slate-50"
                                                     aria-label="이전 달"
                                                 >
                                                     ‹
@@ -1517,7 +1517,7 @@ export function Home() {
                                                             ),
                                                         })
                                                     }
-                                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[#c94c63] hover:bg-slate-50"
+                                                    className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-[var(--color-brand-700)] hover:bg-slate-50"
                                                     aria-label="다음 달"
                                                 >
                                                     ›
@@ -1562,9 +1562,9 @@ export function Home() {
                                                         aria-label={`${dateKey}${isAvailable ? ' 여행 일정 선택' : ''}`}
                                                         className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full transition ${
                                                             isSelected
-                                                                ? 'bg-[#e7657a] text-white shadow-sm'
+                                                                ? 'bg-[var(--color-brand)] text-white shadow-sm'
                                                                 : isAvailable
-                                                                  ? 'bg-[#fff0f3] text-[#d84f68] hover:bg-rose-200'
+                                                                  ? 'bg-[var(--color-brand-surface-strong)] text-[var(--color-brand-dark)] hover:bg-rose-200'
                                                                   : ''
                                                         } ${day.getMonth() !== calendarMonth.getMonth() ? 'text-slate-300' : ''}`}
                                                     >
@@ -1575,7 +1575,7 @@ export function Home() {
                                         </div>
                                     </div>
                                 </section>,
-                                'h-[360px] overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.07)]',
+                                'h-[360px] overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.07)]',
                             )}
                             {editable(
                                 'schedule',
@@ -1642,7 +1642,7 @@ export function Home() {
                                                                         String(
                                                                             item?.id,
                                                                         )
-                                                                            ? 'border-[#e7657a] text-[#e7657a]'
+                                                                            ? 'border-[var(--color-brand)] text-[var(--color-brand)]'
                                                                             : item
                                                                               ? 'border-slate-400 text-slate-600'
                                                                               : ''
@@ -1671,7 +1671,7 @@ export function Home() {
                                                                         String(
                                                                             item.id,
                                                                         )
-                                                                            ? 'bg-[#fff0f3]'
+                                                                            ? 'bg-[var(--color-brand-surface-strong)]'
                                                                             : 'bg-slate-50 hover:bg-slate-100'
                                                                     }`}
                                                                 >
@@ -1720,7 +1720,7 @@ export function Home() {
                                         </>
                                     )}
                                 </section>,
-                                'h-[560px] min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgba(15,23,42,0.07)]',
+                                'h-[560px] min-h-[330px] overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_35px_rgb(var(--rgb-app-ink)/0.07)]',
                             )}
                             <div className="hidden">
                                 {editable(

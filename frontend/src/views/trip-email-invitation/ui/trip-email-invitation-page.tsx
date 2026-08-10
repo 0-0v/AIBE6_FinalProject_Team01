@@ -42,8 +42,8 @@ export function TripEmailInvitationPage() {
     }, [moveToLogin, navigate, token])
 
     return (
-        <main className="flex min-h-full items-center justify-center bg-[#fff7f8] px-6 py-12">
-            <section className="w-full max-w-md rounded-[28px] bg-white p-8 text-center shadow-[0_24px_70px_rgba(33,60,81,0.14)]">
+        <main className="flex min-h-full items-center justify-center bg-[var(--color-brand-surface)] px-6 py-12">
+            <section className="w-full max-w-md rounded-[28px] bg-white p-8 text-center shadow-[0_24px_70px_rgb(var(--rgb-app-navy)/0.14)]">
                 <span className="mx-auto flex h-16 w-16 items-center justify-center">
                     <BrandLogo />
                 </span>

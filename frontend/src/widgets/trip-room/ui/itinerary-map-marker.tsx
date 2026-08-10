@@ -36,7 +36,7 @@ export function ItineraryMapMarker({
     if (simplified && !emphasized && !focused) {
         return (
             <div
-                className="size-2.5 rounded-full border-2 border-white shadow-[0_2px_6px_rgba(15,23,42,0.35)] transition-transform duration-150 ease-out"
+                className="size-2.5 rounded-full border-2 border-white shadow-[0_2px_6px_rgb(var(--rgb-app-ink)/0.35)] transition-transform duration-150 ease-out"
                 style={{ backgroundColor: color }}
                 title={categoryLabel ?? undefined}
                 aria-hidden
@@ -65,12 +65,12 @@ export function ItineraryMapMarker({
                 className={`${sizeClass} relative flex items-center justify-center rounded-full border-[3px] transition-all ${
                     outlined
                         ? 'border-dashed bg-white shadow-sm'
-                        : 'border-white shadow-[0_5px_12px_rgba(15,23,42,0.24)]'
+                        : 'border-white shadow-[0_5px_12px_rgb(var(--rgb-app-ink)/0.24)]'
                 } ${
                     selected
                         ? 'ring-4 ring-white/70'
                         : focused
-                          ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgba(15,23,42,0.32)]'
+                          ? 'ring-[3px] ring-white/80 shadow-[0_6px_16px_rgb(var(--rgb-app-ink)/0.32)]'
                           : ''
                 } ${selected ? 'itinerary-marker-bounce' : ''} ${
                     preview ? 'animate-pulse' : ''

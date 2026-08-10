@@ -394,7 +394,7 @@ export function RecordPanel({
             )}
 
             <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-4 overflow-hidden">
-                <div className="mp-scroll min-h-0 overflow-y-auto rounded-[22px] bg-white shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
+                <div className="mp-scroll min-h-0 overflow-y-auto rounded-[22px] bg-white shadow-[0_6px_16px_rgb(var(--rgb-app-navy)/0.10)]">
                     <div className="flex items-center justify-between gap-4 px-10 pt-7 pb-3">
                         <div className="flex min-w-0 items-center gap-3">
                             <strong className="text-xl font-black text-slate-900">
@@ -660,7 +660,7 @@ function ScheduleRecordTimeline({
                                 </div>
                             </article>
                         ) : (
-                            <article className="overflow-hidden rounded-[20px] border border-slate-100 bg-white p-5 shadow-[0_4px_12px_rgba(33,60,81,0.07)] transition hover:border-brand-100 hover:shadow-[0_6px_16px_rgba(33,60,81,0.11)]">
+                            <article className="overflow-hidden rounded-[20px] border border-slate-100 bg-white p-5 shadow-[0_4px_12px_rgb(var(--rgb-app-navy)/0.07)] transition hover:border-brand-100 hover:shadow-[0_6px_16px_rgb(var(--rgb-app-navy)/0.11)]">
                                 <div className="flex items-start justify-between gap-4">
                                     <button
                                         type="button"
@@ -734,7 +734,7 @@ function ScheduleRecordTimeline({
                     <span className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-xs font-extrabold text-slate-500">
                         {items.length + index + 1}
                     </span>
-                    <article className="rounded-[18px] border border-slate-100 bg-white p-4 shadow-[0_4px_12px_rgba(33,60,81,0.07)]">
+                    <article className="rounded-[18px] border border-slate-100 bg-white p-4 shadow-[0_4px_12px_rgb(var(--rgb-app-navy)/0.07)]">
                         <p className="text-xs font-extrabold text-slate-800">
                             {record.memberNickname}
                         </p>
@@ -806,7 +806,7 @@ function RecordSummary({
 
     return (
         <aside className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_6px_16px_rgba(33,60,81,0.10)]">
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_6px_16px_rgb(var(--rgb-app-navy)/0.10)]">
                 <div className="flex items-center justify-between gap-2">
                     <h3 className="text-sm font-extrabold text-slate-900">
                         정산
@@ -844,7 +844,7 @@ function RecordSummary({
                 )}
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-2xl bg-[#213C51] p-3">
+                    <div className="rounded-2xl bg-[var(--color-app-navy)] p-3">
                         <p className="text-[10px] font-bold text-white/60">
                             총 지출
                         </p>
@@ -1002,7 +1002,7 @@ function RecordComposer({
             onClick={onClose}
         >
             <div
-                className="mp-scroll max-h-[calc(100dvh-32px)] w-full max-w-[560px] overflow-y-auto rounded-[28px] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.22)]"
+                className="mp-scroll max-h-[calc(100dvh-32px)] w-full max-w-[560px] overflow-y-auto rounded-[28px] bg-white p-6 shadow-[0_24px_70px_rgb(var(--rgb-app-ink)/0.22)]"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="record-dialog-title"
@@ -1048,7 +1048,7 @@ function RecordComposer({
                         />
                     </button>
                     {placeMenuOpen && !editing && (
-                        <div className="mp-scroll absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(33,60,81,0.16)]">
+                        <div className="mp-scroll absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-56 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgb(var(--rgb-app-navy)/0.16)]">
                             {places
                                 .filter((place) => place.status === 'saved')
                                 .map((place) => {

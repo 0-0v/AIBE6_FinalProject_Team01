@@ -160,7 +160,7 @@ export function HeroGlobe() {
                 position: 'relative',
                 width: 'min(72vw, 440px)',
                 aspectRatio: '1',
-                filter: 'drop-shadow(0 26px 30px rgba(139,124,255,0.25))',
+                filter: 'drop-shadow(0 26px 30px rgb(var(--rgb-landing-purple)/0.25))',
             }}
         >
             <canvas
@@ -206,12 +206,12 @@ export function HeroGlobe() {
                         pointerEvents: 'none',
                         fontSize: 11,
                         fontWeight: 800,
-                        color: '#3A2A28',
-                        background: 'rgba(255,255,255,0.92)',
+                        color: 'var(--color-landing-ink)',
+                        background: 'rgb(var(--rgb-white)/0.92)',
                         padding: '2px 8px',
                         borderRadius: 999,
-                        border: '1.5px solid rgba(58,42,40,0.15)',
-                        boxShadow: '0 2px 6px rgba(58,42,40,0.12)',
+                        border: '1.5px solid rgb(var(--rgb-landing-ink)/0.15)',
+                        boxShadow: '0 2px 6px rgb(var(--rgb-landing-ink)/0.12)',
                         opacity: 0,
                     }}
                 >

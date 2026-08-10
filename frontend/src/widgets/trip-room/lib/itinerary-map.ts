@@ -7,16 +7,7 @@ export const ITINERARY_MAP_BOUNDS = {
     west: -180,
 }
 
-export const ITINERARY_DAY_COLORS = [
-    '#f97316',
-    '#10b981',
-    '#3b82f6',
-    '#a855f7',
-    '#ef4444',
-    '#eab308',
-    '#06b6d4',
-    '#ec4899',
-] as const
+export const ITINERARY_DAY_COLORS = DESIGN_COLORS.itineraryDays
 
 export function getItineraryDayColor(dayNumber: number): string {
     const index =
@@ -32,3 +23,4 @@ export function hasMapCoordinates(location: {
 }): boolean {
     return location.lat !== 0 || location.lng !== 0
 }
+import { DESIGN_COLORS } from '@/shared/config'

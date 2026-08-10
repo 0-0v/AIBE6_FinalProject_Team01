@@ -206,7 +206,7 @@ function LegalPage({
     }, [title])
 
     return (
-        <main className="min-h-full bg-[#fffaf5] px-4 py-8 sm:px-6 sm:py-12">
+        <main className="min-h-full bg-[var(--color-app-warm-background)] px-4 py-8 sm:px-6 sm:py-12">
             <article className="mx-auto max-w-3xl rounded-3xl border border-orange-100 bg-white p-5 shadow-sm sm:p-10">
                 <Link
                     to="/login"

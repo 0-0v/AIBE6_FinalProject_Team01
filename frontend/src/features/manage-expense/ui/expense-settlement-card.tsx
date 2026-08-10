@@ -56,7 +56,7 @@ export function ExpenseSettlementCard({
                     </p>
                 </div>
                 <div className="shrink-0 text-right">
-                    <b className="block text-sm text-[#213C51]">
+                    <b className="block text-sm text-[var(--color-app-navy)]">
                         {expense.totalAmount.toLocaleString('ko-KR')}원
                     </b>
                     <span

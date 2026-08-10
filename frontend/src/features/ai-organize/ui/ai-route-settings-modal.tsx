@@ -139,7 +139,7 @@ export function AiRouteSettingsModal({
                     <div className="flex items-center gap-2.5">
                         <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-rose-100 bg-rose-50">
                             <img
-                                src="/favicon.png"
+                                src="/plamingo-badge.svg"
                                 alt=""
                                 aria-hidden="true"
                                 className="h-7 w-7 object-contain"

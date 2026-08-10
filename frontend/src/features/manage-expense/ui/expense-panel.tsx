@@ -281,23 +281,23 @@ export function ExpensePanel({
             <div
                 className={`mp-scroll flex-1 overflow-y-auto p-4 pb-24 ${composerOnly ? 'invisible' : ''}`}
             >
-                <section className="rounded-[22px] bg-[#213C51]/5 p-4">
+                <section className="rounded-[22px] bg-[var(--color-app-navy)]/5 p-4">
                     <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-extrabold text-[#213C51]">
+                        <h3 className="text-sm font-extrabold text-[var(--color-app-navy)]">
                             더치페이 현황
                         </h3>
                         <div className="flex items-center rounded-full bg-white p-0.5 text-[10px] font-extrabold">
                             <button
                                 type="button"
                                 onClick={() => setScopeView('all')}
-                                className={`rounded-full px-2.5 py-1 transition ${scopeView === 'all' ? 'bg-[#213C51] text-white' : 'text-slate-400'}`}
+                                className={`rounded-full px-2.5 py-1 transition ${scopeView === 'all' ? 'bg-[var(--color-app-navy)] text-white' : 'text-slate-400'}`}
                             >
                                 전체
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setScopeView('mine')}
-                                className={`rounded-full px-2.5 py-1 transition ${scopeView === 'mine' ? 'bg-[#213C51] text-white' : 'text-slate-400'}`}
+                                className={`rounded-full px-2.5 py-1 transition ${scopeView === 'mine' ? 'bg-[var(--color-app-navy)] text-white' : 'text-slate-400'}`}
                             >
                                 내 몫
                             </button>
@@ -325,7 +325,7 @@ export function ExpensePanel({
                             </b>
                         </div>
                     </div>
-                    <div className="mt-3 flex items-center gap-4 border-b border-white text-xs font-extrabold text-[#213C51]">
+                    <div className="mt-3 flex items-center gap-4 border-b border-white text-xs font-extrabold text-[var(--color-app-navy)]">
                         <button
                             type="button"
                             onClick={() => setStatusView('pending')}
@@ -333,7 +333,7 @@ export function ExpensePanel({
                         >
                             정산 대기 {pendingExpenses.length}
                             {statusView === 'pending' && (
-                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-[#213C51]" />
+                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-[var(--color-app-navy)]" />
                             )}
                         </button>
                         <button
@@ -343,7 +343,7 @@ export function ExpensePanel({
                         >
                             정산 완료 {completedExpenses.length}
                             {statusView === 'completed' && (
-                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-[#213C51]" />
+                                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-[var(--color-app-navy)]" />
                             )}
                         </button>
                     </div>
@@ -475,7 +475,7 @@ export function ExpensePanel({
                                 type="button"
                                 onClick={closeComposer}
                                 aria-label="지출 추가 닫기"
-                                className="relative z-30 flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-[#213C51]"
+                                className="relative z-30 flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-[var(--color-app-navy)]"
                             >
                                 <XIcon size={18} />
                             </button>
@@ -494,7 +494,7 @@ export function ExpensePanel({
                             </p>
                             <p className="mt-3 text-xs text-slate-400">
                                 1인당{' '}
-                                <b className="text-[#213C51]">
+                                <b className="text-[var(--color-app-navy)]">
                                     {currency(
                                         participantIds.length > 0
                                             ? Math.floor(
@@ -549,7 +549,7 @@ export function ExpensePanel({
                                                 )}
                                             />
                                             {selected && (
-                                                <span className="absolute -right-2 -top-2 z-30 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#213C51] text-white shadow-md transition group-hover:scale-110">
+                                                <span className="absolute -right-2 -top-2 z-30 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[var(--color-app-navy)] text-white shadow-md transition group-hover:scale-110">
                                                     <XIcon size={11} />
                                                 </span>
                                             )}
@@ -692,8 +692,8 @@ function ExpenseField({
     children: ReactNode
 }) {
     return (
-        <div className="rounded-2xl bg-slate-50 px-4 py-3 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-[#213C51]/15">
-            <span className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold text-[#213C51]">
+        <div className="rounded-2xl bg-slate-50 px-4 py-3 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--color-app-navy)]/15">
+            <span className="mb-2 flex items-center gap-1.5 text-[10px] font-extrabold text-[var(--color-app-navy)]">
                 {icon}
                 {label}
             </span>

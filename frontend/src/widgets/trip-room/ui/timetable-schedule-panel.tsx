@@ -338,7 +338,8 @@ export function TimetableSchedulePanel({ tripId, canWrite }: Props) {
                                     {layoutTimedItems(dayTimedItems).map(
                                         ({ item, col, colSpan }) => {
                                             const color =
-                                                item.categoryColor ?? '#94a3b8'
+                                                item.categoryColor ??
+                                                'var(--color-app-text-muted)'
                                             const visitOrder =
                                                 day.items.findIndex(
                                                     (dayItem) =>

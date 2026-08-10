@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Gothic+A1:wght@800;900&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap');
 @import 'tailwindcss';
 
 @font-face {
@@ -6,6 +6,18 @@
     src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2210-EF@1.0/EF_jejudoldam.woff2')
         format('woff2');
     font-weight: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'BMDOHYEON';
+    src:
+        url('https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff2')
+            format('woff2'),
+        url('https://cdn.jsdelivr.net/gh/fonts-archive/BMDOHYEON/BMDOHYEON.woff')
+            format('woff');
+    font-weight: 400;
+    font-style: normal;
     font-display: swap;
 }
 
@@ -81,20 +93,135 @@
     font-display: swap;
 }
 @theme {
+    --font-sans: 'Pretendard', 'Inter', system-ui, -apple-system, sans-serif;
+    --font-display: 'Inter', 'Pretendard', system-ui, sans-serif;
+    --font-brand: 'JejuStoneWall', 'Pretendard', sans-serif;
+    --font-landing: 'Manrope', 'Pretendard', sans-serif;
+    --font-landing-heading: 'BMDOHYEON', 'Gothic A1', 'Manrope', sans-serif;
+
     --color-brand: #e7657a;
     --color-brand-50: #fff0f2;
     --color-brand-100: #fddde2;
     --color-brand-200: #f7cfd5;
     --color-brand-600: #e7657a;
     --color-brand-700: #c94c63;
+
+    /* Application surfaces and typography */
+    --color-app-background: #f8fafb;
+    --color-app-background-alt: #f9fafb;
+    --color-app-surface: #ffffff;
+    --color-app-ink: #0f172a;
+    --color-app-navy: #213c51;
+    --color-app-navy-700: #29485e;
+    --color-app-navy-600: #315a75;
+    --color-app-navy-800: #182f40;
+    --color-app-navy-900: #172d3d;
+    --color-app-navy-muted: #9bbbd1;
+    --color-app-navy-soft: #6f93ad;
+    --color-app-text: #334155;
+    --color-app-text-secondary: #64748b;
+    --color-app-text-muted: #94a3b8;
+    --color-app-border: #e2e8f0;
+    --color-app-neutral: #eeeeee;
+    --color-app-overlay: #20262e;
+    --color-app-avatar: #f5f7f8;
+    --color-app-avatar-icon: #b4b5b6;
+    --color-app-warm-background: #fffaf5;
+    --color-app-warm-surface: #fffaf0;
+    --color-app-ticket-notch: #d9d4c6;
+
+    /* Brand interaction states */
+    --color-brand-vivid: #f2647c;
+    --color-brand-dark: #d84f68;
+    --color-brand-deep: #a94359;
+    --color-brand-muted: #cc788a;
+    --color-brand-accent: #ec6680;
+    --color-brand-gradient-end: #ed7188;
+    --color-brand-gradient-start: #f3b8b1;
+    --color-brand-gradient-middle: #ed7887;
+    --color-brand-gradient-finish: #df5d76;
+    --color-brand-scrollbar-hover: #f0b6bf;
+    --color-brand-surface: #fff7f8;
+    --color-brand-surface-soft: #fff8fa;
+    --color-brand-surface-strong: #fff0f3;
+    --color-brand-surface-subtle: #fff1f4;
+    --color-brand-highlight: #fdeef1;
+
+    /* Landing page palette */
+    --color-landing-canvas: #fffdf8;
+    --color-landing-surface: #fffdf9;
+    --color-landing-cream: #fdf3e7;
+    --color-landing-cream-deep: #fbe8d8;
+    --color-landing-surface-muted: #f4f1ec;
+    --color-landing-border: #efe2d6;
+    --color-landing-border-strong: #f0e4d8;
+    --color-landing-ink: #3a2a28;
+    --color-landing-body: #5b5f7e;
+    --color-landing-muted: #8a8fa8;
+    --color-landing-faint: #b7bbcf;
+    --color-landing-coral: #ff7a59;
+    --color-landing-coral-strong: #ff5a3c;
+    --color-landing-pink: #ffb4c6;
+    --color-landing-rose: #c7476b;
+    --color-landing-lavender: #d8cfff;
+    --color-landing-lavender-soft: #ede8ff;
+    --color-landing-purple: #8b7cff;
+    --color-landing-yellow: #ffd94c;
+    --color-landing-rose-soft: #ffe3ea;
+    --color-landing-rose-muted: #fde2e7;
+
+    /* Semantic and provider colors */
+    --color-provider-kakao: #fee500;
+    --color-provider-kakao-ink: #191600;
+    --color-provider-google-ink: #1f1f1f;
+    --color-category-cafe: #b45309;
+    --color-category-food: #dc2626;
+    --color-category-bar: #be123c;
+    --color-category-attraction: #7c3aed;
+    --color-category-nature: #0f766e;
+    --color-category-lodging: #0891b2;
+    --color-category-shopping: #2563eb;
+    --color-category-convenience: #16a34a;
+    --color-category-activity: #ea580c;
+    --color-category-transport: #475569;
+    --color-category-other: #64748b;
+    --color-map-day-1: #f97316;
+    --color-map-day-2: #10b981;
+    --color-map-day-3: #3b82f6;
+    --color-map-day-4: #a855f7;
+    --color-map-day-5: #ef4444;
+    --color-map-day-6: #eab308;
+    --color-map-day-7: #06b6d4;
+    --color-map-day-8: #ec4899;
 }
 
 :root {
+    /* RGB channels allow components to control opacity without owning a color. */
+    --rgb-app-ink: 15 23 42;
+    --rgb-app-overlay: 15 29 40;
+    --rgb-app-navy: 33 60 81;
+    --rgb-app-charcoal: 31 41 55;
+    --rgb-brand: 231 101 122;
+    --rgb-brand-vivid: 242 100 124;
+    --rgb-brand-soft: 235 94 119;
+    --rgb-brand-shadow: 225 91 116;
+    --rgb-brand-glow: 226 91 116;
+    --rgb-landing-coral: 255 122 89;
+    --rgb-landing-coral-strong: 255 90 60;
+    --rgb-landing-nav: 255 247 238;
+    --rgb-landing-rose: 199 71 107;
+    --rgb-landing-purple: 139 124 255;
+    --rgb-landing-ink: 58 42 40;
+    --rgb-landing-deep: 35 38 75;
+    --rgb-white: 255 255 255;
+    --rgb-amber: 251 191 36;
+    --rgb-black: 0 0 0;
+
     --flamingo-gradient: linear-gradient(
         135deg,
-        #f3b8b1 0%,
-        #ed7887 52%,
-        #df5d76 100%
+        var(--color-brand-gradient-start) 0%,
+        var(--color-brand-gradient-middle) 52%,
+        var(--color-brand-gradient-finish) 100%
     );
 }
 
@@ -105,14 +232,9 @@ body {
 
 body {
     margin: 0;
-    font-family:
-        'Pretendard',
-        'Inter',
-        system-ui,
-        -apple-system,
-        sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    color: #0f172a;
+    color: var(--color-app-ink);
 }
 
 button,
@@ -131,7 +253,7 @@ button,
     background: var(--flamingo-gradient);
 }
 .flamingo-glow {
-    box-shadow: 0 12px 26px rgba(226, 91, 116, 0.24);
+    box-shadow: 0 12px 26px rgb(var(--rgb-brand-glow) / 0.24);
 }
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
@@ -142,22 +264,22 @@ button,
 }
 .mp-scroll {
     scrollbar-width: thin;
-    scrollbar-color: #e2e8f0 transparent;
+    scrollbar-color: var(--color-app-border) transparent;
 }
 .mp-scroll::-webkit-scrollbar {
     width: 5px;
     height: 5px;
 }
 .mp-scroll::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
+    background: var(--color-app-border);
     border-radius: 999px;
     transition: background 0.15s ease;
 }
 .mp-scroll::-webkit-scrollbar-thumb:hover {
-    background: #f0b6bf;
+    background: var(--color-brand-scrollbar-hover);
 }
 .mp-scroll::-webkit-scrollbar-thumb:active {
-    background: #e7657a;
+    background: var(--color-brand);
 }
 .mp-scroll::-webkit-scrollbar-track {
     background: transparent;

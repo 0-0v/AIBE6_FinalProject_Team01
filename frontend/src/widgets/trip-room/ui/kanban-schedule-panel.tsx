@@ -33,13 +33,20 @@ function ScheduleItemDragOverlay({ item }: { item: ItineraryItem }) {
         <div className="flex w-64 cursor-grabbing items-stretch rounded-lg border border-brand/40 bg-white shadow-2xl ring-2 ring-brand/20">
             <div
                 className="w-1.5 shrink-0 rounded-l-lg"
-                style={{ backgroundColor: item.categoryColor ?? '#e2e8f0' }}
+                style={{
+                    backgroundColor:
+                        item.categoryColor ?? 'var(--color-app-border)',
+                }}
             />
             <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5">
                 {item.categoryIcon && (
                     <span
                         className="shrink-0"
-                        style={{ color: item.categoryColor ?? '#94a3b8' }}
+                        style={{
+                            color:
+                                item.categoryColor ??
+                                'var(--color-app-text-muted)',
+                        }}
                     >
                         <CategoryIcon
                             icon={item.categoryIcon}

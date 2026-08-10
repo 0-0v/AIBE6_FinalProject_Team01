@@ -186,7 +186,7 @@ export function MyPage() {
     }
 
     return (
-        <div className="min-h-full bg-[#f8fafb] px-5 py-7 sm:px-9">
+        <div className="min-h-full bg-[var(--color-app-background)] px-5 py-7 sm:px-9">
             <div className="mx-auto max-w-3xl">
                 <p className="text-xs font-extrabold tracking-[0.12em] text-brand-700">
                     ACCOUNT

@@ -192,7 +192,7 @@ export function PlaceCard({
             </div>
 
             {vote && (
-                <div className="mt-3 rounded-xl bg-[#fffaf0] p-2.5">
+                <div className="mt-3 rounded-xl bg-[var(--color-app-warm-surface)] p-2.5">
                     <span className="text-[11px] font-bold text-slate-600">
                         찬성 {upVotes} · 반대 {downVotes}
                     </span>

@@ -441,7 +441,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         }
         return (
             <main className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-orange-50 px-5">
-                <section className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+                <section className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_24px_70px_rgb(var(--rgb-app-ink)/0.12)]">
                     <div className="mb-7">
                         <p className="text-sm font-extrabold text-brand-700">
                             여행방 초대
@@ -505,7 +505,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     if (inviteCode && guestRoom && inviteMode === null) {
         return (
             <main className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-orange-50 px-5">
-                <section className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+                <section className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-8 shadow-[0_24px_70px_rgb(var(--rgb-app-ink)/0.12)]">
                     <p className="text-sm font-extrabold text-brand-700">
                         초대 코드 확인 완료
                     </p>
@@ -577,7 +577,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         isRecordMode ? 'hidden' : ''
                     } ${
                         room
-                            ? 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]'
+                            ? 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.08)]'
                             : ''
                     } ${mapCollapsed ? 'hidden' : ''}`}
                 >
@@ -652,9 +652,9 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                               : 'min-w-[360px] max-w-[calc(100%-360px)] flex-none overflow-hidden border border-slate-200 bg-white'
                     } ${
                         room && !isRecordMode
-                            ? 'rounded-3xl shadow-[0_14px_36px_rgba(15,23,42,0.10)]'
+                            ? 'rounded-3xl shadow-[0_14px_36px_rgb(var(--rgb-app-ink)/0.10)]'
                             : !room
-                              ? 'shadow-[-10px_0_28px_rgba(33,60,81,0.10)]'
+                              ? 'shadow-[-10px_0_28px_rgb(var(--rgb-app-navy)/0.10)]'
                               : ''
                     } ${
                         isResizingPanel
@@ -694,7 +694,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             <span
                                 className={`absolute h-full transition-all duration-150 ${
                                     isResizingPanel
-                                        ? 'w-1 bg-brand shadow-[0_0_12px_rgba(235,94,119,0.35)]'
+                                        ? 'w-1 bg-brand shadow-[0_0_12px_rgb(var(--rgb-brand-soft)/0.35)]'
                                         : 'w-px bg-transparent group-hover:bg-brand-200 group-focus:bg-brand-300'
                                 }`}
                             />

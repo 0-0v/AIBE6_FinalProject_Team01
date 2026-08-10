@@ -119,7 +119,7 @@ export function AiPlaceRecommendationResults({
                                 }}
                                 className={`flex min-w-0 items-center gap-3 rounded-2xl border p-3 text-left transition ${
                                     active
-                                        ? 'border-brand bg-rose-50 shadow-[0_8px_20px_rgba(225,91,116,0.12)]'
+                                        ? 'border-brand bg-rose-50 shadow-[0_8px_20px_rgb(var(--rgb-brand-shadow)/0.12)]'
                                         : 'border-slate-200 bg-white hover:border-rose-200'
                                 }`}
                             >

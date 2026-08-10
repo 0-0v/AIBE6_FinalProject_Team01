@@ -30,7 +30,7 @@ export function RoomCard({
         return (
             <article
                 onClick={onOpen}
-                className="group relative h-[220px] min-w-0 cursor-pointer overflow-hidden rounded-[22px] border border-white/60 bg-[#20262e] shadow-[0_8px_24px_rgba(33,60,81,0.13),0_2px_6px_rgba(33,60,81,0.08)] transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(33,60,81,0.20),0_4px_10px_rgba(33,60,81,0.08)] @min-[440px]:h-[232px] @min-[440px]:rounded-[24px]"
+                className="group relative h-[220px] min-w-0 cursor-pointer overflow-hidden rounded-[22px] border border-white/60 bg-[var(--color-app-overlay)] shadow-[0_8px_24px_rgb(var(--rgb-app-navy)/0.13),0_2px_6px_rgb(var(--rgb-app-navy)/0.08)] transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgb(var(--rgb-app-navy)/0.20),0_4px_10px_rgb(var(--rgb-app-navy)/0.08)] @min-[440px]:h-[232px] @min-[440px]:rounded-[24px]"
             >
                 <div className="relative h-full overflow-hidden">
                     <img
@@ -38,8 +38,8 @@ export function RoomCard({
                         alt={`${room.title} 여행방`}
                         className="absolute inset-0 h-full w-full object-cover transition duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.02]"
                     />
-                    <div className="absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-[rgba(15,29,40,0.34)] via-[rgba(15,29,40,0.12)] via-55% to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 h-[64%] bg-gradient-to-t from-[rgba(15,29,40,0.88)] via-[rgba(15,29,40,0.72)] via-26% to-transparent" />
+                    <div className="absolute inset-x-0 top-0 h-[34%] bg-gradient-to-b from-[rgb(var(--rgb-app-overlay)/0.34)] via-[rgb(var(--rgb-app-overlay)/0.12)] via-55% to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 h-[64%] bg-gradient-to-t from-[rgb(var(--rgb-app-overlay)/0.88)] via-[rgb(var(--rgb-app-overlay)/0.72)] via-26% to-transparent" />
 
                     <span
                         className={`absolute left-3 top-3 inline-flex items-center gap-[5px] whitespace-nowrap rounded-full px-2.5 py-[5px] text-[11.5px] font-bold backdrop-blur-[10px] ${getDdayBadgeClass(room.dday)}`}
@@ -59,8 +59,8 @@ export function RoomCard({
                         disabled={visibilityBusy}
                         className={`absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-[9px] border backdrop-blur-[10px] ${
                             room.visibility !== 'PRIVATE'
-                                ? 'border-transparent bg-[#f2647c] text-white'
-                                : 'border-white/30 bg-[rgba(33,60,81,0.62)] text-white/90'
+                                ? 'border-transparent bg-[var(--color-brand-vivid)] text-white'
+                                : 'border-white/30 bg-[rgb(var(--rgb-app-navy)/0.62)] text-white/90'
                         } transition hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
                         aria-label={
                             room.visibility !== 'PRIVATE'
@@ -83,10 +83,10 @@ export function RoomCard({
                     </button>
 
                     <div className="absolute inset-x-0 bottom-0 px-4 pb-[15px] pt-[46px] text-white">
-                        <h2 className="truncate text-[20px] font-bold leading-[1.25] tracking-[-0.03em] [text-shadow:0_1px_8px_rgba(15,29,40,0.4)] @min-[440px]:text-[22px]">
+                        <h2 className="truncate text-[20px] font-bold leading-[1.25] tracking-[-0.03em] [text-shadow:0_1px_8px_rgb(var(--rgb-app-overlay)/0.4)] @min-[440px]:text-[22px]">
                             {room.title}
                         </h2>
-                        <div className="mt-[7px] flex min-w-0 items-center gap-[7px] overflow-hidden whitespace-nowrap text-[11px] font-medium text-white/90 [text-shadow:0_1px_6px_rgba(15,29,40,0.45)] @min-[440px]:text-[12px]">
+                        <div className="mt-[7px] flex min-w-0 items-center gap-[7px] overflow-hidden whitespace-nowrap text-[11px] font-medium text-white/90 [text-shadow:0_1px_6px_rgb(var(--rgb-app-overlay)/0.45)] @min-[440px]:text-[12px]">
                             <p className="flex min-w-0 items-center gap-1.5 truncate">
                                 <MapPinIcon size={14} className="shrink-0" />
                                 <span className="truncate">
@@ -145,7 +145,7 @@ export function RoomCard({
     }
 
     return (
-        <article className="group overflow-hidden rounded-[22px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_18px_34px_rgba(31,41,55,0.1)]">
+        <article className="group overflow-hidden rounded-[22px] border border-slate-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-[0_18px_34px_rgb(var(--rgb-app-charcoal)/0.1)]">
             <div className="relative h-44 overflow-hidden">
                 <img
                     src={room.cover}
@@ -199,13 +199,13 @@ function formatCompactDate(startDate: string | null, endDate: string | null) {
 
 function getDdayBadgeClass(dday: string) {
     if (dday === '여행 종료') {
-        return 'border border-white/35 bg-white/10 text-white/95 [text-shadow:0_1px_6px_rgba(15,29,40,0.45)]'
+        return 'border border-white/35 bg-white/10 text-white/95 [text-shadow:0_1px_6px_rgb(var(--rgb-app-overlay)/0.45)]'
     }
     if (dday === '일정 미정') {
-        return 'border border-white/40 bg-white/20 text-white [text-shadow:0_1px_6px_rgba(15,29,40,0.45)]'
+        return 'border border-white/40 bg-white/20 text-white [text-shadow:0_1px_6px_rgb(var(--rgb-app-overlay)/0.45)]'
     }
     if (dday === '여행 중' || dday === 'D-DAY' || dday.startsWith('D-')) {
-        return 'border border-transparent bg-[#f2647c] text-white shadow-[0_2px_10px_rgba(33,60,81,0.28)]'
+        return 'border border-transparent bg-[var(--color-brand-vivid)] text-white shadow-[0_2px_10px_rgb(var(--rgb-app-navy)/0.28)]'
     }
-    return 'border border-white/40 bg-white/20 text-white [text-shadow:0_1px_6px_rgba(15,29,40,0.45)]'
+    return 'border border-white/40 bg-white/20 text-white [text-shadow:0_1px_6px_rgb(var(--rgb-app-overlay)/0.45)]'
 }

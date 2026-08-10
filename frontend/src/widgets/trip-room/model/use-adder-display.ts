@@ -1,4 +1,5 @@
 import type { Place } from '@/entities/trip'
+import { DESIGN_COLORS } from '@/shared/config'
 import { useCurrentUserStore } from '@/shared/model'
 import { DEFAULT_AVATAR_COLOR } from '@/shared/ui'
 
@@ -9,6 +10,6 @@ export function useAdderDisplay(place: Place, addedByNickname?: string) {
     const isMe = place.addedBy === String(currentUser?.id)
     const adderName =
         addedByNickname ?? (isMe ? (currentUser?.nickname ?? '나') : '멤버')
-    const adderColor = isMe ? DEFAULT_AVATAR_COLOR : '#94a3b8'
+    const adderColor = isMe ? DEFAULT_AVATAR_COLOR : DESIGN_COLORS.app.textMuted
     return { adderName, adderColor }
 }

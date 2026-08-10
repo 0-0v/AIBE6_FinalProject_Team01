@@ -310,8 +310,8 @@ export function AiItineraryReplanModal({
                 if (event.target === event.currentTarget) onClose()
             }}
         >
-            <section className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.24)]">
-                <header className="flex items-start justify-between gap-4 bg-gradient-to-br from-[#fff8fa] via-white to-[#fff1f4] px-6 py-5">
+            <section className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgb(var(--rgb-app-ink)/0.24)]">
+                <header className="flex items-start justify-between gap-4 bg-gradient-to-br from-[var(--color-brand-surface-soft)] via-white to-[var(--color-brand-surface-subtle)] px-6 py-5">
                     <div className="flex min-w-0 items-start gap-4">
                         <AiBrandMark />
                         <div className="pt-1">
@@ -476,7 +476,7 @@ export function AiItineraryReplanModal({
                                                     selectReason(reason.key)
                                                 }
                                                 aria-pressed={selected}
-                                                className={`flex min-h-16 flex-col justify-center rounded-xl border px-3 py-2.5 text-left transition ${selected ? 'border-brand bg-brand text-white shadow-[0_6px_16px_rgba(225,91,116,0.2)]' : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50/40'}`}
+                                                className={`flex min-h-16 flex-col justify-center rounded-xl border px-3 py-2.5 text-left transition ${selected ? 'border-brand bg-brand text-white shadow-[0_6px_16px_rgb(var(--rgb-brand-shadow)/0.2)]' : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50/40'}`}
                                             >
                                                 <span className="block text-xs font-extrabold leading-4">
                                                     {reason.label}
@@ -586,7 +586,7 @@ export function AiItineraryReplanModal({
                             onClick={() =>
                                 selectedPlan ? void apply() : void preview()
                             }
-                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand to-[#ed7188] py-3.5 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(225,91,116,0.28)] disabled:opacity-50"
+                            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand to-[var(--color-brand-gradient-end)] py-3.5 text-sm font-extrabold text-white shadow-[0_10px_24px_rgb(var(--rgb-brand-shadow)/0.28)] disabled:opacity-50"
                         >
                             {(loading || applying) && (
                                 <LoaderCircleIcon

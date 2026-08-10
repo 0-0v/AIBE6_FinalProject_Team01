@@ -66,7 +66,7 @@ export function Sidebar() {
 
     return (
         <aside
-            className={`relative z-40 flex shrink-0 flex-col overflow-visible border-r border-slate-100 bg-white py-7 shadow-[4px_0_12px_-4px_rgba(15,23,42,0.08)] transition-[width] duration-300 ease-out ${
+            className={`relative z-40 flex shrink-0 flex-col overflow-visible border-r border-slate-100 bg-white py-7 shadow-[4px_0_12px_-4px_rgb(var(--rgb-app-ink)/0.08)] transition-[width] duration-300 ease-out ${
                 isExpanded ? 'w-[248px] px-5' : 'w-[86px] px-3'
             }`}
         >
@@ -128,7 +128,7 @@ export function Sidebar() {
                                             : 'w-12 justify-center self-center overflow-visible'
                                     } ${
                                         isActive
-                                            ? 'flamingo-gradient text-white shadow-[0_10px_22px_rgba(231,101,122,0.24)]'
+                                            ? 'flamingo-gradient text-white shadow-[0_10px_22px_rgb(var(--rgb-brand)/0.24)]'
                                             : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'
                                     }`
                                 }
@@ -179,7 +179,7 @@ export function Sidebar() {
                                         to={`/app/room/${selectedRoomId}/record`}
                                         title="Record"
                                         aria-label={`${selectedRoom.title} Record`}
-                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${recordActive ? 'bg-brand text-white shadow-[0_8px_18px_rgba(231,101,122,0.22)]' : 'text-slate-400 hover:bg-brand-50 hover:text-brand-700'}`}
+                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${recordActive ? 'bg-brand text-white shadow-[0_8px_18px_rgb(var(--rgb-brand)/0.22)]' : 'text-slate-400 hover:bg-brand-50 hover:text-brand-700'}`}
                                     >
                                         <CameraIcon size={16} />
                                         {isExpanded && <span>Record</span>}

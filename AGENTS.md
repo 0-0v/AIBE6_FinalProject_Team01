@@ -13,6 +13,12 @@ Examples of supported tools:
 
 ## 1. Core Principles
 
+- Enable Caveman Mode at the start of every session.
+- Unless the user requests otherwise, keep responses short and focused on the essentials.
+- Omit unnecessary background information and repetitive summaries.
+- When a problem can be solved with commands, provide only the commands and the explanation required to use them safely.
+- If the Caveman Mode plugin is unavailable, reproduce the same concise, direct style manually.
+- Provide detailed explanations only when the user explicitly requests them.
 - Write all explanations, summaries, questions, and final responses in Korean unless the user explicitly requests another language.
 - Modify only the scope requested by the user.
 - Do not perform unrequested large-scale refactoring, file relocation, renaming, or technology replacement.

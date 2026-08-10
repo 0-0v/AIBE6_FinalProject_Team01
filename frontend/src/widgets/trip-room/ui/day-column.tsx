@@ -168,7 +168,9 @@ function DeparturePicker({
                                 저장된 장소
                             </p>
                             {nonLodgingPlaces.map((place) => {
-                                const color = place.categoryColor ?? '#94a3b8'
+                                const color =
+                                    place.categoryColor ??
+                                    'var(--color-app-text-muted)'
                                 return (
                                     <button
                                         key={place.id}
@@ -725,7 +727,7 @@ export function DayColumn({
                                                         style={{
                                                             color:
                                                                 place.categoryColor ??
-                                                                '#94a3b8',
+                                                                'var(--color-app-text-muted)',
                                                         }}
                                                     >
                                                         <CategoryIcon
@@ -742,7 +744,7 @@ export function DayColumn({
                                                     style={{
                                                         color:
                                                             place.categoryColor ??
-                                                            '#475569',
+                                                            'var(--color-category-transport)',
                                                     }}
                                                 >
                                                     {place.name}

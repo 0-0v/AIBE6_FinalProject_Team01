@@ -252,7 +252,7 @@ export function AiDashboardActions({
                 <button
                     type="button"
                     onClick={openPlaceRecommendation}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#fff0f3] px-3 py-2 text-xs font-extrabold text-[#c94c63] transition hover:bg-rose-100"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-brand-surface-strong)] px-3 py-2 text-xs font-extrabold text-[var(--color-brand-700)] transition hover:bg-rose-100"
                 >
                     <MapPinnedIcon size={15} />
                     AI 장소 추천
@@ -270,10 +270,10 @@ export function AiDashboardActions({
             {mode === 'place' && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[5px]">
                     <section
-                        className={`relative w-full overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.22)] ${recommendations.length > 0 ? 'max-w-5xl' : 'max-w-4xl'}`}
+                        className={`relative w-full overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgb(var(--rgb-app-ink)/0.22)] ${recommendations.length > 0 ? 'max-w-5xl' : 'max-w-4xl'}`}
                     >
                         <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-brand/10 blur-3xl" />
-                        <header className="relative flex items-start justify-between gap-4 bg-gradient-to-br from-[#fff8fa] via-white to-[#fff1f4] px-6 pb-5 pt-6">
+                        <header className="relative flex items-start justify-between gap-4 bg-gradient-to-br from-[var(--color-brand-surface-soft)] via-white to-[var(--color-brand-surface-subtle)] px-6 pb-5 pt-6">
                             <div className="flex min-w-0 items-start gap-4">
                                 <AiBrandMark />
                                 <div className="pt-1">
@@ -380,7 +380,7 @@ export function AiDashboardActions({
                                                                 }}
                                                                 className={`w-full rounded-2xl border p-3 text-left transition ${
                                                                     isSelected
-                                                                        ? 'border-brand bg-rose-50 shadow-[0_6px_18px_rgba(225,91,116,0.12)]'
+                                                                        ? 'border-brand bg-rose-50 shadow-[0_6px_18px_rgb(var(--rgb-brand-shadow)/0.12)]'
                                                                         : 'border-slate-200 bg-white hover:border-rose-200'
                                                                 }`}
                                                             >
@@ -486,7 +486,7 @@ export function AiDashboardActions({
                                                 }}
                                                 className={`rounded-full px-3 py-2 text-xs font-bold transition ${
                                                     category === item.key
-                                                        ? 'bg-brand text-white shadow-[0_6px_16px_rgba(225,91,116,0.25)]'
+                                                        ? 'bg-brand text-white shadow-[0_6px_16px_rgb(var(--rgb-brand-shadow)/0.25)]'
                                                         : 'border border-slate-200 bg-white text-slate-500 hover:border-rose-200 hover:bg-rose-50'
                                                 }`}
                                             >
@@ -539,7 +539,7 @@ export function AiDashboardActions({
                                     onClick={() =>
                                         void submitPlaceRecommendation()
                                     }
-                                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand to-[#ed7188] py-3.5 text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(225,91,116,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(225,91,116,0.34)] disabled:translate-y-0 disabled:opacity-50"
+                                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand to-[var(--color-brand-gradient-end)] py-3.5 text-sm font-extrabold text-white shadow-[0_10px_24px_rgb(var(--rgb-brand-shadow)/0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgb(var(--rgb-brand-shadow)/0.34)] disabled:translate-y-0 disabled:opacity-50"
                                 >
                                     {loading && (
                                         <LoaderCircleIcon

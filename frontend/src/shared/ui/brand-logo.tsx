@@ -9,7 +9,7 @@ export function BrandLogo({
 }: BrandLogoProps) {
     return (
         <img
-            src="/brand-logo.png"
+            src="/plamingo-badge.svg"
             alt={alt}
             className={`object-contain ${className}`}
         />
