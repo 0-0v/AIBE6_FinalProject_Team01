@@ -36,7 +36,6 @@ import java.time.format.DateTimeParseException;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -287,7 +286,7 @@ public class ItineraryService {
                 tripId
         );
         Integer previousTransportMinutes = item.getTransportMinutes();
-        boolean automaticallyLinked = isAutomaticallyLinked(
+        boolean automaticallyLinked = ItineraryScheduleShiftPolicy.isAutomaticallyLinked(
                 item,
                 nextItem,
                 previousTransportMinutes
@@ -306,7 +305,7 @@ public class ItineraryService {
                     request.transportMode()
             );
         }
-        shiftFollowingTimesIfNeeded(
+        ItineraryScheduleShiftPolicy.shiftFollowingTimesIfNeeded(
                 dayItems.subList(itemIndex + 1, dayItems.size()),
                 previousTransportMinutes,
                 item.getTransportMinutes(),
@@ -316,55 +315,6 @@ public class ItineraryService {
 
         publishChanged(tripId, itemId);
         return ItineraryItemResponse.from(item, currentPlace);
-    }
-
-    private boolean isAutomaticallyLinked(
-            ItineraryItem item,
-            ItineraryItem nextItem,
-            Integer transportMinutes
-    ) {
-        return item.getEndTime() != null
-                && nextItem.getStartTime() != null
-                && transportMinutes != null
-                && nextItem.getStartTime().equals(
-                        item.getEndTime().plusMinutes(transportMinutes)
-                );
-    }
-
-    private void shiftFollowingTimesIfNeeded(
-            List<ItineraryItem> followingItems,
-            Integer previousTransportMinutes,
-            Integer recalculatedTransportMinutes,
-            boolean automaticallyLinked
-    ) {
-        if (!automaticallyLinked
-                || previousTransportMinutes == null
-                || recalculatedTransportMinutes == null) {
-            return;
-        }
-        long difference =
-                (long) recalculatedTransportMinutes - previousTransportMinutes;
-        if (difference == 0 || !canShiftWithinDay(followingItems, difference)) {
-            return;
-        }
-        followingItems.forEach(item -> item.shiftTimes(difference));
-    }
-
-    private boolean canShiftWithinDay(
-            List<ItineraryItem> items,
-            long minutes
-    ) {
-        long seconds = minutes * 60;
-        return items.stream()
-                .flatMap(item -> Stream.of(
-                        item.getStartTime(),
-                        item.getEndTime()
-                ))
-                .filter(Objects::nonNull)
-                .allMatch(time -> {
-                    long shifted = time.toSecondOfDay() + seconds;
-                    return shifted >= 0 && shifted < 24 * 60 * 60;
-                });
     }
 
     @Transactional
