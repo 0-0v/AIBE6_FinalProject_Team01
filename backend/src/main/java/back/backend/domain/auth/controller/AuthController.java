@@ -1,6 +1,8 @@
 package back.backend.domain.auth.controller;
 
 import back.backend.domain.auth.dto.AccessTokenResponse;
+import back.backend.domain.auth.dto.AdminOtpChallengeResponse;
+import back.backend.domain.auth.dto.AdminOtpVerifyRequest;
 import back.backend.domain.auth.dto.EmailCodeVerificationRequest;
 import back.backend.domain.auth.dto.EmailRequest;
 import back.backend.domain.auth.dto.LoginRequest;
@@ -10,6 +12,7 @@ import back.backend.domain.auth.dto.PasswordResetRequest;
 import back.backend.domain.auth.dto.SignupRequest;
 import back.backend.domain.auth.dto.TokenResponse;
 import back.backend.domain.auth.service.AuthService;
+import back.backend.domain.auth.service.AdminOtpService;
 import back.backend.domain.auth.service.EmailVerificationService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
@@ -35,17 +38,20 @@ public class AuthController {
     private final SecurityContextAccessor securityContextAccessor;
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
     private final EmailVerificationService emailVerificationService;
+    private final AdminOtpService adminOtpService;
 
     public AuthController(
             AuthService authService,
             SecurityContextAccessor securityContextAccessor,
             RefreshTokenCookieProvider refreshTokenCookieProvider,
-            EmailVerificationService emailVerificationService
+            EmailVerificationService emailVerificationService,
+            AdminOtpService adminOtpService
     ) {
         this.authService = authService;
         this.securityContextAccessor = securityContextAccessor;
         this.refreshTokenCookieProvider = refreshTokenCookieProvider;
         this.emailVerificationService = emailVerificationService;
+        this.adminOtpService = adminOtpService;
     }
 
     @PostMapping("/email-verifications")
@@ -88,6 +94,23 @@ public class AuthController {
             HttpServletResponse response
     ) {
         return respondWithTokens(authService.login(request), response);
+    }
+
+    @PostMapping("/admin/login")
+    @io.swagger.v3.oas.annotations.Operation(summary = "관리자 로그인 OTP 발송")
+    public ApiResponse<AdminOtpChallengeResponse> requestAdminOtp(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        return ApiResponse.success(adminOtpService.request(request));
+    }
+
+    @PostMapping("/admin/login/verify")
+    @io.swagger.v3.oas.annotations.Operation(summary = "관리자 로그인 OTP 확인")
+    public ApiResponse<AccessTokenResponse> verifyAdminOtp(
+            @Valid @RequestBody AdminOtpVerifyRequest request,
+            HttpServletResponse response
+    ) {
+        return respondWithTokens(adminOtpService.verify(request), response);
     }
 
     @PostMapping("/password-reset")

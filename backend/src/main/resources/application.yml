@@ -79,6 +79,8 @@ app:
       verification-template-id: ${BREVO_EMAIL_VERIFICATION_TEMPLATE_ID:}
       code-expiration: ${EMAIL_VERIFICATION_CODE_EXPIRATION:5m}
       verified-expiration: ${EMAIL_VERIFICATION_VERIFIED_EXPIRATION:10m}
+      admin-otp-expiration: ${ADMIN_OTP_EXPIRATION:5m}
+      admin-otp-resend-interval: ${ADMIN_OTP_RESEND_INTERVAL:60s}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}

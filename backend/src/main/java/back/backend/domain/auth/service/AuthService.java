@@ -9,6 +9,7 @@ import back.backend.domain.auth.exception.AuthErrorCode;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
+import back.backend.domain.member.entity.MemberRole;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
@@ -93,6 +94,35 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), member.getPasswordHash())) {
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
         }
+        if (member.getRole() == MemberRole.ADMIN) {
+            throw new BusinessException(AuthErrorCode.ADMIN_OTP_REQUIRED);
+        }
+        member.recordLogin();
+        return issueTokens(member);
+    }
+
+    @Transactional(readOnly = true)
+    public Member requireAdminCredentials(LoginRequest request) {
+        String identifier = request.identifier().strip();
+        Member member = (identifier.contains("@")
+                ? memberRepository.findByEmailAndProvider(
+                        EmailVerificationService.normalize(identifier), AuthProvider.LOCAL)
+                : memberRepository.findByNicknameAndProvider(identifier, AuthProvider.LOCAL))
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
+        if (member.getStatus() != MemberStatus.ACTIVE
+                || member.getRole() != MemberRole.ADMIN
+                || !passwordEncoder.matches(request.password(), member.getPasswordHash())) {
+            throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
+        }
+        return member;
+    }
+
+    @Transactional
+    public TokenResponse completeAdminLogin(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .filter(found -> found.getStatus() == MemberStatus.ACTIVE)
+                .filter(found -> found.getRole() == MemberRole.ADMIN)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
         member.recordLogin();
         return issueTokens(member);
     }

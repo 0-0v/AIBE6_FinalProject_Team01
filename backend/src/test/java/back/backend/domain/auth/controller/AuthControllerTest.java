@@ -14,6 +14,7 @@ import back.backend.domain.auth.dto.TokenResponse;
 import back.backend.domain.auth.dto.LoginRequest;
 import back.backend.domain.auth.exception.AuthErrorCode;
 import back.backend.domain.auth.service.AuthService;
+import back.backend.domain.auth.service.AdminOtpService;
 import back.backend.domain.auth.service.EmailVerificationService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
@@ -55,6 +56,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private EmailVerificationService emailVerificationService;
+
+    @MockitoBean
+    private AdminOtpService adminOtpService;
 
     @Test
     @DisplayName("t1 유효한 리프레시 토큰 쿠키로 재발급을 요청하면 200과 새 액세스 토큰, 새 리프레시 토큰 쿠키를 반환한다")
