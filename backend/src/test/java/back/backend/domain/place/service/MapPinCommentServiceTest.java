@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -146,6 +147,29 @@ class MapPinCommentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(CommonErrorCode.FORBIDDEN));
+    }
+
+    @Test
+    @DisplayName("t7 동시성 경합으로 핀 생성이 충돌하면 재조회한 기존 핀을 사용한다")
+    void t7_addCommentHandlesConcurrentPinCreationRace() {
+        MapPin winningPin = pin(40L, "ChIJrace", "경합 장소");
+        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJrace"))
+                .willReturn(Optional.empty())
+                .willReturn(Optional.of(winningPin));
+        given(mapPinRepository.save(any()))
+                .willThrow(new DataIntegrityViolationException("duplicate key"));
+        given(commentRepository.save(any())).willAnswer(invocation -> {
+            MapPinComment c = invocation.getArgument(0);
+            ReflectionTestUtils.setField(c, "id", 202L);
+            return c;
+        });
+
+        MapPinCommentResponse result = mapPinCommentService.addComment(
+                1L, "ChIJrace",
+                new AddMapPinCommentRequest("경합 댓글", 37.5, 127.0, "경합 장소"));
+
+        assertThat(result.mapPinId()).isEqualTo(40L);
+        then(mapPinRepository).should(org.mockito.Mockito.times(1)).save(any(MapPin.class));
     }
 
     private MapPin pin(Long id, String googlePlaceId, String placeName) {
