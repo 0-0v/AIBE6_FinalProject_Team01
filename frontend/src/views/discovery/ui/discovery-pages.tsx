@@ -36,10 +36,10 @@ import {
     type RealtimeEvent,
 } from '@/widgets/realtime-sync'
 import { CreateTripModal } from '@/features/manage-trip'
-import { NotificationList } from '@/features/manage-notification'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { KanbanMapPanel } from '@/widgets/trip-room'
 import { useNavigate, useParams } from 'react-router-dom'
+import { PageHeader } from './page-header'
 
 const SORTS: { value: CardSort; label: string }[] = [
     { value: 'LATEST', label: '최신순' },
@@ -172,30 +172,6 @@ function CoverCard({
                 </button>
             </div>
         </section>
-    )
-}
-
-function PageHeader({
-    eyebrow,
-    title,
-    description,
-}: {
-    eyebrow: string
-    title: string
-    description: string
-}) {
-    return (
-        <header>
-            <p className="text-xs font-extrabold tracking-[0.12em] text-brand-700">
-                {eyebrow}
-            </p>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-[-0.05em] text-slate-950 sm:text-3xl">
-                {title}
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-                {description}
-            </p>
-        </header>
     )
 }
 
@@ -1547,20 +1523,5 @@ function PageButton({
         >
             {children}
         </button>
-    )
-}
-
-export function Updates() {
-    return (
-        <div className="min-h-full bg-[#f8fafb] px-4 py-6 sm:px-9 sm:py-7">
-            <div className="mx-auto max-w-[860px]">
-                <PageHeader
-                    eyebrow="ACTIVITY"
-                    title="알림"
-                    description="여행방의 주요 활동과 AI 결과를 확인하세요."
-                />
-                <NotificationList />
-            </div>
-        </div>
     )
 }
