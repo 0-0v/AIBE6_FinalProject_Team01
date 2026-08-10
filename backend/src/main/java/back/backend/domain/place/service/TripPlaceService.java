@@ -13,7 +13,7 @@ import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceCommentRepository;
 import back.backend.domain.place.repository.PlaceCommentRepository.CommentCountProjection;
 import back.backend.domain.place.repository.PlaceRepository;
-import back.backend.domain.place.repository.TripAccessRepository;
+import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.DataIntegrityConstraintMatcher;
@@ -37,7 +37,7 @@ public class TripPlaceService {
     private final PlaceRepository placeRepository;
     private final TripPlaceRepository tripPlaceRepository;
     private final ItineraryDayRepository itineraryDayRepository;
-    private final TripAccessRepository tripAccessRepository;
+    private final TripMemberRepository tripMemberRepository;
     private final PlaceCommentRepository placeCommentRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
@@ -207,6 +207,7 @@ public class TripPlaceService {
             accessChecker.requireView(tripId);
             return false;
         }
-        return tripAccessRepository.canEdit(tripId, principal.get().getMemberId());
+        return tripMemberRepository.existsByTripIdAndMemberId(
+                tripId, principal.get().getMemberId());
     }
 }
