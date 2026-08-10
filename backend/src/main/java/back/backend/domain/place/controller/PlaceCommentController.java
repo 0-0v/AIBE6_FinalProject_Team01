@@ -20,11 +20,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/trips/{tripId}/places/{tripPlaceId}/comments")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "장소 투표·댓글")
 public class PlaceCommentController {
 
     private final PlaceCommentService commentService;
 
     @GetMapping
+    @io.swagger.v3.oas.annotations.Operation(summary = "장소 댓글 조회")
     public ApiResponse<List<PlaceCommentResponse>> getComments(
             @PathVariable Long tripId,
             @PathVariable Long tripPlaceId
@@ -33,6 +35,7 @@ public class PlaceCommentController {
     }
 
     @PostMapping
+    @io.swagger.v3.oas.annotations.Operation(summary = "장소 댓글 등록")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<PlaceCommentResponse> addComment(
             @PathVariable Long tripId,
@@ -43,6 +46,7 @@ public class PlaceCommentController {
     }
 
     @DeleteMapping("/{commentId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "장소 댓글 삭제")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteComment(
             @PathVariable Long tripId,

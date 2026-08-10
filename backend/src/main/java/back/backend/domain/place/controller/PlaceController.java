@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/api/places")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "장소")
 public class PlaceController {
 
     private final PlaceSearchService placeSearchService;
@@ -27,6 +28,7 @@ public class PlaceController {
     }
 
     @GetMapping("/search")
+    @io.swagger.v3.oas.annotations.Operation(summary = "Google 장소 검색")
     public ApiResponse<List<PlaceSearchResponse>> search(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String location,
@@ -38,6 +40,7 @@ public class PlaceController {
     }
 
     @GetMapping("/photo")
+    @io.swagger.v3.oas.annotations.Operation(summary = "장소 사진 조회")
     public ResponseEntity<byte[]> getPhoto(@RequestParam String name) {
         PlacePhotoService.PhotoContent photo = placePhotoService.getPhoto(name);
         return ResponseEntity.ok()
@@ -47,6 +50,7 @@ public class PlaceController {
     }
 
     @GetMapping("/destination-metadata")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행 목적지 정보 조회")
     public ApiResponse<DestinationMetadataResponse> getDestinationMetadata(
             @RequestParam String placeId
     ) {
@@ -54,6 +58,7 @@ public class PlaceController {
     }
 
     @GetMapping("/photo/metadata")
+    @io.swagger.v3.oas.annotations.Operation(summary = "장소 대표 사진 정보 조회")
     public ResponseEntity<ApiResponse<PlacePhotoService.PhotoMetadata>> getPhotoMetadata(
             @RequestParam String placeId
     ) {
@@ -63,6 +68,7 @@ public class PlaceController {
     }
 
     @GetMapping("/details")
+    @io.swagger.v3.oas.annotations.Operation(summary = "Google 장소 상세 조회")
     public ApiResponse<PlaceSearchResponse> getDetails(@RequestParam String placeId) {
         return ApiResponse.success(placeSearchService.getPlaceDetails(placeId));
     }

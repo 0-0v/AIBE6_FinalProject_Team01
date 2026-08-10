@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/members")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "회원")
 public class MemberController {
 
     private final MemberService memberService;
@@ -41,6 +42,7 @@ public class MemberController {
     }
 
     @GetMapping("/me")
+    @Operation(summary = "내 회원 정보 조회")
     public ApiResponse<MemberResponse> getMe() {
         Long memberId = securityContextAccessor.getCurrentMemberId();
         return ApiResponse.success(memberService.getMember(memberId));

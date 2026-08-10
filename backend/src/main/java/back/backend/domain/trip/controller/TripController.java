@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/trips")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "여행방")
 public class TripController {
     private final TripService tripService;
     private final SecurityContextAccessor securityContextAccessor;

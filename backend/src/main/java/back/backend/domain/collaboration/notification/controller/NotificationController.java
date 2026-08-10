@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Notification", description = "알림 조회 및 읽음 처리 API")
+@Tag(name = "알림")
 @RestController
 @RequestMapping("/api/notifications")
 public class NotificationController {

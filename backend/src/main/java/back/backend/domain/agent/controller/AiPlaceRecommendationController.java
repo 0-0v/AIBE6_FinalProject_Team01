@@ -18,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/trips/{tripId}/ai/place-recommendations")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "AI 여행")
 public class AiPlaceRecommendationController {
 
     private final AiPlaceRecommendationService recommendationService;

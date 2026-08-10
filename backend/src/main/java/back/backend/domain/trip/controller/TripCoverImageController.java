@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/trips/{tripId}/cover-image")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "여행방")
 public class TripCoverImageController {
 
     private final TripCoverImageService tripCoverImageService;
