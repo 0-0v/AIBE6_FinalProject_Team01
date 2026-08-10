@@ -78,7 +78,7 @@ export function PlaceDetailOverlay({
                         <ArrowLeftIcon size={15} aria-hidden />
                     </button>
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent px-4 pb-3 pt-12">
-                        <h3 className="text-lg font-extrabold leading-tight text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.4)]">
+                        <h3 className="text-lg font-extrabold leading-tight text-white [text-shadow:0_1px_4px_rgb(var(--rgb-black)/0.4)]">
                             {place.name}
                         </h3>
                     </div>

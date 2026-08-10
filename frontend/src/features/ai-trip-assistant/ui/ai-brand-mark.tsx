@@ -8,7 +8,7 @@ export function AiBrandMark({ size = 'md' }: AiBrandMarkProps) {
 
     return (
         <span
-            className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-pink-100 shadow-[0_10px_25px_rgba(225,91,116,0.18)] ${sizeClass}`}
+            className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-pink-100 shadow-[0_10px_25px_rgb(var(--rgb-brand-shadow)/0.18)] ${sizeClass}`}
         >
             <span className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-brand/15 blur-md" />
             <img

@@ -6,7 +6,11 @@ import { useScroll, useSpring, motion } from 'framer-motion'
  * 상단 고정 스크롤 진행 바
  * 21st.dev ibelick/scroll-progress 패턴
  */
-export function ScrollProgressBar({ color = '#FF7A59' }: { color?: string }) {
+export function ScrollProgressBar({
+    color = 'var(--color-landing-coral)',
+}: {
+    color?: string
+}) {
     const { scrollYProgress } = useScroll()
     const scaleX = useSpring(scrollYProgress, {
         stiffness: 100,

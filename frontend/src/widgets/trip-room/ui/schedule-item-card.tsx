@@ -131,14 +131,17 @@ export function ScheduleItemCard({
                 className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                 style={{
                     background:
-                        'radial-gradient(140px circle at var(--glare-x, 50%) var(--glare-y, 50%), rgba(255,255,255,0.9), transparent 70%)',
+                        'radial-gradient(140px circle at var(--glare-x, 50%) var(--glare-y, 50%), rgb(var(--rgb-white)/0.9), transparent 70%)',
                 }}
             />
             <div className="relative z-10 flex items-stretch">
                 {/* 카테고리 컬러 스트라이프 */}
                 <div
                     className="w-1 shrink-0"
-                    style={{ backgroundColor: item.categoryColor ?? '#e2e8f0' }}
+                    style={{
+                        backgroundColor:
+                            item.categoryColor ?? 'var(--color-app-border)',
+                    }}
                 />
 
                 <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1">
@@ -175,7 +178,8 @@ export function ScheduleItemCard({
                                         className="shrink-0"
                                         style={{
                                             color:
-                                                item.categoryColor ?? '#94a3b8',
+                                                item.categoryColor ??
+                                                'var(--color-app-text-muted)',
                                         }}
                                     >
                                         <CategoryIcon

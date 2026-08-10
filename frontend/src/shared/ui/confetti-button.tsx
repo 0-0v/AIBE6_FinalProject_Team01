@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef } from 'react'
+import { DESIGN_COLORS } from '@/shared/config'
 
 interface ConfettiButtonProps {
     onClick?: () => void
@@ -11,13 +12,13 @@ interface ConfettiButtonProps {
 }
 
 const COLORS = [
-    '#FF7A59',
-    '#FFB4C6',
-    '#8B7CFF',
-    '#D8CFFF',
-    '#FFD94C',
-    '#FF5A3C',
-    '#FDF3E7',
+    DESIGN_COLORS.landing.coral,
+    DESIGN_COLORS.landing.pink,
+    DESIGN_COLORS.landing.purple,
+    DESIGN_COLORS.landing.lavender,
+    DESIGN_COLORS.landing.yellow,
+    DESIGN_COLORS.landing.coralStrong,
+    DESIGN_COLORS.landing.cream,
 ]
 
 export function ConfettiButton({

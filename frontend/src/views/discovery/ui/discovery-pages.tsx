@@ -83,7 +83,7 @@ function DetailTagPills({
     const styleClass =
         variant === 'dark'
             ? 'rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm'
-            : 'rounded-full bg-[#213C51]/10 px-3 py-1.5 text-xs font-bold text-[#213C51]'
+            : 'rounded-full bg-[var(--color-app-navy)]/10 px-3 py-1.5 text-xs font-bold text-[var(--color-app-navy)]'
     const tagClass =
         variant === 'dark'
             ? 'rounded-full bg-white/25 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm'
@@ -135,7 +135,7 @@ function CoverCard({
         state === 'front' ? 'z-20' : state === 'back' ? 'z-10' : 'z-0'
     return (
         <section
-            className={`absolute inset-y-6 left-4 ${zIndexClass} flex w-[min(560px,calc(100%-2rem))] flex-col overflow-hidden rounded-[26px] border border-white/70 bg-slate-900 shadow-[0_24px_60px_rgba(15,23,42,0.25)] transition-transform duration-300 ease-out ${translateClass}`}
+            className={`absolute inset-y-6 left-4 ${zIndexClass} flex w-[min(560px,calc(100%-2rem))] flex-col overflow-hidden rounded-[26px] border border-white/70 bg-slate-900 shadow-[0_24px_60px_rgb(var(--rgb-app-ink)/0.25)] transition-transform duration-300 ease-out ${translateClass}`}
             aria-hidden={state !== 'front'}
         >
             <img
@@ -216,7 +216,7 @@ export function Explore() {
     }
 
     return (
-        <div className="min-h-full bg-[#f8fafb] px-4 py-6 sm:px-7 sm:py-8 lg:px-9">
+        <div className="min-h-full bg-[var(--color-app-background)] px-4 py-6 sm:px-7 sm:py-8 lg:px-9">
             <div className="mx-auto max-w-[1500px]">
                 <div className="flex flex-row items-center justify-between gap-5">
                     <PageHeader
@@ -262,8 +262,8 @@ export function Explore() {
                             aria-pressed={selectedTravelStyle === null}
                             className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${
                                 selectedTravelStyle === null
-                                    ? 'bg-[#213C51] text-white shadow-sm'
-                                    : 'border border-slate-200 bg-white text-[#213C51] hover:border-[#213C51]/40'
+                                    ? 'bg-[var(--color-app-navy)] text-white shadow-sm'
+                                    : 'border border-slate-200 bg-white text-[var(--color-app-navy)] hover:border-[var(--color-app-navy)]/40'
                             }`}
                         >
                             전체
@@ -281,8 +281,8 @@ export function Explore() {
                                 }
                                 className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${
                                     selectedTravelStyle === style.value
-                                        ? 'bg-[#213C51] text-white shadow-sm'
-                                        : 'border border-slate-200 bg-white text-[#213C51] hover:border-[#213C51]/40'
+                                        ? 'bg-[var(--color-app-navy)] text-white shadow-sm'
+                                        : 'border border-slate-200 bg-white text-[var(--color-app-navy)] hover:border-[var(--color-app-navy)]/40'
                                 }`}
                             >
                                 #{style.label}
@@ -418,7 +418,7 @@ function TravelCard({
             onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') onOpen()
             }}
-            className="relative flex aspect-[4/3] h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[28px] shadow-[0_8px_24px_rgba(33,60,81,0.10)] ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(33,60,81,0.16)]"
+            className="relative flex aspect-[4/3] h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[28px] shadow-[0_8px_24px_rgb(var(--rgb-app-navy)/0.10)] ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgb(var(--rgb-app-navy)/0.16)]"
         >
             <img
                 src={resolveMediaUrl(card.coverImageUrl) ?? DEFAULT_COVER_IMAGE}
@@ -429,7 +429,7 @@ function TravelCard({
             {card.ownCard && (
                 <span
                     title="내가 참여한 여행 카드"
-                    className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-brand px-3 py-2 text-[11px] font-black tracking-[0.08em] text-white shadow-[0_6px_16px_rgba(33,60,81,0.28)]"
+                    className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-brand px-3 py-2 text-[11px] font-black tracking-[0.08em] text-white shadow-[0_6px_16px_rgb(var(--rgb-app-navy)/0.28)]"
                 >
                     <BadgeCheckIcon size={14} />
                     MY
@@ -451,7 +451,7 @@ function TravelCard({
                     {card.travelStyles.map((style) => (
                         <span
                             key={style}
-                            className="max-w-full shrink-0 truncate rounded-full bg-[#213C51]/10 px-2.5 py-1 text-[11px] font-bold text-[#213C51]"
+                            className="max-w-full shrink-0 truncate rounded-full bg-[var(--color-app-navy)]/10 px-2.5 py-1 text-[11px] font-bold text-[var(--color-app-navy)]"
                         >
                             #{TRAVEL_STYLE_LABELS[style] ?? style}
                         </span>
@@ -569,7 +569,7 @@ export function ExploreDetail() {
 
     if (isLoading) {
         return (
-            <div className="flex h-full items-center justify-center bg-[#f8fafb] text-brand">
+            <div className="flex h-full items-center justify-center bg-[var(--color-app-background)] text-brand">
                 <LoaderCircleIcon className="animate-spin" size={28} />
             </div>
         )
@@ -577,7 +577,7 @@ export function ExploreDetail() {
 
     if (error || !detail) {
         return (
-            <div className="flex h-full flex-col items-center justify-center bg-[#f8fafb] px-6 text-center">
+            <div className="flex h-full flex-col items-center justify-center bg-[var(--color-app-background)] px-6 text-center">
                 <SearchXIcon size={32} className="text-slate-300" />
                 <p className="mt-4 text-sm font-bold text-slate-600">
                     {error ?? '여행 카드를 찾을 수 없습니다.'}
@@ -607,7 +607,7 @@ export function ExploreDetail() {
     const coverImageUrl = resolveMediaUrl(detail.coverImageUrl)
 
     return (
-        <div className="flex min-h-full flex-col bg-[#f8fafb] p-4 sm:p-6 xl:h-full xl:min-h-0 xl:overflow-hidden">
+        <div className="flex min-h-full flex-col bg-[var(--color-app-background)] p-4 sm:p-6 xl:h-full xl:min-h-0 xl:overflow-hidden">
             <header className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
                 <button
                     type="button"
@@ -622,7 +622,7 @@ export function ExploreDetail() {
                 </span>
             </header>
 
-            <main className="relative min-h-[680px] flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-slate-100 shadow-[0_20px_50px_rgba(15,23,42,0.08)] xl:min-h-0">
+            <main className="relative min-h-[680px] flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-slate-100 shadow-[0_20px_50px_rgb(var(--rgb-app-ink)/0.08)] xl:min-h-0">
                 <section className="absolute inset-0 overflow-hidden bg-slate-100">
                     {displayedDays.length > 0 ? (
                         <div className="h-full [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
@@ -647,7 +647,7 @@ export function ExploreDetail() {
                 </section>
 
                 <section
-                    className={`mp-scroll absolute inset-y-6 left-4 w-[min(560px,calc(100%-2rem))] overflow-y-auto rounded-[26px] border border-white/70 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)] transition-transform duration-300 ease-out ${
+                    className={`mp-scroll absolute inset-y-6 left-4 w-[min(560px,calc(100%-2rem))] overflow-y-auto rounded-[26px] border border-white/70 bg-white shadow-[0_24px_60px_rgb(var(--rgb-app-ink)/0.2)] transition-transform duration-300 ease-out ${
                         view === 'panel'
                             ? 'z-20 translate-x-0'
                             : view === 'cover'
@@ -827,7 +827,7 @@ function PublicRecordDetail({
     const coverImageUrl = resolveMediaUrl(detail.coverImageUrl)
 
     return (
-        <div className="flex min-h-full flex-col bg-[#f8fafb] p-4 sm:p-6 xl:h-full xl:min-h-0 xl:overflow-hidden">
+        <div className="flex min-h-full flex-col bg-[var(--color-app-background)] p-4 sm:p-6 xl:h-full xl:min-h-0 xl:overflow-hidden">
             <header className="mb-4 flex shrink-0 items-center justify-between gap-3">
                 <button
                     type="button"
@@ -842,7 +842,7 @@ function PublicRecordDetail({
                 </span>
             </header>
 
-            <main className="relative min-h-[680px] flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-slate-100 shadow-[0_20px_50px_rgba(15,23,42,0.08)] xl:min-h-0">
+            <main className="relative min-h-[680px] flex-1 overflow-hidden rounded-[28px] border border-slate-200 bg-slate-100 shadow-[0_20px_50px_rgb(var(--rgb-app-ink)/0.08)] xl:min-h-0">
                 <section className="absolute inset-0 overflow-hidden bg-slate-100">
                     {displayedDays.length > 0 ? (
                         <div className="h-full [&>div]:h-full [&>div]:border-0 [&>div>button]:hidden [&>div>div]:h-full">
@@ -865,7 +865,7 @@ function PublicRecordDetail({
                 </section>
 
                 <section
-                    className={`mp-scroll absolute inset-y-6 left-4 w-[min(560px,calc(100%-2rem))] overflow-y-auto rounded-[26px] border border-white/70 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)] transition-transform duration-300 ease-out ${
+                    className={`mp-scroll absolute inset-y-6 left-4 w-[min(560px,calc(100%-2rem))] overflow-y-auto rounded-[26px] border border-white/70 bg-white shadow-[0_24px_60px_rgb(var(--rgb-app-ink)/0.2)] transition-transform duration-300 ease-out ${
                         view === 'panel'
                             ? 'z-20 translate-x-0'
                             : view === 'cover'
@@ -961,7 +961,7 @@ function PublicRecordDetail({
                                         {index < records.length - 1 && (
                                             <span className="absolute bottom-[-1.75rem] left-[15px] top-9 border-l-2 border-dotted border-brand-100" />
                                         )}
-                                        <article className="rounded-[22px] border border-slate-100 bg-white p-5 shadow-[0_10px_28px_rgba(15,23,42,0.07)]">
+                                        <article className="rounded-[22px] border border-slate-100 bg-white p-5 shadow-[0_10px_28px_rgb(var(--rgb-app-ink)/0.07)]">
                                             <div className="flex flex-wrap items-start justify-between gap-3">
                                                 <div className="min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">

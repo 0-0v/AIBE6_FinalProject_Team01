@@ -1,5 +1,6 @@
 import type { PlaceCategory, PlaceCategoryType } from './types'
 import type { PlaceMarkerIcon } from './place-marker-icon'
+import { DESIGN_COLORS } from '@/shared/config'
 
 export type PlacePresentation = {
     category: PlaceCategory
@@ -9,65 +10,70 @@ export type PlacePresentation = {
 }
 
 export const CATEGORY_META: Record<PlaceCategory, PlacePresentation> = {
-    cafe: { category: 'cafe', label: '카페', color: '#b45309', icon: 'COFFEE' },
+    cafe: {
+        category: 'cafe',
+        label: '카페',
+        color: DESIGN_COLORS.category.cafe,
+        icon: 'COFFEE',
+    },
     food: {
         category: 'food',
         label: '음식점',
-        color: '#dc2626',
+        color: DESIGN_COLORS.category.food,
         icon: 'UTENSILS',
     },
     bar: {
         category: 'bar',
         label: '술집',
-        color: '#be123c',
+        color: DESIGN_COLORS.category.bar,
         icon: 'BEER',
     },
     attraction: {
         category: 'attraction',
         label: '명소',
-        color: '#7c3aed',
+        color: DESIGN_COLORS.category.attraction,
         icon: 'LANDMARK',
     },
     nature: {
         category: 'nature',
         label: '자연',
-        color: '#0f766e',
+        color: DESIGN_COLORS.category.nature,
         icon: 'TREES',
     },
     lodging: {
         category: 'lodging',
         label: '숙소',
-        color: '#0891b2',
+        color: DESIGN_COLORS.category.lodging,
         icon: 'HOTEL',
     },
     shopping: {
         category: 'shopping',
         label: '쇼핑',
-        color: '#2563eb',
+        color: DESIGN_COLORS.category.shopping,
         icon: 'SHOPPING_BAG',
     },
     convenience: {
         category: 'convenience',
         label: '편의점',
-        color: '#16a34a',
+        color: DESIGN_COLORS.category.convenience,
         icon: 'STORE',
     },
     activity: {
         category: 'activity',
         label: '액티비티',
-        color: '#ea580c',
+        color: DESIGN_COLORS.category.activity,
         icon: 'STAR',
     },
     transport: {
         category: 'transport',
         label: '교통',
-        color: '#475569',
+        color: DESIGN_COLORS.category.transport,
         icon: 'PLANE',
     },
     other: {
         category: 'other',
         label: '기타',
-        color: '#64748b',
+        color: DESIGN_COLORS.category.other,
         icon: 'MAP_PIN',
     },
 }

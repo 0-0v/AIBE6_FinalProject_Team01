@@ -289,7 +289,7 @@ export function AiAgentPanel({
             }}
         >
             <div className="flex h-[min(720px,calc(100dvh-2rem))] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-                <header className="flex shrink-0 items-center justify-between border-b border-rose-100 bg-gradient-to-r from-[#fff8fa] to-white px-5 py-4">
+                <header className="flex shrink-0 items-center justify-between border-b border-rose-100 bg-gradient-to-r from-[var(--color-brand-surface-soft)] to-white px-5 py-4">
                     <div className="flex items-center gap-3">
                         <AiBrandMark size="sm" />
                         <div>

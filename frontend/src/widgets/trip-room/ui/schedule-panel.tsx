@@ -41,13 +41,20 @@ function ScheduleItemDragOverlay({ item }: { item: ItineraryItem }) {
         <div className="flex w-64 cursor-grabbing items-stretch rounded-lg border border-brand/40 bg-white shadow-2xl ring-2 ring-brand/20">
             <div
                 className="w-1.5 shrink-0 rounded-l-lg"
-                style={{ backgroundColor: item.categoryColor ?? '#e2e8f0' }}
+                style={{
+                    backgroundColor:
+                        item.categoryColor ?? 'var(--color-app-border)',
+                }}
             />
             <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1.5">
                 {item.categoryIcon && (
                     <span
                         className="shrink-0"
-                        style={{ color: item.categoryColor ?? '#94a3b8' }}
+                        style={{
+                            color:
+                                item.categoryColor ??
+                                'var(--color-app-text-muted)',
+                        }}
                     >
                         <CategoryIcon
                             icon={item.categoryIcon}
@@ -90,7 +97,7 @@ function PlaceChip({ place, days, onAddToDay }: PlaceChipProps) {
             style={
                 place.categoryColor
                     ? { borderColor: place.categoryColor + '60' }
-                    : { borderColor: '#e2e8f0' }
+                    : { borderColor: 'var(--color-app-border)' }
             }
         >
             {/* 드래그 핸들 영역 */}
@@ -98,7 +105,11 @@ function PlaceChip({ place, days, onAddToDay }: PlaceChipProps) {
                 {...listeners}
                 {...attributes}
                 className="flex cursor-grab items-center gap-1 rounded-l-full py-1 pl-2.5 pr-1.5 active:cursor-grabbing"
-                style={{ color: place.categoryColor ?? '#64748b' }}
+                style={{
+                    color:
+                        place.categoryColor ??
+                        'var(--color-app-text-secondary)',
+                }}
             >
                 {place.categoryIcon && (
                     <CategoryIcon
@@ -118,8 +129,8 @@ function PlaceChip({ place, days, onAddToDay }: PlaceChipProps) {
                 style={{
                     borderColor: place.categoryColor
                         ? place.categoryColor + '40'
-                        : '#e2e8f0',
-                    color: place.categoryColor ?? '#94a3b8',
+                        : 'var(--color-app-border)',
+                    color: place.categoryColor ?? 'var(--color-app-text-muted)',
                 }}
                 title="Day 선택해서 추가"
             >
@@ -465,8 +476,9 @@ export function SchedulePanel({
                                                       color: place.categoryColor,
                                                   }
                                                 : {
-                                                      borderColor: '#e2e8f0',
-                                                      color: '#64748b',
+                                                      borderColor:
+                                                          'var(--color-app-border)',
+                                                      color: 'var(--color-app-text-secondary)',
                                                   }
                                         }
                                     >

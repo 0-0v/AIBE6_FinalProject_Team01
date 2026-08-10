@@ -226,8 +226,10 @@ export function PlaceSearch({
                                           }
                                         : isActive
                                           ? {
-                                                backgroundColor: '#334155',
-                                                borderColor: '#334155',
+                                                backgroundColor:
+                                                    'var(--color-app-text)',
+                                                borderColor:
+                                                    'var(--color-app-text)',
                                             }
                                           : undefined
                                 }

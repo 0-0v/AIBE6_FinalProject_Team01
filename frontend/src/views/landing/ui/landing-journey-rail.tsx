@@ -46,12 +46,14 @@ export function LandingJourneyRail({
                 gap: 2,
                 padding: '10px 8px',
                 borderRadius: 20,
-                background: isHovered ? '#FFFDF9' : 'transparent',
+                background: isHovered
+                    ? 'var(--color-landing-surface)'
+                    : 'transparent',
                 border: isHovered
-                    ? '1.5px solid #EFE2D6'
+                    ? '1.5px solid var(--color-landing-border)'
                     : '1.5px solid transparent',
                 boxShadow: isHovered
-                    ? '0 12px 28px rgba(58,42,40,0.1)'
+                    ? '0 12px 28px rgb(var(--rgb-landing-ink)/0.1)'
                     : 'none',
                 transition:
                     'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
@@ -87,13 +89,13 @@ export function LandingJourneyRail({
                                     height: isActive ? 12 : 8,
                                     borderRadius: '50%',
                                     background: isActive
-                                        ? '#FF7A59'
+                                        ? 'var(--color-landing-coral)'
                                         : isPassed
-                                          ? '#FFB4C6'
-                                          : '#EFE2D6',
+                                          ? 'var(--color-landing-pink)'
+                                          : 'var(--color-landing-border)',
                                     transition: 'all 0.35s ease',
                                     boxShadow: isActive
-                                        ? '0 0 0 5px rgba(255,122,89,0.16)'
+                                        ? '0 0 0 5px rgb(var(--rgb-landing-coral)/0.16)'
                                         : 'none',
                                 }}
                             />
@@ -102,7 +104,9 @@ export function LandingJourneyRail({
                                 style={{
                                     fontSize: 12,
                                     fontWeight: 700,
-                                    color: isActive ? '#FF7A59' : '#8A8FA8',
+                                    color: isActive
+                                        ? 'var(--color-landing-coral)'
+                                        : 'var(--color-landing-muted)',
                                     whiteSpace: 'nowrap',
                                     maxWidth: isHovered
                                         ? RAIL_LABEL_MAX_WIDTH
@@ -125,8 +129,8 @@ export function LandingJourneyRail({
                                         isActive ? 12 : 8,
                                     ),
                                     background: isPassed
-                                        ? '#FFB4C6'
-                                        : '#EFE2D6',
+                                        ? 'var(--color-landing-pink)'
+                                        : 'var(--color-landing-border)',
                                     transition:
                                         'background 0.35s ease, margin-right 0.35s ease',
                                 }}

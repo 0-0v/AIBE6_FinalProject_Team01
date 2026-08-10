@@ -640,12 +640,12 @@ export function DateVotePanel({
                                 style={{
                                     backgroundColor:
                                         previewing && gesture?.selecting
-                                            ? 'rgba(231, 101, 122, 0.42)'
+                                            ? 'rgb(var(--rgb-brand)/0.42)'
                                             : previewing
-                                              ? 'rgba(251, 191, 36, 0.28)'
+                                              ? 'rgb(var(--rgb-amber)/0.28)'
                                               : ratio > 0
-                                                ? `rgba(231, 101, 122, ${alpha})`
-                                                : 'rgb(248 250 252)',
+                                                ? `rgb(var(--rgb-brand)/${alpha})`
+                                                : 'var(--color-app-background)',
                                     color: ratio >= 0.65 ? 'white' : undefined,
                                 }}
                             >
@@ -693,7 +693,7 @@ export function DateVotePanel({
                             key={ratio}
                             className="h-3 flex-1 rounded-sm"
                             style={{
-                                backgroundColor: `rgba(231, 101, 122, ${0.14 + ratio * 0.72})`,
+                                backgroundColor: `rgb(var(--rgb-brand)/${0.14 + ratio * 0.72})`,
                             }}
                         />
                     ))}

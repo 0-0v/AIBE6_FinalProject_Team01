@@ -671,7 +671,10 @@ function MapContent({
                                 </div>
                             ) : (
                                 <ItineraryMapMarker
-                                    color={place.categoryColor ?? '#64748b'}
+                                    color={
+                                        place.categoryColor ??
+                                        'var(--color-app-text-secondary)'
+                                    }
                                     categoryIcon={place.categoryIcon}
                                     categoryColor={place.categoryColor}
                                     categoryLabel={place.categoryName}

@@ -1,6 +1,7 @@
 import { UserIcon } from 'lucide-react'
+import { DESIGN_COLORS } from '@/shared/config'
 
-export const DEFAULT_AVATAR_COLOR = '#f5f7f8'
+export const DEFAULT_AVATAR_COLOR = DESIGN_COLORS.app.avatar
 
 type Props = {
     name: string
@@ -27,7 +28,11 @@ export function Avatar({
             }}
             aria-label={`${name}의 프로필`}
         >
-            <UserIcon size={size * 0.5} color="#b4b5b6" aria-hidden="true" />
+            <UserIcon
+                size={size * 0.5}
+                color={DESIGN_COLORS.app.avatarIcon}
+                aria-hidden="true"
+            />
             {imageUrl && (
                 <img
                     src={imageUrl}

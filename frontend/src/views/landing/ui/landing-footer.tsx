@@ -12,7 +12,7 @@ export function LandingFooter() {
                 justifyContent: 'space-between',
                 gap: 16,
                 flexWrap: 'wrap',
-                borderTop: '1.5px solid #F0E4D8',
+                borderTop: '1.5px solid var(--color-landing-border-strong)',
             }}
         >
             <div
@@ -22,7 +22,7 @@ export function LandingFooter() {
                     gap: 8,
                     fontWeight: 800,
                     fontSize: 15,
-                    color: '#3A2A28',
+                    color: 'var(--color-landing-ink)',
                 }}
             >
                 <BrandLogo className="h-6 w-6" />
@@ -35,18 +35,24 @@ export function LandingFooter() {
                     flexWrap: 'wrap',
                     fontSize: 13,
                     fontWeight: 600,
-                    color: '#8A8FA8',
+                    color: 'var(--color-landing-muted)',
                 }}
             >
                 <Link
                     to="/terms"
-                    style={{ color: '#8A8FA8', textDecoration: 'none' }}
+                    style={{
+                        color: 'var(--color-landing-muted)',
+                        textDecoration: 'none',
+                    }}
                 >
                     이용약관
                 </Link>
                 <Link
                     to="/privacy"
-                    style={{ color: '#8A8FA8', textDecoration: 'none' }}
+                    style={{
+                        color: 'var(--color-landing-muted)',
+                        textDecoration: 'none',
+                    }}
                 >
                     개인정보처리방침
                 </Link>
@@ -54,12 +60,21 @@ export function LandingFooter() {
                     href="https://github.com/prgrms-aibe-devcourse/AIBE6_FinalProject_Team01"
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: '#8A8FA8', textDecoration: 'none' }}
+                    style={{
+                        color: 'var(--color-landing-muted)',
+                        textDecoration: 'none',
+                    }}
                 >
                     GitHub
                 </a>
             </div>
-            <div style={{ fontSize: 12.5, color: '#B7BBCF', fontWeight: 600 }}>
+            <div
+                style={{
+                    fontSize: 12.5,
+                    color: 'var(--color-landing-faint)',
+                    fontWeight: 600,
+                }}
+            >
                 © 2026 Plamingo
             </div>
         </footer>

@@ -188,7 +188,7 @@ export function RoomListPanel({
                         onClick={() => selectFilter(value)}
                         className={`rounded-xl px-3 py-2 text-[11px] font-extrabold transition duration-200 @min-[440px]:px-3.5 @min-[440px]:text-xs ${
                             filter === value
-                                ? 'bg-[#213C51] text-white shadow-[0_8px_18px_rgba(33,60,81,0.18)]'
+                                ? 'bg-[var(--color-app-navy)] text-white shadow-[0_8px_18px_rgb(var(--rgb-app-navy)/0.18)]'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200/80 hover:text-slate-700'
                         }`}
                     >
@@ -211,7 +211,7 @@ export function RoomListPanel({
                             />
                         </button>
                         {yearMenuOpen && (
-                            <div className="absolute left-0 top-[calc(100%+8px)] z-30 min-w-32 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+                            <div className="absolute left-0 top-[calc(100%+8px)] z-30 min-w-32 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-[0_18px_40px_rgb(var(--rgb-app-ink)/0.14)]">
                                 {[null, ...pastYears].map((year) => (
                                     <button
                                         key={year ?? 'all'}
@@ -401,7 +401,7 @@ function VisibilityUnavailableDialog({ onClose }: { onClose: () => void }) {
                 <button
                     type="button"
                     onClick={onClose}
-                    className="mt-6 w-full rounded-xl bg-[#213c51] py-3 text-sm font-extrabold text-white transition hover:bg-[#182f40]"
+                    className="mt-6 w-full rounded-xl bg-[var(--color-app-navy)] py-3 text-sm font-extrabold text-white transition hover:bg-[var(--color-app-navy-800)]"
                 >
                     확인
                 </button>

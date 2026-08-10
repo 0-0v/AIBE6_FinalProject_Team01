@@ -57,11 +57,11 @@ export function Landing() {
 
     // 공용 스타일 상수
     const CARD_BASE: React.CSSProperties = {
-        background: '#FFFDF8',
-        border: '2.5px solid #3A2A28',
+        background: 'var(--color-landing-canvas)',
+        border: '2.5px solid var(--color-landing-ink)',
         borderRadius: 16,
         padding: '13px 18px',
-        boxShadow: '3px 3px 0 #3A2A28',
+        boxShadow: '3px 3px 0 var(--color-landing-ink)',
         minHeight: 68,
         display: 'flex',
         flexDirection: 'column',
@@ -76,9 +76,9 @@ export function Landing() {
                 width: '100%',
                 maxWidth: '100vw',
                 overflowX: 'hidden',
-                background: '#FDF3E7',
-                fontFamily: "'Manrope', sans-serif",
-                color: '#3A2A28',
+                background: 'var(--color-landing-cream)',
+                fontFamily: 'var(--font-landing)',
+                color: 'var(--color-landing-ink)',
                 WebkitFontSmoothing: 'antialiased',
             }}
         >
@@ -121,7 +121,7 @@ export function Landing() {
                 >
                     <path
                         d="M-40 620 C 220 520, 340 720, 560 600 S 900 420, 1180 520 S 1500 380, 1560 460"
-                        stroke="#FF7A59"
+                        stroke="var(--color-landing-coral)"
                         strokeWidth="3"
                         strokeDasharray="3 12"
                         strokeLinecap="round"
@@ -130,7 +130,7 @@ export function Landing() {
                     />
                     <path
                         d="M-60 220 C 180 300, 380 120, 620 220 S 1000 340, 1220 200"
-                        stroke="#8B7CFF"
+                        stroke="var(--color-landing-purple)"
                         strokeWidth="3"
                         strokeDasharray="3 12"
                         strokeLinecap="round"
@@ -138,14 +138,62 @@ export function Landing() {
                         opacity="0.85"
                     />
                     {[
-                        { cx: 220, cy: 520, r: 5, fill: '#FF7A59', o: 0.5 },
-                        { cx: 620, cy: 220, r: 4, fill: '#D8CFFF', o: 0.6 },
-                        { cx: 1180, cy: 520, r: 4.5, fill: '#FFB4C6', o: 0.6 },
-                        { cx: 380, cy: 680, r: 3.5, fill: '#FFB4C6', o: 0.5 },
-                        { cx: 860, cy: 150, r: 4, fill: '#FF7A59', o: 0.45 },
-                        { cx: 1340, cy: 240, r: 3.5, fill: '#D8CFFF', o: 0.5 },
-                        { cx: 90, cy: 330, r: 3.5, fill: '#FF7A59', o: 0.4 },
-                        { cx: 1020, cy: 620, r: 4, fill: '#FFB4C6', o: 0.5 },
+                        {
+                            cx: 220,
+                            cy: 520,
+                            r: 5,
+                            fill: 'var(--color-landing-coral)',
+                            o: 0.5,
+                        },
+                        {
+                            cx: 620,
+                            cy: 220,
+                            r: 4,
+                            fill: 'var(--color-landing-lavender)',
+                            o: 0.6,
+                        },
+                        {
+                            cx: 1180,
+                            cy: 520,
+                            r: 4.5,
+                            fill: 'var(--color-landing-pink)',
+                            o: 0.6,
+                        },
+                        {
+                            cx: 380,
+                            cy: 680,
+                            r: 3.5,
+                            fill: 'var(--color-landing-pink)',
+                            o: 0.5,
+                        },
+                        {
+                            cx: 860,
+                            cy: 150,
+                            r: 4,
+                            fill: 'var(--color-landing-coral)',
+                            o: 0.45,
+                        },
+                        {
+                            cx: 1340,
+                            cy: 240,
+                            r: 3.5,
+                            fill: 'var(--color-landing-lavender)',
+                            o: 0.5,
+                        },
+                        {
+                            cx: 90,
+                            cy: 330,
+                            r: 3.5,
+                            fill: 'var(--color-landing-coral)',
+                            o: 0.4,
+                        },
+                        {
+                            cx: 1020,
+                            cy: 620,
+                            r: 4,
+                            fill: 'var(--color-landing-pink)',
+                            o: 0.5,
+                        },
                     ].map(({ cx, cy, r, fill, o }) => (
                         <circle
                             key={`${cx}-${cy}`}
@@ -173,8 +221,8 @@ export function Landing() {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 8,
-                            background: '#FFE3EA',
-                            color: '#C7476B',
+                            background: 'var(--color-landing-rose-soft)',
+                            color: 'var(--color-landing-rose)',
                             fontWeight: 700,
                             fontSize: 13,
                             padding: '8px 16px',
@@ -199,7 +247,7 @@ export function Landing() {
                         <WordRotate
                             words={['플래너 말고', '엑셀 말고', '메모장 말고']}
                             interval={2200}
-                            style={{ color: '#FF7A59' }}
+                            style={{ color: 'var(--color-landing-coral)' }}
                         />
                         <br />
                         여기서 짜자.
@@ -208,7 +256,7 @@ export function Landing() {
                         style={{
                             fontSize: 'clamp(16px,1.8vw,20px)',
                             lineHeight: 1.45,
-                            color: '#5B5F7E',
+                            color: 'var(--color-landing-body)',
                             fontWeight: 700,
                             margin: '0 0 14px',
                             maxWidth: 520,
@@ -237,13 +285,14 @@ export function Landing() {
                             onMouseLeave={() => setCtaHover(false)}
                             className="pl-cta-btn"
                             style={{
-                                background: '#FF7A59',
-                                color: '#FDF3E7',
+                                background: 'var(--color-landing-coral)',
+                                color: 'var(--color-landing-cream)',
                                 fontWeight: 700,
                                 fontSize: 16,
                                 padding: '16px 28px',
                                 borderRadius: 999,
-                                boxShadow: '0 12px 24px rgba(255,90,60,0.34)',
+                                boxShadow:
+                                    '0 12px 24px rgb(var(--rgb-landing-coral-strong)/0.34)',
                                 transition:
                                     'transform 0.2s ease, box-shadow 0.2s ease',
                                 textDecoration: 'none',
@@ -257,13 +306,13 @@ export function Landing() {
                             onClick={scrollTo('ai-section')}
                             className="pl-ghost-btn"
                             style={{
-                                background: '#FFFDF9',
-                                color: '#3A2A28',
+                                background: 'var(--color-landing-surface)',
+                                color: 'var(--color-landing-ink)',
                                 fontWeight: 700,
                                 fontSize: 16,
                                 padding: '16px 28px',
                                 borderRadius: 999,
-                                border: '1.5px solid #EFE2D6',
+                                border: '1.5px solid var(--color-landing-border)',
                                 transition:
                                     'transform 0.2s ease, border-color 0.2s ease',
                                 textDecoration: 'none',
@@ -276,7 +325,7 @@ export function Landing() {
                     <p
                         style={{
                             fontSize: 14,
-                            color: '#8A8FA8',
+                            color: 'var(--color-landing-muted)',
                             fontWeight: 600,
                             animation: fadeUpIn(380),
                         }}
@@ -304,15 +353,15 @@ export function Landing() {
                                     style={{
                                         fontSize: 'clamp(22px,3.2vw,36px)',
                                         fontWeight: 800,
-                                        color: '#FF7A59',
-                                        fontFamily: "'Manrope', sans-serif",
+                                        color: 'var(--color-landing-coral)',
+                                        fontFamily: 'var(--font-landing)',
                                         lineHeight: 1,
                                     }}
                                 />
                                 <div
                                     style={{
                                         fontSize: 12,
-                                        color: '#8A8FA8',
+                                        color: 'var(--color-landing-muted)',
                                         fontWeight: 600,
                                         marginTop: 4,
                                     }}
@@ -358,7 +407,7 @@ export function Landing() {
                             cy="200"
                             r="196"
                             fill="none"
-                            stroke="#8B7CFF"
+                            stroke="var(--color-landing-purple)"
                             strokeWidth="2"
                             strokeDasharray="3 9"
                         />
@@ -386,7 +435,7 @@ export function Landing() {
                                 <svg width="46" height="46" viewBox="0 0 46 46">
                                     <path
                                         d="M6 23c8 0 16-8 16-16M22 7l6 0 0 6"
-                                        stroke="#FF7A59"
+                                        stroke="var(--color-landing-coral)"
                                         strokeWidth="3"
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
@@ -434,7 +483,7 @@ export function Landing() {
                         height: 420,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #D8CFFF 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-lavender) 0%, transparent 70%)',
                         opacity: 0.24,
                         filter: 'blur(14px)',
                         zIndex: 0,
@@ -449,7 +498,7 @@ export function Landing() {
                         height: 460,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #FFB4C6 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-pink) 0%, transparent 70%)',
                         opacity: 0.2,
                         filter: 'blur(14px)',
                         zIndex: 0,
@@ -479,7 +528,8 @@ export function Landing() {
                                 fontSize: 'clamp(90px,12vw,150px)',
                                 fontWeight: 800,
                                 color: 'transparent',
-                                WebkitTextStroke: '1.5px rgba(199,71,107,0.16)',
+                                WebkitTextStroke:
+                                    '1.5px rgb(var(--rgb-landing-rose)/0.16)',
                                 lineHeight: 1,
                                 zIndex: -1,
                                 whiteSpace: 'nowrap',
@@ -491,7 +541,7 @@ export function Landing() {
                             style={{
                                 fontWeight: 800,
                                 fontSize: 15,
-                                color: '#C7476B',
+                                color: 'var(--color-landing-rose)',
                                 letterSpacing: '0.05em',
                             }}
                         >
@@ -549,7 +599,7 @@ export function Landing() {
                                     >
                                         <path
                                             d="M4 4h16v12H8l-4 4z"
-                                            fill="#D8CFFF"
+                                            fill="var(--color-landing-lavender)"
                                         />
                                     </svg>
                                 ),
@@ -569,7 +619,7 @@ export function Landing() {
                                     >
                                         <path
                                             d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2"
-                                            stroke="#8A8FA8"
+                                            stroke="var(--color-landing-muted)"
                                             strokeWidth="2.2"
                                             fill="none"
                                             strokeLinecap="round"
@@ -592,7 +642,7 @@ export function Landing() {
                                     >
                                         <path
                                             d="M12 2C7 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3-8-8-8z"
-                                            fill="#D8CFFF"
+                                            fill="var(--color-landing-lavender)"
                                         />
                                     </svg>
                                 ),
@@ -622,7 +672,7 @@ export function Landing() {
                                             gap: 6,
                                             fontSize: 11,
                                             fontWeight: 800,
-                                            color: '#8A8FA8',
+                                            color: 'var(--color-landing-muted)',
                                             letterSpacing: '0.03em',
                                         }}
                                     >
@@ -633,7 +683,7 @@ export function Landing() {
                                         style={{
                                             fontSize: 14,
                                             fontWeight: 700,
-                                            color: '#3A2A28',
+                                            color: 'var(--color-landing-ink)',
                                             overflow: 'hidden',
                                             textOverflow: 'ellipsis',
                                             whiteSpace: 'nowrap',
@@ -646,7 +696,7 @@ export function Landing() {
                                             style={{
                                                 fontSize: 11.5,
                                                 fontWeight: 600,
-                                                color: '#8A8FA8',
+                                                color: 'var(--color-landing-muted)',
                                             }}
                                         >
                                             {sub}
@@ -680,7 +730,7 @@ export function Landing() {
                                 width: '100%',
                                 height: 'auto',
                                 display: 'block',
-                                filter: 'drop-shadow(0 16px 20px rgba(255,122,89,0.2))',
+                                filter: 'drop-shadow(0 16px 20px rgb(var(--rgb-landing-coral)/0.2))',
                             }}
                         />
                     </div>
@@ -713,12 +763,12 @@ export function Landing() {
                                         <path
                                             d="M6 2h9l3 3v17H6z"
                                             fill="none"
-                                            stroke="#8A8FA8"
+                                            stroke="var(--color-landing-muted)"
                                             strokeWidth="1.8"
                                         />
                                         <path
                                             d="M9 11h6M9 15h6"
-                                            stroke="#8A8FA8"
+                                            stroke="var(--color-landing-muted)"
                                             strokeWidth="1.6"
                                         />
                                     </svg>
@@ -740,7 +790,7 @@ export function Landing() {
                                         <path
                                             d="M3 10V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4M2 10h20v9H2z"
                                             fill="none"
-                                            stroke="#8A8FA8"
+                                            stroke="var(--color-landing-muted)"
                                             strokeWidth="1.8"
                                         />
                                     </svg>
@@ -766,7 +816,7 @@ export function Landing() {
                                             height="13"
                                             rx="2"
                                             fill="none"
-                                            stroke="#8A8FA8"
+                                            stroke="var(--color-landing-muted)"
                                             strokeWidth="1.8"
                                         />
                                         <circle
@@ -774,7 +824,7 @@ export function Landing() {
                                             cy="13.5"
                                             r="3"
                                             fill="none"
-                                            stroke="#8A8FA8"
+                                            stroke="var(--color-landing-muted)"
                                             strokeWidth="1.6"
                                         />
                                     </svg>
@@ -805,7 +855,7 @@ export function Landing() {
                                             gap: 6,
                                             fontSize: 11,
                                             fontWeight: 800,
-                                            color: '#8A8FA8',
+                                            color: 'var(--color-landing-muted)',
                                             letterSpacing: '0.03em',
                                         }}
                                     >
@@ -816,7 +866,7 @@ export function Landing() {
                                         style={{
                                             fontSize: 14,
                                             fontWeight: 700,
-                                            color: '#3A2A28',
+                                            color: 'var(--color-landing-ink)',
                                         }}
                                     >
                                         {title}
@@ -826,7 +876,7 @@ export function Landing() {
                                             style={{
                                                 fontSize: 11.5,
                                                 fontWeight: 600,
-                                                color: '#8A8FA8',
+                                                color: 'var(--color-landing-muted)',
                                             }}
                                         >
                                             {sub}
@@ -866,7 +916,7 @@ export function Landing() {
                         height: 480,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #FF7A59 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-coral) 0%, transparent 70%)',
                         opacity: 0.14,
                         filter: 'blur(14px)',
                         zIndex: 0,
@@ -898,11 +948,12 @@ export function Landing() {
                         >
                             <div
                                 style={{
-                                    background: '#FFFDF8',
-                                    border: '3px solid #3A2A28',
+                                    background: 'var(--color-landing-canvas)',
+                                    border: '3px solid var(--color-landing-ink)',
                                     borderRadius: 22,
                                     padding: 22,
-                                    boxShadow: '5px 5px 0 #3A2A28',
+                                    boxShadow:
+                                        '5px 5px 0 var(--color-landing-ink)',
                                 }}
                             >
                                 <div
@@ -910,7 +961,8 @@ export function Landing() {
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 10,
-                                        background: '#F4F1EC',
+                                        background:
+                                            'var(--color-landing-surface-muted)',
                                         borderRadius: 12,
                                         padding: '12px 16px',
                                         marginBottom: 16,
@@ -923,7 +975,7 @@ export function Landing() {
                                     >
                                         <path
                                             d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2"
-                                            stroke="#8A8FA8"
+                                            stroke="var(--color-landing-muted)"
                                             strokeWidth="2"
                                             fill="none"
                                             strokeLinecap="round"
@@ -933,7 +985,7 @@ export function Landing() {
                                         style={{
                                             fontSize: 13,
                                             fontWeight: 700,
-                                            color: '#3A2A28',
+                                            color: 'var(--color-landing-ink)',
                                         }}
                                     >
                                         아라시야마 카페
@@ -944,7 +996,7 @@ export function Landing() {
                                         display: 'flex',
                                         gap: 14,
                                         alignItems: 'center',
-                                        border: '1.5px solid #F4F1EC',
+                                        border: '1.5px solid var(--color-landing-surface-muted)',
                                         borderRadius: 16,
                                         padding: 14,
                                     }}
@@ -955,7 +1007,7 @@ export function Landing() {
                                             height: 64,
                                             borderRadius: 12,
                                             background:
-                                                'linear-gradient(135deg,#FFB4C6,#D8CFFF)',
+                                                'linear-gradient(135deg,var(--color-landing-pink),var(--color-landing-lavender))',
                                             flexShrink: 0,
                                         }}
                                     />
@@ -980,8 +1032,9 @@ export function Landing() {
                                                 style={{
                                                     fontSize: 11,
                                                     fontWeight: 700,
-                                                    background: '#FFE3EA',
-                                                    color: '#C7476B',
+                                                    background:
+                                                        'var(--color-landing-rose-soft)',
+                                                    color: 'var(--color-landing-rose)',
                                                     padding: '3px 8px',
                                                     borderRadius: 999,
                                                 }}
@@ -992,7 +1045,7 @@ export function Landing() {
                                         <div
                                             style={{
                                                 fontSize: 12,
-                                                color: '#8A8FA8',
+                                                color: 'var(--color-landing-muted)',
                                                 fontWeight: 600,
                                             }}
                                         >
@@ -1030,7 +1083,7 @@ export function Landing() {
                                     fontWeight: 800,
                                     color: 'transparent',
                                     WebkitTextStroke:
-                                        '1.5px rgba(199,71,107,0.14)',
+                                        '1.5px rgb(var(--rgb-landing-rose)/0.14)',
                                     lineHeight: 1,
                                     zIndex: -1,
                                     whiteSpace: 'nowrap',
@@ -1042,7 +1095,7 @@ export function Landing() {
                                 style={{
                                     fontWeight: 800,
                                     fontSize: 15,
-                                    color: '#C7476B',
+                                    color: 'var(--color-landing-rose)',
                                     letterSpacing: '0.05em',
                                 }}
                             >
@@ -1064,7 +1117,7 @@ export function Landing() {
                             style={{
                                 fontSize: 19,
                                 lineHeight: 1.75,
-                                color: '#5B5F7E',
+                                color: 'var(--color-landing-body)',
                                 fontWeight: 500,
                             }}
                         >
@@ -1090,7 +1143,7 @@ export function Landing() {
                             width: '100%',
                             height: 'auto',
                             display: 'block',
-                            filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.24))',
+                            filter: 'drop-shadow(0 12px 14px rgb(var(--rgb-landing-coral)/0.24))',
                         }}
                     />
                 </div>
@@ -1123,7 +1176,7 @@ export function Landing() {
                         height: 460,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #FFB4C6 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-pink) 0%, transparent 70%)',
                         opacity: 0.22,
                         filter: 'blur(10px)',
                         zIndex: 0,
@@ -1154,7 +1207,7 @@ export function Landing() {
                                     fontWeight: 800,
                                     color: 'transparent',
                                     WebkitTextStroke:
-                                        '1.5px rgba(199,71,107,0.14)',
+                                        '1.5px rgb(var(--rgb-landing-rose)/0.14)',
                                     lineHeight: 1,
                                     zIndex: -1,
                                     whiteSpace: 'nowrap',
@@ -1166,7 +1219,7 @@ export function Landing() {
                                 style={{
                                     fontWeight: 800,
                                     fontSize: 15,
-                                    color: '#C7476B',
+                                    color: 'var(--color-landing-rose)',
                                     letterSpacing: '0.05em',
                                 }}
                             >
@@ -1188,7 +1241,7 @@ export function Landing() {
                             style={{
                                 fontSize: 19,
                                 lineHeight: 1.75,
-                                color: '#5B5F7E',
+                                color: 'var(--color-landing-body)',
                                 fontWeight: 500,
                             }}
                         >
@@ -1224,11 +1277,12 @@ export function Landing() {
                         >
                             <div
                                 style={{
-                                    background: '#FFFDF8',
-                                    border: '3px solid #3A2A28',
+                                    background: 'var(--color-landing-canvas)',
+                                    border: '3px solid var(--color-landing-ink)',
                                     borderRadius: 22,
                                     padding: 22,
-                                    boxShadow: '5px 5px 0 #3A2A28',
+                                    boxShadow:
+                                        '5px 5px 0 var(--color-landing-ink)',
                                     position: 'relative',
                                 }}
                             >
@@ -1245,7 +1299,7 @@ export function Landing() {
                                             height: 60,
                                             borderRadius: 12,
                                             background:
-                                                'linear-gradient(135deg,#D8CFFF,#FFB4C6)',
+                                                'linear-gradient(135deg,var(--color-landing-lavender),var(--color-landing-pink))',
                                             flexShrink: 0,
                                         }}
                                     />
@@ -1266,9 +1320,9 @@ export function Landing() {
                                             }}
                                         >
                                             {[
-                                                '#FFB4C6',
-                                                '#D8CFFF',
-                                                '#FF7A59',
+                                                'var(--color-landing-pink)',
+                                                'var(--color-landing-lavender)',
+                                                'var(--color-landing-coral)',
                                             ].map((bg, i) => (
                                                 <div
                                                     key={i}
@@ -1277,11 +1331,11 @@ export function Landing() {
                                                         height: 22,
                                                         borderRadius: '50%',
                                                         background: bg,
-                                                        border: '2px solid #FFF',
+                                                        border: '2px solid var(--color-app-surface)',
                                                         marginLeft:
                                                             i > 0 ? -8 : 0,
                                                         boxShadow:
-                                                            '0 2px 6px rgba(35,38,75,0.12)',
+                                                            '0 2px 6px rgb(var(--rgb-landing-deep)/0.12)',
                                                     }}
                                                 />
                                             ))}
@@ -1299,8 +1353,9 @@ export function Landing() {
                                         style={{
                                             flex: 1,
                                             textAlign: 'center',
-                                            background: '#FFE3EA',
-                                            color: '#C7476B',
+                                            background:
+                                                'var(--color-landing-rose-soft)',
+                                            color: 'var(--color-landing-rose)',
                                             fontWeight: 700,
                                             fontSize: 13,
                                             padding: '9px 0',
@@ -1313,8 +1368,9 @@ export function Landing() {
                                         style={{
                                             flex: 1,
                                             textAlign: 'center',
-                                            background: '#FDE2E7',
-                                            color: '#BE123C',
+                                            background:
+                                                'var(--color-landing-rose-muted)',
+                                            color: 'var(--color-category-bar)',
                                             fontWeight: 700,
                                             fontSize: 13,
                                             padding: '9px 0',
@@ -1326,11 +1382,12 @@ export function Landing() {
                                 </div>
                                 <div
                                     style={{
-                                        borderTop: '1.5px solid #F4F1EC',
+                                        borderTop:
+                                            '1.5px solid var(--color-landing-surface-muted)',
                                         paddingTop: 12,
                                         fontSize: 13,
                                         fontWeight: 600,
-                                        color: '#5B5F7E',
+                                        color: 'var(--color-landing-body)',
                                     }}
                                 >
                                     💬 "아침 일찍 가면 사람 없대!"
@@ -1358,13 +1415,13 @@ export function Landing() {
                                             cx="32"
                                             cy="32"
                                             r="30"
-                                            fill="#FFFFFF"
-                                            stroke="#FF7A59"
+                                            fill="var(--color-app-surface)"
+                                            stroke="var(--color-landing-coral)"
                                             strokeWidth="2.5"
                                         />
                                         <path
                                             d="M32 44s-14-8.5-14-18a8 8 0 0 1 14-5 8 8 0 0 1 14 5c0 9.5-14 18-14 18z"
-                                            fill="#FF7A59"
+                                            fill="var(--color-landing-coral)"
                                         />
                                     </svg>
                                 </div>
@@ -1388,7 +1445,7 @@ export function Landing() {
                             width: '100%',
                             height: 'auto',
                             display: 'block',
-                            filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.24))',
+                            filter: 'drop-shadow(0 12px 14px rgb(var(--rgb-landing-coral)/0.24))',
                         }}
                     />
                 </div>
@@ -1421,7 +1478,7 @@ export function Landing() {
                         height: 460,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #D8CFFF 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-lavender) 0%, transparent 70%)',
                         opacity: 0.22,
                         filter: 'blur(14px)',
                         zIndex: 0,
@@ -1453,11 +1510,12 @@ export function Landing() {
                         >
                             <div
                                 style={{
-                                    background: '#FFFDF8',
-                                    border: '3px solid #3A2A28',
+                                    background: 'var(--color-landing-canvas)',
+                                    border: '3px solid var(--color-landing-ink)',
                                     borderRadius: 22,
                                     padding: 20,
-                                    boxShadow: '5px 5px 0 #3A2A28',
+                                    boxShadow:
+                                        '5px 5px 0 var(--color-landing-ink)',
                                 }}
                             >
                                 <svg
@@ -1473,11 +1531,11 @@ export function Landing() {
                                         width="380"
                                         height="140"
                                         rx="14"
-                                        fill="#EDE8FF"
+                                        fill="var(--color-landing-lavender-soft)"
                                     />
                                     <path
                                         d="M40 100 C 90 40, 160 120, 220 60 S 320 30, 340 50"
-                                        stroke="#8B7CFF"
+                                        stroke="var(--color-landing-purple)"
                                         strokeWidth="3"
                                         strokeDasharray="500"
                                         strokeDashoffset={
@@ -1494,19 +1552,19 @@ export function Landing() {
                                         cx="40"
                                         cy="100"
                                         r="7"
-                                        fill="#FF7A59"
+                                        fill="var(--color-landing-coral)"
                                     />
                                     <circle
                                         cx="220"
                                         cy="60"
                                         r="6"
-                                        fill="#FF7A59"
+                                        fill="var(--color-landing-coral)"
                                     />
                                     <circle
                                         cx="340"
                                         cy="50"
                                         r="7"
-                                        fill="#FF7A59"
+                                        fill="var(--color-landing-coral)"
                                     />
                                 </svg>
                                 <div style={{ display: 'flex', gap: 10 }}>
@@ -1530,7 +1588,8 @@ export function Landing() {
                                             key={day}
                                             style={{
                                                 flex: 1,
-                                                background: '#F4F1EC',
+                                                background:
+                                                    'var(--color-landing-surface-muted)',
                                                 borderRadius: 12,
                                                 padding: 12,
                                             }}
@@ -1539,7 +1598,7 @@ export function Landing() {
                                                 style={{
                                                     fontSize: 11,
                                                     fontWeight: 800,
-                                                    color: '#8A8FA8',
+                                                    color: 'var(--color-landing-muted)',
                                                     marginBottom: 8,
                                                 }}
                                             >
@@ -1571,9 +1630,10 @@ export function Landing() {
                                         style={{
                                             flex: 1,
                                             textAlign: 'center',
-                                            background: '#FFF',
-                                            border: '1.5px solid #F4F1EC',
-                                            color: '#5B5F7E',
+                                            background:
+                                                'var(--color-app-surface)',
+                                            border: '1.5px solid var(--color-landing-surface-muted)',
+                                            color: 'var(--color-landing-body)',
                                             fontWeight: 700,
                                             fontSize: 13,
                                             padding: '9px 0',
@@ -1586,8 +1646,9 @@ export function Landing() {
                                         style={{
                                             flex: 1,
                                             textAlign: 'center',
-                                            background: '#FF7A59',
-                                            color: '#FDF3E7',
+                                            background:
+                                                'var(--color-landing-coral)',
+                                            color: 'var(--color-landing-cream)',
                                             fontWeight: 700,
                                             fontSize: 13,
                                             padding: '9px 0',
@@ -1626,7 +1687,7 @@ export function Landing() {
                                     fontWeight: 800,
                                     color: 'transparent',
                                     WebkitTextStroke:
-                                        '1.5px rgba(199,71,107,0.14)',
+                                        '1.5px rgb(var(--rgb-landing-rose)/0.14)',
                                     lineHeight: 1,
                                     zIndex: -1,
                                     whiteSpace: 'nowrap',
@@ -1638,7 +1699,7 @@ export function Landing() {
                                 style={{
                                     fontWeight: 800,
                                     fontSize: 15,
-                                    color: '#C7476B',
+                                    color: 'var(--color-landing-rose)',
                                     letterSpacing: '0.05em',
                                 }}
                             >
@@ -1660,7 +1721,7 @@ export function Landing() {
                             style={{
                                 fontSize: 19,
                                 lineHeight: 1.75,
-                                color: '#5B5F7E',
+                                color: 'var(--color-landing-body)',
                                 fontWeight: 500,
                             }}
                         >
@@ -1686,7 +1747,7 @@ export function Landing() {
                             width: '100%',
                             height: 'auto',
                             display: 'block',
-                            filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.24))',
+                            filter: 'drop-shadow(0 12px 14px rgb(var(--rgb-landing-coral)/0.24))',
                         }}
                     />
                 </div>
@@ -1722,7 +1783,7 @@ export function Landing() {
                         height: 520,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #FF7A59 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-coral) 0%, transparent 70%)',
                         opacity: 0.12,
                         filter: 'blur(14px)',
                         zIndex: 0,
@@ -1747,7 +1808,7 @@ export function Landing() {
                                     fontWeight: 800,
                                     color: 'transparent',
                                     WebkitTextStroke:
-                                        '1.5px rgba(199,71,107,0.14)',
+                                        '1.5px rgb(var(--rgb-landing-rose)/0.14)',
                                     lineHeight: 1,
                                     zIndex: -1,
                                     whiteSpace: 'nowrap',
@@ -1759,7 +1820,7 @@ export function Landing() {
                                 style={{
                                     fontWeight: 800,
                                     fontSize: 15,
-                                    color: '#C7476B',
+                                    color: 'var(--color-landing-rose)',
                                     letterSpacing: '0.05em',
                                 }}
                             >
@@ -1782,11 +1843,11 @@ export function Landing() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 16,
-                                background: '#FFFDF8',
-                                border: '3px solid #3A2A28',
+                                background: 'var(--color-landing-canvas)',
+                                border: '3px solid var(--color-landing-ink)',
                                 borderRadius: 20,
                                 padding: '16px 22px',
-                                boxShadow: '5px 5px 0 #3A2A28',
+                                boxShadow: '5px 5px 0 var(--color-landing-ink)',
                             }}
                         >
                             <svg width="30" height="30" viewBox="0 0 24 24">
@@ -1796,11 +1857,11 @@ export function Landing() {
                                     width="16"
                                     height="20"
                                     rx="2"
-                                    fill="#EDE8FF"
+                                    fill="var(--color-landing-lavender-soft)"
                                 />
                                 <path
                                     d="M8 8h8M8 12h8M8 16h5"
-                                    stroke="#8B7CFF"
+                                    stroke="var(--color-landing-purple)"
                                     strokeWidth="1.6"
                                     strokeLinecap="round"
                                 />
@@ -1810,7 +1871,7 @@ export function Landing() {
                                     style={{
                                         fontSize: 13,
                                         fontWeight: 700,
-                                        color: '#8A8FA8',
+                                        color: 'var(--color-landing-muted)',
                                     }}
                                 >
                                     교토 3박 4일 정산
@@ -1838,7 +1899,7 @@ export function Landing() {
                             width: '100%',
                             height: 'auto',
                             display: 'block',
-                            filter: 'drop-shadow(0 12px 14px rgba(255,122,89,0.22))',
+                            filter: 'drop-shadow(0 12px 14px rgb(var(--rgb-landing-coral)/0.22))',
                         }}
                     />
                 </div>
@@ -1861,7 +1922,7 @@ export function Landing() {
                     justifyContent: 'center',
                     textAlign: 'center',
                     background:
-                        'linear-gradient(180deg,#FDF3E7 0%,#FBE8D8 100%)',
+                        'linear-gradient(180deg,var(--color-landing-cream) 0%,var(--color-landing-cream-deep) 100%)',
                     overflow: 'hidden',
                 }}
             >
@@ -1874,7 +1935,7 @@ export function Landing() {
                         height: 520,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #FFB4C6 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-pink) 0%, transparent 70%)',
                         opacity: 0.24,
                         filter: 'blur(14px)',
                         zIndex: 0,
@@ -1889,7 +1950,7 @@ export function Landing() {
                         height: 480,
                         borderRadius: '50%',
                         background:
-                            'radial-gradient(circle, #D8CFFF 0%, transparent 70%)',
+                            'radial-gradient(circle, var(--color-landing-lavender) 0%, transparent 70%)',
                         opacity: 0.22,
                         filter: 'blur(10px)',
                         zIndex: 0,
@@ -1908,7 +1969,7 @@ export function Landing() {
                 >
                     <path
                         d="M-40 400 C 300 300, 500 460, 780 340 S 1200 220, 1500 300"
-                        stroke="#FF7A59"
+                        stroke="var(--color-landing-coral)"
                         strokeWidth="3"
                         strokeDasharray="3 12"
                         fill="none"
@@ -1934,7 +1995,7 @@ export function Landing() {
                                     fontWeight: 800,
                                     color: 'transparent',
                                     WebkitTextStroke:
-                                        '1.5px rgba(199,71,107,0.16)',
+                                        '1.5px rgb(var(--rgb-landing-rose)/0.16)',
                                     lineHeight: 1,
                                     zIndex: -1,
                                     whiteSpace: 'nowrap',
@@ -1946,7 +2007,7 @@ export function Landing() {
                                 style={{
                                     fontWeight: 800,
                                     fontSize: 15,
-                                    color: '#C7476B',
+                                    color: 'var(--color-landing-rose)',
                                     letterSpacing: '0.05em',
                                 }}
                             >
@@ -1969,17 +2030,18 @@ export function Landing() {
                             className="pl-cta-btn"
                             style={{
                                 display: 'inline-block',
-                                background: '#FF7A59',
-                                color: '#FDF3E7',
+                                background: 'var(--color-landing-coral)',
+                                color: 'var(--color-landing-cream)',
                                 fontWeight: 700,
                                 fontSize: 17,
                                 padding: '18px 36px',
                                 borderRadius: 999,
-                                boxShadow: '0 16px 30px rgba(255,90,60,0.36)',
+                                boxShadow:
+                                    '0 16px 30px rgb(var(--rgb-landing-coral-strong)/0.36)',
                                 border: 'none',
                                 cursor: 'pointer',
                                 transition: 'transform 0.2s ease',
-                                fontFamily: "'Manrope', sans-serif",
+                                fontFamily: 'var(--font-landing)',
                             }}
                         >
                             첫 여행방 만들기 🎉
@@ -2009,7 +2071,7 @@ export function Landing() {
                                 width: 150,
                                 height: 'auto',
                                 display: 'block',
-                                filter: 'drop-shadow(0 14px 16px rgba(255,122,89,0.26))',
+                                filter: 'drop-shadow(0 14px 16px rgb(var(--rgb-landing-coral)/0.26))',
                             }}
                         />
                         <div
@@ -2017,9 +2079,10 @@ export function Landing() {
                                 width: 36,
                                 height: 36,
                                 borderRadius: '50%',
-                                background: '#D8CFFF',
+                                background: 'var(--color-landing-lavender)',
                                 margin: '0 -8px 20px',
-                                boxShadow: '0 8px 16px rgba(35,38,75,0.14)',
+                                boxShadow:
+                                    '0 8px 16px rgb(var(--rgb-landing-deep)/0.14)',
                             }}
                         />
                         <div
@@ -2027,9 +2090,10 @@ export function Landing() {
                                 width: 36,
                                 height: 36,
                                 borderRadius: '50%',
-                                background: '#FFB4C6',
+                                background: 'var(--color-landing-pink)',
                                 marginBottom: 34,
-                                boxShadow: '0 8px 16px rgba(35,38,75,0.14)',
+                                boxShadow:
+                                    '0 8px 16px rgb(var(--rgb-landing-deep)/0.14)',
                             }}
                         />
                     </div>

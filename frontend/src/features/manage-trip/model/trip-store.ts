@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Room } from '@/entities/trip'
 import { resolveMediaUrl } from '@/shared/api/client'
+import { DESIGN_COLORS } from '@/shared/config'
 import {
     fetchInvitedTrip,
     fetchTrips,
@@ -76,7 +77,7 @@ export function toRoom(trip: TripResponse): Room {
         status: statusLabel,
         lifecycleStatus: trip.status,
         visibility: trip.visibility,
-        color: '#e7657a',
+        color: DESIGN_COLORS.brand,
         companionLabel,
         travelStyleLabels,
     }

@@ -135,7 +135,7 @@ function ScopeCard({
             }}
             className={`relative flex cursor-pointer flex-col rounded-2xl border p-4 outline-none transition focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
                 active
-                    ? 'border-brand bg-brand-50/40 shadow-[0_8px_24px_rgba(242,100,124,0.14)]'
+                    ? 'border-brand bg-brand-50/40 shadow-[0_8px_24px_rgb(var(--rgb-brand-vivid)/0.14)]'
                     : recommended
                       ? 'border-brand/50 bg-brand-50/20'
                       : 'border-slate-200 hover:border-brand/50 hover:bg-brand-50/10'

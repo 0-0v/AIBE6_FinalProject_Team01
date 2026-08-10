@@ -109,7 +109,9 @@ export function MapRouteFilter({ routes, selectedDay, onSelect }: Props) {
                     <span
                         className="size-2 rounded-full"
                         style={{
-                            backgroundColor: selectedRoute?.color ?? '#64748b',
+                            backgroundColor:
+                                selectedRoute?.color ??
+                                'var(--color-app-text-secondary)',
                         }}
                     />
                     {selectedRoute == null
