@@ -17,26 +17,11 @@ import {
 } from 'lucide-react'
 
 import { motion } from 'framer-motion'
-import {
-    getItinerary,
-    getTripPlaces,
-    getTripPlaceVotes,
-    type ItineraryDay,
-    type Place,
-} from '@/entities/trip'
-import {
-    ExpensePanel,
-    fetchExpenseData,
-    type ExpenseResponse,
-    type SettlementSummary,
-} from '@/features/manage-expense'
+import { type Place } from '@/entities/trip'
+import { ExpensePanel, fetchExpenseData } from '@/features/manage-expense'
 import { CreateTripModal, useTripStore } from '@/features/manage-trip'
 import { AiDashboardActions } from '@/features/ai-trip-assistant'
-import {
-    NotificationPanel,
-    useNotificationStore,
-} from '@/features/manage-notification'
-import { fetchBookmarkedCards, type PublicCard } from '@/features/explore-card'
+import { NotificationPanel } from '@/features/manage-notification'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
@@ -46,7 +31,6 @@ import { TravelRooms } from '@/widgets/travel-rooms'
 import {
     addMonths,
     createCalendarDays,
-    createDashboardTasks,
     currency,
     formatTripDateRange,
     getDefaultDashboardDate,
@@ -59,8 +43,8 @@ import {
     parseLocalDate,
     startOfMonth,
     toDateKey,
-    type DashboardTask,
 } from '../model/dashboard-helpers'
+import { useDashboardData } from '../model/use-dashboard-data'
 
 const PUBLIC_CARD_STYLE_LABELS: Record<string, string> = {
     ACTIVITY: '액티비티',
@@ -81,17 +65,6 @@ type SurfaceId =
     | 'schedule'
     | 'expenses'
     | 'notifications'
-
-type OpenPlaceVote = {
-    voteRequestId: number
-    placeName: string
-    categoryName: string
-    responseCount: number
-    requiredResponseCount: number
-    myChoice: 'AGREE' | 'DISAGREE' | null
-}
-
-const initialTasks: DashboardTask[] = []
 
 const initialColors: Record<SurfaceId, string> = {
     travel: '#213C51',
@@ -125,27 +98,15 @@ function SectionTitle({
 export function Home() {
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
-    const isUserInitialized = useCurrentUserStore(
-        (state) => state.isInitialized,
-    )
-    const { trips, rooms, activeTripId, selectTrip, loadTrips, resetTrips } =
-        useTripStore()
-    const { logs, loadActivityLogs, resetActivityLogs } = useActivityLogStore()
-    const [tasks, setTasks] = useState(initialTasks)
+    const { trips, rooms, activeTripId, selectTrip, loadTrips } = useTripStore()
+    const { logs } = useActivityLogStore()
     const [view] = useState<'dashboard' | 'list'>('dashboard')
     const [todayDateKey, setTodayDateKey] = useState(() =>
         toDateKey(new Date()),
     )
     const [createTripOpen, setCreateTripOpen] = useState(false)
     const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
-    const [pendingVoteCount, setPendingVoteCount] = useState(0)
-    const [openPlaceVotes, setOpenPlaceVotes] = useState<OpenPlaceVote[]>([])
-    const [expenses, setExpenses] = useState<ExpenseResponse[]>([])
-    const [settlement, setSettlement] = useState<SettlementSummary | null>(null)
-    const [dashboardError, setDashboardError] = useState<string | null>(null)
-    const [bookmarkedCards, setBookmarkedCards] = useState<PublicCard[]>([])
     const [bookmarkPage, setBookmarkPage] = useState(0)
-    const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([])
     const [selectedDate, setSelectedDate] = useState<string | null>(null)
     const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
     const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
@@ -156,16 +117,6 @@ export function Home() {
     const tripSelectorRef = useRef<HTMLDivElement>(null)
     const activeTripData =
         trips.find((trip) => String(trip.id) === activeTripId) ?? trips[0]
-    const voteNotificationRevision = useNotificationStore((state) =>
-        state.notifications
-            .filter(
-                (notification) =>
-                    notification.notificationType === 'VOTE' &&
-                    notification.tripId === activeTripData?.id,
-            )
-            .map((notification) => notification.id)
-            .join(','),
-    )
     const [calendarCursor, setCalendarCursor] = useState<{
         tripId: number | null
         month: Date
@@ -194,103 +145,28 @@ export function Home() {
             status: '준비 전',
             color: '#e7657a',
         }
+    const {
+        tasks,
+        pendingVoteCount,
+        openPlaceVotes,
+        expenses,
+        setExpenses,
+        settlement,
+        setSettlement,
+        dashboardError,
+        itineraryDays,
+        setItineraryDays,
+        bookmarkedCards,
+    } = useDashboardData({
+        activeTrip: activeTripData,
+        activeTripApiId: activeTrip.apiTripId,
+    })
     const tripCountdownLabel = getTripCountdownLabel(
         activeTripData?.startDate,
         activeTripData?.endDate,
         activeTripData?.status,
         todayDateKey,
     )
-
-    useEffect(() => {
-        if (!isUserInitialized) return
-        if (currentUser) void loadTrips()
-        else {
-            resetTrips()
-            resetActivityLogs()
-        }
-    }, [
-        currentUser,
-        isUserInitialized,
-        loadTrips,
-        resetActivityLogs,
-        resetTrips,
-    ])
-
-    useEffect(() => {
-        if (currentUser && activeTrip.apiTripId) {
-            void loadActivityLogs(activeTrip.apiTripId)
-        } else {
-            resetActivityLogs()
-        }
-    }, [activeTrip.apiTripId, currentUser, loadActivityLogs, resetActivityLogs])
-
-    useEffect(() => {
-        if (!currentUser || !activeTrip.apiTripId) {
-            Promise.resolve().then(() => {
-                setPendingVoteCount(0)
-                setOpenPlaceVotes([])
-                setExpenses([])
-                setSettlement(null)
-                setTasks([])
-            })
-            return
-        }
-        const controller = new AbortController()
-        Promise.all([
-            getTripPlaces(activeTrip.apiTripId, controller.signal),
-            getTripPlaceVotes(activeTrip.apiTripId, controller.signal),
-            fetchExpenseData(activeTrip.apiTripId),
-        ])
-            .then(([places, votes, expenseData]) => {
-                if (controller.signal.aborted) return
-                const openVotes = votes.filter((vote) => vote.status === 'OPEN')
-                const pendingVotes = openVotes.filter(
-                    (vote) => vote.myChoice === null,
-                )
-                const openPlaceVoteItems = openVotes.map((vote) => {
-                    const place = places.find(
-                        (candidate) =>
-                            candidate.tripPlaceId === vote.tripPlaceId,
-                    )
-                    return {
-                        voteRequestId: vote.voteRequestId,
-                        placeName: place?.name ?? '장소 정보 없음',
-                        categoryName: place?.category.name ?? '기타',
-                        responseCount: vote.responseCount,
-                        requiredResponseCount: vote.requiredResponseCount,
-                        myChoice: vote.myChoice,
-                    }
-                })
-                setPendingVoteCount(pendingVotes.length)
-                setOpenPlaceVotes(openPlaceVoteItems)
-                setExpenses(expenseData.expenses)
-                setSettlement(expenseData.settlement)
-                setTasks(
-                    createDashboardTasks({
-                        trip: activeTripData,
-                        placeCount: places.length,
-                        pendingVoteCount: pendingVotes.length,
-                        pendingSettlementCount:
-                            expenseData.settlement.pendingExpenseCount,
-                    }),
-                )
-                setDashboardError(null)
-            })
-            .catch((error: unknown) => {
-                if (controller.signal.aborted) return
-                setDashboardError(
-                    error instanceof Error
-                        ? error.message
-                        : '대시보드 데이터를 불러오지 못했습니다.',
-                )
-            })
-        return () => controller.abort()
-    }, [
-        activeTrip.apiTripId,
-        activeTripData,
-        currentUser,
-        voteNotificationRevision,
-    ])
 
     useEffect(() => {
         Promise.resolve().then(() => {
@@ -309,36 +185,6 @@ export function Home() {
         activeTripData?.startDate,
         todayDateKey,
     ])
-
-    useEffect(() => {
-        if (!currentUser || !activeTrip.apiTripId) {
-            Promise.resolve().then(() => setItineraryDays([]))
-            return
-        }
-
-        let cancelled = false
-        void getItinerary(activeTrip.apiTripId)
-            .then((days) => {
-                if (!cancelled) setItineraryDays(days)
-            })
-            .catch(() => {
-                if (!cancelled) setItineraryDays([])
-            })
-
-        return () => {
-            cancelled = true
-        }
-    }, [activeTrip.apiTripId, currentUser])
-
-    useEffect(() => {
-        if (!currentUser) {
-            Promise.resolve().then(() => setBookmarkedCards([]))
-            return
-        }
-        void fetchBookmarkedCards()
-            .then(setBookmarkedCards)
-            .catch(() => setBookmarkedCards([]))
-    }, [currentUser])
 
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
