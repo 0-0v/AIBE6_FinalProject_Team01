@@ -2,6 +2,8 @@ package back.backend.domain.place.service;
 
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.service.CollaborationEventService;
+import back.backend.domain.member.entity.Member;
+import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.place.dto.request.AddMapPinCommentRequest;
 import back.backend.domain.place.dto.response.MapPinCommentResponse;
 import back.backend.domain.place.dto.response.MapPinSummaryResponse;
@@ -13,9 +15,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,8 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class MapPinCommentService {
 
+    private static final String UNKNOWN_MEMBER_NICKNAME = "알 수 없는 멤버";
+
     private final MapPinRepository mapPinRepository;
+    private final MapPinPersistenceService mapPinPersistenceService;
     private final MapPinCommentRepository commentRepository;
+    private final MemberRepository memberRepository;
     private final TripAccessChecker accessChecker;
     private final CollaborationEventService collaborationEventService;
 
@@ -54,21 +60,27 @@ public class MapPinCommentService {
     public List<MapPinCommentResponse> getComments(Long tripId, String googlePlaceId) {
         accessChecker.requireView(tripId);
         return mapPinRepository.findByTripIdAndGooglePlaceId(tripId, googlePlaceId)
-                .map(pin -> commentRepository.findAllByMapPinIdOrderByIdAsc(pin.getId())
-                        .stream()
-                        .map(this::toResponse)
-                        .toList())
+                .map(pin -> toResponses(commentRepository.findAllByMapPinIdOrderByIdAsc(pin.getId())))
                 .orElseGet(List::of);
     }
 
     @Transactional
     public MapPinCommentResponse addComment(Long tripId, String googlePlaceId, AddMapPinCommentRequest request) {
         Long memberId = accessChecker.requireEdit(tripId);
-        MapPin pin = findOrCreatePin(tripId, googlePlaceId, request);
+        String content = request.content().strip();
+        String placeName = request.placeName().strip();
+        MapPin pin = mapPinPersistenceService.findOrCreate(MapPin.builder()
+                .tripId(tripId)
+                .googlePlaceId(googlePlaceId)
+                .lat(request.lat())
+                .lng(request.lng())
+                .placeName(placeName)
+                .createdAt(LocalDateTime.now())
+                .build());
         MapPinComment comment = commentRepository.save(MapPinComment.builder()
                 .mapPinId(pin.getId())
                 .memberId(memberId)
-                .content(request.content())
+                .content(content)
                 .createdAt(LocalDateTime.now())
                 .build());
         collaborationEventService.record(
@@ -77,38 +89,36 @@ public class MapPinCommentService {
                 "MAP_PIN_COMMENT_ADDED",
                 "MAP_PIN",
                 pin.getId(),
-                request.placeName() + " 위치에 댓글이 등록됐습니다.",
-                Map.of("placeName", request.placeName()),
+                placeName + " 위치에 댓글이 등록됐습니다.",
+                Map.of("placeName", placeName),
                 NotificationType.PLACE,
                 "지도 댓글"
         );
-        return toResponse(comment);
+        return toResponse(comment, memberRepository.findById(memberId).orElse(null));
     }
 
-    private MapPin findOrCreatePin(Long tripId, String googlePlaceId, AddMapPinCommentRequest request) {
-        return mapPinRepository.findByTripIdAndGooglePlaceId(tripId, googlePlaceId)
-                .orElseGet(() -> {
-                    try {
-                        return mapPinRepository.save(MapPin.builder()
-                                .tripId(tripId)
-                                .googlePlaceId(googlePlaceId)
-                                .lat(request.lat())
-                                .lng(request.lng())
-                                .placeName(request.placeName())
-                                .createdAt(LocalDateTime.now())
-                                .build());
-                    } catch (DataIntegrityViolationException e) {
-                        return mapPinRepository.findByTripIdAndGooglePlaceId(tripId, googlePlaceId)
-                                .orElseThrow(() -> e);
-                    }
-                });
+    private List<MapPinCommentResponse> toResponses(List<MapPinComment> comments) {
+        if (comments.isEmpty()) {
+            return List.of();
+        }
+        List<Long> memberIds = comments.stream()
+                .map(MapPinComment::getMemberId)
+                .distinct()
+                .toList();
+        Map<Long, Member> membersById = memberRepository.findAllById(memberIds).stream()
+                .collect(Collectors.toMap(Member::getId, Function.identity()));
+        return comments.stream()
+                .map(comment -> toResponse(comment, membersById.get(comment.getMemberId())))
+                .toList();
     }
 
-    private MapPinCommentResponse toResponse(MapPinComment comment) {
+    private MapPinCommentResponse toResponse(MapPinComment comment, Member member) {
         return new MapPinCommentResponse(
                 comment.getId(),
                 comment.getMapPinId(),
                 comment.getMemberId(),
+                member != null ? member.getNickname() : UNKNOWN_MEMBER_NICKNAME,
+                member != null ? member.getProfileImageUrl() : null,
                 comment.getContent(),
                 comment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );

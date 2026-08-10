@@ -8,6 +8,9 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 
 import back.backend.domain.collaboration.service.CollaborationEventService;
+import back.backend.domain.member.entity.AuthProvider;
+import back.backend.domain.member.entity.Member;
+import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.place.dto.request.AddMapPinCommentRequest;
 import back.backend.domain.place.dto.response.MapPinCommentResponse;
 import back.backend.domain.place.dto.response.MapPinSummaryResponse;
@@ -27,14 +30,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class MapPinCommentServiceTest {
 
     @Mock private MapPinRepository mapPinRepository;
+    @Mock private MapPinPersistenceService mapPinPersistenceService;
     @Mock private MapPinCommentRepository commentRepository;
+    @Mock private MemberRepository memberRepository;
     @Mock private TripAccessChecker accessChecker;
     @Mock private CollaborationEventService collaborationEventService;
 
@@ -86,9 +90,7 @@ class MapPinCommentServiceTest {
     @Test
     @DisplayName("t4 첫 댓글 등록 시 핀을 새로 만들고 댓글을 저장한다")
     void t4_addCommentCreatesPinWhenNotExists() {
-        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJnew"))
-                .willReturn(Optional.empty());
-        given(mapPinRepository.save(any())).willAnswer(invocation -> {
+        given(mapPinPersistenceService.findOrCreate(any())).willAnswer(invocation -> {
             MapPin p = invocation.getArgument(0);
             ReflectionTestUtils.setField(p, "id", 20L);
             return p;
@@ -106,7 +108,7 @@ class MapPinCommentServiceTest {
         assertThat(result.id()).isEqualTo(200L);
         assertThat(result.mapPinId()).isEqualTo(20L);
         assertThat(result.content()).isEqualTo("여기 가보고 싶어요");
-        then(mapPinRepository).should().save(any(MapPin.class));
+        then(mapPinPersistenceService).should().findOrCreate(any(MapPin.class));
         then(collaborationEventService).should().record(
                 org.mockito.ArgumentMatchers.eq(1L),
                 org.mockito.ArgumentMatchers.eq(1L),
@@ -121,8 +123,7 @@ class MapPinCommentServiceTest {
     @DisplayName("t5 이미 핀이 있으면 새로 만들지 않고 댓글만 추가한다")
     void t5_addCommentReusesExistingPin() {
         MapPin existing = pin(30L, "ChIJexisting", "기존 장소");
-        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJexisting"))
-                .willReturn(Optional.of(existing));
+        given(mapPinPersistenceService.findOrCreate(any())).willReturn(existing);
         given(commentRepository.save(any())).willAnswer(invocation -> {
             MapPinComment c = invocation.getArgument(0);
             ReflectionTestUtils.setField(c, "id", 201L);
@@ -134,7 +135,7 @@ class MapPinCommentServiceTest {
                 new AddMapPinCommentRequest("추가 댓글", 37.5, 127.0, "기존 장소"));
 
         assertThat(result.mapPinId()).isEqualTo(30L);
-        then(mapPinRepository).should(org.mockito.Mockito.never()).save(any());
+        then(mapPinPersistenceService).should().findOrCreate(any(MapPin.class));
     }
 
     @Test
@@ -150,14 +151,10 @@ class MapPinCommentServiceTest {
     }
 
     @Test
-    @DisplayName("t7 동시성 경합으로 핀 생성이 충돌하면 재조회한 기존 핀을 사용한다")
-    void t7_addCommentHandlesConcurrentPinCreationRace() {
-        MapPin winningPin = pin(40L, "ChIJrace", "경합 장소");
-        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJrace"))
-                .willReturn(Optional.empty())
-                .willReturn(Optional.of(winningPin));
-        given(mapPinRepository.save(any()))
-                .willThrow(new DataIntegrityViolationException("duplicate key"));
+    @DisplayName("t7 댓글과 장소 이름의 앞뒤 공백을 제거해 저장한다")
+    void t7_addCommentNormalizesTextFields() {
+        MapPin savedPin = pin(40L, "ChIJnormalized", "장소");
+        given(mapPinPersistenceService.findOrCreate(any())).willReturn(savedPin);
         given(commentRepository.save(any())).willAnswer(invocation -> {
             MapPinComment c = invocation.getArgument(0);
             ReflectionTestUtils.setField(c, "id", 202L);
@@ -165,11 +162,45 @@ class MapPinCommentServiceTest {
         });
 
         MapPinCommentResponse result = mapPinCommentService.addComment(
-                1L, "ChIJrace",
-                new AddMapPinCommentRequest("경합 댓글", 37.5, 127.0, "경합 장소"));
+                1L, "ChIJnormalized",
+                new AddMapPinCommentRequest("  댓글  ", 37.5, 127.0, "  장소  "));
 
         assertThat(result.mapPinId()).isEqualTo(40L);
-        then(mapPinRepository).should(org.mockito.Mockito.times(1)).save(any(MapPin.class));
+        assertThat(result.content()).isEqualTo("댓글");
+        then(mapPinPersistenceService).should().findOrCreate(
+                org.mockito.ArgumentMatchers.argThat(pin -> pin.getPlaceName().equals("장소"))
+        );
+    }
+
+    @Test
+    @DisplayName("t8 댓글 조회 시 작성자 닉네임과 프로필 이미지를 함께 반환한다")
+    void t8_getCommentsIncludesAuthorProfile() {
+        MapPin existingPin = pin(50L, "ChIJauthor", "작성자 장소");
+        MapPinComment comment = MapPinComment.builder()
+                .mapPinId(50L)
+                .memberId(2L)
+                .content("같이 가요")
+                .createdAt(LocalDateTime.of(2026, 8, 10, 12, 0))
+                .build();
+        Member member = Member.create(
+                "member@example.com",
+                "여행자",
+                "/uploads/profile-images/member.png",
+                AuthProvider.KAKAO,
+                "provider-2");
+        ReflectionTestUtils.setField(member, "id", 2L);
+        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJauthor"))
+                .willReturn(Optional.of(existingPin));
+        given(commentRepository.findAllByMapPinIdOrderByIdAsc(50L))
+                .willReturn(List.of(comment));
+        given(memberRepository.findAllById(List.of(2L))).willReturn(List.of(member));
+
+        List<MapPinCommentResponse> result = mapPinCommentService.getComments(1L, "ChIJauthor");
+
+        assertThat(result).singleElement().satisfies(response -> {
+            assertThat(response.nickname()).isEqualTo("여행자");
+            assertThat(response.profileImageUrl()).isEqualTo("/uploads/profile-images/member.png");
+        });
     }
 
     private MapPin pin(Long id, String googlePlaceId, String placeName) {
