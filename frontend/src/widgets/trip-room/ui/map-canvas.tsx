@@ -203,23 +203,23 @@ function GoogleMapCanvas({
     const [showCategoryBadges, setShowCategoryBadges] = useState(true)
     const [simplifyMarkers, setSimplifyMarkers] = useState(false)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
+    const loadingPoiPlaceId = poiState?.loading ? poiState.placeId : null
 
     useEffect(() => {
-        if (!poiState?.loading || !poiState.placeId) return
+        if (!loadingPoiPlaceId) return
         let cancelled = false
-        const { placeId } = poiState
+        const placeId = loadingPoiPlaceId
 
         const pending = pendingPoiRequests.get(placeId)
         const request = pending ?? getPlaceDetails(placeId)
         if (!pending) {
             pendingPoiRequests.set(placeId, request)
-            void request
-                .finally(() => {
-                    if (pendingPoiRequests.get(placeId) === request) {
-                        pendingPoiRequests.delete(placeId)
-                    }
-                })
-                .catch(() => {})
+            const clearPendingRequest = () => {
+                if (pendingPoiRequests.get(placeId) === request) {
+                    pendingPoiRequests.delete(placeId)
+                }
+            }
+            void request.then(clearPendingRequest, clearPendingRequest)
         }
 
         void request
@@ -246,7 +246,7 @@ function GoogleMapCanvas({
         return () => {
             cancelled = true
         }
-    }, [poiState?.placeId, poiState?.loading]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [loadingPoiPlaceId])
 
     const scheduledPlaceDetailsMap = useMemo(() => {
         if (!days) {
