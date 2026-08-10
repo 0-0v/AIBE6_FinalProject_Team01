@@ -33,15 +33,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ItineraryService {
-
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final ItineraryDayRepository dayRepository;
     private final ItineraryItemRepository itemRepository;
@@ -224,8 +221,8 @@ public class ItineraryService {
         lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
 
-        LocalTime startTime = parseTime(request.startTime());
-        LocalTime endTime = parseTime(request.endTime());
+        LocalTime startTime = ItineraryRequestValidator.parseTime(request.startTime());
+        LocalTime endTime = ItineraryRequestValidator.parseTime(request.endTime());
         if (startTime != null && endTime != null && endTime.isBefore(startTime)) {
             throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_TIME_RANGE);
         }
@@ -401,7 +398,7 @@ public class ItineraryService {
         List<ItineraryItem> dayItems =
                 itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day);
         List<Long> requestedIds = request.itemIds();
-        validateReorderRequest(dayItems, requestedIds);
+        ItineraryRequestValidator.validateReorder(dayItems, requestedIds);
 
         Map<Long, ItineraryItem> itemById = dayItems.stream()
                 .collect(Collectors.toMap(ItineraryItem::getId, item -> item));
@@ -498,7 +495,7 @@ public class ItineraryService {
     private LocalTime resolveTime(String value) {
         if (value == null || value.isBlank()) return null;
         try {
-            return LocalTime.parse(value, TIME_FMT);
+            return LocalTime.parse(value);
         } catch (DateTimeParseException e) {
             return null;
         }
@@ -557,7 +554,11 @@ public class ItineraryService {
                 plan,
                 departurePlaceIds
         );
-        validateRoutePlan(effectivePlan, days, expectedPlaces);
+        ItineraryRequestValidator.validateRoutePlan(
+                effectivePlan,
+                days,
+                expectedPlaces
+        );
         Map<Long, ItineraryDay> dayById = days.stream()
                 .collect(Collectors.toMap(ItineraryDay::getId, day -> day));
         List<ItineraryItem> existingItems = days.stream()
@@ -605,8 +606,8 @@ public class ItineraryService {
                     item.updateSortOrder(index);
                 }
                 item.updateDetails(
-                        parseTime(plannedItem.startTime()),
-                        parseTime(plannedItem.endTime()),
+                        ItineraryRequestValidator.parseTime(plannedItem.startTime()),
+                        ItineraryRequestValidator.parseTime(plannedItem.endTime()),
                         item.getMemo(),
                         plannedItem.transportMinutes(),
                         plannedItem.transportMeters(),
@@ -721,92 +722,6 @@ public class ItineraryService {
                 .orElseThrow(() ->
                         new BusinessException(ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND));
     }
-
-    private LocalTime parseTime(String value) {
-        if (value == null) {
-            return null;
-        }
-        try {
-            return LocalTime.parse(value, TIME_FMT);
-        } catch (DateTimeParseException exception) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_TIME);
-        }
-    }
-
-    private void validateReorderRequest(
-            List<ItineraryItem> dayItems,
-            List<Long> requestedIds
-    ) {
-        Set<Long> existingIds = dayItems.stream()
-                .map(ItineraryItem::getId)
-                .collect(Collectors.toSet());
-        Set<Long> uniqueRequestedIds = new HashSet<>(requestedIds);
-        if (requestedIds.size() != dayItems.size()
-                || uniqueRequestedIds.size() != requestedIds.size()
-                || !existingIds.equals(uniqueRequestedIds)) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ITEM_ORDER);
-        }
-    }
-
-    private void validateRoutePlan(
-            RoutePlanPreviewResponse plan,
-            List<ItineraryDay> days,
-            List<TripPlace> savedPlaces
-    ) {
-        if (plan == null
-                || plan.days() == null
-                || plan.days().stream().anyMatch(Objects::isNull)) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
-        }
-
-        Set<Long> validDayIds = days.stream()
-                .map(ItineraryDay::getId)
-                .collect(Collectors.toSet());
-        Set<Long> requestedDayIds = plan.days().stream()
-                .map(RoutePlanDayResponse::dayId)
-                .collect(Collectors.toSet());
-        if (requestedDayIds.size() != plan.days().size()
-                || !validDayIds.containsAll(requestedDayIds)) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
-        }
-
-        if (plan.days().stream().anyMatch(day ->
-                day.dayId() == null
-                        || day.items() == null
-                        || day.items().stream().anyMatch(Objects::isNull))) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
-        }
-        List<RoutePlanItemResponse> plannedItems = plan.days().stream()
-                .flatMap(day -> day.items().stream())
-                .toList();
-        Set<Long> savedPlaceIds = savedPlaces.stream()
-                .map(TripPlace::getId)
-                .collect(Collectors.toSet());
-        Set<Long> plannedPlaceIds = plannedItems.stream()
-                .map(RoutePlanItemResponse::tripPlaceId)
-                .collect(Collectors.toSet());
-        if (plannedPlaceIds.size() != plannedItems.size()
-                || !savedPlaceIds.equals(plannedPlaceIds)
-                || plannedItems.stream().anyMatch(item ->
-                        (item.transportMinutes() != null && item.transportMinutes() < 0)
-                                || (item.transportMeters() != null && item.transportMeters() < 0))) {
-            throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
-        }
-
-        for (RoutePlanItemResponse item : plannedItems) {
-            LocalTime startTime = parseTime(item.startTime());
-            LocalTime endTime = parseTime(item.endTime());
-            if (startTime != null && endTime != null && endTime.isBefore(startTime)) {
-                throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
-            }
-        }
-    }
-
-    /**
-     * 여행 날짜가 바뀌면 기존 Day(및 그 안의 일정)를 순서(dayNumber) 그대로 새 날짜 범위에 옮겨 적용한다.
-     * 범위가 넓어지면 남는 날짜만큼 빈 Day를 추가하고, 좁아져 넘치는 Day는 저장된 장소가 있으면
-     * 뒷번호로 보존하고, 비어 있으면 삭제한다.
-     */
     private void synchronizeItineraryDays(Long tripId) {
         tripRepository.findByIdForItineraryInitialization(tripId).ifPresent(trip -> {
             LocalDate startDate = trip.getStartDate();
