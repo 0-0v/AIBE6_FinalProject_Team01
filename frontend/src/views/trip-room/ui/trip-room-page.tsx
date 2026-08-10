@@ -46,6 +46,7 @@ import {
     REALTIME_EVENT_NAME,
     type RealtimeEvent,
 } from '@/widgets/realtime-sync'
+import { useResizableTripPanel } from '../model/use-resizable-trip-panel'
 
 export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const navigate = useNavigate()
@@ -132,10 +133,6 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     } | null>(null)
     const [headerContainer, setHeaderContainer] =
         useState<HTMLDivElement | null>(null)
-    const [customPanelWidth, setCustomPanelWidth] = useState<number | null>(
-        null,
-    )
-    const [isResizingPanel, setIsResizingPanel] = useState(false)
     const workspacePanelRef = useRef<HTMLElement>(null)
     const [mapCollapsed, setMapCollapsed] = useState(false)
     const [aiOpen, setAiOpen] = useState(false)
@@ -159,74 +156,17 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         Boolean(inviteCode) &&
         searchParams.get('join') === 'true' &&
         Boolean(currentUser)
-    const workspacePanelWidth = 'min(520px, 46vw)'
-    const resolvedWorkspacePanelWidth =
-        customPanelWidth == null ? workspacePanelWidth : `${customPanelWidth}px`
+    const {
+        panelWidth: resolvedWorkspacePanelWidth,
+        isResizingPanel,
+        currentPanelWidth: customPanelWidth,
+        startResizing,
+        handleResizeKeyDown: handlePanelResizeKeyDown,
+        resetPanelWidth: resetActivePanelWidth,
+    } = useResizableTripPanel(workspacePanelRef)
     const resolvedPanelWidth = showRoomList
         ? 'min(760px, 52vw)'
         : resolvedWorkspacePanelWidth
-
-    const clampPanelWidth = useCallback((width: number) => {
-        const minimumWidth = 360
-        const workspaceWidth =
-            workspacePanelRef.current?.parentElement?.getBoundingClientRect()
-                .width ?? window.innerWidth
-        const maximumWidth = Math.max(
-            minimumWidth,
-            Math.min(900, workspaceWidth - 360),
-        )
-        return Math.min(Math.max(width, minimumWidth), maximumWidth)
-    }, [])
-
-    useEffect(() => {
-        if (!isResizingPanel) return
-
-        function handlePointerMove(event: PointerEvent) {
-            const panelRight =
-                workspacePanelRef.current?.getBoundingClientRect().right ??
-                window.innerWidth
-            const nextWidth = clampPanelWidth(panelRight - event.clientX)
-            setCustomPanelWidth(nextWidth)
-        }
-
-        function handlePointerUp() {
-            setIsResizingPanel(false)
-        }
-
-        const previousCursor = document.body.style.cursor
-        const previousUserSelect = document.body.style.userSelect
-        document.body.style.cursor = 'col-resize'
-        document.body.style.userSelect = 'none'
-        window.addEventListener('pointermove', handlePointerMove)
-        window.addEventListener('pointerup', handlePointerUp)
-        window.addEventListener('pointercancel', handlePointerUp)
-
-        return () => {
-            document.body.style.cursor = previousCursor
-            document.body.style.userSelect = previousUserSelect
-            window.removeEventListener('pointermove', handlePointerMove)
-            window.removeEventListener('pointerup', handlePointerUp)
-            window.removeEventListener('pointercancel', handlePointerUp)
-        }
-    }, [clampPanelWidth, isResizingPanel])
-
-    function handlePanelResizeKeyDown(
-        event: React.KeyboardEvent<HTMLDivElement>,
-    ) {
-        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-
-        event.preventDefault()
-        const currentWidth =
-            customPanelWidth ??
-            workspacePanelRef.current?.getBoundingClientRect().width ??
-            400
-        const direction = event.key === 'ArrowLeft' ? 1 : -1
-        setCustomPanelWidth(clampPanelWidth(currentWidth + direction * 20))
-    }
-
-    function resetActivePanelWidth() {
-        setCustomPanelWidth(null)
-    }
 
     useEffect(() => {
         const handleRealtimeChange = (event: Event) => {
@@ -741,11 +681,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     workspacePanelRef.current?.getBoundingClientRect()
                                         .width
                                 if (currentWidth != null) {
-                                    setCustomPanelWidth(
-                                        clampPanelWidth(currentWidth),
-                                    )
+                                    startResizing(currentWidth)
+                                } else {
+                                    startResizing()
                                 }
-                                setIsResizingPanel(true)
                             }}
                             onDoubleClick={resetActivePanelWidth}
                             onKeyDown={handlePanelResizeKeyDown}
