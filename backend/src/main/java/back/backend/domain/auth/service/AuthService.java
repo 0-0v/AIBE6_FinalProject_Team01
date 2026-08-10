@@ -87,6 +87,9 @@ public class AuthService {
         if (member.getStatus() == MemberStatus.WITHDRAWN) {
             throw new BusinessException(AuthErrorCode.WITHDRAWN_ACCOUNT);
         }
+        if (member.getStatus() == MemberStatus.SUSPENDED) {
+            throw new BusinessException(AuthErrorCode.SUSPENDED_ACCOUNT);
+        }
         if (!passwordEncoder.matches(request.password(), member.getPasswordHash())) {
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
         }

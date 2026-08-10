@@ -11,6 +11,7 @@ public enum AuthErrorCode implements ErrorCode {
             "AUTH_409_WITHDRAWN_ACCOUNT",
             "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 같은 이메일 또는 소셜 계정으로 "
                     + "재가입할 수 없습니다. 보관기간이 끝난 후 다시 시도해 주세요."),
+    SUSPENDED_ACCOUNT(HttpStatus.FORBIDDEN, "AUTH_403_SUSPENDED", "관리자에 의해 이용이 정지된 계정입니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
     INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "AUTH_400_CODE", "인증번호가 올바르지 않거나 만료되었습니다."),
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_400_NOT_VERIFIED", "이메일 인증이 필요합니다."),

@@ -166,4 +166,36 @@ class JwtAuthenticationFilterTest {
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(filterChain).doFilter(request, response);
     }
+
+    @Test
+    @DisplayName("t8 관리자 회원의 토큰이면 관리자와 사용자 권한을 모두 설정한다")
+    void t8_adminMemberTokenSetsAdminAndUserAuthorities() throws Exception {
+        Member member = activeMember(5L);
+        member.promoteToAdmin();
+        when(memberRepository.findById(5L)).thenReturn(Optional.of(member));
+        String token = jwtProvider.createAccessToken(5L, member.getEmail());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting("authority")
+                .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN");
+    }
+
+    @Test
+    @DisplayName("t9 정지 회원의 토큰이면 인증 정보를 설정하지 않는다")
+    void t9_suspendedMemberTokenSkipsAuthentication() throws Exception {
+        Member member = activeMember(6L);
+        ReflectionTestUtils.setField(member, "status", MemberStatus.SUSPENDED);
+        when(memberRepository.findById(6L)).thenReturn(Optional.of(member));
+        String token = jwtProvider.createAccessToken(6L, member.getEmail());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
 }

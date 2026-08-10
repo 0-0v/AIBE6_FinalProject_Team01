@@ -58,6 +58,11 @@ app:
       region: ${AWS_REGION:ap-northeast-2}
       public-base-url: ${AWS_S3_PUBLIC_BASE_URL:}
   auth:
+    admin-account:
+      enabled: ${ADMIN_ACCOUNT_ENABLED:false}
+      username: ${ADMIN_USERNAME:admin12}
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}
     test-accounts:
       enabled: ${TEST_ACCOUNTS_ENABLED:true}
     jwt:

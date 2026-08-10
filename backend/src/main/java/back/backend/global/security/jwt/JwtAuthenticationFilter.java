@@ -67,7 +67,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private UsernamePasswordAuthenticationToken toAuthentication(Member member) {
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        List<GrantedAuthority> authorities = member.getRole() == back.backend.domain.member.entity.MemberRole.ADMIN
+                ? List.of(
+                        new SimpleGrantedAuthority("ROLE_USER"),
+                        new SimpleGrantedAuthority("ROLE_ADMIN"))
+                : List.of(new SimpleGrantedAuthority("ROLE_USER"));
         MemberPrincipal principal = new MemberPrincipal(member.getId(), member.getEmail(), authorities);
         return new UsernamePasswordAuthenticationToken(principal, null, authorities);
     }

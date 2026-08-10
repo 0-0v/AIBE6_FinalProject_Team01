@@ -55,6 +55,23 @@ public class Member {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MemberStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private MemberRole role;
+
+    @Column(name = "suspension_reason", length = 500)
+    private String suspensionReason;
+
+    @Column(name = "suspended_at")
+    private LocalDateTime suspendedAt;
+
+    @Column(name = "suspended_until")
+    private LocalDateTime suspendedUntil;
+
+    @Column(name = "suspended_by")
+    private Long suspendedBy;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
@@ -85,6 +102,7 @@ public class Member {
         this.provider = Objects.requireNonNull(provider, "provider must not be null");
         this.providerId = Objects.requireNonNull(providerId, "providerId must not be null");
         this.status = MemberStatus.ACTIVE;
+        this.role = MemberRole.USER;
     }
 
     public static Member create(
@@ -146,6 +164,26 @@ public class Member {
         return status;
     }
 
+    public MemberRole getRole() {
+        return role;
+    }
+
+    public String getSuspensionReason() {
+        return suspensionReason;
+    }
+
+    public LocalDateTime getSuspendedAt() {
+        return suspendedAt;
+    }
+
+    public LocalDateTime getSuspendedUntil() {
+        return suspendedUntil;
+    }
+
+    public Long getSuspendedBy() {
+        return suspendedBy;
+    }
+
     public LocalDateTime getLastLoginAt() {
         return lastLoginAt;
     }
@@ -174,6 +212,46 @@ public class Member {
         this.lastLoginAt = LocalDateTime.now();
     }
 
+    public void promoteToAdmin() {
+        this.role = MemberRole.ADMIN;
+    }
+
+    public void suspend(
+            Long adminId,
+            String reason,
+            LocalDateTime suspendedAt,
+            LocalDateTime suspendedUntil
+    ) {
+        if (status == MemberStatus.WITHDRAWN) {
+            throw new IllegalStateException("탈퇴 회원은 정지할 수 없습니다.");
+        }
+        String normalizedReason = Objects.requireNonNull(reason, "reason must not be null").strip();
+        if (normalizedReason.isBlank()) {
+            throw new IllegalArgumentException("정지 사유는 필수입니다.");
+        }
+        LocalDateTime normalizedSuspendedAt =
+                Objects.requireNonNull(suspendedAt, "suspendedAt must not be null");
+        if (suspendedUntil != null && !suspendedUntil.isAfter(normalizedSuspendedAt)) {
+            throw new IllegalArgumentException("정지 종료 시각은 시작 시각보다 이후여야 합니다.");
+        }
+        this.status = MemberStatus.SUSPENDED;
+        this.suspendedBy = Objects.requireNonNull(adminId, "adminId must not be null");
+        this.suspensionReason = normalizedReason;
+        this.suspendedAt = normalizedSuspendedAt;
+        this.suspendedUntil = suspendedUntil;
+    }
+
+    public void releaseSuspension() {
+        if (status != MemberStatus.SUSPENDED) {
+            return;
+        }
+        this.status = MemberStatus.ACTIVE;
+        this.suspendedBy = null;
+        this.suspensionReason = null;
+        this.suspendedAt = null;
+        this.suspendedUntil = null;
+    }
+
     public void changeNickname(String nickname) {
         this.nickname = Objects.requireNonNull(nickname, "nickname must not be null");
     }
@@ -194,6 +272,10 @@ public class Member {
             return;
         }
         this.status = MemberStatus.WITHDRAWN;
+        this.suspendedBy = null;
+        this.suspensionReason = null;
+        this.suspendedAt = null;
+        this.suspendedUntil = null;
         this.withdrawnAt = Objects.requireNonNull(withdrawnAt, "withdrawnAt must not be null");
         this.personalInfoExpiresAt =
                 Objects.requireNonNull(personalInfoExpiresAt, "personalInfoExpiresAt must not be null");
