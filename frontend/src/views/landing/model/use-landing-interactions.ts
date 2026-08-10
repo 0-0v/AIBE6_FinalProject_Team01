@@ -15,7 +15,6 @@ export function useLandingInteractions(landingStyles: string) {
     )
     const [ctaHover, setCtaHover] = useState(false)
     const [activeSection, setActiveSection] = useState('problem')
-    const [railHovered, setRailHovered] = useState(false)
     const [smx, setSmx] = useState(0)
     const [smy, setSmy] = useState(0)
 
@@ -259,8 +258,6 @@ export function useLandingInteractions(landingStyles: string) {
         ctaHover,
         setCtaHover,
         activeSection,
-        railHovered,
-        setRailHovered,
         smx,
         smy,
         scrollTo,

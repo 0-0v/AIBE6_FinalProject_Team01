@@ -11,10 +11,11 @@ import { useCurrentUserStore } from '@/shared/model'
 import { BrandLogo } from '@/shared/ui'
 import { HeroGlobe } from './hero-globe'
 import { LandingNavigation } from './landing-navigation'
+import {
+    LandingJourneyRail,
+    RAIL_LABEL_MAX_WIDTH,
+} from './landing-journey-rail'
 import { useLandingInteractions } from '../model/use-landing-interactions'
-
-// 여정 레일 라벨이 호버/포커스 시 펼쳐지는 최대 너비 — 인라인 스타일과 CSS 양쪽에서 재사용
-const RAIL_LABEL_MAX_WIDTH = 110
 
 const LANDING_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Gothic+A1:wght@800;900&display=swap');
@@ -53,22 +54,6 @@ const LANDING_STYLES = `
 /** 반복되는 fadeUpIn 애니메이션 문자열 생성 헬퍼 */
 const fadeUpIn = (delayMs: number) =>
     `pl-fadeUpIn 0.8s cubic-bezier(.22,1,.36,1) ${delayMs}ms both`
-
-/** 좌측 여정 레일에 표시되는 섹션 목록 — 값이 고정이라 렌더마다 새로 만들 필요가 없다 */
-const JOURNEY_STEPS: Array<[id: string, label: string]> = [
-    ['problem', '흩어진 계획'],
-    ['place', '장소 저장'],
-    ['vote', '투표 결정'],
-    ['ai', 'AI 일정 추천'],
-    ['expense', '정산 N빵'],
-    ['cta', '시작하기'],
-]
-
-// 레일 점의 좌우 패딩 — 커넥터 선을 점 중심에 맞추는 계산에도 같이 쓰인다
-const RAIL_DOT_PADDING_X = 6
-/** 커넥터 선(2px)이 점의 정중앙에 오도록 하는 marginRight 계산 (레일이 우측 정렬이라 오른쪽 기준) */
-const railConnectorOffset = (dotSize: number) =>
-    RAIL_DOT_PADDING_X + dotSize / 2 - 1
 
 /** 씬 섹션(문제/장소/투표/AI/정산/CTA) 6곳이 공유하는 위아래 패딩 비율 */
 const SCENE_SECTION_PADDING =
@@ -140,8 +125,6 @@ export function Landing() {
         ctaHover,
         setCtaHover,
         activeSection,
-        railHovered,
-        setRailHovered,
         smx,
         smy,
         scrollTo,
@@ -508,118 +491,11 @@ export function Landing() {
                 <ScrollDownHint onClick={scrollTo('problem-section')} />
             </section>
 
-            {/* ── 여정 레일 (우측 고정) — 호버하면 섹션 이름이 나열된 세로 네비바로 펼쳐진다 ── */}
             {!isMobile && (
-                <div
-                    onMouseEnter={() => setRailHovered(true)}
-                    onMouseLeave={() => setRailHovered(false)}
-                    className="pl-rail"
-                    style={{
-                        position: 'fixed',
-                        right: 28,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        zIndex: 60,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-end',
-                        gap: 2,
-                        padding: '10px 8px',
-                        borderRadius: 20,
-                        background: railHovered ? '#FFFDF9' : 'transparent',
-                        border: railHovered
-                            ? '1.5px solid #EFE2D6'
-                            : '1.5px solid transparent',
-                        boxShadow: railHovered
-                            ? '0 12px 28px rgba(58,42,40,0.1)'
-                            : 'none',
-                        transition:
-                            'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
-                    }}
-                >
-                    {JOURNEY_STEPS.map(([id, label], i) => {
-                        const idx = JOURNEY_STEPS.findIndex(
-                            ([oid]) => oid === activeSection,
-                        )
-                        const active = id === activeSection
-                        const passed = idx > i
-                        return (
-                            <React.Fragment key={id}>
-                                <button
-                                    type="button"
-                                    aria-label={`${label} 섹션으로 이동`}
-                                    onClick={scrollTo(`${id}-section`)}
-                                    className="pl-rail-dot"
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'row-reverse',
-                                        alignItems: 'center',
-                                        gap: 10,
-                                        padding: `4px ${RAIL_DOT_PADDING_X}px`,
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            display: 'block',
-                                            flexShrink: 0,
-                                            width: active ? 12 : 8,
-                                            height: active ? 12 : 8,
-                                            borderRadius: '50%',
-                                            background: active
-                                                ? '#FF7A59'
-                                                : passed
-                                                  ? '#FFB4C6'
-                                                  : '#EFE2D6',
-                                            transition: 'all 0.35s ease',
-                                            boxShadow: active
-                                                ? '0 0 0 5px rgba(255,122,89,0.16)'
-                                                : 'none',
-                                        }}
-                                    />
-                                    <span
-                                        className="pl-rail-label"
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            color: active
-                                                ? '#FF7A59'
-                                                : '#8A8FA8',
-                                            whiteSpace: 'nowrap',
-                                            maxWidth: railHovered
-                                                ? RAIL_LABEL_MAX_WIDTH
-                                                : 0,
-                                            opacity: railHovered ? 1 : 0,
-                                            overflow: 'hidden',
-                                            transition:
-                                                'max-width 0.25s ease, opacity 0.2s ease',
-                                        }}
-                                    >
-                                        {label}
-                                    </span>
-                                </button>
-                                {i < JOURNEY_STEPS.length - 1 && (
-                                    <div
-                                        style={{
-                                            width: 2,
-                                            height: 22,
-                                            marginRight: railConnectorOffset(
-                                                active ? 12 : 8,
-                                            ),
-                                            background: passed
-                                                ? '#FFB4C6'
-                                                : '#EFE2D6',
-                                            transition:
-                                                'background 0.35s ease, margin-right 0.35s ease',
-                                        }}
-                                    />
-                                )}
-                            </React.Fragment>
-                        )
-                    })}
-                </div>
+                <LandingJourneyRail
+                    activeSection={activeSection}
+                    onNavigate={scrollTo}
+                />
             )}
 
             {/* ── SCENE 01 PROBLEM ── */}
