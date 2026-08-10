@@ -18,7 +18,9 @@ import {
     initializeItinerary,
     fromApiToPlace,
     addTripPlace,
+    getMapPins,
     type ItineraryDay,
+    type MapPinSummaryResponse,
 } from '@/entities/trip'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { AiAgentPanel } from '@/features/ai-organize'
@@ -90,6 +92,18 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }>({ tripId: undefined, days: [] })
     const [itineraryVersion, setItineraryVersion] = useState(0)
     const [realtimeVersion, setRealtimeVersion] = useState(0)
+    const [mapPins, setMapPins] = useState<MapPinSummaryResponse[]>([])
+    useEffect(() => {
+        if (!tripId) {
+            Promise.resolve().then(() => setMapPins([]))
+            return
+        }
+        const controller = new AbortController()
+        getMapPins(tripId, controller.signal)
+            .then(setMapPins)
+            .catch(() => undefined)
+        return () => controller.abort()
+    }, [tripId, realtimeVersion])
     const itineraryDays =
         itineraryState.tripId === tripId ? itineraryState.days : []
     const handleItineraryDaysLoaded = useCallback(
@@ -592,6 +606,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         onDeselect={deselectPlace}
                         hoveredPlaceId={hoveredPlaceId}
                         onHoverPlace={setHoveredPlaceId}
+                        tripId={tripId}
+                        mapPins={mapPins}
                         days={itineraryDays}
                         initialRouteDay={
                             pendingAiAction?.routeContext?.dayNumber ?? null
