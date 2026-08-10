@@ -11,7 +11,6 @@ import { Place } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
-import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
 import {
     getItineraryDayColor,
@@ -19,10 +18,10 @@ import {
     ITINERARY_MAP_BOUNDS,
     ITINERARY_MAP_MIN_ZOOM,
 } from '../lib/itinerary-map'
-import { formatTransportSummary } from '../lib/itinerary-transport'
 import { getPlaceDetails } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { MapPoiPopup } from './map-poi-popup'
+import { MapRouteLayer } from './map-route-layer'
 
 // POI 클릭 결과 세션 캐시 — 같은 장소 재클릭 시 API 호출 없음
 const resolvedPoiDetails = new Map<string, PlaceSearchResult>()
@@ -535,7 +534,7 @@ function GoogleMapCanvas({
                     padding={routeOverview ? 8 : 96}
                 />
                 <SegmentPanController points={focusedSegmentPoints} />
-                <RouteLayer
+                <MapRouteLayer
                     routes={visibleRoutes}
                     emphasized={activeRouteDay != null}
                     focusedSegment={focusedSegment}
@@ -793,124 +792,6 @@ function GoogleMapCanvas({
         </div>
     )
 }
-
-// 일정 Day 경로선 렌더링 (확정 전은 연하게, 확정 후는 선명하게 표시)
-function RouteLayer({
-    routes,
-    emphasized,
-    focusedSegment,
-}: {
-    routes: Array<{
-        points: Array<{
-            lat: number
-            lng: number
-            tripPlaceId: string | null
-            placeName: string
-            transportMinutes: number | null
-            transportMeters: number | null
-            transportMode: string | null
-            transportDetail: string | null
-        }>
-        color: string
-        dayId: string
-        dayNumber: number
-        confirmed: boolean
-    }>
-    emphasized: boolean
-    focusedSegment: { fromPlaceId: string; toPlaceId: string } | null
-}) {
-    const [hoveredSegment, setHoveredSegment] = useState<string | null>(null)
-    const isFocusMode = focusedSegment != null
-
-    return (
-        <>
-            {routes.map((route) =>
-                route.points.slice(0, -1).map((point, index) => {
-                    const next = route.points[index + 1]
-                    const segmentId = `${route.dayId}-${index}`
-                    const segPath = [
-                        { lat: point.lat, lng: point.lng },
-                        { lat: next.lat, lng: next.lng },
-                    ]
-                    const midpoint = {
-                        lat: (point.lat + next.lat) / 2,
-                        lng: (point.lng + next.lng) / 2,
-                    }
-                    const isFocusedSeg =
-                        isFocusMode &&
-                        point.tripPlaceId === focusedSegment!.fromPlaceId &&
-                        next.tripPlaceId === focusedSegment!.toPlaceId
-                    const segOpacity = isFocusMode
-                        ? isFocusedSeg
-                            ? 1
-                            : 0.08
-                        : emphasized
-                          ? 0.95
-                          : route.confirmed
-                            ? 0.85
-                            : 0.65
-                    return (
-                        <React.Fragment key={segmentId}>
-                            <ItineraryRoutePolyline
-                                path={segPath}
-                                color={route.color}
-                                opacity={segOpacity}
-                                strokeWeight={2}
-                                zIndex={isFocusedSeg ? 3 : 2}
-                                emphasis={
-                                    isFocusMode
-                                        ? isFocusedSeg
-                                            ? 'focused'
-                                            : 'dimmed'
-                                        : 'normal'
-                                }
-                                animated={
-                                    isFocusMode
-                                        ? isFocusedSeg
-                                        : hoveredSegment === segmentId
-                                }
-                                visible={
-                                    isFocusMode || hoveredSegment === segmentId
-                                }
-                            />
-                            <AdvancedMarker
-                                position={midpoint}
-                                zIndex={isFocusedSeg ? 10 : 5}
-                                onMouseEnter={() =>
-                                    setHoveredSegment(segmentId)
-                                }
-                                onMouseLeave={() => setHoveredSegment(null)}
-                            >
-                                <div
-                                    className={`relative transition-opacity ${
-                                        isFocusMode && !isFocusedSeg
-                                            ? 'opacity-10'
-                                            : 'opacity-100'
-                                    }`}
-                                >
-                                    {hoveredSegment === segmentId && (
-                                        <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-center shadow-lg">
-                                            <p className="truncate text-[11px] font-bold text-slate-700">
-                                                {point.placeName} →{' '}
-                                                {next.placeName}
-                                            </p>
-                                            <p className="mt-0.5 text-[10px] text-slate-400">
-                                                {formatTransportSummary(point)}
-                                            </p>
-                                        </div>
-                                    )}
-                                    <div className="size-6 cursor-default" />
-                                </div>
-                            </AdvancedMarker>
-                        </React.Fragment>
-                    )
-                }),
-            )}
-        </>
-    )
-}
-
-// 구간 선택 시 출발 장소 중심으로 확대
 function SegmentPanController({
     points,
 }: {
