@@ -46,11 +46,10 @@ export async function signup(
 }
 
 export async function checkNicknameAvailability(nickname: string) {
-    const response =
-        await apiClient.postPublic<NicknameAvailabilityResponse>(
-            '/api/auth/nickname-availability',
-            { nickname },
-        )
+    const response = await apiClient.postPublic<NicknameAvailabilityResponse>(
+        '/api/auth/nickname-availability',
+        { nickname },
+    )
     return response.data.available
 }
 

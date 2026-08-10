@@ -1415,9 +1415,7 @@ export function Home() {
                                             activeDragId={null}
                                             previewDayId={null}
                                             hoveredItemId={hoveredItemId}
-                                            onItemHoverChange={
-                                                setHoveredItemId
-                                            }
+                                            onItemHoverChange={setHoveredItemId}
                                             focusedItemId={focusedItemId}
                                             focusedPlaceId={null}
                                             emphasizedDayNumber={
@@ -2065,7 +2063,12 @@ function getTripStatusLabel(
     if (status === 'COMPLETED' || (endDate && todayDateKey > endDate)) {
         return '완료'
     }
-    if (startDate && endDate && todayDateKey >= startDate && todayDateKey <= endDate) {
+    if (
+        startDate &&
+        endDate &&
+        todayDateKey >= startDate &&
+        todayDateKey <= endDate
+    ) {
         return '여행 중'
     }
     return fallback

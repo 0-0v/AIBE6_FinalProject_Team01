@@ -8,11 +8,7 @@ type TransportSummary = {
 }
 
 export type SelectableItineraryTransportMode =
-    | 'WALKING'
-    | 'DRIVING'
-    | 'TAXI'
-    | 'BUS'
-    | 'RAIL'
+    'WALKING' | 'DRIVING' | 'TAXI' | 'BUS' | 'RAIL'
 
 export function resolveSelectableTransportMode(
     item: Pick<ItineraryItem, 'transportMode' | 'transportModePreference'>,

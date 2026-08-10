@@ -1,9 +1,4 @@
-import {
-    BusIcon,
-    CarIcon,
-    FootprintsIcon,
-    TrainFrontIcon,
-} from 'lucide-react'
+import { BusIcon, CarIcon, FootprintsIcon, TrainFrontIcon } from 'lucide-react'
 
 type Props = {
     mode: string | null

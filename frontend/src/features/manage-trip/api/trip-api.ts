@@ -173,17 +173,17 @@ export async function createTripInvitation(id: number) {
 export async function validateTripEmailInvitation(id: number, email: string) {
     const response = await apiClient.post<
         ApiResponse<{ available: boolean; message: string }>
-    >(
-        `/api/trips/${id}/email-invitations/validate`,
-        { email },
-    )
+    >(`/api/trips/${id}/email-invitations/validate`, { email })
     return response.data
 }
 
 export async function sendTripEmailInvitations(id: number, emails: string[]) {
-    await apiClient.post<ApiResponse<null>>(`/api/trips/${id}/email-invitations`, {
-        emails,
-    })
+    await apiClient.post<ApiResponse<null>>(
+        `/api/trips/${id}/email-invitations`,
+        {
+            emails,
+        },
+    )
 }
 
 export async function consumeTripEmailInvitation(token: string) {

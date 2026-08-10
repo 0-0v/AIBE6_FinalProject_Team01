@@ -84,7 +84,9 @@ export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
                             <button
                                 type="button"
                                 key={notification.id}
-                                onClick={() => void openNotification(notification)}
+                                onClick={() =>
+                                    void openNotification(notification)
+                                }
                                 className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-50 ${notification.read ? 'opacity-50' : ''}`}
                             >
                                 <span

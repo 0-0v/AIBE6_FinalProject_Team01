@@ -305,17 +305,17 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                     useCommentStore.getState().commentsByPlaceId
                 setPlaces(
                     tripPlaces.map((tp) => {
-                            const place = fromApiToPlace(
-                                tp,
-                                activeRoomId,
-                                votesByPlaceId.get(tp.tripPlaceId),
-                            )
-                            return {
-                                ...place,
-                                comments:
-                                    cachedComments[place.id] ?? place.comments,
-                            }
-                        }),
+                        const place = fromApiToPlace(
+                            tp,
+                            activeRoomId,
+                            votesByPlaceId.get(tp.tripPlaceId),
+                        )
+                        return {
+                            ...place,
+                            comments:
+                                cachedComments[place.id] ?? place.comments,
+                        }
+                    }),
                 )
             })
             .catch((error: unknown) => {
@@ -365,7 +365,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     )
 
     const existingGooglePlaceIds = useMemo(
-        () => new Set(places.map((p) => p.googlePlaceId).filter(Boolean) as string[]),
+        () =>
+            new Set(
+                places.map((p) => p.googlePlaceId).filter(Boolean) as string[],
+            ),
         [places],
     )
 
@@ -656,7 +659,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         initialFocusedSegmentIndex={
                             pendingAiAction?.routeContext?.segmentIndex ?? null
                         }
-                        onAddFromPoi={!inviteCode && canManagePlaces ? handleAddFromPoi : undefined}
+                        onAddFromPoi={
+                            !inviteCode && canManagePlaces
+                                ? handleAddFromPoi
+                                : undefined
+                        }
                         existingGooglePlaceIds={existingGooglePlaceIds}
                         canWrite={!inviteCode && canManagePlaces}
                         onRouteDayChange={(dayNumber) => {
@@ -669,7 +676,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                     />
                     {showRoomList && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/55 backdrop-blur-[3px]">
-                            <MapIcon size={36} className="mb-3 text-slate-300" />
+                            <MapIcon
+                                size={36}
+                                className="mb-3 text-slate-300"
+                            />
                             <p className="text-sm font-semibold text-slate-500">
                                 여행방을 선택하면 저장된 장소가 표시됩니다
                             </p>
@@ -845,7 +855,9 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                             : null
                                     }
                                     mapCollapsed={mapCollapsed}
-                                    onToggleMap={() => setMapCollapsed((v) => !v)}
+                                    onToggleMap={() =>
+                                        setMapCollapsed((v) => !v)
+                                    }
                                 />
                             ) : (
                                 <RoomListPanel

@@ -388,9 +388,8 @@ function MapContent({
     const focusedNextItem =
         focusedNextItemId == null
             ? null
-            : (allItems.find(
-                  (item) => String(item.id) === focusedNextItemId,
-              ) ?? null)
+            : (allItems.find((item) => String(item.id) === focusedNextItemId) ??
+              null)
     const focusedNextPosition =
         focusedNextItem != null && hasMapCoordinates(focusedNextItem)
             ? { lat: focusedNextItem.lat, lng: focusedNextItem.lng }
@@ -558,78 +557,83 @@ function MapContent({
                                       ? DIMMED_DAY_OPACITY
                                       : 'opacity-100'
                             return (
-                            <AdvancedMarker
-                                key={item.id}
-                                position={{ lat: item.lat, lng: item.lng }}
-                                onMouseEnter={() =>
-                                    onItemHoverChange(String(item.id))
-                                }
-                                onMouseLeave={() => onItemHoverChange(null)}
-                                onClick={() =>
-                                    onItemFocus(
+                                <AdvancedMarker
+                                    key={item.id}
+                                    position={{ lat: item.lat, lng: item.lng }}
+                                    onMouseEnter={() =>
+                                        onItemHoverChange(String(item.id))
+                                    }
+                                    onMouseLeave={() => onItemHoverChange(null)}
+                                    onClick={() =>
+                                        onItemFocus(
+                                            isItemFocused
+                                                ? null
+                                                : String(item.id),
+                                        )
+                                    }
+                                    zIndex={
                                         isItemFocused
-                                            ? null
-                                            : String(item.id),
-                                    )
-                                }
-                                zIndex={
-                                    isItemFocused
-                                        ? 100
-                                        : hoveredItemId === String(item.id)
-                                          ? 90
-                                          : 5
-                                }
-                            >
-                                <div className={`relative flex flex-col items-center transition-opacity ${markerOpacity}`}>
-                                    {effectiveFocusedItemId ===
-                                        String(item.id) && (
-                                        <FocusedItineraryItemCard
-                                            dayNumber={day.dayNumber}
-                                            order={index + 1}
-                                            item={item}
-                                            nextItem={
-                                                day.items[index + 1] ?? null
-                                            }
-                                            place={
-                                                item.tripPlaceId == null
-                                                    ? undefined
-                                                    : placeById.get(
-                                                          String(
-                                                              item.tripPlaceId,
-                                                          ),
+                                            ? 100
+                                            : hoveredItemId === String(item.id)
+                                              ? 90
+                                              : 5
+                                    }
+                                >
+                                    <div
+                                        className={`relative flex flex-col items-center transition-opacity ${markerOpacity}`}
+                                    >
+                                        {effectiveFocusedItemId ===
+                                            String(item.id) && (
+                                            <FocusedItineraryItemCard
+                                                dayNumber={day.dayNumber}
+                                                order={index + 1}
+                                                item={item}
+                                                nextItem={
+                                                    day.items[index + 1] ?? null
+                                                }
+                                                place={
+                                                    item.tripPlaceId == null
+                                                        ? undefined
+                                                        : placeById.get(
+                                                              String(
+                                                                  item.tripPlaceId,
+                                                              ),
+                                                          )
+                                                }
+                                            />
+                                        )}
+                                        <ItineraryMapMarker
+                                            color={
+                                                previewDayNumber != null &&
+                                                String(item.id) === activeDragId
+                                                    ? getItineraryDayColor(
+                                                          previewDayNumber,
+                                                      )
+                                                    : getItineraryDayColor(
+                                                          day.dayNumber,
                                                       )
                                             }
+                                            label={index + 1}
+                                            categoryIcon={item.categoryIcon}
+                                            categoryColor={item.categoryColor}
+                                            categoryLabel={item.categoryName}
+                                            showCategoryBadge={
+                                                showCategoryBadges
+                                            }
+                                            selected={isItemFocused}
+                                            hovered={
+                                                hoveredItemId ===
+                                                String(item.id)
+                                            }
+                                            simplified={
+                                                simplifyMarkers &&
+                                                !isNextFocused &&
+                                                !isAnchor
+                                            }
+                                            anchor={isAnchor}
                                         />
-                                    )}
-                                    <ItineraryMapMarker
-                                        color={
-                                            previewDayNumber != null &&
-                                            String(item.id) === activeDragId
-                                                ? getItineraryDayColor(
-                                                      previewDayNumber,
-                                                  )
-                                                : getItineraryDayColor(
-                                                      day.dayNumber,
-                                                  )
-                                        }
-                                        label={index + 1}
-                                        categoryIcon={item.categoryIcon}
-                                        categoryColor={item.categoryColor}
-                                        categoryLabel={item.categoryName}
-                                        showCategoryBadge={showCategoryBadges}
-                                        selected={isItemFocused}
-                                        hovered={
-                                            hoveredItemId === String(item.id)
-                                        }
-                                        simplified={
-                                            simplifyMarkers &&
-                                            !isNextFocused &&
-                                            !isAnchor
-                                        }
-                                        anchor={isAnchor}
-                                    />
-                                </div>
-                            </AdvancedMarker>
+                                    </div>
+                                </AdvancedMarker>
                             )
                         })
                 })}

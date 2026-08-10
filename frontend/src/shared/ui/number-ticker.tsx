@@ -37,7 +37,10 @@ export function NumberTicker({
                     startRef.current = null
                     const animate = (now: number) => {
                         if (!startRef.current) startRef.current = now
-                        const progress = Math.min((now - startRef.current) / duration, 1)
+                        const progress = Math.min(
+                            (now - startRef.current) / duration,
+                            1,
+                        )
                         const eased = 1 - Math.pow(1 - progress, 3)
                         setCurrent(Math.round(eased * value))
                         if (progress < 1) {

@@ -87,7 +87,9 @@ export function MapPoiPopup({
                                 </span>
                                 {result.userRatingCount != null && (
                                     <span className="ml-0.5">
-                                        ({result.userRatingCount.toLocaleString()})
+                                        (
+                                        {result.userRatingCount.toLocaleString()}
+                                        )
                                     </span>
                                 )}
                             </p>

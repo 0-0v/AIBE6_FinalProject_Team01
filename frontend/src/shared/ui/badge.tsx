@@ -28,11 +28,7 @@ export function Badge({ children, color, className }: Props) {
                 'inline-block shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold',
                 className,
             )}
-            style={
-                color
-                    ? { backgroundColor: color + '20', color }
-                    : undefined
-            }
+            style={color ? { backgroundColor: color + '20', color } : undefined}
         >
             {children}
         </span>

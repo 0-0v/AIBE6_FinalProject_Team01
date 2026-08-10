@@ -189,7 +189,10 @@ export function ScheduleItemCard({
                                     {item.placeName ?? '(제목 없음)'}
                                 </span>
                                 <span className="shrink-0 text-xs text-slate-400">
-                                    {formatTimeRange(item.startTime, item.endTime)}
+                                    {formatTimeRange(
+                                        item.startTime,
+                                        item.endTime,
+                                    )}
                                 </span>
                             </div>
                             {item.memo && (

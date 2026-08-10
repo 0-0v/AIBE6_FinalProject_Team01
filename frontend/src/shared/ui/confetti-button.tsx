@@ -10,15 +10,33 @@ interface ConfettiButtonProps {
     as?: 'button' | 'a'
 }
 
-const COLORS = ['#FF7A59', '#FFB4C6', '#8B7CFF', '#D8CFFF', '#FFD94C', '#FF5A3C', '#FDF3E7']
+const COLORS = [
+    '#FF7A59',
+    '#FFB4C6',
+    '#8B7CFF',
+    '#D8CFFF',
+    '#FFD94C',
+    '#FF5A3C',
+    '#FDF3E7',
+]
 
-export function ConfettiButton({ onClick, children, className, style, as = 'button' }: ConfettiButtonProps) {
+export function ConfettiButton({
+    onClick,
+    children,
+    className,
+    style,
+    as = 'button',
+}: ConfettiButtonProps) {
     const containerRef = useRef<HTMLSpanElement>(null)
 
     const launch = () => {
         const origin = containerRef.current?.getBoundingClientRect()
-        const cx = origin ? origin.left + origin.width / 2 : window.innerWidth / 2
-        const cy = origin ? origin.top + origin.height / 2 : window.innerHeight / 2
+        const cx = origin
+            ? origin.left + origin.width / 2
+            : window.innerWidth / 2
+        const cy = origin
+            ? origin.top + origin.height / 2
+            : window.innerHeight / 2
 
         const canvas = document.createElement('canvas')
         canvas.style.cssText =

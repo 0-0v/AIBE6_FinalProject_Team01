@@ -1,12 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import {
-    CheckIcon,
-    LayersIcon,
-    MapIcon,
-    SatelliteIcon,
-} from 'lucide-react'
+import { CheckIcon, LayersIcon, MapIcon, SatelliteIcon } from 'lucide-react'
 
 export type MapDisplayType = 'roadmap' | 'hybrid'
 
@@ -52,11 +47,7 @@ type Props = {
     className?: string
 }
 
-export function MapTypeToggle({
-    value,
-    onChange,
-    className = '',
-}: Props) {
+export function MapTypeToggle({ value, onChange, className = '' }: Props) {
     const [open, setOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
     const options = [

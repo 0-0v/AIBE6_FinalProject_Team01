@@ -1,10 +1,4 @@
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ChevronLeftIcon,
     ChevronRightIcon,
@@ -562,9 +556,9 @@ export function DateVotePanel({
                 </div>
 
                 <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-500">
-                    PC에서는 날짜를 드래그하고, 모바일에서는 시작일과
-                    종료일을 차례로 눌러 선택하세요. Esc를 누르면 선택을
-                    취소할 수 있어요.
+                    PC에서는 날짜를 드래그하고, 모바일에서는 시작일과 종료일을
+                    차례로 눌러 선택하세요. Esc를 누르면 선택을 취소할 수
+                    있어요.
                 </p>
 
                 <div className="mt-2 grid grid-cols-7 text-center text-[10px] font-bold text-slate-400">
@@ -818,7 +812,8 @@ export function DateVotePanel({
                         selectionIsCurrentProposal
                     }
                     onClick={async () => {
-                        if (dirty || proposalSubmitting || voteSubmitting) return
+                        if (dirty || proposalSubmitting || voteSubmitting)
+                            return
                         setProposalSubmitting(true)
                         setError(null)
                         try {

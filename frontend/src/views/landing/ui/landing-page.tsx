@@ -300,7 +300,9 @@ export function Landing() {
 
             let currentIndex = 0
             sectionIds.forEach((id, index) => {
-                const top = document.getElementById(id)?.getBoundingClientRect().top
+                const top = document
+                    .getElementById(id)
+                    ?.getBoundingClientRect().top
                 if (top != null && top <= 1) currentIndex = index
             })
 
@@ -429,9 +431,7 @@ export function Landing() {
                     justifyContent: 'space-between',
                     gap: 16,
                     padding: '18px clamp(20px,5vw,64px)',
-                    transform: showNav
-                        ? 'translateY(0)'
-                        : 'translateY(-100%)',
+                    transform: showNav ? 'translateY(0)' : 'translateY(-100%)',
                     opacity: showNav ? 1 : 0,
                     pointerEvents: showNav ? 'auto' : 'none',
                     transition:
@@ -840,7 +840,7 @@ export function Landing() {
                         </div>
                     </div>
                 </div>
-            <ScrollDownHint onClick={scrollTo('problem-section')} />
+                <ScrollDownHint onClick={scrollTo('problem-section')} />
             </section>
 
             {/* ── 여정 레일 (우측 고정) — 호버하면 섹션 이름이 나열된 세로 네비바로 펼쳐진다 ── */}
@@ -1056,8 +1056,7 @@ export function Landing() {
                         }}
                     >
                         지도 검색 따로, 캡처 따로, 공유 따로.
-                        <br />
-                        이 번거로운 무한 굴레.
+                        <br />이 번거로운 무한 굴레.
                     </h2>
                 </div>
 
@@ -1388,7 +1387,7 @@ export function Landing() {
                         )}
                     </div>
                 </div>
-            <ScrollDownHint onClick={scrollTo('place-section')} />
+                <ScrollDownHint onClick={scrollTo('place-section')} />
             </section>
 
             {/* ── SCENE 02 PLACE ── */}
@@ -1645,7 +1644,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('vote-section')} />
+                <ScrollDownHint onClick={scrollTo('vote-section')} />
             </section>
 
             {/* ── SCENE 03 VOTE ── */}
@@ -1943,7 +1942,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('ai-section')} />
+                <ScrollDownHint onClick={scrollTo('ai-section')} />
             </section>
 
             {/* ── SCENE 04 AI ── */}
@@ -2241,7 +2240,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('expense-section')} />
+                <ScrollDownHint onClick={scrollTo('expense-section')} />
             </section>
 
             {/* ── SCENE 05 EXPENSE ── */}
@@ -2393,7 +2392,7 @@ export function Landing() {
                         }}
                     />
                 </div>
-            <ScrollDownHint onClick={scrollTo('cta-section')} />
+                <ScrollDownHint onClick={scrollTo('cta-section')} />
             </section>
 
             {/* ── SCENE 06 CTA ── */}

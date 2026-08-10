@@ -8,7 +8,10 @@ import {
     type TravelStyle,
 } from '../api/trip-api'
 import { pickRandomTripCoverPreset } from '../model/trip-cover-presets'
-import { TripCoverImageField, type TripCoverMode } from './trip-cover-image-field'
+import {
+    TripCoverImageField,
+    type TripCoverMode,
+} from './trip-cover-image-field'
 import {
     DestinationAutocomplete,
     type DestinationResult,
@@ -74,7 +77,9 @@ export function CreateTripModal({
             return
         }
         if (travelStyles.length > MAX_TRAVEL_STYLE_COUNT) {
-            setError(`여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`)
+            setError(
+                `여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`,
+            )
             return
         }
         if ((startDate && !endDate) || (!startDate && endDate)) {
@@ -195,7 +200,9 @@ export function CreateTripModal({
                         <fieldset className="mt-3.5">
                             <legend className="text-sm font-bold">
                                 여행 스타일{' '}
-                                <span className="font-normal text-slate-400">(최대 3개)</span>
+                                <span className="font-normal text-slate-400">
+                                    (최대 3개)
+                                </span>
                             </legend>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {STYLES.map((style) => (
@@ -204,7 +211,8 @@ export function CreateTripModal({
                                         type="button"
                                         onClick={() => toggleStyle(style.value)}
                                         disabled={
-                                            travelStyles.length >= MAX_TRAVEL_STYLE_COUNT &&
+                                            travelStyles.length >=
+                                                MAX_TRAVEL_STYLE_COUNT &&
                                             !travelStyles.includes(style.value)
                                         }
                                         className={`rounded-full px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40 ${travelStyles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}

@@ -25,7 +25,8 @@ import {
     updateTripPlaceCategory,
     type PlaceCategoryInfo,
     type ItineraryDay,
- PlaceCommentResponse } from '@/entities/trip'
+    PlaceCommentResponse,
+} from '@/entities/trip'
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { InviteModal } from '@/features/invite-member'
 import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
@@ -46,7 +47,6 @@ import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
 import { PlaceDetailOverlay } from './place-detail-overlay'
 import { RoomHeader } from './room-header'
-
 
 function mapApiComment(comment: PlaceCommentResponse) {
     return {

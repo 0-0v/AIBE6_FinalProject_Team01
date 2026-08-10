@@ -192,9 +192,8 @@ function GoogleMapCanvas({
     const [focusedSegmentIndex, setFocusedSegmentIndex] = useState<
         number | null
     >(initialFocusedSegmentIndex ?? null)
-    const [prevSelectedIdForSegment, setPrevSelectedIdForSegment] = useState(
-        selectedId,
-    )
+    const [prevSelectedIdForSegment, setPrevSelectedIdForSegment] =
+        useState(selectedId)
     // Day 필터를 직접 클릭해서 켰을 때만("day-route") 전체 동선 보기로 카메라를 맞추고,
     // 그 외(장소 선택 등)에는 카메라를 건드리지 않는다.
     const [routeFocusMode, setRouteFocusMode] = useState<'day-route' | 'none'>(
@@ -237,7 +236,11 @@ function GoogleMapCanvas({
                 if (!cancelled) {
                     setPoiState((prev) =>
                         prev?.placeId === placeId
-                            ? { ...prev, loading: false, error: '장소 정보를 불러오지 못했습니다.' }
+                            ? {
+                                  ...prev,
+                                  loading: false,
+                                  error: '장소 정보를 불러오지 못했습니다.',
+                              }
                             : prev,
                     )
                 }
@@ -550,12 +553,16 @@ function GoogleMapCanvas({
                                 error={poiState.error}
                                 isAlreadySaved={
                                     poiState.result != null &&
-                                    (existingGooglePlaceIds?.has(poiState.result.googlePlaceId) ?? false)
+                                    (existingGooglePlaceIds?.has(
+                                        poiState.result.googlePlaceId,
+                                    ) ??
+                                        false)
                                 }
                                 canWrite={canWrite}
                                 saving={poiState.saving}
                                 onSave={async () => {
-                                    if (!poiState.result || !onAddFromPoi) return
+                                    if (!poiState.result || !onAddFromPoi)
+                                        return
                                     setPoiState((prev) =>
                                         prev ? { ...prev, saving: true } : null,
                                     )
@@ -565,7 +572,11 @@ function GoogleMapCanvas({
                                     } catch {
                                         setPoiState((prev) =>
                                             prev
-                                                ? { ...prev, saving: false, error: '저장에 실패했습니다.' }
+                                                ? {
+                                                      ...prev,
+                                                      saving: false,
+                                                      error: '저장에 실패했습니다.',
+                                                  }
                                                 : null,
                                         )
                                     }
@@ -705,9 +716,7 @@ function GoogleMapCanvas({
                                         isDayMismatch ||
                                         outlinedPlaceIds.includes(place.id)
                                     }
-                                    simplified={
-                                        simplifyMarkers && !isAnchor
-                                    }
+                                    simplified={simplifyMarkers && !isAnchor}
                                     anchor={isAnchor}
                                 />
                             </div>
@@ -861,8 +870,7 @@ function RouteLayer({
                                         : hoveredSegment === segmentId
                                 }
                                 visible={
-                                    isFocusMode ||
-                                    hoveredSegment === segmentId
+                                    isFocusMode || hoveredSegment === segmentId
                                 }
                             />
                             <AdvancedMarker
@@ -1011,7 +1019,10 @@ function MapController({
         lng: selectedNextLng,
     })
     useEffect(() => {
-        secondaryPointRef.current = { lat: selectedNextLat, lng: selectedNextLng }
+        secondaryPointRef.current = {
+            lat: selectedNextLat,
+            lng: selectedNextLng,
+        }
     })
     const placesKey = places
         .map((place) => `${place.id}:${place.lat},${place.lng}`)

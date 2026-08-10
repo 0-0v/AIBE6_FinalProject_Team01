@@ -43,14 +43,11 @@ export function getSameDayInsertionIndex(
     overId: string,
     placeAfterOverItem: boolean,
 ): number {
-    const activeIndex = items.findIndex(
-        (item) => String(item.id) === activeId,
-    )
+    const activeIndex = items.findIndex((item) => String(item.id) === activeId)
     const overIndex = items.findIndex((item) => String(item.id) === overId)
     if (activeIndex < 0 || overIndex < 0) return activeIndex
 
-    const insertionBoundary =
-        overIndex + (placeAfterOverItem ? 1 : 0)
+    const insertionBoundary = overIndex + (placeAfterOverItem ? 1 : 0)
     const indexAfterRemoval =
         activeIndex < insertionBoundary
             ? insertionBoundary - 1
@@ -64,9 +61,7 @@ export function getSameDayInsertionIndexAtBoundary(
     activeId: string,
     insertionBoundary: number,
 ): number {
-    const activeIndex = items.findIndex(
-        (item) => String(item.id) === activeId,
-    )
+    const activeIndex = items.findIndex((item) => String(item.id) === activeId)
     if (activeIndex < 0) return activeIndex
     const indexAfterRemoval =
         activeIndex < insertionBoundary

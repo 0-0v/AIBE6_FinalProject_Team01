@@ -1,7 +1,12 @@
 'use client'
 
 import { type KeyboardEvent, useState } from 'react'
-import { CheckCircle2Icon, EyeIcon, EyeOffIcon, XCircleIcon } from 'lucide-react'
+import {
+    CheckCircle2Icon,
+    EyeIcon,
+    EyeOffIcon,
+    XCircleIcon,
+} from 'lucide-react'
 import { getPasswordChecks } from '../lib/password-policy'
 
 type PasswordFieldProps = {
@@ -63,7 +68,9 @@ export function PasswordField({
                     {visible ? <EyeIcon size={20} /> : <EyeOffIcon size={20} />}
                 </button>
             </div>
-            {error && <span className="mt-1.5 block text-red-600">{error}</span>}
+            {error && (
+                <span className="mt-1.5 block text-red-600">{error}</span>
+            )}
             {(capsLock || numLock) && (
                 <div className="mt-1.5 space-y-0.5 text-xs text-amber-600">
                     {capsLock && <p>Caps Lock이 켜져 있어요.</p>}

@@ -63,7 +63,9 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
             return false
         }
         if (styles.length > MAX_TRAVEL_STYLE_COUNT) {
-            setError(`여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`)
+            setError(
+                `여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`,
+            )
             return false
         }
         if ((startDate && !endDate) || (!startDate && endDate)) {
@@ -240,7 +242,9 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                         <fieldset className="mt-3.5">
                             <legend className="text-sm font-bold">
                                 여행 스타일{' '}
-                                <span className="font-normal text-slate-400">(최대 3개)</span>
+                                <span className="font-normal text-slate-400">
+                                    (최대 3개)
+                                </span>
                             </legend>
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {STYLES.map((style) => (
@@ -249,7 +253,8 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                         type="button"
                                         onClick={() => toggleStyle(style.value)}
                                         disabled={
-                                            styles.length >= MAX_TRAVEL_STYLE_COUNT &&
+                                            styles.length >=
+                                                MAX_TRAVEL_STYLE_COUNT &&
                                             !styles.includes(style.value)
                                         }
                                         className={`rounded-full px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40 ${styles.includes(style.value) ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500'}`}

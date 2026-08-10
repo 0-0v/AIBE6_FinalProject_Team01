@@ -36,9 +36,8 @@ export function RecordRoomPanel({
 }: Props) {
     const [inviteOpen, setInviteOpen] = useState(false)
     const [expenseComposerOpen, setExpenseComposerOpen] = useState(false)
-    const [editingExpense, setEditingExpense] = useState<ExpenseResponse | null>(
-        null,
-    )
+    const [editingExpense, setEditingExpense] =
+        useState<ExpenseResponse | null>(null)
     const [expenseRevision, setExpenseRevision] = useState(0)
     const [members, setMembers] = useState<TripMember[]>([])
 

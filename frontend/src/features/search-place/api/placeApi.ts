@@ -19,7 +19,8 @@ export async function searchPlaces(
 ): Promise<PlaceSearchResult[]> {
     const params = new URLSearchParams({ query })
     if (options?.location) params.append('location', options.location)
-    if (options?.includedType) params.append('includedType', options.includedType)
+    if (options?.includedType)
+        params.append('includedType', options.includedType)
     if (
         Number.isFinite(options?.latitude) &&
         Number.isFinite(options?.longitude)
