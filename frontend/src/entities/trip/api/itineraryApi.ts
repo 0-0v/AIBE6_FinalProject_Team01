@@ -8,6 +8,8 @@ import type {
     RoutePlanPreview,
     RouteOption,
 } from '../model/types'
+import { resolvePlaceCategoryPresentation } from '../model/place-presentation'
+import { resolvePlaceDisplayIcon } from '../model/place-display-icon'
 
 type UpdateItineraryItemData = {
     startTime?: string | null
@@ -22,11 +24,38 @@ const itineraryInitializationRequests = new Map<
     Promise<ItineraryDay[]>
 >()
 
+function normalizeItineraryItem(item: ItineraryItem): ItineraryItem {
+    const category = item.categoryType
+        ? resolvePlaceCategoryPresentation(item.categoryType).category
+        : item.categoryIcon === 'PLANE'
+          ? 'transport'
+          : item.categoryIcon === 'HOTEL'
+            ? 'lodging'
+            : 'other'
+
+    return {
+        ...item,
+        categoryIcon: resolvePlaceDisplayIcon(
+            category,
+            item.categoryIcon,
+            item.placeType,
+        ),
+    }
+}
+
+function normalizeItineraryDay(day: ItineraryDay): ItineraryDay {
+    return { ...day, items: day.items.map(normalizeItineraryItem) }
+}
+
+function normalizeItineraryDays(days: ItineraryDay[]): ItineraryDay[] {
+    return days.map(normalizeItineraryDay)
+}
+
 export async function getItinerary(tripId: number): Promise<ItineraryDay[]> {
     const res = await apiClient.get<ApiResponse<ItineraryDay[]>>(
         `/api/trips/${tripId}/itinerary`,
     )
-    return res.data
+    return normalizeItineraryDays(res.data)
 }
 
 export async function initializeItinerary(
@@ -41,7 +70,7 @@ export async function initializeItinerary(
             `/api/trips/${tripId}/itinerary/initialize`,
             {},
         )
-        .then((response) => response.data)
+        .then((response) => normalizeItineraryDays(response.data))
     itineraryInitializationRequests.set(tripId, request)
     const clearRequest = () => {
         if (itineraryInitializationRequests.get(tripId) === request) {
@@ -79,7 +108,7 @@ export async function applyItineraryRoutePlan(
         `/api/trips/${tripId}/itinerary/route-plan/apply`,
         plan,
     )
-    return res.data
+    return normalizeItineraryDays(res.data)
 }
 
 export async function addItineraryItem(
@@ -92,7 +121,7 @@ export async function addItineraryItem(
         `/api/trips/${tripId}/itinerary/days/${dayId}/items`,
         { tripPlaceId, sortOrder },
     )
-    return res.data
+    return normalizeItineraryDay(res.data)
 }
 
 export async function removeItineraryItem(
@@ -111,7 +140,7 @@ export async function updateItineraryItem(
         `/api/trips/${tripId}/itinerary/items/${itemId}`,
         data,
     )
-    return res.data
+    return normalizeItineraryItem(res.data)
 }
 
 export async function updateItineraryTransportMode(
@@ -123,7 +152,7 @@ export async function updateItineraryTransportMode(
         `/api/trips/${tripId}/itinerary/items/${itemId}/transport-mode`,
         { transportMode },
     )
-    return res.data
+    return normalizeItineraryItem(res.data)
 }
 
 export async function moveItineraryItem(
@@ -136,7 +165,7 @@ export async function moveItineraryItem(
         `/api/trips/${tripId}/itinerary/items/${itemId}/move`,
         { targetDayId, sortOrder },
     )
-    return res.data
+    return normalizeItineraryItem(res.data)
 }
 
 export async function reorderItineraryItems(
@@ -148,7 +177,7 @@ export async function reorderItineraryItems(
         `/api/trips/${tripId}/itinerary/days/${dayId}/items/reorder`,
         { itemIds },
     )
-    return res.data
+    return normalizeItineraryDay(res.data)
 }
 
 export async function updateItineraryDayStatus(
@@ -160,7 +189,7 @@ export async function updateItineraryDayStatus(
         `/api/trips/${tripId}/itinerary/days/${dayId}/status`,
         { status },
     )
-    return res.data
+    return normalizeItineraryDay(res.data)
 }
 
 type UpdateDeparturePayload =
@@ -177,5 +206,5 @@ export async function updateDayDeparture(
         `/api/trips/${tripId}/itinerary/days/${dayId}/departure`,
         payload,
     )
-    return res.data
+    return normalizeItineraryDay(res.data)
 }

@@ -16,7 +16,14 @@ import {
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
-import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
+import {
+    isAnchorPlace,
+    resolvePlaceCategoryPresentation,
+    resolvePlaceDisplayIcon,
+    type ItineraryDay,
+    type ItineraryItem,
+    type Place,
+} from '@/entities/trip'
 import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import {
     getItineraryDayColor,
@@ -35,8 +42,6 @@ const CATEGORY_BADGE_MIN_ZOOM = 10
 const MARKER_SIMPLIFY_MIN_ZOOM = 12
 const FOCUSED_CARD_VIEWPORT_PADDING = 12
 const DIMMED_DAY_OPACITY = 'opacity-35'
-// 숙소·교통 거점은 지도를 축소해도 여행의 '기준점' 역할을 하도록 항상 원래 마커로 유지한다.
-const ANCHOR_CATEGORY_ICONS = new Set(['HOTEL', 'PLANE'])
 
 function FocusedItineraryItemCard({
     dayNumber,
@@ -539,6 +544,22 @@ function MapContent({
                     return day.items
                         .filter(hasMapCoordinates)
                         .map((item, index) => {
+                            const associatedPlace =
+                                item.tripPlaceId == null
+                                    ? undefined
+                                    : placeById.get(String(item.tripPlaceId))
+                            const itemCategory =
+                                associatedPlace?.category ??
+                                resolvePlaceCategoryPresentation(
+                                    item.categoryType,
+                                ).category
+                            const itemPlaceType =
+                                associatedPlace?.placeType ?? item.placeType
+                            const displayIcon = resolvePlaceDisplayIcon(
+                                itemCategory,
+                                item.categoryIcon,
+                                itemPlaceType,
+                            )
                             const isFocusMode = effectiveFocusedItemId != null
                             const isItemFocused =
                                 effectiveFocusedItemId === String(item.id)
@@ -547,9 +568,10 @@ function MapContent({
                             const isEmphasizedDay =
                                 emphasizedDayNumber == null ||
                                 day.dayNumber === emphasizedDayNumber
-                            const isAnchor =
-                                item.categoryIcon != null &&
-                                ANCHOR_CATEGORY_ICONS.has(item.categoryIcon)
+                            const isAnchor = isAnchorPlace(
+                                itemCategory,
+                                itemPlaceType,
+                            )
                             const markerOpacity =
                                 isFocusMode && !isItemFocused && !isNextFocused
                                     ? 'opacity-25'
@@ -591,15 +613,7 @@ function MapContent({
                                                 nextItem={
                                                     day.items[index + 1] ?? null
                                                 }
-                                                place={
-                                                    item.tripPlaceId == null
-                                                        ? undefined
-                                                        : placeById.get(
-                                                              String(
-                                                                  item.tripPlaceId,
-                                                              ),
-                                                          )
-                                                }
+                                                place={associatedPlace}
                                             />
                                         )}
                                         <ItineraryMapMarker
@@ -614,7 +628,7 @@ function MapContent({
                                                       )
                                             }
                                             label={index + 1}
-                                            categoryIcon={item.categoryIcon}
+                                            categoryIcon={displayIcon}
                                             categoryColor={item.categoryColor}
                                             categoryLabel={item.categoryName}
                                             showCategoryBadge={
@@ -675,7 +689,11 @@ function MapContent({
                                         place.categoryColor ??
                                         'var(--color-app-text-secondary)'
                                     }
-                                    categoryIcon={place.categoryIcon}
+                                    categoryIcon={resolvePlaceDisplayIcon(
+                                        place.category,
+                                        place.categoryIcon,
+                                        place.placeType,
+                                    )}
                                     categoryColor={place.categoryColor}
                                     categoryLabel={place.categoryName}
                                     selected={
@@ -696,8 +714,21 @@ function MapContent({
                                 color={getItineraryDayColor(previewDayNumber)}
                                 label="+"
                                 categoryIcon={
-                                    draggedItem?.categoryIcon ??
-                                    draggedPlace?.categoryIcon
+                                    draggedPlace
+                                        ? resolvePlaceDisplayIcon(
+                                              draggedPlace.category,
+                                              draggedPlace.categoryIcon,
+                                              draggedPlace.placeType,
+                                          )
+                                        : draggedItem
+                                          ? resolvePlaceDisplayIcon(
+                                                resolvePlaceCategoryPresentation(
+                                                    draggedItem.categoryType,
+                                                ).category,
+                                                draggedItem.categoryIcon,
+                                                draggedItem.placeType,
+                                            )
+                                          : undefined
                                 }
                                 categoryColor={
                                     draggedItem?.categoryColor ??

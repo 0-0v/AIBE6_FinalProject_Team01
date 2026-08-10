@@ -94,6 +94,7 @@ export function fromApiToPlace(
         categoryName: tp.category.name,
         categoryColor: tp.category.markerColor,
         categoryIcon: tp.category.markerIcon,
+        placeType: tp.placeType,
         status: apiStatusToPlaceStatus(tp.status),
         image:
             resolveGooglePlacePhotoUrl(tp.photoName) ??
