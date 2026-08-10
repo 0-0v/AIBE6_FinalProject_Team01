@@ -11,8 +11,10 @@ public record ItineraryItemResponse(
     String placeName,
     String placeAddress,
     String categoryName,
+    String categoryType,
     String categoryColor,
     String categoryIcon,
+    String placeType,
     double lat,
     double lng,
     String startTime,
@@ -32,8 +34,10 @@ public record ItineraryItemResponse(
         String placeAddress = tripPlace != null ? tripPlace.getPlace().getAddress() : null;
         var cat = tripPlace != null ? tripPlace.getCategory() : null;
         String catName = cat != null ? cat.getName() : null;
+        String catType = cat != null && cat.getCategoryType() != null ? cat.getCategoryType().name() : null;
         String catColor = cat != null ? cat.getMarkerColor() : null;
         String catIcon = cat != null && cat.getMarkerIcon() != null ? cat.getMarkerIcon().name() : null;
+        String placeType = tripPlace != null ? tripPlace.getPlace().getPlaceType() : null;
         double lat = tripPlace != null ? tripPlace.getPlace().getLatitude().doubleValue() : 0;
         double lng = tripPlace != null ? tripPlace.getPlace().getLongitude().doubleValue() : 0;
 
@@ -43,8 +47,10 @@ public record ItineraryItemResponse(
             placeName,
             placeAddress,
             catName,
+            catType,
             catColor,
             catIcon,
+            placeType,
             lat,
             lng,
             item.getStartTime() != null ? item.getStartTime().format(TIME_FMT) : null,
