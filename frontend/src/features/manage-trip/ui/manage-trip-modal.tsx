@@ -16,6 +16,7 @@ import {
 } from './destination-autocomplete'
 import { MAX_TRAVEL_STYLE_COUNT } from '../model/travel-style-policy'
 import { TravelStyleSelector } from './travel-style-selector'
+import { TripDateFields } from './trip-date-fields'
 
 type Props = {
     trip: TripResponse
@@ -244,31 +245,12 @@ export function ManageTripModal({ trip, onClose, onChanged }: Props) {
                                 placeholder="예: 오사카, 제주도, 파리"
                             />
                         </label>
-                        <div className="mt-3.5 grid grid-cols-2 gap-3">
-                            <label className="text-sm font-bold">
-                                시작일
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(event) =>
-                                        setStartDate(event.target.value)
-                                    }
-                                    className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
-                                />
-                            </label>
-                            <label className="text-sm font-bold">
-                                종료일
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    min={startDate || undefined}
-                                    onChange={(event) =>
-                                        setEndDate(event.target.value)
-                                    }
-                                    className="mt-1.5 w-full rounded-xl border px-3 py-2.5 font-normal"
-                                />
-                            </label>
-                        </div>
+                        <TripDateFields
+                            startDate={startDate}
+                            endDate={endDate}
+                            onStartDateChange={setStartDate}
+                            onEndDateChange={setEndDate}
+                        />
                         {error && (
                             <p className="mt-3 text-sm font-semibold text-red-500">
                                 {error}
