@@ -12,6 +12,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
+import back.backend.domain.admin.entity.ExternalApiProvider;
+import back.backend.domain.admin.service.ExternalApiUsageService;
 
 import java.time.Duration;
 import java.util.List;
@@ -27,6 +29,12 @@ public class OpenAiClient {
     private final String apiKey;
     private final String model;
     private final ObjectMapper objectMapper;
+    private ExternalApiUsageService usageService;
+
+    @Autowired
+    void setUsageService(ExternalApiUsageService usageService) {
+        this.usageService = usageService;
+    }
 
     @Autowired
     public OpenAiClient(
@@ -98,16 +106,26 @@ public class OpenAiClient {
                     .body(objectMapper.writeValueAsString(request))
                     .retrieve()
                     .body(OpenAiResponse.class);
-
-            return extractOutputText(response);
+            String output = extractOutputText(response);
+            recordUsage(true, response.usage());
+            return output;
         } catch (IllegalStateException | OpenAiRequestException exception) {
+            recordUsage(false, null);
             throw exception;
         } catch (Exception exception) {
+            recordUsage(false, null);
             throw new OpenAiRequestException(
                     "OpenAI API 호출에 실패했습니다.",
                     exception
             );
         }
+    }
+
+    private void recordUsage(boolean success, Usage usage) {
+        if (usageService == null) return;
+        usageService.recordSafely(ExternalApiProvider.OPENAI, "RESPONSES", success,
+                usage == null ? null : usage.inputTokens(),
+                usage == null ? null : usage.outputTokens());
     }
 
     private String extractOutputText(OpenAiResponse response) {
@@ -166,8 +184,14 @@ public class OpenAiClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record OpenAiResponse(List<Output> output) {
+    private record OpenAiResponse(List<Output> output, Usage usage) {
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record Usage(
+            @JsonProperty("input_tokens") Integer inputTokens,
+            @JsonProperty("output_tokens") Integer outputTokens
+    ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record Output(String type, List<OutputContent> content) {

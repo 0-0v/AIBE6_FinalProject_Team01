@@ -9,8 +9,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class ExternalApiUsageService {
     private final ExternalApiUsageRepository repository;
 
@@ -18,11 +20,22 @@ public class ExternalApiUsageService {
         this.repository = repository;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(ExternalApiProvider provider, String operation, boolean success,
                        Integer inputTokens, Integer outputTokens) {
         repository.save(ExternalApiUsage.create(currentMemberId(), provider, operation,
                 success, inputTokens, outputTokens));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordSafely(ExternalApiProvider provider, String operation, boolean success,
+                             Integer inputTokens, Integer outputTokens) {
+        try {
+            repository.save(ExternalApiUsage.create(currentMemberId(), provider, operation,
+                    success, inputTokens, outputTokens));
+        } catch (RuntimeException exception) {
+            log.warn("외부 API 사용 이력 저장 실패: provider={}, operation={}",
+                    provider, operation, exception);
+        }
     }
 
     private Long currentMemberId() {
