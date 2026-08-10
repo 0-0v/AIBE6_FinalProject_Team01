@@ -89,4 +89,21 @@ class AdminOtpServiceTest {
                 .extracting("errorCode").isEqualTo(AuthErrorCode.ADMIN_OTP_INVALID);
         verify(redisValueService).delete("admin-login-otp:challenge");
     }
+
+    @Test
+    @DisplayName("t4 잘못된 OTP 입력은 기존 챌린지의 남은 만료 시간을 연장하지 않는다")
+    void t4_verifyKeepsOriginalExpirationAfterFailure() {
+        when(redisValueService.get("admin-login-otp:challenge"))
+                .thenReturn(Optional.of("1|otp-hash|0"));
+        when(redisValueService.remainingTtl("admin-login-otp:challenge"))
+                .thenReturn(Optional.of(Duration.ofSeconds(40)));
+        when(passwordEncoder.matches("000000", "otp-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> adminOtpService.verify(
+                new AdminOtpVerifyRequest("challenge", "000000")))
+                .isInstanceOf(BusinessException.class);
+
+        verify(redisValueService).set("admin-login-otp:challenge", "1|otp-hash|1",
+                Duration.ofSeconds(40));
+    }
 }

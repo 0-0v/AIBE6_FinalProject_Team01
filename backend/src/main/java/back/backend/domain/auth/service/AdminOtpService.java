@@ -68,8 +68,10 @@ public class AdminOtpService {
         if (!passwordEncoder.matches(request.code(), challenge.codeHash())) {
             int attempts = challenge.attempts() + 1;
             if (attempts >= MAX_ATTEMPTS) redisValueService.delete(key);
-            else redisValueService.set(key, encodeHashed(challenge.memberId(), challenge.codeHash(), attempts),
-                    properties.getAdminOtpExpiration());
+            else redisValueService.remainingTtl(key).ifPresentOrElse(
+                    remaining -> redisValueService.set(key,
+                            encodeHashed(challenge.memberId(), challenge.codeHash(), attempts), remaining),
+                    () -> redisValueService.delete(key));
             throw new BusinessException(AuthErrorCode.ADMIN_OTP_INVALID);
         }
         redisValueService.delete(key);
