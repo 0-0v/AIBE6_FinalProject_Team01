@@ -121,44 +121,34 @@ resource "aws_security_group" "app_host" {
 }
 
 # --- S3 (업로드 버킷) ---
-# backend/src/main/resources/application.yml 의 app.aws.s3.* 설정과 짝을 이룬다.
+# 업로드 버킷은 별도로 관리하며, 이 구성에서는 생성·삭제하지 않고 참조만 한다.
+data "aws_s3_bucket" "uploads" {
+  bucket = var.uploads_bucket_name
+}
 
-resource "aws_s3_bucket" "uploads" {
-  bucket = "${var.prefix}-uploads"
+# 이전 업로드 버킷은 AWS에서 이미 교체되었으므로 관련 리소스를 상태에서만 제거한다.
+removed {
+  from = aws_s3_bucket.uploads
 
-  tags = {
-    Name = "${var.prefix}-uploads"
+  lifecycle {
+    destroy = false
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "uploads" {
-  bucket = aws_s3_bucket.uploads.id
+removed {
+  from = aws_s3_bucket_public_access_block.uploads
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  lifecycle {
+    destroy = false
+  }
 }
 
-# public-base-url로 이미지를 직접 서빙하기 위한 읽기 전용 공개 정책.
-# 쓰기/삭제는 아래 IAM 역할을 가진 EC2에서만 가능하다.
-resource "aws_s3_bucket_policy" "uploads_public_read" {
-  bucket = aws_s3_bucket.uploads.id
+removed {
+  from = aws_s3_bucket_policy.uploads_public_read
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "PublicReadGetObject"
-        Effect    = "Allow"
-        Principal = "*"
-        Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.uploads.arn}/*"
-      }
-    ]
-  })
-
-  depends_on = [aws_s3_bucket_public_access_block.uploads]
+  lifecycle {
+    destroy = false
+  }
 }
 
 # --- IAM (EC2 역할) ---
@@ -193,12 +183,12 @@ resource "aws_iam_role_policy" "s3_uploads" {
       {
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-        Resource = "${aws_s3_bucket.uploads.arn}/*"
+        Resource = "${data.aws_s3_bucket.uploads.arn}/*"
       },
       {
         Effect   = "Allow"
         Action   = "s3:ListBucket"
-        Resource = aws_s3_bucket.uploads.arn
+        Resource = data.aws_s3_bucket.uploads.arn
       }
     ]
   })
@@ -271,8 +261,8 @@ resource "aws_instance" "app_host" {
     kakao_client_id                      = var.kakao_client_id
     kakao_client_secret                  = var.kakao_client_secret
     oauth_token_encryption_key           = var.oauth_token_encryption_key
-    aws_s3_bucket                        = aws_s3_bucket.uploads.bucket
-    aws_s3_public_base_url               = "https://${aws_s3_bucket.uploads.bucket}.s3.${var.region}.amazonaws.com"
+    aws_s3_bucket                        = data.aws_s3_bucket.uploads.bucket
+    aws_s3_public_base_url               = "https://${data.aws_s3_bucket.uploads.bucket}.s3.${var.region}.amazonaws.com"
     brevo_api_key                        = var.brevo_api_key
     brevo_email_verification_template_id = var.brevo_email_verification_template_id
     brevo_smtp_username                  = var.brevo_smtp_username

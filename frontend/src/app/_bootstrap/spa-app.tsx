@@ -83,6 +83,10 @@ function AppShell() {
         )
     }
 
+    if (!currentUser && !isGuestInvite) {
+        return <Navigate to="/" replace />
+    }
+
     return (
         <div className="mp-scroll h-full w-full overflow-x-auto overflow-y-hidden bg-white">
             <div className="relative flex h-full min-w-[1500px] bg-white">

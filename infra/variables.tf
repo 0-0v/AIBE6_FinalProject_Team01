@@ -13,7 +13,13 @@ variable "prefix" {
 variable "instance_type" {
   description = "앱 호스트 EC2 인스턴스 유형"
   type        = string
-  default     = "t3.micro"
+  default     = "t3.small"
+}
+
+variable "uploads_bucket_name" {
+  description = "Terraform 외부에서 관리하는 기존 S3 업로드 버킷 이름"
+  type        = string
+  default     = "1team-storage-495264909330-ap-northeast-2-an"
 }
 
 variable "root_volume_size" {
