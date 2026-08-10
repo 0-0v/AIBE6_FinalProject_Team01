@@ -4,6 +4,7 @@ import { login } from '@/features/local-auth'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { getLastLoginProvider } from '@/shared/lib'
 import { BrandLogo } from '@/shared/ui'
+import { TestAccountLogin, type TestAccount } from './test-account-login'
 
 const socials = [
     {
@@ -62,19 +63,22 @@ export function Login() {
         navigate('/app')
     }
 
-    async function handleLocalLogin(event: FormEvent) {
-        event.preventDefault()
-        if (!identifier.trim()) {
+    async function performLogin(
+        loginIdentifier: string,
+        loginPassword: string,
+    ) {
+        if (!loginIdentifier.trim()) {
             setMessage('닉네임 또는 이메일을 입력해 주세요.')
             return
         }
-        if (!password) {
+        if (!loginPassword) {
             setMessage('비밀번호를 입력해 주세요.')
             return
         }
         setBusy(true)
+        setMessage('')
         try {
-            await login(identifier.trim(), password)
+            await login(loginIdentifier.trim(), loginPassword)
             const returnPath = sessionStorage.getItem('postLoginReturnPath')
             sessionStorage.removeItem('postLoginReturnPath')
             navigate(returnPath ?? '/app', { replace: true })
@@ -83,6 +87,17 @@ export function Login() {
         } finally {
             setBusy(false)
         }
+    }
+
+    async function handleLocalLogin(event: FormEvent) {
+        event.preventDefault()
+        await performLogin(identifier, password)
+    }
+
+    function handleTestAccountLogin(account: TestAccount) {
+        setIdentifier(account.nickname)
+        setPassword(account.password)
+        void performLogin(account.identifier, account.password)
     }
 
     return (
@@ -176,6 +191,11 @@ export function Login() {
                         </button>
                     ))}
                 </div>
+
+                <TestAccountLogin
+                    busy={busy}
+                    onLogin={handleTestAccountLogin}
+                />
 
                 <p className="mt-8 text-center text-xs leading-relaxed text-slate-400">
                     가입 시{' '}
