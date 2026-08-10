@@ -308,6 +308,36 @@ function GoogleMapCanvas({
         }
     }, [poiState?.placeId, tripId])
 
+    // 일반 POI 클릭과 댓글 배지 마커 클릭이 동일하게 poiState/pinCommentsState를 초기화하도록
+    // 공유하는 헬퍼 — 두 클릭 핸들러에 동일한 초기화 블록이 중복돼 한쪽만 수정되면
+    // 이전 장소의 댓글이 잠깐 보이는 stale-flash 버그가 재발할 수 있어 하나로 모았다.
+    function openPlacePopup(
+        placeId: string,
+        latLng: { lat: number; lng: number },
+    ) {
+        const cached = resolvedPoiDetails.get(placeId)
+        setPoiState({
+            placeId,
+            latLng,
+            loading: !cached,
+            result: cached ?? null,
+            error: null,
+            saving: false,
+        })
+        setPinCommentsState(
+            tripId != null
+                ? {
+                      comments: [],
+                      loading: true,
+                      submitting: false,
+                      error: null,
+                  }
+                : null,
+        )
+        setHoveredId(null)
+        onDeselect()
+    }
+
     async function submitPinComment(content: string) {
         if (!poiState || !tripId) return
         const { placeId, latLng, result } = poiState
@@ -582,27 +612,7 @@ function GoogleMapCanvas({
                     const clickedPlaceId = event.detail.placeId
                     if (clickedPlaceId && event.detail.latLng) {
                         event.stop()
-                        const cached = resolvedPoiDetails.get(clickedPlaceId)
-                        setPoiState({
-                            placeId: clickedPlaceId,
-                            latLng: event.detail.latLng,
-                            loading: !cached,
-                            result: cached ?? null,
-                            error: null,
-                            saving: false,
-                        })
-                        setPinCommentsState(
-                            tripId != null
-                                ? {
-                                      comments: [],
-                                      loading: true,
-                                      submitting: false,
-                                      error: null,
-                                  }
-                                : null,
-                        )
-                        setHoveredId(null)
-                        onDeselect()
+                        openPlacePopup(clickedPlaceId, event.detail.latLng)
                         return
                     }
                     setHoveredId(null)
@@ -709,29 +719,10 @@ function GoogleMapCanvas({
                             position={{ lat: pin.lat, lng: pin.lng }}
                             zIndex={150}
                             onClick={() => {
-                                const cached = resolvedPoiDetails.get(
-                                    pin.googlePlaceId,
-                                )
-                                setPoiState({
-                                    placeId: pin.googlePlaceId,
-                                    latLng: { lat: pin.lat, lng: pin.lng },
-                                    loading: !cached,
-                                    result: cached ?? null,
-                                    error: null,
-                                    saving: false,
+                                openPlacePopup(pin.googlePlaceId, {
+                                    lat: pin.lat,
+                                    lng: pin.lng,
                                 })
-                                setPinCommentsState(
-                                    tripId != null
-                                        ? {
-                                              comments: [],
-                                              loading: true,
-                                              submitting: false,
-                                              error: null,
-                                          }
-                                        : null,
-                                )
-                                setHoveredId(null)
-                                onDeselect()
                             }}
                         >
                             <MapPinCommentBadge
