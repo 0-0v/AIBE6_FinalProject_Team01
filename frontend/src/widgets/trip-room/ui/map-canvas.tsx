@@ -7,8 +7,13 @@ import {
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
-import { Place } from '@/entities/trip'
-import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
+import { Place, addMapPinComment, getMapPinComments } from '@/entities/trip'
+import type {
+    ItineraryDay,
+    ItineraryItem,
+    MapPinCommentResponse,
+    MapPinSummaryResponse,
+} from '@/entities/trip'
 import { MapRouteFilter } from './map-route-filter'
 import { ItineraryMapMarker } from './itinerary-map-marker'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
@@ -22,6 +27,8 @@ import { getPlaceDetails } from '@/features/search-place'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { MapPoiPopup } from './map-poi-popup'
 import { MapRouteLayer } from './map-route-layer'
+import { MapPinCommentBadge } from './map-pin-comment-badge'
+import { MapPinCommentSection } from './map-pin-comment-section'
 
 // POI 클릭 결과 세션 캐시 — 같은 장소 재클릭 시 API 호출 없음
 const resolvedPoiDetails = new Map<string, PlaceSearchResult>()
@@ -55,6 +62,8 @@ type Props = {
     hoveredPlaceId?: string | null
     onHoverPlace?: (placeId: string | null) => void
     onRouteDayChange?: (dayNumber: number | null) => void
+    tripId?: number | null
+    mapPins?: MapPinSummaryResponse[]
 }
 
 export function MapCanvas({
@@ -76,6 +85,8 @@ export function MapCanvas({
     hoveredPlaceId,
     onHoverPlace,
     onRouteDayChange,
+    tripId,
+    mapPins = [],
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -109,6 +120,8 @@ export function MapCanvas({
             hoveredPlaceId={hoveredPlaceId}
             onHoverPlace={onHoverPlace}
             onRouteDayChange={onRouteDayChange}
+            tripId={tripId}
+            mapPins={mapPins}
         />
     )
 }
@@ -132,6 +145,8 @@ function GoogleMapCanvas({
     hoveredPlaceId = null,
     onHoverPlace,
     onRouteDayChange,
+    tripId,
+    mapPins = [],
 }: Pick<
     Props,
     | 'places'
@@ -152,6 +167,8 @@ function GoogleMapCanvas({
     | 'hoveredPlaceId'
     | 'onHoverPlace'
     | 'onRouteDayChange'
+    | 'tripId'
+    | 'mapPins'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -184,6 +201,14 @@ function GoogleMapCanvas({
     }
 
     const [poiState, setPoiState] = useState<PoiState | null>(null)
+    type PinCommentsState = {
+        comments: MapPinCommentResponse[]
+        loading: boolean
+        submitting: boolean
+        error: string | null
+    }
+    const [pinCommentsState, setPinCommentsState] =
+        useState<PinCommentsState | null>(null)
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
         initialRouteDay ?? null,
@@ -249,6 +274,75 @@ function GoogleMapCanvas({
             cancelled = true
         }
     }, [loadingPoiPlaceId])
+
+    // pinCommentsState의 loading:true 초기화는 poiState를 여는 클릭 핸들러에서 동기적으로
+    // 수행한다(react-hooks/set-state-in-effect 회피). 이 effect는 실제 비동기 조회와
+    // 그 결과 반영(.then/.catch 콜백 내 setState)만 담당한다.
+    useEffect(() => {
+        const placeId = poiState?.placeId
+        if (!placeId || !tripId) return
+        let cancelled = false
+        getMapPinComments(tripId, placeId)
+            .then((comments) => {
+                if (!cancelled) {
+                    setPinCommentsState({
+                        comments,
+                        loading: false,
+                        submitting: false,
+                        error: null,
+                    })
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setPinCommentsState({
+                        comments: [],
+                        loading: false,
+                        submitting: false,
+                        error: '댓글을 불러오지 못했습니다.',
+                    })
+                }
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [poiState?.placeId, tripId])
+
+    async function submitPinComment(content: string) {
+        if (!poiState || !tripId) return
+        const { placeId, latLng, result } = poiState
+        const placeName = result?.name ?? '이름 없는 장소'
+        setPinCommentsState((prev) =>
+            prev ? { ...prev, submitting: true, error: null } : prev,
+        )
+        try {
+            const comment = await addMapPinComment(tripId, placeId, {
+                content,
+                lat: latLng.lat,
+                lng: latLng.lng,
+                placeName,
+            })
+            setPinCommentsState((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          submitting: false,
+                          comments: [...prev.comments, comment],
+                      }
+                    : prev,
+            )
+        } catch {
+            setPinCommentsState((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          submitting: false,
+                          error: '댓글 등록에 실패했습니다.',
+                      }
+                    : prev,
+            )
+        }
+    }
 
     const scheduledPlaceDetailsMap = useMemo(() => {
         if (!days) {
@@ -497,6 +591,16 @@ function GoogleMapCanvas({
                             error: null,
                             saving: false,
                         })
+                        setPinCommentsState(
+                            tripId != null
+                                ? {
+                                      comments: [],
+                                      loading: true,
+                                      submitting: false,
+                                      error: null,
+                                  }
+                                : null,
+                        )
                         setHoveredId(null)
                         onDeselect()
                         return
@@ -582,9 +686,59 @@ function GoogleMapCanvas({
                                 }}
                                 onClose={() => setPoiState(null)}
                             />
+                            {tripId != null && pinCommentsState && (
+                                <div className="w-64 rounded-xl bg-white px-3 pb-3 shadow-lg">
+                                    <MapPinCommentSection
+                                        comments={pinCommentsState.comments}
+                                        loading={pinCommentsState.loading}
+                                        canWrite={canWrite ?? false}
+                                        submitting={pinCommentsState.submitting}
+                                        error={pinCommentsState.error}
+                                        onSubmit={submitPinComment}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </AdvancedMarker>
                 )}
+                {mapPins
+                    .filter((pin) => pin.commentCount > 0)
+                    .map((pin) => (
+                        <AdvancedMarker
+                            key={`pin-comment-${pin.googlePlaceId}`}
+                            position={{ lat: pin.lat, lng: pin.lng }}
+                            zIndex={150}
+                            onClick={() => {
+                                const cached = resolvedPoiDetails.get(
+                                    pin.googlePlaceId,
+                                )
+                                setPoiState({
+                                    placeId: pin.googlePlaceId,
+                                    latLng: { lat: pin.lat, lng: pin.lng },
+                                    loading: !cached,
+                                    result: cached ?? null,
+                                    error: null,
+                                    saving: false,
+                                })
+                                setPinCommentsState(
+                                    tripId != null
+                                        ? {
+                                              comments: [],
+                                              loading: true,
+                                              submitting: false,
+                                              error: null,
+                                          }
+                                        : null,
+                                )
+                                setHoveredId(null)
+                                onDeselect()
+                            }}
+                        >
+                            <MapPinCommentBadge
+                                commentCount={pin.commentCount}
+                            />
+                        </AdvancedMarker>
+                    ))}
                 {places.map((place) => {
                     const isSelected = place.id === selectedId
                     const isSelfHovered = place.id === hoveredId
