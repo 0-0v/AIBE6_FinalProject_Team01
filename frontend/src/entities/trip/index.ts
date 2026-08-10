@@ -32,6 +32,15 @@ export {
 } from './api/commentApi'
 export type { PlaceCommentResponse } from './api/commentApi'
 export {
+    getMapPins,
+    getMapPinComments,
+    addMapPinComment,
+} from './api/mapPinApi'
+export type {
+    MapPinSummaryResponse,
+    MapPinCommentResponse,
+} from './api/mapPinApi'
+export {
     getDateAvailability,
     saveDateAvailability,
     getDateProposal,
