@@ -12,7 +12,7 @@ export function AiBrandMark({ size = 'md' }: AiBrandMarkProps) {
         >
             <span className="absolute -right-2 -top-2 h-6 w-6 rounded-full bg-brand/15 blur-md" />
             <img
-                src="/favicon.png"
+                src="/plamingo-badge.svg"
                 alt=""
                 aria-hidden="true"
                 className={`relative object-contain drop-shadow-sm ${imageClass}`}
