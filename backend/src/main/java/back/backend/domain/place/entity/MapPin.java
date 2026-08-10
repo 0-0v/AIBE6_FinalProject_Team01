@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -14,7 +15,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "map_pins")
+@Table(
+        name = "map_pins",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_map_pins_trip_place",
+                columnNames = {"trip_id", "google_place_id"}
+        )
+)
 @Getter
 @Builder
 @AllArgsConstructor
