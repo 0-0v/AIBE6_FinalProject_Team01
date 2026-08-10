@@ -6,6 +6,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, Place } from '@/entities/trip'
 import { DESIGN_COLORS } from '@/shared/config'
+import { hexWithAlpha } from '@/shared/lib'
 import { Badge } from '@/shared/ui'
 import { UNSCHEDULED_DROP_ZONE_ID } from '../model/use-itinerary-board'
 import { DayPickerMenu } from './day-picker-menu'
@@ -31,8 +32,10 @@ function PlaceCategoryThumbnail({
         <div
             className={`flex ${dimensions} shrink-0 items-center justify-center rounded-lg`}
             style={{
-                backgroundColor:
-                    (place.categoryColor ?? DESIGN_COLORS.app.textMuted) + '20',
+                backgroundColor: hexWithAlpha(
+                    place.categoryColor ?? DESIGN_COLORS.app.textMuted,
+                    '20',
+                ),
                 color: place.categoryColor ?? DESIGN_COLORS.app.textMuted,
             }}
             aria-hidden="true"
@@ -68,7 +71,7 @@ function PlaceSidebarItem({
             className={`relative rounded-xl border bg-white shadow-sm transition-opacity ${isDragging ? 'opacity-30' : ''}`}
             style={
                 place.categoryColor
-                    ? { borderColor: place.categoryColor + '40' }
+                    ? { borderColor: hexWithAlpha(place.categoryColor, '40') }
                     : { borderColor: DESIGN_COLORS.app.border }
             }
         >
@@ -242,9 +245,10 @@ export function PlaceSidebar({
                                     style={
                                         place.categoryColor
                                             ? {
-                                                  borderColor:
-                                                      place.categoryColor +
+                                                  borderColor: hexWithAlpha(
+                                                      place.categoryColor,
                                                       '40',
+                                                  ),
                                               }
                                             : {
                                                   borderColor:

@@ -1,4 +1,5 @@
 import { CategoryIcon } from '@/entities/trip'
+import { MapPinCommentBadge } from './map-pin-comment-badge'
 
 type Props = {
     color: string
@@ -14,6 +15,7 @@ type Props = {
     outlined?: boolean
     simplified?: boolean
     anchor?: boolean
+    commentCount?: number
 }
 
 export function ItineraryMapMarker({
@@ -30,10 +32,11 @@ export function ItineraryMapMarker({
     outlined = false,
     simplified = false,
     anchor = false,
+    commentCount = 0,
 }: Props) {
     const emphasized = selected || hovered
 
-    if (simplified && !emphasized && !focused) {
+    if (simplified && !emphasized && !focused && commentCount === 0) {
         return (
             <div
                 className="size-2.5 rounded-full border-2 border-white shadow-[0_2px_6px_rgb(var(--rgb-app-ink)/0.35)] transition-transform duration-150 ease-out"
@@ -117,6 +120,14 @@ export function ItineraryMapMarker({
                         </span>
                     )}
                 </span>
+                {commentCount > 0 && (
+                    <span className="absolute -left-3 -top-2 z-20">
+                        <MapPinCommentBadge
+                            commentCount={commentCount}
+                            compact
+                        />
+                    </span>
+                )}
                 {hasOrderLabel && categoryIcon && showCategoryBadge && (
                     <span
                         className={`absolute -right-2 -top-2 z-20 flex items-center justify-center rounded-full border-2 border-white bg-white shadow-sm ${

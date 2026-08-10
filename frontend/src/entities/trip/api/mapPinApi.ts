@@ -13,8 +13,14 @@ export type MapPinCommentResponse = {
     id: number
     mapPinId: number
     memberId: number
+    nickname: string
+    profileImageUrl: string | null
     content: string
     createdAt: string
+}
+
+function mapPinCommentsPath(tripId: number, googlePlaceId: string) {
+    return `/api/trips/${tripId}/map-pins/${encodeURIComponent(googlePlaceId)}/comments`
 }
 
 export async function getMapPins(
@@ -34,7 +40,7 @@ export async function getMapPinComments(
     signal?: AbortSignal,
 ): Promise<MapPinCommentResponse[]> {
     const res = await apiClient.get<ApiResponse<MapPinCommentResponse[]>>(
-        `/api/trips/${tripId}/map-pins/${googlePlaceId}/comments`,
+        mapPinCommentsPath(tripId, googlePlaceId),
         { signal },
     )
     return res.data
@@ -46,7 +52,7 @@ export async function addMapPinComment(
     payload: { content: string; lat: number; lng: number; placeName: string },
 ): Promise<MapPinCommentResponse> {
     const res = await apiClient.post<ApiResponse<MapPinCommentResponse>>(
-        `/api/trips/${tripId}/map-pins/${googlePlaceId}/comments`,
+        mapPinCommentsPath(tripId, googlePlaceId),
         payload,
     )
     return res.data

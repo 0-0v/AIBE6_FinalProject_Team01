@@ -3,11 +3,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
     AdvancedMarker,
+    InfoWindow,
     Map as GoogleMap,
     useApiIsLoaded,
     useMap,
 } from '@vis.gl/react-google-maps'
-import { Place, addMapPinComment, getMapPinComments } from '@/entities/trip'
+import {
+    Place,
+    addMapPinComment,
+    getMapPinComments,
+    isAnchorPlace,
+    resolvePlaceDisplayIcon,
+} from '@/entities/trip'
 import type {
     ItineraryDay,
     ItineraryItem,
@@ -40,8 +47,7 @@ const DESTINATION_FOCUS_ZOOM = 12
 const SELECTED_PLACE_FOCUS_ZOOM = 16
 const CATEGORY_BADGE_MIN_ZOOM = 10
 const MARKER_SIMPLIFY_MIN_ZOOM = 12
-// 숙소·교통 거점은 지도를 축소해도 여행의 '기준점' 역할을 하도록 항상 원래 마커로 유지한다.
-const ANCHOR_CATEGORY_ICONS = new Set(['HOTEL', 'PLANE'])
+const PLACE_INFO_WINDOW_OFFSET_Y = -52
 
 type Props = {
     places: Place[]
@@ -64,6 +70,7 @@ type Props = {
     onRouteDayChange?: (dayNumber: number | null) => void
     tripId?: number | null
     mapPins?: MapPinSummaryResponse[]
+    onMapPinCommentAdded?: (pin: MapPinSummaryResponse) => void
 }
 
 export function MapCanvas({
@@ -87,6 +94,7 @@ export function MapCanvas({
     onRouteDayChange,
     tripId,
     mapPins = [],
+    onMapPinCommentAdded,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -122,6 +130,7 @@ export function MapCanvas({
             onRouteDayChange={onRouteDayChange}
             tripId={tripId}
             mapPins={mapPins}
+            onMapPinCommentAdded={onMapPinCommentAdded}
         />
     )
 }
@@ -147,6 +156,7 @@ function GoogleMapCanvas({
     onRouteDayChange,
     tripId,
     mapPins = [],
+    onMapPinCommentAdded,
 }: Pick<
     Props,
     | 'places'
@@ -169,6 +179,7 @@ function GoogleMapCanvas({
     | 'onRouteDayChange'
     | 'tripId'
     | 'mapPins'
+    | 'onMapPinCommentAdded'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -196,12 +207,14 @@ function GoogleMapCanvas({
         latLng: { lat: number; lng: number }
         loading: boolean
         result: PlaceSearchResult | null
+        fallbackPlaceName: string | null
         error: string | null
         saving: boolean
     }
 
     const [poiState, setPoiState] = useState<PoiState | null>(null)
     type PinCommentsState = {
+        placeId: string
         comments: MapPinCommentResponse[]
         loading: boolean
         submitting: boolean
@@ -227,6 +240,22 @@ function GoogleMapCanvas({
     const [simplifyMarkers, setSimplifyMarkers] = useState(false)
     const [mapDisplayType, setMapDisplayType] = useMapDisplayType()
     const loadingPoiPlaceId = poiState?.loading ? poiState.placeId : null
+    const savedGooglePlaceIds = useMemo(
+        () =>
+            new Set(
+                places.flatMap((place) =>
+                    place.googlePlaceId ? [place.googlePlaceId] : [],
+                ),
+            ),
+        [places],
+    )
+    const commentCountByGooglePlaceId = useMemo(
+        () =>
+            new Map(
+                mapPins.map((pin) => [pin.googlePlaceId, pin.commentCount]),
+            ),
+        [mapPins],
+    )
 
     useEffect(() => {
         if (!loadingPoiPlaceId) return
@@ -281,31 +310,34 @@ function GoogleMapCanvas({
     useEffect(() => {
         const placeId = poiState?.placeId
         if (!placeId || !tripId) return
-        let cancelled = false
-        getMapPinComments(tripId, placeId)
+        const controller = new AbortController()
+        getMapPinComments(tripId, placeId, controller.signal)
             .then((comments) => {
-                if (!cancelled) {
-                    setPinCommentsState({
-                        comments,
-                        loading: false,
-                        submitting: false,
-                        error: null,
-                    })
-                }
+                setPinCommentsState((prev) =>
+                    prev?.placeId === placeId
+                        ? { ...prev, comments, loading: false, error: null }
+                        : prev,
+                )
             })
-            .catch(() => {
-                if (!cancelled) {
-                    setPinCommentsState({
-                        comments: [],
-                        loading: false,
-                        submitting: false,
-                        error: '댓글을 불러오지 못했습니다.',
-                    })
+            .catch((error: unknown) => {
+                if (
+                    error instanceof DOMException &&
+                    error.name === 'AbortError'
+                ) {
+                    return
                 }
+                setPinCommentsState((prev) =>
+                    prev?.placeId === placeId
+                        ? {
+                              ...prev,
+                              comments: [],
+                              loading: false,
+                              error: '댓글을 불러오지 못했습니다.',
+                          }
+                        : prev,
+                )
             })
-        return () => {
-            cancelled = true
-        }
+        return () => controller.abort()
     }, [poiState?.placeId, tripId])
 
     // 일반 POI 클릭과 댓글 배지 마커 클릭이 동일하게 poiState/pinCommentsState를 초기화하도록
@@ -314,36 +346,49 @@ function GoogleMapCanvas({
     function openPlacePopup(
         placeId: string,
         latLng: { lat: number; lng: number },
+        options: {
+            fallbackPlaceName?: string | null
+            loadDetails?: boolean
+            deselectPlace?: boolean
+        } = {},
     ) {
-        const cached = resolvedPoiDetails.get(placeId)
+        const loadDetails = options.loadDetails ?? true
+        const cached = loadDetails ? resolvedPoiDetails.get(placeId) : undefined
         setPoiState({
             placeId,
             latLng,
-            loading: !cached,
+            loading: loadDetails && !cached,
             result: cached ?? null,
+            fallbackPlaceName: options.fallbackPlaceName ?? null,
             error: null,
             saving: false,
         })
-        setPinCommentsState(
+        setPinCommentsState((prev) =>
             tripId != null
-                ? {
-                      comments: [],
-                      loading: true,
-                      submitting: false,
-                      error: null,
-                  }
+                ? prev?.placeId === placeId
+                    ? prev
+                    : {
+                          placeId,
+                          comments: [],
+                          loading: true,
+                          submitting: false,
+                          error: null,
+                      }
                 : null,
         )
         setHoveredId(null)
-        onDeselect()
+        if (options.deselectPlace ?? true) onDeselect()
     }
 
-    async function submitPinComment(content: string) {
-        if (!poiState || !tripId) return
-        const { placeId, latLng, result } = poiState
-        const placeName = result?.name ?? '이름 없는 장소'
+    async function submitPinComment(content: string): Promise<boolean> {
+        if (!poiState || !tripId) return false
+        const { placeId, latLng, result, fallbackPlaceName } = poiState
+        const placeName = result?.name ?? fallbackPlaceName
+        if (!placeName) return false
         setPinCommentsState((prev) =>
-            prev ? { ...prev, submitting: true, error: null } : prev,
+            prev?.placeId === placeId
+                ? { ...prev, submitting: true, error: null }
+                : prev,
         )
         try {
             const comment = await addMapPinComment(tripId, placeId, {
@@ -353,7 +398,7 @@ function GoogleMapCanvas({
                 placeName,
             })
             setPinCommentsState((prev) =>
-                prev
+                prev?.placeId === placeId
                     ? {
                           ...prev,
                           submitting: false,
@@ -361,9 +406,20 @@ function GoogleMapCanvas({
                       }
                     : prev,
             )
+            const previousCount =
+                mapPins.find((pin) => pin.googlePlaceId === placeId)
+                    ?.commentCount ?? 0
+            onMapPinCommentAdded?.({
+                googlePlaceId: placeId,
+                lat: latLng.lat,
+                lng: latLng.lng,
+                placeName,
+                commentCount: previousCount + 1,
+            })
+            return true
         } catch {
             setPinCommentsState((prev) =>
-                prev
+                prev?.placeId === placeId
                     ? {
                           ...prev,
                           submitting: false,
@@ -371,6 +427,7 @@ function GoogleMapCanvas({
                       }
                     : prev,
             )
+            return false
         }
     }
 
@@ -413,11 +470,6 @@ function GoogleMapCanvas({
         }
         return map
     }, [days])
-    const selectedNextItem =
-        selectedId == null
-            ? null
-            : (scheduledPlaceDetailsMap.get(selectedId)?.nextItem ?? null)
-
     // 확정 여부와 관계없이 일정에 배치된 Day의 경로 목록
     const itineraryRoutes = useMemo(() => {
         if (!days) return []
@@ -626,18 +678,6 @@ function GoogleMapCanvas({
                     initialLat={initialLat}
                     initialLng={initialLng}
                     selectedId={selectedId}
-                    selectedNextLat={
-                        selectedNextItem != null &&
-                        hasMapCoordinates(selectedNextItem)
-                            ? selectedNextItem.lat
-                            : null
-                    }
-                    selectedNextLng={
-                        selectedNextItem != null &&
-                        hasMapCoordinates(selectedNextItem)
-                            ? selectedNextItem.lng
-                            : null
-                    }
                     autoFitPlaces={!routeOverview}
                     focusRequestVersion={focusRequestVersion}
                 />
@@ -654,15 +694,22 @@ function GoogleMapCanvas({
                     focusedSegment={focusedSegment}
                 />
                 {poiState && (
-                    <AdvancedMarker
+                    <InfoWindow
                         position={poiState.latLng}
                         zIndex={200}
-                        onClick={() => {}}
+                        headerDisabled
+                        shouldFocus={false}
+                        pixelOffset={[0, PLACE_INFO_WINDOW_OFFSET_Y]}
+                        onCloseClick={() => {
+                            setPoiState(null)
+                            setPinCommentsState(null)
+                        }}
                     >
                         <div className="relative flex flex-col items-center">
                             <MapPoiPopup
                                 loading={poiState.loading}
                                 result={poiState.result}
+                                fallbackPlaceName={poiState.fallbackPlaceName}
                                 error={poiState.error}
                                 isAlreadySaved={
                                     poiState.result != null &&
@@ -682,6 +729,7 @@ function GoogleMapCanvas({
                                     try {
                                         await onAddFromPoi(poiState.result)
                                         setPoiState(null)
+                                        setPinCommentsState(null)
                                     } catch {
                                         setPoiState((prev) =>
                                             prev
@@ -694,14 +742,23 @@ function GoogleMapCanvas({
                                         )
                                     }
                                 }}
-                                onClose={() => setPoiState(null)}
+                                onClose={() => {
+                                    setPoiState(null)
+                                    setPinCommentsState(null)
+                                }}
                             />
                             {tripId != null && pinCommentsState && (
                                 <div className="w-64 rounded-xl bg-white px-3 pb-3 shadow-lg">
                                     <MapPinCommentSection
+                                        key={poiState.placeId}
                                         comments={pinCommentsState.comments}
                                         loading={pinCommentsState.loading}
-                                        canWrite={canWrite ?? false}
+                                        canWrite={
+                                            (canWrite ?? false) &&
+                                            (poiState.result != null ||
+                                                poiState.fallbackPlaceName !=
+                                                    null)
+                                        }
                                         submitting={pinCommentsState.submitting}
                                         error={pinCommentsState.error}
                                         onSubmit={submitPinComment}
@@ -709,20 +766,25 @@ function GoogleMapCanvas({
                                 </div>
                             )}
                         </div>
-                    </AdvancedMarker>
+                    </InfoWindow>
                 )}
                 {mapPins
-                    .filter((pin) => pin.commentCount > 0)
+                    .filter(
+                        (pin) =>
+                            pin.commentCount > 0 &&
+                            !savedGooglePlaceIds.has(pin.googlePlaceId),
+                    )
                     .map((pin) => (
                         <AdvancedMarker
                             key={`pin-comment-${pin.googlePlaceId}`}
                             position={{ lat: pin.lat, lng: pin.lng }}
                             zIndex={150}
                             onClick={() => {
-                                openPlacePopup(pin.googlePlaceId, {
-                                    lat: pin.lat,
-                                    lng: pin.lng,
-                                })
+                                openPlacePopup(
+                                    pin.googlePlaceId,
+                                    { lat: pin.lat, lng: pin.lng },
+                                    { fallbackPlaceName: pin.placeName },
+                                )
                             }}
                         >
                             <MapPinCommentBadge
@@ -767,16 +829,40 @@ function GoogleMapCanvas({
                         !isFocusedPlace
                             ? 'opacity-20'
                             : 'opacity-100'
-                    const isAnchor =
-                        place.categoryIcon != null &&
-                        ANCHOR_CATEGORY_ICONS.has(place.categoryIcon)
+                    const isAnchor = isAnchorPlace(
+                        place.category,
+                        place.placeType,
+                    )
+                    const displayIcon = resolvePlaceDisplayIcon(
+                        place.category,
+                        place.categoryIcon,
+                        place.placeType,
+                    )
+                    const commentCount = place.googlePlaceId
+                        ? (commentCountByGooglePlaceId.get(
+                              place.googlePlaceId,
+                          ) ?? 0)
+                        : 0
                     return (
                         <AdvancedMarker
                             key={place.id}
                             position={{ lat: place.lat, lng: place.lng }}
                             onClick={() => {
                                 onSelect(place.id)
-                                setPoiState(null)
+                                if (place.googlePlaceId) {
+                                    openPlacePopup(
+                                        place.googlePlaceId,
+                                        { lat: place.lat, lng: place.lng },
+                                        {
+                                            fallbackPlaceName: place.name,
+                                            loadDetails: false,
+                                            deselectPlace: false,
+                                        },
+                                    )
+                                } else {
+                                    setPoiState(null)
+                                    setPinCommentsState(null)
+                                }
                                 // 현재 Day 소속 마커 클릭 → 해당 구간으로 이동
                                 if (
                                     !routeOverview &&
@@ -849,10 +935,15 @@ function GoogleMapCanvas({
                                             : place.categoryColor
                                     }
                                     label={scheduled?.order}
-                                    categoryIcon={place.categoryIcon}
+                                    categoryIcon={displayIcon}
                                     categoryColor={place.categoryColor}
                                     categoryLabel={place.categoryName}
-                                    showCategoryBadge={showCategoryBadges}
+                                    showCategoryBadge={
+                                        showCategoryBadges &&
+                                        (commentCount === 0 ||
+                                            isSelected ||
+                                            isHovered)
+                                    }
                                     selected={isSelected}
                                     hovered={isHovered}
                                     focused={isFromPlace}
@@ -862,6 +953,7 @@ function GoogleMapCanvas({
                                     }
                                     simplified={simplifyMarkers && !isAnchor}
                                     anchor={isAnchor}
+                                    commentCount={commentCount}
                                 />
                             </div>
                         </AdvancedMarker>
@@ -1017,8 +1109,6 @@ function MapController({
     initialLat,
     initialLng,
     selectedId,
-    selectedNextLat = null,
-    selectedNextLng = null,
     autoFitPlaces,
     focusRequestVersion,
 }: {
@@ -1026,8 +1116,6 @@ function MapController({
     initialLat?: number | null
     initialLng?: number | null
     selectedId: string | null
-    selectedNextLat?: number | null
-    selectedNextLng?: number | null
     autoFitPlaces: boolean
     focusRequestVersion: number
 }) {
@@ -1036,20 +1124,6 @@ function MapController({
     const selectedPlace = places.find((place) => place.id === selectedId)
     const selectedLat = selectedPlace?.lat
     const selectedLng = selectedPlace?.lng
-    // 다음 장소 좌표는 일정 데이터가 백그라운드에서 재계산될 때마다 잠깐 null이
-    // 됐다가 다시 채워질 수 있다 — 이걸 effect 의존성에 그대로 넣으면 사용자가
-    // 지도를 자유롭게 둘러보는 중에도 선택된 장소로 카메라가 튀어버린다.
-    // ref로만 최신값을 들고 있고, 실제 포커싱은 focusRequestVersion(명시적 선택)에만 반응한다.
-    const secondaryPointRef = useRef({
-        lat: selectedNextLat,
-        lng: selectedNextLng,
-    })
-    useEffect(() => {
-        secondaryPointRef.current = {
-            lat: selectedNextLat,
-            lng: selectedNextLng,
-        }
-    })
     const placesKey = places
         .map((place) => `${place.id}:${place.lat},${place.lng}`)
         .join('|')
@@ -1087,21 +1161,6 @@ function MapController({
 
     useEffect(() => {
         if (!map || selectedLat == null || selectedLng == null) return
-
-        const secondary = secondaryPointRef.current
-        if (secondary.lat != null && secondary.lng != null) {
-            // 선택한 장소와 다음 장소가 함께 화면에 들어오도록 컴팩하게 맞춘다.
-            fitBoundsToPoints(
-                map,
-                [
-                    { lat: selectedLat, lng: selectedLng },
-                    { lat: secondary.lat, lng: secondary.lng },
-                ],
-                80,
-            )
-            return
-        }
-
         map.panTo({ lat: selectedLat, lng: selectedLng })
         map.setZoom(SELECTED_PLACE_FOCUS_ZOOM)
     }, [focusRequestVersion, map, selectedLat, selectedLng])

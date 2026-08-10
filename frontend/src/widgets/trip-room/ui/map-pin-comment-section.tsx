@@ -1,6 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SendIcon } from 'lucide-react'
 import type { MapPinCommentResponse } from '@/entities/trip'
+import { resolveMediaUrl } from '@/shared/api/client'
+import { useCurrentUserStore } from '@/shared/model'
+import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
+
+const DEFAULT_VISIBLE_COMMENT_COUNT = 3
 
 type Props = {
     comments: MapPinCommentResponse[]
@@ -8,7 +13,21 @@ type Props = {
     canWrite: boolean
     submitting: boolean
     error: string | null
-    onSubmit: (content: string) => Promise<void>
+    onSubmit: (content: string) => Promise<boolean>
+}
+
+const COMMENT_DATE_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+})
+
+function formatCommentDate(value: string) {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime())
+        ? ''
+        : COMMENT_DATE_FORMATTER.format(date)
 }
 
 export function MapPinCommentSection({
@@ -20,11 +39,66 @@ export function MapPinCommentSection({
     onSubmit,
 }: Props) {
     const [text, setText] = useState('')
+    const [showAllComments, setShowAllComments] = useState(false)
+    const listRef = useRef<HTMLUListElement>(null)
+    const firstAnimationFrameRef = useRef<number | null>(null)
+    const secondAnimationFrameRef = useRef<number | null>(null)
+    const currentMemberId = useCurrentUserStore(
+        (state) => state.currentUser?.id ?? null,
+    )
+    const hiddenCommentCount = Math.max(
+        0,
+        comments.length - DEFAULT_VISIBLE_COMMENT_COUNT,
+    )
+    const visibleComments = showAllComments
+        ? comments
+        : comments.slice(-DEFAULT_VISIBLE_COMMENT_COUNT)
+
+    useEffect(
+        () => () => {
+            if (firstAnimationFrameRef.current != null) {
+                cancelAnimationFrame(firstAnimationFrameRef.current)
+            }
+            if (secondAnimationFrameRef.current != null) {
+                cancelAnimationFrame(secondAnimationFrameRef.current)
+            }
+        },
+        [],
+    )
+
+    function revealNewestComment() {
+        if (firstAnimationFrameRef.current != null) {
+            cancelAnimationFrame(firstAnimationFrameRef.current)
+        }
+        if (secondAnimationFrameRef.current != null) {
+            cancelAnimationFrame(secondAnimationFrameRef.current)
+        }
+
+        firstAnimationFrameRef.current = requestAnimationFrame(() => {
+            secondAnimationFrameRef.current = requestAnimationFrame(() => {
+                const list = listRef.current
+                const newestComment = list?.lastElementChild
+                list?.scrollTo({ top: list.scrollHeight, behavior: 'smooth' })
+                newestComment?.animate(
+                    [
+                        { backgroundColor: 'rgb(var(--rgb-brand) / 0.18)' },
+                        { backgroundColor: 'rgb(248 250 252)' },
+                    ],
+                    { duration: 1200, easing: 'ease-out' },
+                )
+                firstAnimationFrameRef.current = null
+                secondAnimationFrameRef.current = null
+            })
+        })
+    }
 
     async function submit() {
-        if (!text.trim() || submitting) return
-        await onSubmit(text.trim())
-        setText('')
+        if (!text.trim() || loading || submitting) return
+        const succeeded = await onSubmit(text.trim())
+        if (succeeded) {
+            setText('')
+            revealNewestComment()
+        }
     }
 
     return (
@@ -42,16 +116,73 @@ export function MapPinCommentSection({
                     아직 댓글이 없어요
                 </p>
             ) : (
-                <ul className="mp-scroll max-h-24 space-y-1.5 overflow-y-auto">
-                    {comments.map((comment) => (
-                        <li
-                            key={comment.id}
-                            className="rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] text-slate-600"
+                <>
+                    {!showAllComments && hiddenCommentCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowAllComments(true)}
+                            className="mb-1.5 w-full text-left text-[10px] font-semibold text-brand-700 hover:underline"
                         >
-                            {comment.content}
-                        </li>
-                    ))}
-                </ul>
+                            이전 댓글 {hiddenCommentCount}개 더 보기
+                        </button>
+                    )}
+                    <ul
+                        ref={listRef}
+                        aria-live="polite"
+                        className="mp-scroll max-h-36 space-y-1.5 overflow-y-auto"
+                    >
+                        {visibleComments.map((comment) => {
+                            const isOwn = comment.memberId === currentMemberId
+                            return (
+                                <li
+                                    key={comment.id}
+                                    className="flex items-start gap-2 rounded-lg bg-slate-50 px-2 py-1.5"
+                                >
+                                    <Avatar
+                                        name={comment.nickname}
+                                        color={DEFAULT_AVATAR_COLOR}
+                                        size={24}
+                                        imageUrl={resolveMediaUrl(
+                                            comment.profileImageUrl,
+                                        )}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="truncate text-[11px] font-bold text-slate-700">
+                                                {comment.nickname}
+                                                {isOwn && (
+                                                    <span className="ml-1 rounded-full bg-brand/15 px-1.5 py-0.5 text-[9px] text-brand-700">
+                                                        나
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <time
+                                                dateTime={comment.createdAt}
+                                                className="shrink-0 text-[9px] text-slate-400"
+                                            >
+                                                {formatCommentDate(
+                                                    comment.createdAt,
+                                                )}
+                                            </time>
+                                        </div>
+                                        <p className="mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-4 text-slate-600">
+                                            {comment.content}
+                                        </p>
+                                    </div>
+                                </li>
+                            )
+                        })}
+                    </ul>
+                    {showAllComments && hiddenCommentCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowAllComments(false)}
+                            className="mt-1.5 w-full text-right text-[10px] font-semibold text-slate-400 hover:text-slate-600"
+                        >
+                            최근 댓글만 보기
+                        </button>
+                    )}
+                </>
             )}
 
             {error && (
@@ -65,15 +196,28 @@ export function MapPinCommentSection({
                     <input
                         value={text}
                         onChange={(e) => setText(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && void submit()}
+                        onPointerDown={(e) => {
+                            e.stopPropagation()
+                            e.currentTarget.focus()
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                            if (
+                                e.key === 'Enter' &&
+                                !e.nativeEvent.isComposing
+                            ) {
+                                void submit()
+                            }
+                        }}
                         placeholder="댓글 입력…"
+                        maxLength={500}
                         disabled={submitting}
-                        className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] outline-none focus:border-brand focus:bg-white disabled:opacity-60"
+                        className="pointer-events-auto flex-1 cursor-text rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] outline-none focus:border-brand focus:bg-white disabled:opacity-60"
                     />
                     <button
                         type="button"
                         onClick={() => void submit()}
-                        disabled={submitting || !text.trim()}
+                        disabled={loading || submitting || !text.trim()}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand text-slate-900 transition hover:bg-brand-700 hover:text-white disabled:opacity-40"
                         aria-label="댓글 등록"
                     >

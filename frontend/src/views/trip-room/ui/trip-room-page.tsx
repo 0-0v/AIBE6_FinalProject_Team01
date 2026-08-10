@@ -92,18 +92,49 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }>({ tripId: undefined, days: [] })
     const [itineraryVersion, setItineraryVersion] = useState(0)
     const [realtimeVersion, setRealtimeVersion] = useState(0)
-    const [mapPins, setMapPins] = useState<MapPinSummaryResponse[]>([])
+    const [mapPinVersion, setMapPinVersion] = useState(0)
+    const [mapPinState, setMapPinState] = useState<{
+        tripId: number | undefined
+        pins: MapPinSummaryResponse[]
+    }>({ tripId: undefined, pins: [] })
     useEffect(() => {
-        if (!tripId) {
-            Promise.resolve().then(() => setMapPins([]))
-            return
-        }
+        if (!tripId) return
         const controller = new AbortController()
         getMapPins(tripId, controller.signal)
-            .then(setMapPins)
-            .catch(() => undefined)
+            .then((pins) => setMapPinState({ tripId, pins }))
+            .catch((error: unknown) => {
+                if (
+                    error instanceof DOMException &&
+                    error.name === 'AbortError'
+                ) {
+                    return
+                }
+                setMapPinState({ tripId, pins: [] })
+            })
         return () => controller.abort()
-    }, [tripId, realtimeVersion])
+    }, [mapPinVersion, tripId])
+    const mapPins = mapPinState.tripId === tripId ? mapPinState.pins : []
+    const handleMapPinCommentAdded = useCallback(
+        (updatedPin: MapPinSummaryResponse) => {
+            if (!tripId) return
+            setMapPinState((current) => {
+                const pins = current.tripId === tripId ? current.pins : []
+                const existingIndex = pins.findIndex(
+                    (pin) => pin.googlePlaceId === updatedPin.googlePlaceId,
+                )
+                if (existingIndex < 0) {
+                    return { tripId, pins: [...pins, updatedPin] }
+                }
+                return {
+                    tripId,
+                    pins: pins.map((pin, index) =>
+                        index === existingIndex ? updatedPin : pin,
+                    ),
+                }
+            })
+        },
+        [tripId],
+    )
     const itineraryDays =
         itineraryState.tripId === tripId ? itineraryState.days : []
     const handleItineraryDaysLoaded = useCallback(
@@ -186,6 +217,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         const handleRealtimeChange = (event: Event) => {
             const detail = (event as CustomEvent<RealtimeEvent>).detail
             if (detail.tripId === tripId) {
+                if (detail.targetType === 'MAP_PIN') {
+                    setMapPinVersion((current) => current + 1)
+                    return
+                }
                 setRealtimeVersion((current) => current + 1)
             }
         }
@@ -608,6 +643,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         onHoverPlace={setHoveredPlaceId}
                         tripId={tripId}
                         mapPins={mapPins}
+                        onMapPinCommentAdded={handleMapPinCommentAdded}
                         days={itineraryDays}
                         initialRouteDay={
                             pendingAiAction?.routeContext?.dayNumber ?? null

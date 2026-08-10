@@ -5,6 +5,7 @@ import type { PlaceSearchResult } from '@/features/search-place'
 type Props = {
     loading: boolean
     result: PlaceSearchResult | null
+    fallbackPlaceName?: string | null
     error: string | null
     isAlreadySaved: boolean
     canWrite: boolean
@@ -16,6 +17,7 @@ type Props = {
 export function MapPoiPopup({
     loading,
     result,
+    fallbackPlaceName,
     error,
     isAlreadySaved,
     canWrite,
@@ -122,6 +124,12 @@ export function MapPoiPopup({
                             </div>
                         )}
                     </>
+                )}
+
+                {!loading && !error && !result && fallbackPlaceName && (
+                    <h3 className="truncate pr-4 text-sm font-extrabold text-slate-900">
+                        {fallbackPlaceName}
+                    </h3>
                 )}
             </div>
 
