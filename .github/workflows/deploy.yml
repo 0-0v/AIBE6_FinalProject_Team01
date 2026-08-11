@@ -17,15 +17,16 @@ concurrency:
   cancel-in-progress: false # 기존에 시작된 작업은 새 커밋이 들어왔다고 해서 바로 끄지 않고 끝날때까지 대기
 
 on:
+  workflow_dispatch: 
   push:
+    branches:
+      - dev
     paths:
       - ".github/workflows/**"
       - "backend/src/**"
       - "backend/build.gradle"
       - "backend/settings.gradle"
       - "backend/Dockerfile"
-    branches:
-      - dev
 
 # 권한 최소화/명시화
 permissions:
