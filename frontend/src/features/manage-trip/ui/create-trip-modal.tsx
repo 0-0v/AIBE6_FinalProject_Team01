@@ -8,7 +8,10 @@ import {
     uploadTripCoverImage,
     type TravelStyle,
 } from '../api/trip-api'
-import { pickRandomTripCoverPreset } from '../model/trip-cover-presets'
+import {
+    keepOrPickTripCoverPreset,
+    pickRandomTripCoverPreset,
+} from '../model/trip-cover-presets'
 import type { TripCoverPreset } from '../model/trip-cover-presets'
 import {
     TripCoverImageField,
@@ -59,7 +62,9 @@ export function CreateTripModal({
             .then((presets) => {
                 if (presets.length === 0) return
                 setCoverPresets(presets)
-                setCoverPreset(pickRandomTripCoverPreset(undefined, presets))
+                setCoverPreset((current) =>
+                    keepOrPickTripCoverPreset(current, presets),
+                )
             })
             .catch(() => {
                 // 서버 목록을 불러오지 못하면 번들에 포함된 기본 프리셋을 사용한다.

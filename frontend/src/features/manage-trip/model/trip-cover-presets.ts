@@ -31,6 +31,14 @@ export function pickRandomTripCoverPreset(
     return candidates[Math.floor(Math.random() * candidates.length)]
 }
 
+export function keepOrPickTripCoverPreset(
+    current: TripCoverPreset,
+    presets: TripCoverPreset[],
+): TripCoverPreset {
+    if (presets.some((preset) => preset.key === current.key)) return current
+    return pickRandomTripCoverPreset(undefined, presets)
+}
+
 export function findTripCoverPreset(key: string): TripCoverPreset | undefined {
     return TRIP_COVER_PRESETS.find((preset) => preset.key === key)
 }

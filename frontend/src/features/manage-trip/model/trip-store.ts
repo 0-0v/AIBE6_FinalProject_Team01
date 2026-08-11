@@ -15,6 +15,7 @@ type TripState = {
     guestRoom: Room | null
     activeTripId: string | null
     isLoading: boolean
+    isRefreshing: boolean
     error: string | null
     loadTrips: () => Promise<void>
     loadInvitedTrip: (inviteCode: string) => Promise<boolean>
@@ -103,17 +104,18 @@ export const useTripStore = create<TripState>()(
             guestRoom: null,
             activeTripId: null,
             isLoading: false,
+            isRefreshing: false,
             error: null,
             loadTrips: async () => {
-                if (get().isLoading) return
+                if (get().isRefreshing) return
                 set({
+                    isRefreshing: true,
                     isLoading: get().rooms.length === 0,
                     error: null,
                 })
                 try {
                     const trips = await fetchTrips()
                     if (JSON.stringify(trips) === JSON.stringify(get().trips)) {
-                        set({ isLoading: false })
                         return
                     }
                     const rooms = trips.map(toRoom)
@@ -125,16 +127,16 @@ export const useTripStore = create<TripState>()(
                         )
                             ? state.activeTripId
                             : (rooms[0]?.id ?? null),
-                        isLoading: false,
                     }))
                 } catch (error) {
                     set({
-                        isLoading: false,
                         error:
                             error instanceof Error
                                 ? error.message
                                 : '여행방을 불러오지 못했습니다.',
                     })
+                } finally {
+                    set({ isLoading: false, isRefreshing: false })
                 }
             },
             loadInvitedTrip: async (inviteCode) => {
@@ -163,6 +165,7 @@ export const useTripStore = create<TripState>()(
                     activeTripId: null,
                     error: null,
                     isLoading: false,
+                    isRefreshing: false,
                 }),
         }),
         {
