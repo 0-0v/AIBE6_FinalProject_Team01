@@ -87,6 +87,10 @@ export function CreateTripModal({
             setError('여행방 이름을 입력해 주세요.')
             return
         }
+        if (!destinationResult) {
+            setError('목적지를 검색한 뒤 목록에서 선택해 주세요.')
+            return
+        }
         if (travelStyles.length > MAX_TRAVEL_STYLE_COUNT) {
             setError(
                 `여행 스타일은 최대 ${MAX_TRAVEL_STYLE_COUNT}개까지 선택할 수 있습니다.`,
@@ -118,15 +122,13 @@ export function CreateTripModal({
                     await createTrip({
                         title: normalizedTitle,
                         travelStyles,
-                        destination:
-                            destinationResult?.name ??
-                            (destinationText.trim() || null),
-                        destinationLat: destinationResult?.lat ?? null,
-                        destinationLng: destinationResult?.lng ?? null,
+                        destination: destinationResult.name,
+                        destinationLat: destinationResult.lat,
+                        destinationLng: destinationResult.lng,
                         destinationEnglishName:
-                            destinationResult?.englishName ?? null,
+                            destinationResult.englishName,
                         destinationCountryCode:
-                            destinationResult?.countryCode ?? null,
+                            destinationResult.countryCode,
                         startDate: startDate || null,
                         endDate: endDate || null,
                     })
@@ -219,9 +221,15 @@ export function CreateTripModal({
                         />
 
                         <label className="mt-3.5 block text-sm font-bold">
-                            어디로 떠나시나요?
+                            어디로 떠나시나요?{' '}
+                            <span className="text-brand">*</span>
                             <DestinationAutocomplete
                                 value={destinationText}
+                                locked={destinationResult !== null}
+                                onUnlock={() => {
+                                    setDestinationResult(null)
+                                    setDestinationText('')
+                                }}
                                 onChange={(result, text) => {
                                     setDestinationResult(result)
                                     setDestinationText(text)

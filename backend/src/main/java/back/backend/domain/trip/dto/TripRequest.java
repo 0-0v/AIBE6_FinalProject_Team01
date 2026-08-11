@@ -7,6 +7,7 @@ import back.backend.domain.trip.entity.TripVisibility;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.groups.Default;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
@@ -18,6 +19,7 @@ public record TripRequest(
         CompanionType companionType,
         @Size(max = 3, message = "여행 스타일은 최대 3개까지 선택할 수 있습니다.")
         Set<TravelStyle> travelStyles,
+        @NotBlank(message = "여행 목적지는 필수입니다.", groups = Create.class)
         @Size(max = 100, message = "여행 장소는 100자 이하여야 합니다.")
         String destination,
         Double destinationLat,
@@ -34,6 +36,9 @@ public record TripRequest(
         @Size(max = 2, message = "목적지 국가 코드는 2자 이하여야 합니다.")
         String destinationCountryCode
 ) {
+    public interface Create extends Default {
+    }
+
     public TripRequest(
             String title, CompanionType companionType, Set<TravelStyle> travelStyles,
             String destination, Double destinationLat, Double destinationLng,
