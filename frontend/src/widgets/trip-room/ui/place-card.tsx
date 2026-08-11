@@ -7,6 +7,7 @@ import {
     Trash2Icon,
 } from 'lucide-react'
 import { CategoryIcon, Place, type PlaceCategoryInfo } from '@/entities/trip'
+import { hexWithAlpha } from '@/shared/lib'
 import { Avatar, Select } from '@/shared/ui'
 import { useAdderDisplay } from '../model/use-adder-display'
 
@@ -88,7 +89,10 @@ export function PlaceCard({
                 <div
                     className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl"
                     style={{
-                        backgroundColor: `${place.categoryColor}18`,
+                        backgroundColor: hexWithAlpha(
+                            place.categoryColor,
+                            '18',
+                        ),
                         color: place.categoryColor,
                     }}
                     title={

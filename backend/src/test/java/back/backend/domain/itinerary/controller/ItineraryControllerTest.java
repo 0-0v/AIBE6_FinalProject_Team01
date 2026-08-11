@@ -48,7 +48,7 @@ class ItineraryControllerTest {
 
         dayResponse = new ItineraryDayResponse(100L, LocalDate.of(2026, 8, 1), 1, null, "DRAFT", List.of(), null);
         itemResponse = new ItineraryItemResponse(200L, 300L, "테스트 장소", "서울시",
-                "음식점", "#dc2626", "UTENSILS", 37.5665, 126.9780,
+                "음식점", "FOOD", "#dc2626", "UTENSILS", "restaurant", 37.5665, 126.9780,
                 null, null, 0, null, null, null, null, null, null);
     }
 

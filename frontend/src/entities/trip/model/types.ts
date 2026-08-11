@@ -69,6 +69,7 @@ export type Place = {
     categoryName: string
     categoryColor: string
     categoryIcon: PlaceMarkerIcon
+    placeType?: string | null
     status: PlaceStatus
     image: string
     photoAttribution?: string | null
@@ -134,8 +135,10 @@ export type ItineraryItem = {
     placeName: string | null
     placeAddress: string | null
     categoryName: string | null
+    categoryType?: PlaceCategoryType | null
     categoryColor: string | null
     categoryIcon: string | null
+    placeType?: string | null
     lat: number
     lng: number
     startTime: string | null

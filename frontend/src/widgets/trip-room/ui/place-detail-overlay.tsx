@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { ItineraryItem, Place } from '@/entities/trip'
 import { CategoryIcon } from '@/entities/trip'
+import { hexWithAlpha } from '@/shared/lib'
 import { Avatar } from '@/shared/ui'
 import { buildGoogleMapsPlaceUrl } from '../lib/google-maps-place-url'
 import { formatTimeRange } from '../lib/itinerary-time'
@@ -105,7 +106,10 @@ export function PlaceDetailOverlay({
                         <span
                             className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${hasPhoto ? 'mt-2' : 'mt-1.5'}`}
                             style={{
-                                backgroundColor: place.categoryColor + '20',
+                                backgroundColor: hexWithAlpha(
+                                    place.categoryColor,
+                                    '20',
+                                ),
                                 color: place.categoryColor,
                             }}
                         >

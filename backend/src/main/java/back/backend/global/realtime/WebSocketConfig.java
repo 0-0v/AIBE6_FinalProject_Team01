@@ -3,7 +3,6 @@ package back.backend.global.realtime;
 import back.backend.global.security.CorsProperties;
 import back.backend.global.security.jwt.JwtProvider;
 import back.backend.global.security.jwt.TokenType;
-import back.backend.domain.trip.repository.TripMemberRepository;
 import java.security.Principal;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -13,6 +12,7 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -23,16 +23,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtProvider jwtProvider;
     private final CorsProperties corsProperties;
-    private final TripMemberRepository tripMemberRepository;
+    private final TripSubscriptionAuthorizer tripSubscriptionAuthorizer;
 
     public WebSocketConfig(
             JwtProvider jwtProvider,
             CorsProperties corsProperties,
-            TripMemberRepository tripMemberRepository
+            TripSubscriptionAuthorizer tripSubscriptionAuthorizer
     ) {
         this.jwtProvider = jwtProvider;
         this.corsProperties = corsProperties;
-        this.tripMemberRepository = tripMemberRepository;
+        this.tripSubscriptionAuthorizer = tripSubscriptionAuthorizer;
     }
 
     @Override
@@ -60,26 +60,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 if (accessor.getCommand() == StompCommand.SUBSCRIBE) {
                     authorizeSubscription(accessor);
                 }
-                return message;
+                return MessageBuilder.createMessage(
+                        message.getPayload(),
+                        accessor.getMessageHeaders()
+                );
             }
         });
     }
 
     private void authorizeSubscription(StompHeaderAccessor accessor) {
-        String destination = accessor.getDestination();
-        Principal user = accessor.getUser();
-        if (destination == null || user == null || !destination.startsWith("/topic/trips/")) {
-            return;
-        }
-        try {
-            Long tripId = Long.valueOf(destination.substring("/topic/trips/".length()));
-            Long memberId = Long.valueOf(user.getName());
-            if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
-                throw new IllegalArgumentException("여행방 실시간 채널에 접근할 권한이 없습니다.");
-            }
-        } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("잘못된 여행방 실시간 채널입니다.", exception);
-        }
+        tripSubscriptionAuthorizer.authorize(accessor.getDestination(), accessor.getUser());
     }
 
     private Principal authenticate(String authorization) {

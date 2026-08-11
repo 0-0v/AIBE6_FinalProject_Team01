@@ -7,8 +7,11 @@ import {
     UnlockIcon,
     UserPlusIcon,
     Settings2Icon,
+    LocateFixedIcon,
+    PencilLineIcon,
 } from 'lucide-react'
 import type { TripMember } from '@/features/manage-trip'
+import type { ActiveTripAwareness } from '@/features/trip-awareness'
 import { resolveMediaUrl } from '@/shared/api/client'
 
 type Props = {
@@ -19,6 +22,9 @@ type Props = {
     isCompleted: boolean
     canWrite: boolean
     members: TripMember[]
+    currentMemberId?: number | null
+    awarenessByMemberId?: Record<number, ActiveTripAwareness>
+    onFollowMember?: (awareness: ActiveTripAwareness) => void
     onInvite: () => void
     onJoin?: () => void
     onBack: () => void
@@ -35,6 +41,9 @@ export function RoomHeader({
     isCompleted,
     canWrite,
     members,
+    currentMemberId = null,
+    awarenessByMemberId = {},
+    onFollowMember,
     onInvite,
     onJoin,
     onBack,
@@ -43,8 +52,25 @@ export function RoomHeader({
     showBackButton = true,
 }: Props) {
     const [showHiddenMembers, setShowHiddenMembers] = useState(false)
+    const [selectedMemberId, setSelectedMemberId] = useState<number | null>(
+        null,
+    )
     const visibleMembers = members.slice(0, 4)
     const hiddenMembers = members.slice(4)
+    const selectedMember = members.find(
+        (member) => member.memberId === selectedMemberId,
+    )
+    const selectedAwareness =
+        selectedMemberId == null
+            ? undefined
+            : awarenessByMemberId[selectedMemberId]
+
+    const selectMember = (memberId: number) => {
+        setShowHiddenMembers(false)
+        setSelectedMemberId((current) =>
+            current === memberId ? null : memberId,
+        )
+    }
 
     return (
         <header className="bg-slate-50 px-10 py-7">
@@ -121,6 +147,15 @@ export function RoomHeader({
                                 <MemberProfileAvatar
                                     key={member.memberId}
                                     member={member}
+                                    awareness={
+                                        awarenessByMemberId[member.memberId]
+                                    }
+                                    selected={
+                                        selectedMemberId === member.memberId
+                                    }
+                                    onClick={() =>
+                                        selectMember(member.memberId)
+                                    }
                                 />
                             ))}
                         </div>
@@ -128,7 +163,10 @@ export function RoomHeader({
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setShowHiddenMembers((visible) => !visible)
+                                    setShowHiddenMembers((visible) => {
+                                        setSelectedMemberId(null)
+                                        return !visible
+                                    })
                                 }
                                 aria-expanded={showHiddenMembers}
                                 aria-label={`숨겨진 여행방 멤버 ${hiddenMembers.length}명 ${showHiddenMembers ? '닫기' : '보기'}`}
@@ -167,6 +205,16 @@ export function RoomHeader({
                                             <MemberProfileAvatar
                                                 member={member}
                                                 overlap={false}
+                                                awareness={
+                                                    awarenessByMemberId[
+                                                        member.memberId
+                                                    ]
+                                                }
+                                                onClick={() =>
+                                                    selectMember(
+                                                        member.memberId,
+                                                    )
+                                                }
                                             />
                                             <span
                                                 className={`min-w-0 flex-1 truncate text-xs font-bold ${
@@ -194,6 +242,24 @@ export function RoomHeader({
                                 </div>
                             </div>
                         )}
+                        {selectedMember && (
+                            <MemberAwarenessPopover
+                                member={selectedMember}
+                                awareness={selectedAwareness}
+                                isCurrentMember={
+                                    selectedMember.memberId === currentMemberId
+                                }
+                                onClose={() => setSelectedMemberId(null)}
+                                onFollow={
+                                    selectedAwareness && onFollowMember
+                                        ? () => {
+                                              onFollowMember(selectedAwareness)
+                                              setSelectedMemberId(null)
+                                          }
+                                        : undefined
+                                }
+                            />
+                        )}
                     </div>
                     {canWrite && (
                         <button
@@ -213,17 +279,29 @@ export function RoomHeader({
 function MemberProfileAvatar({
     member,
     overlap = true,
+    awareness,
+    selected = false,
+    onClick,
 }: {
     member: TripMember
     overlap?: boolean
+    awareness?: ActiveTripAwareness
+    selected?: boolean
+    onClick: () => void
 }) {
+    const status = describeAwareness(awareness)
     return (
-        <span
-            title={`${member.nickname} · ${member.online ? '접속 중' : '오프라인'}`}
+        <button
+            type="button"
+            onClick={onClick}
+            title={`${member.nickname} · ${status ?? (member.online ? '접속 중' : '오프라인')}`}
+            aria-label={`${member.nickname} ${status ?? (member.online ? '접속 중' : '오프라인')} 확인`}
             className={`relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border bg-slate-200 text-[9px] font-extrabold text-slate-600 shadow-sm transition ${
                 member.online
                     ? 'z-10 border-slate-300 bg-white'
                     : 'border-white bg-slate-100 text-slate-300'
+            } ${awareness ? 'ring-2 ring-emerald-300 ring-offset-1' : ''} ${
+                selected ? 'z-20 ring-2 ring-brand ring-offset-1' : ''
             } ${overlap ? '' : 'shrink-0'}`}
         >
             {member.profileImageUrl ? (
@@ -237,6 +315,89 @@ function MemberProfileAvatar({
             ) : (
                 member.nickname.slice(0, 1)
             )}
-        </span>
+            {awareness && (
+                <span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full border border-white bg-emerald-400" />
+            )}
+        </button>
     )
+}
+
+function MemberAwarenessPopover({
+    member,
+    awareness,
+    isCurrentMember,
+    onClose,
+    onFollow,
+}: {
+    member: TripMember
+    awareness?: ActiveTripAwareness
+    isCurrentMember: boolean
+    onClose: () => void
+    onFollow?: () => void
+}) {
+    const status = describeAwareness(awareness)
+    const canFollow =
+        awareness != null &&
+        (awareness.selectedPlaceId != null ||
+            awareness.selectedDay != null ||
+            (awareness.mapLat != null && awareness.mapLng != null))
+
+    return (
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+            <div className="flex items-start gap-2.5">
+                <MemberProfileAvatar
+                    member={member}
+                    overlap={false}
+                    awareness={awareness}
+                    onClick={onClose}
+                />
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-extrabold text-slate-800">
+                        {member.nickname}
+                        {isCurrentMember && (
+                            <span className="ml-1 text-[10px] text-brand">
+                                나
+                            </span>
+                        )}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                        {awareness?.editingLabel ? (
+                            <PencilLineIcon size={12} className="text-brand" />
+                        ) : (
+                            <LocateFixedIcon size={12} />
+                        )}
+                        <span className="truncate">
+                            {status ?? (member.online ? '접속 중' : '오프라인')}
+                        </span>
+                    </p>
+                </div>
+            </div>
+            {!isCurrentMember && canFollow && onFollow && (
+                <button
+                    type="button"
+                    onClick={onFollow}
+                    className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-brand-50 text-xs font-extrabold text-brand-700 transition hover:bg-brand-100"
+                >
+                    <LocateFixedIcon size={14} /> 보고 있는 곳으로 이동
+                </button>
+            )}
+        </div>
+    )
+}
+
+function describeAwareness(awareness?: ActiveTripAwareness) {
+    if (!awareness) return null
+    if (awareness.editingLabel) return awareness.editingLabel
+    if (awareness.selectedPlaceName) {
+        return `${awareness.selectedPlaceName} 보는 중`
+    }
+    if (awareness.selectedDay != null) {
+        return `Day ${awareness.selectedDay} 일정 보는 중`
+    }
+    return {
+        places: '장소 살펴보는 중',
+        itinerary: '날짜 확인 중',
+        schedule: '일정 확인 중',
+        record: '기록 확인 중',
+    }[awareness.workspace]
 }

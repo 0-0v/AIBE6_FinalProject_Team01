@@ -1,7 +1,10 @@
 import type { LucideIcon } from 'lucide-react'
 import {
     BeerIcon,
+    BikeIcon,
+    BusFrontIcon,
     CameraIcon,
+    CarFrontIcon,
     ChurchIcon,
     CoffeeIcon,
     CroissantIcon,
@@ -12,18 +15,22 @@ import {
     MountainIcon,
     PizzaIcon,
     PlaneIcon,
+    RouteIcon,
     SandwichIcon,
     ShoppingBagIcon,
+    ShipIcon,
     SoupIcon,
     StarIcon,
     StoreIcon,
+    SquareParkingIcon,
+    TrainFrontIcon,
     TreesIcon,
     UtensilsIcon,
     WavesIcon,
 } from 'lucide-react'
-import type { PlaceMarkerIcon } from '../model/place-marker-icon'
+import type { PlaceDisplayIcon } from '../model/place-marker-icon'
 
-const ICONS: Record<PlaceMarkerIcon, LucideIcon> = {
+const ICONS: Record<PlaceDisplayIcon, LucideIcon> = {
     UTENSILS: UtensilsIcon,
     COFFEE: CoffeeIcon,
     LANDMARK: LandmarkIcon,
@@ -41,13 +48,20 @@ const ICONS: Record<PlaceMarkerIcon, LucideIcon> = {
     MOUNTAIN: MountainIcon,
     TORII_GATE: ChurchIcon,
     PLANE: PlaneIcon,
+    TRAIN: TrainFrontIcon,
+    BUS: BusFrontIcon,
+    CAR: CarFrontIcon,
+    SHIP: ShipIcon,
+    BIKE: BikeIcon,
+    PARKING: SquareParkingIcon,
+    ROUTE: RouteIcon,
     CAMERA: CameraIcon,
     HEART: HeartIcon,
     STAR: StarIcon,
 }
 
 type Props = {
-    icon: PlaceMarkerIcon | string | null | undefined
+    icon: PlaceDisplayIcon | string | null | undefined
     size?: number
     className?: string
     strokeWidth?: number
@@ -59,7 +73,7 @@ export function CategoryIcon({
     className,
     strokeWidth = 2,
 }: Props) {
-    const Icon = ICONS[icon as PlaceMarkerIcon] ?? MapPinIcon
+    const Icon = ICONS[icon as PlaceDisplayIcon] ?? MapPinIcon
     return (
         <Icon
             aria-hidden="true"

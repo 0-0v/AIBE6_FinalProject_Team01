@@ -1,5 +1,6 @@
 export * from './model/types'
 export * from './model/place-presentation'
+export * from './model/place-display-icon'
 export { RoomCard } from './ui/room-card'
 export { CategoryIcon } from './ui/category-icon'
 export { TransportModeIcon } from './ui/transport-mode-icon'
@@ -7,7 +8,10 @@ export {
     PLACE_MARKER_ICONS,
     PLACE_MARKER_ICON_OPTIONS,
 } from './model/place-marker-icon'
-export type { PlaceMarkerIcon } from './model/place-marker-icon'
+export type {
+    PlaceDisplayIcon,
+    PlaceMarkerIcon,
+} from './model/place-marker-icon'
 export {
     addTripPlace,
     getTripPlaces,
@@ -31,6 +35,16 @@ export {
     deletePlaceComment,
 } from './api/commentApi'
 export type { PlaceCommentResponse } from './api/commentApi'
+export {
+    getMapPins,
+    getMapPinComments,
+    addMapPinComment,
+    deleteMapPinComment,
+} from './api/mapPinApi'
+export type {
+    MapPinSummaryResponse,
+    MapPinCommentResponse,
+} from './api/mapPinApi'
 export {
     getDateAvailability,
     saveDateAvailability,

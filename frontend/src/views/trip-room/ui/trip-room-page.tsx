@@ -18,7 +18,9 @@ import {
     initializeItinerary,
     fromApiToPlace,
     addTripPlace,
+    getMapPins,
     type ItineraryDay,
+    type MapPinSummaryResponse,
 } from '@/entities/trip'
 import type { PlaceSearchResult } from '@/features/search-place'
 import { AiAgentPanel } from '@/features/ai-organize'
@@ -36,11 +38,17 @@ import {
 import { getApiErrorMessage } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
 import {
+    type ActiveTripAwareness,
+    type TripMapViewport,
+    usePublishTripAwareness,
+} from '@/features/trip-awareness'
+import {
     MapCanvas,
     RecordRoomPanel,
     RoomDetailPanel,
     RoomListPanel,
     type TripRoomMode,
+    type TripRoomWorkspace,
 } from '@/widgets/trip-room'
 import {
     REALTIME_EVENT_NAME,
@@ -90,6 +98,49 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }>({ tripId: undefined, days: [] })
     const [itineraryVersion, setItineraryVersion] = useState(0)
     const [realtimeVersion, setRealtimeVersion] = useState(0)
+    const [mapPinVersion, setMapPinVersion] = useState(0)
+    const [mapPinState, setMapPinState] = useState<{
+        tripId: number | undefined
+        pins: MapPinSummaryResponse[]
+    }>({ tripId: undefined, pins: [] })
+    useEffect(() => {
+        if (!tripId) return
+        const controller = new AbortController()
+        getMapPins(tripId, controller.signal)
+            .then((pins) => setMapPinState({ tripId, pins }))
+            .catch((error: unknown) => {
+                if (
+                    error instanceof DOMException &&
+                    error.name === 'AbortError'
+                ) {
+                    return
+                }
+                setMapPinState({ tripId, pins: [] })
+            })
+        return () => controller.abort()
+    }, [mapPinVersion, tripId])
+    const mapPins = mapPinState.tripId === tripId ? mapPinState.pins : []
+    const handleMapPinCommentAdded = useCallback(
+        (updatedPin: MapPinSummaryResponse) => {
+            if (!tripId) return
+            setMapPinState((current) => {
+                const pins = current.tripId === tripId ? current.pins : []
+                const existingIndex = pins.findIndex(
+                    (pin) => pin.googlePlaceId === updatedPin.googlePlaceId,
+                )
+                if (existingIndex < 0) {
+                    return { tripId, pins: [...pins, updatedPin] }
+                }
+                return {
+                    tripId,
+                    pins: pins.map((pin, index) =>
+                        index === existingIndex ? updatedPin : pin,
+                    ),
+                }
+            })
+        },
+        [tripId],
+    )
     const itineraryDays =
         itineraryState.tripId === tripId ? itineraryState.days : []
     const handleItineraryDaysLoaded = useCallback(
@@ -135,6 +186,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         useState<HTMLDivElement | null>(null)
     const workspacePanelRef = useRef<HTMLElement>(null)
     const [mapCollapsed, setMapCollapsed] = useState(false)
+    const [activeWorkspace, setActiveWorkspace] =
+        useState<TripRoomWorkspace>('places')
+    const [viewedDayNumber, setViewedDayNumber] = useState<number | null>(null)
+    const [mapViewport, setMapViewport] = useState<TripMapViewport | null>(null)
+    const [viewportFocusRequest, setViewportFocusRequest] = useState<
+        (TripMapViewport & { version: number }) | null
+    >(null)
     const [aiOpen, setAiOpen] = useState(false)
     const [pendingAiAction, setPendingAiAction] =
         useState<PendingAiTripAction | null>(null)
@@ -172,6 +230,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         const handleRealtimeChange = (event: Event) => {
             const detail = (event as CustomEvent<RealtimeEvent>).detail
             if (detail.tripId === tripId) {
+                if (detail.targetType === 'MAP_PIN') {
+                    setMapPinVersion((current) => current + 1)
+                    return
+                }
                 setRealtimeVersion((current) => current + 1)
             }
         }
@@ -310,6 +372,67 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 places.map((p) => p.googlePlaceId).filter(Boolean) as string[],
             ),
         [places],
+    )
+
+    const selectedPlaceName = useMemo(
+        () =>
+            displayedPlaces.find((place) => place.id === selectedId)?.name ??
+            null,
+        [displayedPlaces, selectedId],
+    )
+
+    usePublishTripAwareness({
+        enabled: Boolean(currentUser && tripId && !inviteCode && !showRoomList),
+        tripId: tripId ?? null,
+        workspace: isRecordMode ? 'record' : activeWorkspace,
+        selectedDay: viewedDayNumber,
+        selectedPlaceId: selectedId,
+        selectedPlaceName,
+        viewport: mapViewport,
+    })
+
+    const handleFollowMember = useCallback(
+        (awareness: ActiveTripAwareness) => {
+            if (awareness.memberId === currentUser?.id) return
+            setMapCollapsed(false)
+
+            const targetWorkspace: TripRoomWorkspace =
+                awareness.workspace === 'record'
+                    ? 'places'
+                    : awareness.workspace
+            setActiveWorkspace(targetWorkspace)
+
+            if (awareness.selectedDay != null) {
+                setViewedDayNumber(awareness.selectedDay)
+                setFocusDayRequest({
+                    dayNumber: awareness.selectedDay,
+                    version: Date.now(),
+                })
+            }
+
+            const hasSelectedPlace =
+                awareness.selectedPlaceId != null &&
+                mapPlaces.some(
+                    (place) => place.id === awareness.selectedPlaceId,
+                )
+            if (hasSelectedPlace && awareness.selectedPlaceId) {
+                selectPlaceFromCard(awareness.selectedPlaceId)
+                return
+            }
+            if (
+                awareness.mapLat != null &&
+                awareness.mapLng != null &&
+                awareness.mapZoom != null
+            ) {
+                setViewportFocusRequest({
+                    lat: awareness.mapLat,
+                    lng: awareness.mapLng,
+                    zoom: awareness.mapZoom,
+                    version: Date.now(),
+                })
+            }
+        },
+        [currentUser?.id, mapPlaces, selectPlaceFromCard],
     )
 
     const updatePlace = useCallback(
@@ -556,7 +679,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                 ease: [0.22, 1, 0.36, 1],
                             },
                         }}
-                        className="relative z-30 shrink-0 overflow-hidden bg-slate-50"
+                        className="relative z-40 shrink-0 overflow-visible bg-slate-50"
                     />
                 )}
             </AnimatePresence>
@@ -592,6 +715,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         onDeselect={deselectPlace}
                         hoveredPlaceId={hoveredPlaceId}
                         onHoverPlace={setHoveredPlaceId}
+                        tripId={tripId}
+                        mapPins={mapPins}
+                        onMapPinCommentAdded={handleMapPinCommentAdded}
+                        viewportFocusRequest={viewportFocusRequest}
+                        onViewportChange={setMapViewport}
                         days={itineraryDays}
                         initialRouteDay={
                             pendingAiAction?.routeContext?.dayNumber ?? null
@@ -607,7 +735,9 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         existingGooglePlaceIds={existingGooglePlaceIds}
                         canWrite={!inviteCode && canManagePlaces}
                         onRouteDayChange={(dayNumber) => {
+                            setViewedDayNumber(dayNumber)
                             if (dayNumber == null) return
+                            setActiveWorkspace('schedule')
                             setFocusDayRequest({
                                 dayNumber,
                                 version: Date.now(),
@@ -797,6 +927,9 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     onToggleMap={() =>
                                         setMapCollapsed((v) => !v)
                                     }
+                                    activeWorkspace={activeWorkspace}
+                                    onWorkspaceChange={setActiveWorkspace}
+                                    onFollowMember={handleFollowMember}
                                 />
                             ) : (
                                 <RoomListPanel

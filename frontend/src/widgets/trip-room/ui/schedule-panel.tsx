@@ -12,6 +12,7 @@ import {
 import { CategoryIcon } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem, Place } from '@/entities/trip'
 import type { TripMember } from '@/features/manage-trip'
+import { hexWithAlpha } from '@/shared/lib'
 import { formatTimeRange } from '../lib/itinerary-time'
 import { resolveMemberNickname } from '../lib/member-lookup'
 import {
@@ -96,7 +97,7 @@ function PlaceChip({ place, days, onAddToDay }: PlaceChipProps) {
             className={`relative flex shrink-0 items-center rounded-full border bg-white shadow-sm ${isDragging ? 'opacity-30' : ''}`}
             style={
                 place.categoryColor
-                    ? { borderColor: place.categoryColor + '60' }
+                    ? { borderColor: hexWithAlpha(place.categoryColor, '60') }
                     : { borderColor: 'var(--color-app-border)' }
             }
         >
@@ -128,7 +129,7 @@ function PlaceChip({ place, days, onAddToDay }: PlaceChipProps) {
                 className="flex h-full items-center rounded-r-full border-l py-1 pl-1.5 pr-2 text-[10px] font-bold transition hover:bg-slate-50"
                 style={{
                     borderColor: place.categoryColor
-                        ? place.categoryColor + '40'
+                        ? hexWithAlpha(place.categoryColor, '40')
                         : 'var(--color-app-border)',
                     color: place.categoryColor ?? 'var(--color-app-text-muted)',
                 }}
@@ -470,9 +471,10 @@ export function SchedulePanel({
                                         style={
                                             place.categoryColor
                                                 ? {
-                                                      borderColor:
-                                                          place.categoryColor +
+                                                      borderColor: hexWithAlpha(
+                                                          place.categoryColor,
                                                           '60',
+                                                      ),
                                                       color: place.categoryColor,
                                                   }
                                                 : {

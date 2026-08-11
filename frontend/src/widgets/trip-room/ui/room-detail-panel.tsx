@@ -36,12 +36,16 @@ import type {
     PlaceSearchResult,
 } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
-import { globalModal } from '@/shared/model'
+import { globalModal, useCurrentUserStore } from '@/shared/model'
 import { resolveMemberNickname } from '../lib/member-lookup'
 import { UNSAVED_DATE_MODAL_COPY } from '../lib/unsaved-date-modal-copy'
 import { ActivityLogPanel } from './activity-log'
 import { useActivityLogStore } from '@/features/view-activity-log'
 import { useNotificationStore } from '@/features/manage-notification'
+import {
+    type ActiveTripAwareness,
+    useTripAwarenessStore,
+} from '@/features/trip-awareness'
 import { DateVotePanel } from './date-vote-panel'
 import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
@@ -150,7 +154,9 @@ type Props = {
     showBackButton?: boolean
     guestView?: boolean
     onJoin?: () => void
-    onWorkspaceChange?: (workspace: TripRoomWorkspace) => void
+    activeWorkspace: TripRoomWorkspace
+    onWorkspaceChange: (workspace: TripRoomWorkspace) => void
+    onFollowMember?: (awareness: ActiveTripAwareness) => void
     headerContainer?: HTMLElement | null
     aiPlaceRecommendations?: AiPlaceSearchRecommendation[] | null
     mapCollapsed?: boolean
@@ -190,7 +196,9 @@ export function RoomDetailPanel({
     showBackButton = true,
     guestView = false,
     onJoin,
-    onWorkspaceChange,
+    activeWorkspace: planTab,
+    onWorkspaceChange: setPlanTab,
+    onFollowMember,
     headerContainer,
     aiPlaceRecommendations,
     mapCollapsed = false,
@@ -201,17 +209,6 @@ export function RoomDetailPanel({
     onPlacePhotoResolved,
 }: Props) {
     const navigate = useNavigate()
-    const [planTab, setPlanTab] = useState<PlanTab>('places')
-
-    // 지도에서 날짜를 선택하면 일정 탭으로 전환해서 그 날짜로 포커싱한다.
-    const [prevFocusDayRequest, setPrevFocusDayRequest] =
-        useState(focusDayRequest)
-    if (focusDayRequest !== prevFocusDayRequest) {
-        setPrevFocusDayRequest(focusDayRequest)
-        if (focusDayRequest != null) {
-            setPlanTab('schedule')
-        }
-    }
     const [placeVoteFilter, setPlaceVoteFilter] =
         useState<PlaceVoteFilter>('all')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
@@ -219,6 +216,12 @@ export function RoomDetailPanel({
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
     const [members, setMembers] = useState<TripMember[]>([])
+    const currentMemberId = useCurrentUserStore(
+        (state) => state.currentUser?.id ?? null,
+    )
+    const awarenessByMemberId = useTripAwarenessStore(
+        (state) => state.awarenessByMemberId,
+    )
 
     const isPublic = room.visibility !== 'PRIVATE'
     const loadActivityLogs = useActivityLogStore(
@@ -250,12 +253,6 @@ export function RoomDetailPanel({
             ),
         [placeVoteFilter, places],
     )
-
-    const activeWorkspace: TripRoomWorkspace = planTab
-
-    useEffect(() => {
-        onWorkspaceChange?.(activeWorkspace)
-    }, [activeWorkspace, onWorkspaceChange])
 
     useEffect(() => {
         let active = true
@@ -489,6 +486,9 @@ export function RoomDetailPanel({
                         isCompleted={room.lifecycleStatus === 'COMPLETED'}
                         canWrite={canWrite}
                         members={members}
+                        currentMemberId={currentMemberId}
+                        awarenessByMemberId={awarenessByMemberId}
+                        onFollowMember={onFollowMember}
                         onInvite={() => setInviteOpen(true)}
                         onJoin={guestView ? onJoin : undefined}
                         onBack={handleBack}

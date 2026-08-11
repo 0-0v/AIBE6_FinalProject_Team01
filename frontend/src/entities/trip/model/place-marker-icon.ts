@@ -23,6 +23,16 @@ export const PLACE_MARKER_ICONS = [
 
 export type PlaceMarkerIcon = (typeof PLACE_MARKER_ICONS)[number]
 
+export type PlaceDisplayIcon =
+    | PlaceMarkerIcon
+    | 'TRAIN'
+    | 'BUS'
+    | 'CAR'
+    | 'SHIP'
+    | 'BIKE'
+    | 'PARKING'
+    | 'ROUTE'
+
 export const PLACE_MARKER_ICON_OPTIONS: ReadonlyArray<{
     value: PlaceMarkerIcon
     label: string
