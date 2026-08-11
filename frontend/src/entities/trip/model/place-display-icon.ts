@@ -1,8 +1,5 @@
 import type { PlaceCategory } from './types'
-import type {
-    PlaceDisplayIcon,
-    PlaceMarkerIcon,
-} from './place-marker-icon'
+import type { PlaceDisplayIcon, PlaceMarkerIcon } from './place-marker-icon'
 
 const AIR_TYPES = new Set([
     'airport',

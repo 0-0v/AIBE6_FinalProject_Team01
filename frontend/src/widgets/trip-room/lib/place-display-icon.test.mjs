@@ -29,16 +29,9 @@ test('t1 교통 장소는 세부 타입에 맞는 아이콘을 사용한다', ()
 })
 
 test('t2 알 수 없는 교통 장소는 비행기 대신 중립 아이콘을 사용한다', () => {
+    assert.equal(resolvePlaceDisplayIcon('transport', 'PLANE', null), 'ROUTE')
     assert.equal(
-        resolvePlaceDisplayIcon('transport', 'PLANE', null),
-        'ROUTE',
-    )
-    assert.equal(
-        resolvePlaceDisplayIcon(
-            'transport',
-            'PLANE',
-            'transportation_service',
-        ),
+        resolvePlaceDisplayIcon('transport', 'PLANE', 'transportation_service'),
         'ROUTE',
     )
 })
