@@ -72,10 +72,35 @@ services:
     networks:
       - plamingo-network
 
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: plamingo-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      TZ: Asia/Seoul
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - ../performance/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../performance/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - plamingo-network
+
 volumes:
   mysql-data:
   redis-data:
   prometheus-data:
+  grafana-data:
 
 networks:
   plamingo-network:
