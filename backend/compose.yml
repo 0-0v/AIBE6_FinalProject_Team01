@@ -50,9 +50,32 @@ services:
     networks:
       - plamingo-network
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: plamingo-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ../performance/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - plamingo-network
+
 volumes:
   mysql-data:
   redis-data:
+  prometheus-data:
 
 networks:
   plamingo-network:

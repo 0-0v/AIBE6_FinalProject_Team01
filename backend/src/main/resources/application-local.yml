@@ -19,3 +19,9 @@ spring:
       enabled: true
       file: compose.yml
       lifecycle-management: start-and-stop
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics

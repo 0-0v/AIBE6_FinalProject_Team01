@@ -1,0 +1,18 @@
+name: plamingo-performance
+
+services:
+  k6:
+    image: grafana/k6:0.57.0
+    profiles: ["tools"]
+    environment:
+      BASE_URL: ${BASE_URL:-http://host.docker.internal:8080}
+      WS_URL: ${WS_URL:-ws://host.docker.internal:8080/ws}
+      TEST_EMAIL: ${TEST_EMAIL:-test-user-1@plamingo.app}
+      TEST_PASSWORD: ${TEST_PASSWORD:?TEST_PASSWORD must be set}
+      TRIP_ID: ${TRIP_ID:-}
+      EXPECT_EXTERNAL_GUARD: ${EXPECT_EXTERNAL_GUARD:-false}
+      K6_PROMETHEUS_RW_SERVER_URL: http://host.docker.internal:9090/api/v1/write
+    volumes:
+      - ./k6:/scripts:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
