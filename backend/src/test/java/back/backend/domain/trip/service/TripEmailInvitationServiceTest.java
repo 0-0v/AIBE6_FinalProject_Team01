@@ -9,7 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import back.backend.domain.auth.service.BrevoEmailClient;
+import back.backend.domain.auth.service.SmtpEmailClient;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.repository.MemberRepository;
@@ -42,7 +42,7 @@ class TripEmailInvitationServiceTest {
     @Mock TripMemberRepository tripMemberRepository;
     @Mock MemberRepository memberRepository;
     @Mock RedisValueService redisValueService;
-    @Mock BrevoEmailClient emailClient;
+    @Mock SmtpEmailClient emailClient;
     @Mock ApplicationEventPublisher eventPublisher;
     private TripEmailInvitationService service;
 
