@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BellIcon } from 'lucide-react'
 import {
     formatNotificationDate,
@@ -15,6 +16,7 @@ export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
         currentUser,
         notifications,
         unreadCount,
+        totalElements,
         isLoading,
         error,
         loadNotifications,
@@ -23,9 +25,13 @@ export function NotificationPanel({ maxItems = 4, onViewAll }: Props) {
     } = useNotificationFeed()
     const displayedNotifications = notifications.slice(0, maxItems)
     const hiddenNotificationCount = Math.max(
-        notifications.length - displayedNotifications.length,
+        totalElements - displayedNotifications.length,
         0,
     )
+
+    useEffect(() => {
+        if (currentUser) void loadNotifications(0)
+    }, [currentUser, loadNotifications])
 
     return (
         <section className="rounded-[22px] border border-slate-100 p-5 shadow-sm">

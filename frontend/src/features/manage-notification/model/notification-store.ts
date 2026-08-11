@@ -9,10 +9,13 @@ import {
 
 type NotificationState = {
     notifications: Notification[]
+    page: number
+    totalPages: number
+    totalElements: number
     unreadCount: number
     isLoading: boolean
     error: string | null
-    loadNotifications: () => Promise<void>
+    loadNotifications: (page?: number) => Promise<void>
     loadUnreadCount: () => Promise<void>
     readNotification: (notificationId: number) => Promise<void>
     readAllNotifications: () => Promise<void>
@@ -26,26 +29,48 @@ function errorMessage(error: unknown): string {
 }
 
 let notificationRevision = 0
+let notificationRequestId = 0
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
     notifications: [],
+    page: 0,
+    totalPages: 0,
+    totalElements: 0,
     unreadCount: 0,
     isLoading: false,
     error: null,
 
-    loadNotifications: async () => {
+    loadNotifications: async (page) => {
+        const requestedPage = Math.max(0, page ?? get().page)
         const revision = notificationRevision
-        set({ isLoading: get().notifications.length === 0, error: null })
+        const requestId = ++notificationRequestId
+        set({
+            isLoading:
+                get().notifications.length === 0 || requestedPage !== get().page,
+            error: null,
+        })
         try {
-            const [notifications, unreadCount] = await Promise.all([
-                fetchNotifications(),
+            const [notificationPage, unreadCount] = await Promise.all([
+                fetchNotifications(requestedPage),
                 fetchUnreadNotificationCount(),
             ])
-            if (revision === notificationRevision) {
-                set({ notifications, unreadCount, isLoading: false })
+            if (
+                revision === notificationRevision &&
+                requestId === notificationRequestId
+            ) {
+                set({
+                    notifications: notificationPage.content,
+                    page: notificationPage.page,
+                    totalPages: notificationPage.totalPages,
+                    totalElements: notificationPage.totalElements,
+                    unreadCount,
+                    isLoading: false,
+                })
             }
         } catch (error) {
-            set({ error: errorMessage(error), isLoading: false })
+            if (requestId === notificationRequestId) {
+                set({ error: errorMessage(error), isLoading: false })
+            }
         }
     },
 
@@ -110,6 +135,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         notificationRevision += 1
         set({
             notifications: [],
+            page: 0,
+            totalPages: 0,
+            totalElements: 0,
             unreadCount: 0,
             isLoading: false,
             error: null,
