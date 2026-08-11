@@ -63,7 +63,7 @@
             "targets": [
                 {
                     "refId": "A",
-                    "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count[1m]))",
+                    "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) / clamp_min(sum(rate(http_server_requests_seconds_count[1m])), 1e-9)",
                     "legendFormat": "error rate",
                     "datasource": { "type": "prometheus", "uid": "prometheus" }
                 }
