@@ -8,5 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ExternalApiUsageRepository extends JpaRepository<ExternalApiUsage, Long> {
     Page<ExternalApiUsage> findAllByMemberIdOrderByCreatedAtDescIdDesc(Long memberId, Pageable pageable);
+    Page<ExternalApiUsage> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
     long countByCreatedAtGreaterThanEqual(LocalDateTime from);
 }

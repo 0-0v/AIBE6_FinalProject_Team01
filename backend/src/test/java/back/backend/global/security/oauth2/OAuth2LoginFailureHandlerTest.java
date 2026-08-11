@@ -72,4 +72,20 @@ class OAuth2LoginFailureHandlerTest {
         var params = UriComponentsBuilder.fromUriString(redirectedUrl).build().getQueryParams();
         assertThat(params.getFirst("error")).isEqualTo("withdrawn_account_retained");
     }
+
+    @Test
+    @DisplayName("t4 정지 계정이면 상세 정보를 조회할 일회성 토큰과 함께 로그인 페이지로 이동한다")
+    void t4_suspendedAccountRedirectsWithNoticeToken() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationFailure(
+                request,
+                response,
+                new SuspendedOAuth2AuthenticationException("notice-token"));
+
+        var params = UriComponentsBuilder.fromUriString(response.getRedirectedUrl()).build().getQueryParams();
+        assertThat(params.getFirst("error")).isEqualTo("suspended_account");
+        assertThat(params.getFirst("suspensionToken")).isEqualTo("notice-token");
+    }
 }

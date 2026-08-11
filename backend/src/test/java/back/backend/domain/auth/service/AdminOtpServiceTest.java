@@ -122,4 +122,21 @@ class AdminOtpServiceTest {
                 .isEqualTo(AuthErrorCode.ADMIN_OTP_RATE_LIMITED);
         org.mockito.Mockito.verifyNoInteractions(authService);
     }
+
+    @Test
+    @DisplayName("t6 로그인한 부관리자가 추가 인증을 요청하면 본인 이메일로 OTP를 발송한다")
+    void t6_requestStepUpEmailsOtpToAuthenticatedSubAdmin() {
+        Member subAdmin = Member.createLocal("sub@example.com", "sub-admin", "hash");
+        subAdmin.promoteToSubAdmin();
+        ReflectionTestUtils.setField(subAdmin, "id", 2L);
+        when(authService.requireSubAdmin(2L)).thenReturn(subAdmin);
+        when(passwordEncoder.encode(anyString())).thenReturn("otp-hash");
+
+        var response = adminOtpService.requestForSubAdmin(2L);
+
+        assertThat(response.maskedEmail()).isEqualTo("su***@example.com");
+        verify(emailClient).sendAdminOtpEmail(
+                org.mockito.ArgumentMatchers.eq("sub@example.com"), anyString(),
+                org.mockito.ArgumentMatchers.eq(5L));
+    }
 }

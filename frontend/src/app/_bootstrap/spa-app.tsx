@@ -25,9 +25,10 @@ import { TripEmailInvitationPage } from '@/views/trip-email-invitation'
 import { ColorPalettePage } from '@/views/design-system'
 import { AdminLoginPage } from '@/views/admin-login'
 import { AdminDashboardPage } from '@/views/admin-dashboard'
+import { ContactPage } from '@/views/contact'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
-import { getJwtExpirationTime } from '@/shared/lib'
+import { getJwtExpirationTime, isAdminVerifiedToken } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 import { BrandLogo } from '@/shared/ui'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -134,10 +135,18 @@ function AppShell() {
                         <Route
                             path="admin"
                             element={
-                                currentUser?.role === 'ADMIN' ? (
+                                currentUser?.role !== 'USER' &&
+                                isAdminVerifiedToken(getAccessToken()) ? (
                                     <AdminDashboardPage />
                                 ) : (
-                                    <Navigate to="/app" replace />
+                                    <Navigate
+                                        to={
+                                            currentUser?.role === 'SUB_ADMIN'
+                                                ? '/admin/login'
+                                                : '/app'
+                                        }
+                                        replace
+                                    />
                                 )
                             }
                         />
@@ -236,6 +245,7 @@ export function App() {
                 <Route path="/password-reset" element={<PasswordResetPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/contact" element={<ContactPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
                 <Route
                     path="/trip-invite/:token"

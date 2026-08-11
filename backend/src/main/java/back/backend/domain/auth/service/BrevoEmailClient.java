@@ -131,6 +131,53 @@ public class BrevoEmailClient {
         sendAdminOtpWithSmtp(email, html);
     }
 
+    public void sendInquiryReplyEmail(String email, String inquirySubject, String answer) {
+        if (!StringUtils.hasText(properties.getFrom())) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
+        String html = """
+                <!doctype html><html><body style="margin:0;background:#fff7f8;font-family:Arial,sans-serif;color:#213c51">
+                <div style="max-width:560px;margin:32px auto;background:#fff;border-radius:24px;overflow:hidden;border:1px solid #f8d9df">
+                  <div style="padding:28px;background:linear-gradient(135deg,#f3b8b1,#df5d76);color:#fff"><b style="font-size:24px">Plamingo</b></div>
+                  <div style="padding:32px"><h1 style="font-size:22px;margin:0 0 12px">문의 답변이 도착했습니다</h1>
+                  <p style="font-size:13px;color:#64748b;margin:0 0 20px">문의: %s</p>
+                  <div style="padding:20px;background:#fff1f3;border-radius:14px;line-height:1.8;white-space:pre-wrap">%s</div>
+                  <p style="margin-top:24px;font-size:12px;color:#94a3b8">본 메일은 Plamingo 서비스 문의에 대한 답변입니다.</p></div>
+                </div></body></html>
+                """.formatted(HtmlUtils.htmlEscape(inquirySubject), HtmlUtils.htmlEscape(answer));
+        sendHtmlEmail(email, "[Plamingo] 문의 답변: " + inquirySubject, html);
+    }
+
+    private void sendHtmlEmail(String email, String subject, String html) {
+        if (StringUtils.hasText(properties.getBrevoApiKey())) {
+            SendHtmlEmailRequest request = new SendHtmlEmailRequest(
+                    new Sender("Plamingo", properties.getFrom()),
+                    List.of(new Recipient(email)), subject, html);
+            try {
+                restClient.post().uri("/smtp/email")
+                        .header("api-key", properties.getBrevoApiKey())
+                        .accept(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(request).retrieve().toBodilessEntity();
+                return;
+            } catch (RestClientException exception) {
+                throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+            }
+        }
+        if (mailSender == null) throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        try {
+            var message = mailSender.createMimeMessage();
+            var helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(properties.getFrom());
+            helper.setTo(email);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+            mailSender.send(message);
+        } catch (jakarta.mail.MessagingException | MailException exception) {
+            throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);
+        }
+    }
+
     private void sendAdminOtpWithSmtp(String email, String html) {
         if (mailSender == null) {
             throw new BusinessException(AuthErrorCode.EMAIL_SEND_FAILED);

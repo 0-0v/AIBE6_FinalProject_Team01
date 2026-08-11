@@ -11,17 +11,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.auth.dto.TokenResponse;
+import back.backend.domain.auth.dto.AdminOtpChallengeResponse;
 import back.backend.domain.auth.dto.LoginRequest;
+import back.backend.domain.auth.dto.SuspensionNoticeResponse;
 import back.backend.domain.auth.exception.AuthErrorCode;
+import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.domain.auth.service.AuthService;
 import back.backend.domain.auth.service.AdminOtpService;
 import back.backend.domain.auth.service.EmailVerificationService;
+import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityConfig;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.security.jwt.JwtAuthenticationFilter;
 import back.backend.global.security.jwt.RefreshTokenCookieProvider;
+import back.backend.domain.member.entity.Member;
+import java.time.LocalDateTime;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,6 +65,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AdminOtpService adminOtpService;
+
+    @MockitoBean
+    private SuspensionNoticeService suspensionNoticeService;
 
     @Test
     @DisplayName("t1 유효한 리프레시 토큰 쿠키로 재발급을 요청하면 200과 새 액세스 토큰, 새 리프레시 토큰 쿠키를 반환한다")
@@ -164,5 +173,59 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value(
                         "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 같은 이메일 또는 소셜 계정으로 "
                                 + "재가입할 수 없습니다. 보관기간이 끝난 후 다시 시도해 주세요."));
+    }
+
+    @Test
+    @DisplayName("t9 인증된 부관리자가 추가 인증을 요청하면 200과 OTP 챌린지를 반환한다")
+    void t9_subAdminStepUpReturnsOtpChallenge() throws Exception {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(2L);
+        when(adminOtpService.requestForSubAdmin(2L))
+                .thenReturn(new AdminOtpChallengeResponse("challenge", "su***@example.com", 300));
+
+        mockMvc.perform(post("/api/auth/admin/step-up"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.challengeToken").value("challenge"))
+                .andExpect(jsonPath("$.data.maskedEmail").value("su***@example.com"));
+    }
+
+    @Test
+    @DisplayName("t10 정지된 회원이 로그인하면 403과 정지 사유 및 해제 예정 시각을 반환한다")
+    void t10_suspendedLoginReturnsDetailedSuspensionResponse() throws Exception {
+        Member member = Member.createLocal("blocked@example.com", "정지회원", "hash");
+        LocalDateTime suspendedAt = LocalDateTime.of(2026, 8, 10, 19, 0);
+        LocalDateTime suspendedUntil = LocalDateTime.of(2026, 8, 12, 19, 0);
+        member.suspend(1L, "비정상적인 API 반복 호출", suspendedAt, suspendedUntil);
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new SuspendedAccountException(member));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "identifier": "blocked@example.com",
+                                  "password": "Password1!"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_403_SUSPENDED"))
+                .andExpect(jsonPath("$.suspensionReason").value("비정상적인 API 반복 호출"))
+                .andExpect(jsonPath("$.suspendedUntil").value("2026-08-12T19:00:00"));
+    }
+
+    @Test
+    @DisplayName("t11 소셜 로그인 정지 안내 토큰을 확인하면 정지 사유와 해제 예정 시각을 반환한다")
+    void t11_consumeSuspensionNoticeReturnsDetailedInformation() throws Exception {
+        when(suspensionNoticeService.consume("notice-token"))
+                .thenReturn(new SuspensionNoticeResponse(
+                        "비정상적인 API 반복 호출",
+                        LocalDateTime.of(2026, 8, 10, 19, 0),
+                        LocalDateTime.of(2026, 8, 12, 19, 0)));
+
+        mockMvc.perform(post("/api/auth/suspension-notices/consume")
+                        .contentType("application/json")
+                        .content("{\"token\":\"notice-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.suspensionReason").value("비정상적인 API 반복 호출"))
+                .andExpect(jsonPath("$.data.suspendedUntil").value("2026-08-12T19:00:00"));
     }
 }

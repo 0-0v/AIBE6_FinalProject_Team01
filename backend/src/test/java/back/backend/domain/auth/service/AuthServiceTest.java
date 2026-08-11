@@ -13,6 +13,7 @@ import back.backend.domain.auth.dto.SignupRequest;
 import back.backend.domain.auth.dto.LoginRequest;
 import back.backend.domain.auth.dto.PasswordResetRequest;
 import back.backend.domain.auth.dto.EmailVerificationPurpose;
+import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
@@ -22,6 +23,7 @@ import back.backend.global.security.jwt.JwtProperties;
 import back.backend.global.security.jwt.JwtProvider;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import java.util.Optional;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -299,6 +301,42 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.signup(request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("이미 사용 중인 닉네임입니다.");
+    }
+
+    @Test
+    @DisplayName("t18 정지된 회원이 로그인하면 정지 사유와 해제 예정 시각을 포함한 예외가 발생한다")
+    void t18_suspendedMemberLoginThrowsDetailedSuspensionException() {
+        Member member = Member.createLocal("blocked@example.com", "정지회원", "hash");
+        ReflectionTestUtils.setField(member, "id", 18L);
+        LocalDateTime suspendedUntil = LocalDateTime.now().plusDays(1);
+        member.suspend(1L, "비정상적인 API 반복 호출", LocalDateTime.now(), suspendedUntil);
+        when(memberRepository.findByEmailAndProvider("blocked@example.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> authService.login(
+                new LoginRequest("blocked@example.com", "Password1!")))
+                .isInstanceOf(SuspendedAccountException.class)
+                .extracting("reason", "suspendedUntil")
+                .containsExactly("비정상적인 API 반복 호출", suspendedUntil);
+    }
+
+    @Test
+    @DisplayName("t19 정지 해제 시각이 지난 회원은 자동 해제 후 정상 로그인한다")
+    void t19_expiredSuspensionIsReleasedOnLogin() {
+        Member member = Member.createLocal("released@example.com", "해제회원", "hash");
+        ReflectionTestUtils.setField(member, "id", 19L);
+        member.suspend(1L, "임시 정지", LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().minusDays(1));
+        when(memberRepository.findByEmailAndProvider("released@example.com", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(member));
+        when(passwordEncoder.matches("Password1!", "hash")).thenReturn(true);
+
+        TokenResponse response = authService.login(
+                new LoginRequest("released@example.com", "Password1!"));
+
+        assertThat(response.accessToken()).isNotBlank();
+        assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+        assertThat(member.getSuspensionReason()).isNull();
     }
 
 }

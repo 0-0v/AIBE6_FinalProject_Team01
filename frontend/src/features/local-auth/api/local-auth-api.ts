@@ -11,6 +11,11 @@ export type VerificationPurpose = 'SIGNUP' | 'PASSWORD_RESET'
 
 type TokenResponse = ApiResponse<{ accessToken: string }>
 type NicknameAvailabilityResponse = ApiResponse<{ available: boolean }>
+export type SuspensionNotice = {
+    suspensionReason: string | null
+    suspendedAt: string | null
+    suspendedUntil: string | null
+}
 
 export async function sendVerificationCode(
     email: string,
@@ -60,6 +65,14 @@ export async function login(identifier: string, password: string) {
     )
     await establishSession(response.data.accessToken)
     setLastLoginProvider('LOCAL')
+}
+
+export async function consumeSuspensionNotice(token: string) {
+    const response = await apiClient.postPublic<ApiResponse<SuspensionNotice>>(
+        '/api/auth/suspension-notices/consume',
+        { token },
+    )
+    return response.data
 }
 
 export async function resetPassword(email: string, newPassword: string) {

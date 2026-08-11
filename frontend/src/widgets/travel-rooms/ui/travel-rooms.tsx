@@ -15,13 +15,14 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
     const [createOpen, setCreateOpen] = React.useState(false)
     const [page, setPage] = React.useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id ?? null
     const { rooms, isLoading, error, loadTrips, resetTrips, selectTrip } =
         useTripStore()
 
     useEffect(() => {
-        if (currentUser) void loadTrips()
+        if (currentUserId != null) void loadTrips()
         else resetTrips()
-    }, [currentUser, loadTrips, resetTrips])
+    }, [currentUserId, loadTrips, resetTrips])
 
     const pageSize = compact ? 4 : rooms.length || 1
     const totalPages = Math.max(1, Math.ceil(rooms.length / pageSize))

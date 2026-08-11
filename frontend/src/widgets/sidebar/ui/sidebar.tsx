@@ -30,6 +30,7 @@ export function Sidebar() {
     const location = useLocation()
     const [isExpanded, setIsExpanded] = useState(true)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id ?? null
     const rooms = useTripStore((state) => state.rooms)
     const roomRoute = location.pathname.match(
         /^\/app\/room\/(\d+)(?:\/(record|schedule))?$/,
@@ -52,7 +53,7 @@ export function Sidebar() {
         imageUrl: resolveMediaUrl(currentUser?.profileImageUrl),
     }
     const visibleNav =
-        currentUser?.role === 'ADMIN'
+        currentUser?.role === 'ADMIN' || currentUser?.role === 'SUB_ADMIN'
             ? [
                   ...nav,
                   { to: '/app/admin', label: '관리자', icon: ShieldCheckIcon },
@@ -60,12 +61,12 @@ export function Sidebar() {
             : nav
 
     useEffect(() => {
-        if (currentUser) {
+        if (currentUserId != null) {
             void loadUnreadCount()
             return
         }
         resetNotifications()
-    }, [currentUser, loadUnreadCount, resetNotifications])
+    }, [currentUserId, loadUnreadCount, resetNotifications])
 
     async function handleLogout() {
         await logout()

@@ -1,11 +1,16 @@
 'use client'
 
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { KeyRoundIcon, ShieldCheckIcon, XIcon } from 'lucide-react'
-import { requestAdminOtp, verifyAdminOtp } from '@/features/admin'
+import {
+    requestAdminOtp,
+    requestSubAdminOtp,
+    verifyAdminOtp,
+} from '@/features/admin'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { BrandLogo } from '@/shared/ui'
+import { useCurrentUserStore } from '@/shared/model'
 
 type Challenge = {
     challengeToken: string
@@ -21,6 +26,27 @@ export function AdminLoginPage() {
     const [code, setCode] = useState('')
     const [message, setMessage] = useState('')
     const [busy, setBusy] = useState(false)
+    const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const stepUpRequested = useRef(false)
+
+    useEffect(() => {
+        if (currentUser?.role !== 'SUB_ADMIN' || stepUpRequested.current) {
+            return
+        }
+        stepUpRequested.current = true
+        setBusy(true)
+        requestSubAdminOtp()
+            .then(setChallenge)
+            .catch((error) => {
+                setMessage(
+                    getApiErrorMessage(
+                        error,
+                        '부관리자 OTP를 발송하지 못했습니다.',
+                    ),
+                )
+            })
+            .finally(() => setBusy(false))
+    }, [currentUser])
 
     async function handleCredentials(event: FormEvent) {
         event.preventDefault()
@@ -76,34 +102,48 @@ export function AdminLoginPage() {
                         비밀번호와 이메일 OTP 인증이 모두 필요합니다.
                     </p>
                 </div>
-                <form className="mt-8 space-y-3" onSubmit={handleCredentials}>
-                    <input
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                        value={identifier}
-                        onChange={(event) => setIdentifier(event.target.value)}
-                        autoComplete="username"
-                        aria-label="관리자 아이디"
-                    />
-                    <input
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                        type="password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        autoComplete="current-password"
-                        placeholder="비밀번호"
-                    />
-                    {message && (
-                        <p className="break-keep text-sm text-red-600">
-                            {message}
-                        </p>
-                    )}
-                    <button
-                        disabled={busy}
-                        className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                {currentUser?.role !== 'SUB_ADMIN' && (
+                    <form
+                        className="mt-8 space-y-3"
+                        onSubmit={handleCredentials}
                     >
-                        {busy ? '확인 중...' : '이메일 OTP 받기'}
-                    </button>
-                </form>
+                        <input
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                            value={identifier}
+                            onChange={(event) =>
+                                setIdentifier(event.target.value)
+                            }
+                            autoComplete="username"
+                            aria-label="관리자 아이디"
+                        />
+                        <input
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                            type="password"
+                            value={password}
+                            onChange={(event) =>
+                                setPassword(event.target.value)
+                            }
+                            autoComplete="current-password"
+                            placeholder="비밀번호"
+                        />
+                        {message && (
+                            <p className="break-keep text-sm text-red-600">
+                                {message}
+                            </p>
+                        )}
+                        <button
+                            disabled={busy}
+                            className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                        >
+                            {busy ? '확인 중...' : '이메일 OTP 받기'}
+                        </button>
+                    </form>
+                )}
+                {currentUser?.role === 'SUB_ADMIN' && busy && (
+                    <p className="mt-8 text-center text-sm font-semibold text-slate-500">
+                        등록된 이메일로 OTP를 전송하고 있습니다.
+                    </p>
+                )}
                 <Link
                     to="/login"
                     className="mt-5 block text-center text-xs font-semibold text-slate-500 hover:text-slate-800"

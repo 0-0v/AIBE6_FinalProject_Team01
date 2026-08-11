@@ -11,9 +11,12 @@ import back.backend.domain.auth.dto.NicknameAvailabilityResponse;
 import back.backend.domain.auth.dto.PasswordResetRequest;
 import back.backend.domain.auth.dto.SignupRequest;
 import back.backend.domain.auth.dto.TokenResponse;
+import back.backend.domain.auth.dto.SuspensionNoticeRequest;
+import back.backend.domain.auth.dto.SuspensionNoticeResponse;
 import back.backend.domain.auth.service.AuthService;
 import back.backend.domain.auth.service.AdminOtpService;
 import back.backend.domain.auth.service.EmailVerificationService;
+import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.security.jwt.RefreshTokenCookieProvider;
@@ -40,19 +43,22 @@ public class AuthController {
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
     private final EmailVerificationService emailVerificationService;
     private final AdminOtpService adminOtpService;
+    private final SuspensionNoticeService suspensionNoticeService;
 
     public AuthController(
             AuthService authService,
             SecurityContextAccessor securityContextAccessor,
             RefreshTokenCookieProvider refreshTokenCookieProvider,
             EmailVerificationService emailVerificationService,
-            AdminOtpService adminOtpService
+            AdminOtpService adminOtpService,
+            SuspensionNoticeService suspensionNoticeService
     ) {
         this.authService = authService;
         this.securityContextAccessor = securityContextAccessor;
         this.refreshTokenCookieProvider = refreshTokenCookieProvider;
         this.emailVerificationService = emailVerificationService;
         this.adminOtpService = adminOtpService;
+        this.suspensionNoticeService = suspensionNoticeService;
     }
 
     @PostMapping("/email-verifications")
@@ -97,6 +103,14 @@ public class AuthController {
         return respondWithTokens(authService.login(request), response);
     }
 
+    @PostMapping("/suspension-notices/consume")
+    @io.swagger.v3.oas.annotations.Operation(summary = "정지 계정 안내 정보 확인")
+    public ApiResponse<SuspensionNoticeResponse> consumeSuspensionNotice(
+            @Valid @RequestBody SuspensionNoticeRequest request
+    ) {
+        return ApiResponse.success(suspensionNoticeService.consume(request.token()));
+    }
+
     @PostMapping("/admin/login")
     @io.swagger.v3.oas.annotations.Operation(summary = "관리자 로그인 OTP 발송")
     public ApiResponse<AdminOtpChallengeResponse> requestAdminOtp(
@@ -104,6 +118,13 @@ public class AuthController {
             HttpServletRequest servletRequest
     ) {
         return ApiResponse.success(adminOtpService.request(request, servletRequest.getRemoteAddr()));
+    }
+
+    @PostMapping("/admin/step-up")
+    @io.swagger.v3.oas.annotations.Operation(summary = "부관리자 추가 인증 OTP 발송")
+    public ApiResponse<AdminOtpChallengeResponse> requestSubAdminOtp() {
+        return ApiResponse.success(adminOtpService.requestForSubAdmin(
+                securityContextAccessor.getCurrentMemberId()));
     }
 
     @PostMapping("/admin/login/verify")

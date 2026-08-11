@@ -1,10 +1,56 @@
-import React, { type FormEvent, useState } from 'react'
+import React, { type FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { login } from '@/features/local-auth'
-import { getApiErrorMessage } from '@/shared/api/client'
+import { CalendarClockIcon, ShieldAlertIcon, XIcon } from 'lucide-react'
+import { consumeSuspensionNotice, login } from '@/features/local-auth'
+import { getApiErrorCode, getApiErrorMessage } from '@/shared/api/client'
 import { getLastLoginProvider } from '@/shared/lib'
 import { BrandLogo } from '@/shared/ui'
+import { useCurrentUserStore } from '@/shared/model'
 import { TestAccountLogin, type TestAccount } from './test-account-login'
+
+type SuspensionNotice = {
+    reason: string
+    suspendedAt: string | null
+    suspendedUntil: string | null
+}
+
+function suspensionNotice(error: unknown): SuspensionNotice | null {
+    if (
+        getApiErrorCode(error) !== 'AUTH_403_SUSPENDED' ||
+        typeof error !== 'object' ||
+        error === null ||
+        !('data' in error) ||
+        typeof error.data !== 'object' ||
+        error.data === null
+    ) {
+        return null
+    }
+    const data = error.data as Record<string, unknown>
+    return {
+        reason:
+            typeof data.suspensionReason === 'string' &&
+            data.suspensionReason.trim()
+                ? data.suspensionReason
+                : '관리자 운영 정책에 따라 이용이 제한되었습니다.',
+        suspendedAt:
+            typeof data.suspendedAt === 'string' ? data.suspendedAt : null,
+        suspendedUntil:
+            typeof data.suspendedUntil === 'string'
+                ? data.suspendedUntil
+                : null,
+    }
+}
+
+function suspensionDate(value: string | null) {
+    if (!value) return null
+    return new Intl.DateTimeFormat('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(value))
+}
 
 const socials = [
     {
@@ -46,10 +92,50 @@ export function Login() {
         if (error === 'oauth2_login_failed') {
             return '소셜 로그인에 실패했습니다. 다시 시도해 주세요.'
         }
+        if (error === 'suspended_account') {
+            return ''
+        }
         return ''
     })
     const [busy, setBusy] = useState(false)
+    const [suspension, setSuspension] = useState<SuspensionNotice | null>(() =>
+        new URLSearchParams(window.location.search).get('error') ===
+        'suspended_account'
+            ? {
+                  reason: '관리자 운영 정책에 따라 이용이 제한되었습니다.',
+                  suspendedAt: null,
+                  suspendedUntil: null,
+              }
+            : null,
+    )
     const [lastLoginProvider] = useState(getLastLoginProvider)
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('error') !== 'suspended_account') return
+
+        const token = params.get('suspensionToken')
+        window.history.replaceState({}, '', window.location.pathname)
+        if (!token) return
+
+        void consumeSuspensionNotice(token)
+            .then((notice) => {
+                setSuspension({
+                    reason:
+                        notice.suspensionReason?.trim() ||
+                        '관리자 운영 정책에 따라 이용이 제한되었습니다.',
+                    suspendedAt: notice.suspendedAt,
+                    suspendedUntil: notice.suspendedUntil,
+                })
+            })
+            .catch(() => {
+                setSuspension({
+                    reason: '정지 안내 정보가 만료되었습니다. 관리자에게 문의해 주세요.',
+                    suspendedAt: null,
+                    suspendedUntil: null,
+                })
+            })
+    }, [])
 
     function handleSocialLogin(id: string) {
         if (id === 'kakao') {
@@ -77,12 +163,23 @@ export function Login() {
         }
         setBusy(true)
         setMessage('')
+        setSuspension(null)
         try {
             await login(loginIdentifier.trim(), loginPassword)
+            const loggedInUser = useCurrentUserStore.getState().currentUser
+            if (loggedInUser?.role === 'SUB_ADMIN') {
+                navigate('/admin/login', { replace: true })
+                return
+            }
             const returnPath = sessionStorage.getItem('postLoginReturnPath')
             sessionStorage.removeItem('postLoginReturnPath')
             navigate(returnPath ?? '/app', { replace: true })
         } catch (error) {
+            const notice = suspensionNotice(error)
+            if (notice) {
+                setSuspension(notice)
+                return
+            }
             setMessage(getApiErrorMessage(error, '로그인에 실패했습니다.'))
         } finally {
             setBusy(false)
@@ -215,6 +312,79 @@ export function Login() {
                     에 동의하게 됩니다.
                 </p>
             </div>
+            {suspension && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-5">
+                    <section
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="suspension-title"
+                        className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl"
+                    >
+                        <div className="flex items-start justify-between">
+                            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                                <ShieldAlertIcon size={24} />
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setSuspension(null)}
+                                aria-label="정지 안내 닫기"
+                                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                            >
+                                <XIcon size={19} />
+                            </button>
+                        </div>
+                        <h2
+                            id="suspension-title"
+                            className="mt-5 text-xl font-extrabold text-slate-950"
+                        >
+                            이용이 정지된 계정입니다
+                        </h2>
+                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                            아래 내용을 확인해 주세요. 정지 기간에는 Plamingo에
+                            로그인할 수 없습니다.
+                        </p>
+                        <dl className="mt-6 space-y-3 rounded-2xl bg-slate-50 p-5 text-sm">
+                            <div>
+                                <dt className="text-xs font-bold text-slate-400">
+                                    정지 사유
+                                </dt>
+                                <dd className="mt-1 break-keep font-semibold leading-6 text-slate-800">
+                                    {suspension.reason}
+                                </dd>
+                            </div>
+                            {suspension.suspendedAt && (
+                                <div className="border-t border-slate-200 pt-3">
+                                    <dt className="text-xs font-bold text-slate-400">
+                                        정지 시작
+                                    </dt>
+                                    <dd className="mt-1 font-semibold text-slate-700">
+                                        {suspensionDate(suspension.suspendedAt)}
+                                    </dd>
+                                </div>
+                            )}
+                            <div className="border-t border-slate-200 pt-3">
+                                <dt className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                                    <CalendarClockIcon size={13} /> 해제 예정
+                                </dt>
+                                <dd className="mt-1 font-extrabold text-red-600">
+                                    {suspension.suspendedUntil
+                                        ? suspensionDate(
+                                              suspension.suspendedUntil,
+                                          )
+                                        : '관리자가 직접 해제할 때까지'}
+                                </dd>
+                            </div>
+                        </dl>
+                        <button
+                            type="button"
+                            onClick={() => setSuspension(null)}
+                            className="mt-6 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white"
+                        >
+                            확인
+                        </button>
+                    </section>
+                </div>
+            )}
         </div>
     )
 }

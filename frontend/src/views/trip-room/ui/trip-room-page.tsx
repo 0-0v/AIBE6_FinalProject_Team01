@@ -186,10 +186,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     useEffect(() => {
         if (inviteCode) return
         if (!isUserInitialized) return
-        else if (currentUser) void loadTrips()
+        else if (currentUser?.id != null) void loadTrips()
         else resetTrips()
     }, [
-        currentUser,
+        currentUser?.id,
         inviteCode,
         isUserInitialized,
         loadInvitedTrip,

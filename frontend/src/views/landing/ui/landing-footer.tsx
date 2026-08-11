@@ -39,6 +39,15 @@ export function LandingFooter() {
                 }}
             >
                 <Link
+                    to="/contact"
+                    style={{
+                        color: 'var(--color-landing-muted)',
+                        textDecoration: 'none',
+                    }}
+                >
+                    서비스 문의
+                </Link>
+                <Link
                     to="/terms"
                     style={{
                         color: 'var(--color-landing-muted)',

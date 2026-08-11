@@ -168,12 +168,12 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    @DisplayName("t8 관리자 회원의 토큰이면 관리자와 사용자 권한을 모두 설정한다")
-    void t8_adminMemberTokenSetsAdminAndUserAuthorities() throws Exception {
+    @DisplayName("t8 최고 관리자의 OTP 검증 토큰이면 최고 관리자와 관리자 권한을 설정한다")
+    void t8_verifiedAdminTokenSetsAdminAuthorities() throws Exception {
         Member member = activeMember(5L);
         member.promoteToAdmin();
         when(memberRepository.findById(5L)).thenReturn(Optional.of(member));
-        String token = jwtProvider.createAccessToken(5L, member.getEmail());
+        String token = jwtProvider.createAccessToken(5L, member.getEmail(), true);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "Bearer " + token);
 
@@ -181,7 +181,7 @@ class JwtAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
                 .extracting("authority")
-                .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN");
+                .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN");
     }
 
     @Test
@@ -197,5 +197,39 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, new MockHttpServletResponse(), filterChain);
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("t10 부관리자의 일반 로그인 토큰에는 관리자 권한을 설정하지 않는다")
+    void t10_unverifiedSubAdminTokenOnlySetsUserAuthority() throws Exception {
+        Member member = activeMember(7L);
+        member.promoteToSubAdmin();
+        when(memberRepository.findById(7L)).thenReturn(Optional.of(member));
+        String token = jwtProvider.createAccessToken(7L, member.getEmail());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_USER");
+    }
+
+    @Test
+    @DisplayName("t11 부관리자의 OTP 검증 토큰에는 관리자와 부관리자 권한을 설정한다")
+    void t11_verifiedSubAdminTokenSetsAdminAuthorities() throws Exception {
+        Member member = activeMember(8L);
+        member.promoteToSubAdmin();
+        when(memberRepository.findById(8L)).thenReturn(Optional.of(member));
+        String token = jwtProvider.createAccessToken(8L, member.getEmail(), true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
+                .extracting("authority")
+                .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN", "ROLE_SUB_ADMIN");
     }
 }

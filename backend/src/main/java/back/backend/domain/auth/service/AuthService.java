@@ -6,6 +6,7 @@ import back.backend.domain.auth.dto.PasswordResetRequest;
 import back.backend.domain.auth.dto.SignupRequest;
 import back.backend.domain.auth.dto.TokenResponse;
 import back.backend.domain.auth.exception.AuthErrorCode;
+import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Instant;
 
 @Service
 public class AuthService {
@@ -88,8 +90,9 @@ public class AuthService {
         if (member.getStatus() == MemberStatus.WITHDRAWN) {
             throw new BusinessException(AuthErrorCode.WITHDRAWN_ACCOUNT);
         }
+        member.releaseSuspensionIfExpired(java.time.LocalDateTime.now());
         if (member.getStatus() == MemberStatus.SUSPENDED) {
-            throw new BusinessException(AuthErrorCode.SUSPENDED_ACCOUNT);
+            throw new SuspendedAccountException(member);
         }
         if (!passwordEncoder.matches(request.password(), member.getPasswordHash())) {
             throw new BusinessException(AuthErrorCode.INVALID_CREDENTIALS);
@@ -117,14 +120,23 @@ public class AuthService {
         return member;
     }
 
+    @Transactional(readOnly = true)
+    public Member requireSubAdmin(Long memberId) {
+        return memberRepository.findById(memberId)
+                .filter(member -> member.getStatus() == MemberStatus.ACTIVE)
+                .filter(member -> member.getRole() == MemberRole.SUB_ADMIN)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
+    }
+
     @Transactional
     public TokenResponse completeAdminLogin(Long memberId) {
         Member member = memberRepository.findById(memberId)
                 .filter(found -> found.getStatus() == MemberStatus.ACTIVE)
-                .filter(found -> found.getRole() == MemberRole.ADMIN)
+                .filter(found -> found.getRole() == MemberRole.ADMIN
+                        || found.getRole() == MemberRole.SUB_ADMIN)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
         member.recordLogin();
-        return issueTokens(member);
+        return issueTokens(member, true);
     }
 
     @Transactional
@@ -163,8 +175,14 @@ public class AuthService {
                 .filter(found -> found.getStatus() == MemberStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MESSAGE));
 
-        String newAccessToken = jwtProvider.createAccessToken(member.getId(), member.getEmail());
-        String newRefreshToken = jwtProvider.createRefreshToken(member.getId());
+        Instant adminVerifiedUntil = jwtProvider.getAdminVerifiedUntil(refreshToken);
+        if (adminVerifiedUntil != null && (!Instant.now().isBefore(adminVerifiedUntil)
+                || member.getRole() == MemberRole.USER)) {
+            adminVerifiedUntil = null;
+        }
+        String newAccessToken = jwtProvider.createAccessToken(
+                member.getId(), member.getEmail(), adminVerifiedUntil);
+        String newRefreshToken = jwtProvider.createRefreshToken(member.getId(), adminVerifiedUntil);
         refreshTokenRepository.save(member.getId(), newRefreshToken);
 
         return new TokenResponse(newAccessToken, newRefreshToken);
@@ -175,8 +193,13 @@ public class AuthService {
     }
 
     private TokenResponse issueTokens(Member member) {
-        String accessToken = jwtProvider.createAccessToken(member.getId(), member.getEmail());
-        String refreshToken = jwtProvider.createRefreshToken(member.getId());
+        return issueTokens(member, false);
+    }
+
+    private TokenResponse issueTokens(Member member, boolean adminVerified) {
+        String accessToken = jwtProvider.createAccessToken(
+                member.getId(), member.getEmail(), adminVerified);
+        String refreshToken = jwtProvider.createRefreshToken(member.getId(), adminVerified);
         refreshTokenRepository.save(member.getId(), refreshToken);
         return new TokenResponse(accessToken, refreshToken);
     }

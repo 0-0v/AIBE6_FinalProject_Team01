@@ -188,9 +188,9 @@ export function Home() {
 
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
-    const insightSlideCount = logs.length > 0 ? 3 : 2
+    const insightSlideCount = 3
     const visibleInsightSlide = insightSlide % insightSlideCount
-    const settlementSlideIndex = logs.length > 0 ? 2 : 1
+    const settlementSlideIndex = 2
     const bookmarkPageSize = 4
     const bookmarkPageCount = Math.max(
         1,
@@ -885,22 +885,20 @@ export function Home() {
                                                     )}
                                                 </div>
 
-                                                {logs.length > 0 && (
-                                                    <div
-                                                        aria-hidden={
-                                                            visibleInsightSlide !==
-                                                            1
-                                                        }
-                                                        className={`flex w-full shrink-0 flex-col overflow-hidden transition-opacity duration-300 ${
-                                                            visibleInsightSlide ===
-                                                            1
-                                                                ? 'opacity-100'
-                                                                : 'pointer-events-none opacity-0'
-                                                        }`}
-                                                    >
-                                                        <h2 className="shrink-0 text-base font-black text-slate-900">
-                                                            최근 활동
-                                                        </h2>
+                                                <div
+                                                    aria-hidden={
+                                                        visibleInsightSlide !== 1
+                                                    }
+                                                    className={`flex w-full shrink-0 flex-col overflow-hidden transition-opacity duration-300 ${
+                                                        visibleInsightSlide === 1
+                                                            ? 'opacity-100'
+                                                            : 'pointer-events-none opacity-0'
+                                                    }`}
+                                                >
+                                                    <h2 className="shrink-0 text-base font-black text-slate-900">
+                                                        최근 활동
+                                                    </h2>
+                                                    {logs.length > 0 ? (
                                                         <div className="mp-scroll mt-5 min-h-0 flex-1 overflow-y-auto pr-2">
                                                             <div className="relative ml-2 border-l border-slate-200 pl-5">
                                                                 {logs.map(
@@ -937,8 +935,12 @@ export function Home() {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    ) : (
+                                                        <div className="mt-5 flex min-h-0 flex-1 items-center justify-center rounded-[18px] bg-slate-50 px-4 text-center text-xs font-semibold text-slate-400">
+                                                            아직 기록된 활동이 없습니다.
+                                                        </div>
+                                                    )}
+                                                </div>
 
                                                 <div
                                                     aria-hidden={

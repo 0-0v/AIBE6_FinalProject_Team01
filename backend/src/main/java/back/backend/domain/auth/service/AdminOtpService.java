@@ -55,6 +55,14 @@ public class AdminOtpService {
         }
         Member admin = authService.requireAdminCredentials(request);
         redisValueService.delete(attemptKey);
+        return issueChallenge(admin);
+    }
+
+    public AdminOtpChallengeResponse requestForSubAdmin(Long memberId) {
+        return issueChallenge(authService.requireSubAdmin(memberId));
+    }
+
+    private AdminOtpChallengeResponse issueChallenge(Member admin) {
         String rateKey = RedisKeyFactory.create(RATE_NAMESPACE, admin.getId().toString());
         if (redisValueService.exists(rateKey)) {
             throw new BusinessException(AuthErrorCode.ADMIN_OTP_RATE_LIMITED);

@@ -2,6 +2,7 @@ package back.backend.domain.auth.config;
 
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
+import back.backend.domain.member.entity.MemberRole;
 import back.backend.domain.member.repository.MemberRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -39,12 +40,35 @@ public class AdminAccountInitializer implements ApplicationRunner {
         String email = properties.getEmail().strip().toLowerCase();
         String username = properties.getUsername().strip();
         String passwordHash = passwordEncoder.encode(properties.getPassword());
-        Member member = memberRepository.findByEmailAndProvider(email, AuthProvider.LOCAL)
-                .orElseGet(() -> Member.createLocal(email, username, passwordHash));
-        member.changeNickname(username);
-        member.changePassword(passwordHash);
+        Member member = findOrCreateAdmin(email, username, passwordHash);
         member.releaseSuspension();
-        member.promoteToAdmin();
         memberRepository.save(member);
+    }
+
+    private Member findOrCreateAdmin(String email, String username, String passwordHash) {
+        Member emailOwner = memberRepository.findByEmail(email).orElse(null);
+        if (emailOwner != null) {
+            if (emailOwner.getProvider() != AuthProvider.LOCAL
+                    || emailOwner.getRole() != MemberRole.ADMIN) {
+                throw new IllegalStateException("ADMIN_EMAIL은 가입되지 않은 관리자 전용 이메일이어야 합니다.");
+            }
+            emailOwner.reconfigureAdminLocalIdentity(email, username, passwordHash);
+            return emailOwner;
+        }
+
+        Member usernameOwner = memberRepository
+                .findByNicknameAndProvider(username, AuthProvider.LOCAL)
+                .orElse(null);
+        if (usernameOwner != null) {
+            if (usernameOwner.getRole() != MemberRole.ADMIN) {
+                throw new IllegalStateException("ADMIN_USERNAME은 일반 회원이 사용하지 않는 값이어야 합니다.");
+            }
+            usernameOwner.reconfigureAdminLocalIdentity(email, username, passwordHash);
+            return usernameOwner;
+        }
+
+        Member created = Member.createLocal(email, username, passwordHash);
+        created.promoteToAdmin();
+        return created;
     }
 }

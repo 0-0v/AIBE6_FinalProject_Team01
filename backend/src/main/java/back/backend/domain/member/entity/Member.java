@@ -216,6 +216,34 @@ public class Member {
         this.role = MemberRole.ADMIN;
     }
 
+    public void promoteToSubAdmin() {
+        if (status == MemberStatus.WITHDRAWN) {
+            throw new IllegalStateException("탈퇴 회원은 부관리자로 지정할 수 없습니다.");
+        }
+        this.role = MemberRole.SUB_ADMIN;
+    }
+
+    public void revokeSubAdmin() {
+        if (role != MemberRole.SUB_ADMIN) {
+            throw new IllegalStateException("부관리자 계정만 권한을 회수할 수 있습니다.");
+        }
+        this.role = MemberRole.USER;
+    }
+
+    public void reconfigureAdminLocalIdentity(
+            String email,
+            String nickname,
+            String passwordHash
+    ) {
+        if (provider != AuthProvider.LOCAL || role != MemberRole.ADMIN) {
+            throw new IllegalStateException("로컬 관리자 계정만 재설정할 수 있습니다.");
+        }
+        this.email = Objects.requireNonNull(email, "email must not be null");
+        this.providerId = email;
+        this.nickname = Objects.requireNonNull(nickname, "nickname must not be null");
+        this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
+    }
+
     public void suspend(
             Long adminId,
             String reason,
@@ -250,6 +278,16 @@ public class Member {
         this.suspensionReason = null;
         this.suspendedAt = null;
         this.suspendedUntil = null;
+    }
+
+    public boolean releaseSuspensionIfExpired(LocalDateTime now) {
+        Objects.requireNonNull(now, "now must not be null");
+        if (status != MemberStatus.SUSPENDED || suspendedUntil == null
+                || now.isBefore(suspendedUntil)) {
+            return false;
+        }
+        releaseSuspension();
+        return true;
     }
 
     public void changeNickname(String nickname) {

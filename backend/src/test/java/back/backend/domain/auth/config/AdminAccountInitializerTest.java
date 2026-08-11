@@ -33,7 +33,8 @@ class AdminAccountInitializerTest {
     @DisplayName("t1 관리자 환경변수가 유효하면 비밀번호를 해시하고 관리자 역할로 저장한다")
     void t1_validPropertiesCreateAdminWithEncodedPassword() throws Exception {
         AdminAccountProperties properties = validProperties();
-        when(memberRepository.findByEmailAndProvider("admin@plamingo.app", AuthProvider.LOCAL))
+        when(memberRepository.findByEmail("admin@plamingo.app")).thenReturn(Optional.empty());
+        when(memberRepository.findByNicknameAndProvider("admin12", AuthProvider.LOCAL))
                 .thenReturn(Optional.empty());
         when(passwordEncoder.encode("StrongPassword1!"))
                 .thenReturn("encoded-password");
@@ -58,6 +59,46 @@ class AdminAccountInitializerTest {
         assertThatThrownBy(properties::validate)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("관리자 비밀번호는 12자 이상이어야 합니다.");
+    }
+
+    @Test
+    @DisplayName("t3 기존 admin12 관리자 계정이 있으면 중복 생성 없이 새 관리자 이메일로 갱신한다")
+    void t3_existingAdminUsernameUpdatesIdentityWithoutDuplicateInsert() throws Exception {
+        AdminAccountProperties properties = validProperties();
+        Member existingAdmin = Member.createLocal(
+                "old-admin@plamingo.app", "admin12", "old-password");
+        existingAdmin.promoteToAdmin();
+        when(memberRepository.findByEmail("admin@plamingo.app")).thenReturn(Optional.empty());
+        when(memberRepository.findByNicknameAndProvider("admin12", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(existingAdmin));
+        when(passwordEncoder.encode("StrongPassword1!")).thenReturn("encoded-password");
+        AdminAccountInitializer initializer =
+                new AdminAccountInitializer(properties, memberRepository, passwordEncoder);
+
+        initializer.run(new DefaultApplicationArguments(new String[0]));
+
+        assertThat(existingAdmin.getEmail()).isEqualTo("admin@plamingo.app");
+        assertThat(existingAdmin.getProviderId()).isEqualTo("admin@plamingo.app");
+        assertThat(existingAdmin.getPasswordHash()).isEqualTo("encoded-password");
+        verify(memberRepository).save(existingAdmin);
+    }
+
+    @Test
+    @DisplayName("t4 일반 회원이 admin12 닉네임을 사용 중이면 관리자 계정 생성을 거부한다")
+    void t4_regularMemberUsingAdminUsernameIsRejected() {
+        AdminAccountProperties properties = validProperties();
+        Member regularMember = Member.createLocal(
+                "member@plamingo.app", "admin12", "member-password");
+        when(memberRepository.findByEmail("admin@plamingo.app")).thenReturn(Optional.empty());
+        when(memberRepository.findByNicknameAndProvider("admin12", AuthProvider.LOCAL))
+                .thenReturn(Optional.of(regularMember));
+        when(passwordEncoder.encode("StrongPassword1!")).thenReturn("encoded-password");
+        AdminAccountInitializer initializer =
+                new AdminAccountInitializer(properties, memberRepository, passwordEncoder);
+
+        assertThatThrownBy(() -> initializer.run(new DefaultApplicationArguments(new String[0])))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("ADMIN_USERNAME은 일반 회원이 사용하지 않는 값이어야 합니다.");
     }
 
     private AdminAccountProperties validProperties() {

@@ -4,6 +4,7 @@ import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
+import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.global.security.MemberPrincipal;
 import java.util.List;
 import java.util.Locale;
@@ -21,9 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final MemberRepository memberRepository;
+    private final SuspensionNoticeService suspensionNoticeService;
 
-    public CustomOAuth2UserService(MemberRepository memberRepository) {
+    public CustomOAuth2UserService(MemberRepository memberRepository, SuspensionNoticeService suspensionNoticeService) {
         this.memberRepository = memberRepository;
+        this.suspensionNoticeService = suspensionNoticeService;
     }
 
     @Override
@@ -39,11 +42,12 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         Member member = memberRepository.findByProviderAndProviderId(provider, userInfo.providerId())
                 .map(existing -> {
+                    existing.releaseSuspensionIfExpired(java.time.LocalDateTime.now());
                     if (existing.getStatus() == MemberStatus.WITHDRAWN) {
                         throw withdrawnAccountRetained();
                     }
                     if (existing.getStatus() == MemberStatus.SUSPENDED) {
-                        throw suspendedAccount();
+                        throw suspendedAccount(existing);
                     }
                     existing.recordLogin();
                     return existing;
@@ -97,10 +101,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         );
     }
 
-    private OAuth2AuthenticationException suspendedAccount() {
-        return new OAuth2AuthenticationException(
-                new OAuth2Error("suspended_account"),
-                "관리자에 의해 이용이 정지된 계정입니다."
-        );
+    private OAuth2AuthenticationException suspendedAccount(Member member) {
+        return new SuspendedOAuth2AuthenticationException(suspensionNoticeService.issue(member));
     }
 }

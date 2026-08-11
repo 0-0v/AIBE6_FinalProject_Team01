@@ -22,7 +22,7 @@ export type AdminMember = {
     email: string
     nickname: string
     provider: string
-    role: 'USER' | 'ADMIN'
+    role: 'USER' | 'SUB_ADMIN' | 'ADMIN'
     status: 'ACTIVE' | 'SUSPENDED' | 'WITHDRAWN'
     lastLoginAt: string | null
     createdAt: string
@@ -50,6 +50,8 @@ export type AdminTrip = {
 
 export type ExternalApiUsage = {
     id: number
+    memberId: number | null
+    memberNickname: string | null
     provider: 'OPENAI' | 'GOOGLE_PLACES' | 'GOOGLE_ROUTES'
     operation: string
     success: boolean
@@ -77,6 +79,20 @@ export type TripCoverPreset = {
     createdAt: string
 }
 
+export type ServiceInquiry = {
+    id: number
+    memberId: number | null
+    category: 'BUSINESS' | 'USER'
+    email: string
+    subject: string
+    content: string
+    status: 'PENDING' | 'ANSWERED'
+    answer: string | null
+    answeredBy: number | null
+    answeredAt: string | null
+    createdAt: string
+}
+
 export async function requestAdminOtp(identifier: string, password: string) {
     const response = await apiClient.postPublic<
         ApiResponse<{
@@ -88,13 +104,24 @@ export async function requestAdminOtp(identifier: string, password: string) {
     return response.data
 }
 
+export async function requestSubAdminOtp() {
+    const response = await apiClient.post<
+        ApiResponse<{
+            challengeToken: string
+            maskedEmail: string
+            expiresInSeconds: number
+        }>
+    >('/api/auth/admin/step-up', null)
+    return response.data
+}
+
 export async function verifyAdminOtp(challengeToken: string, code: string) {
     const response = await apiClient.postPublic<
         ApiResponse<{ accessToken: string }>
     >('/api/auth/admin/login/verify', { challengeToken, code })
     setAccessToken(response.data.accessToken)
     const user = await fetchCurrentUser(response.data.accessToken)
-    if (!user || user.role !== 'ADMIN') {
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'SUB_ADMIN')) {
         setAccessToken(null)
         throw new Error('관리자 정보를 확인할 수 없습니다.')
     }
@@ -106,17 +133,44 @@ export const getAdminDashboard = () =>
 
 export const getAdminMembers = (query = '', page = 0) =>
     apiClient.get<ApiResponse<PageResponse<AdminMember>>>(
-        `/api/admin/members?query=${encodeURIComponent(query)}&page=${page}&size=20`,
+        `/api/admin/members?query=${encodeURIComponent(query)}&page=${page}&size=10`,
     )
 
-export const getAdminMemberTrips = (memberId: number) =>
+export const getAdminMemberTrips = (memberId: number, page = 0, size = 3) =>
     apiClient.get<ApiResponse<PageResponse<AdminTrip>>>(
-        `/api/admin/members/${memberId}/trips?page=0&size=50`,
+        `/api/admin/members/${memberId}/trips?page=${page}&size=${size}`,
     )
 
-export const getAdminMemberApiUsages = (memberId: number) =>
+export const getAdminMemberApiUsages = (memberId: number, page = 0, size = 3) =>
     apiClient.get<ApiResponse<PageResponse<ExternalApiUsage>>>(
-        `/api/admin/members/${memberId}/api-usages?page=0&size=50`,
+        `/api/admin/members/${memberId}/api-usages?page=${page}&size=${size}`,
+    )
+
+export const getAdminApiUsages = (page = 0, size = 10) =>
+    apiClient.get<ApiResponse<PageResponse<ExternalApiUsage>>>(
+        `/api/admin/api-usages?page=${page}&size=${size}`,
+    )
+
+export const getAdminInquiries = (page = 0, status?: 'PENDING' | 'ANSWERED') =>
+    apiClient.get<ApiResponse<PageResponse<ServiceInquiry>>>(
+        `/api/admin/inquiries?page=${page}&size=10${status ? `&status=${status}` : ''}`,
+    )
+
+export const replyAdminInquiry = (inquiryId: number, answer: string) =>
+    apiClient.post<ApiResponse<ServiceInquiry>>(
+        `/api/admin/inquiries/${inquiryId}/reply`,
+        { answer },
+    )
+
+export const grantSubAdmin = (memberId: number) =>
+    apiClient.patch<ApiResponse<AdminMember>>(
+        `/api/admin/members/${memberId}/sub-admin`,
+        null,
+    )
+
+export const revokeSubAdmin = (memberId: number) =>
+    apiClient.delete<ApiResponse<AdminMember>>(
+        `/api/admin/members/${memberId}/sub-admin`,
     )
 
 export const suspendMember = (

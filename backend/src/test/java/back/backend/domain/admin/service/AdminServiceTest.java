@@ -7,12 +7,15 @@ import static org.mockito.Mockito.when;
 
 import back.backend.domain.admin.dto.AdminMemberStatusRequest;
 import back.backend.domain.admin.entity.AdminActionLog;
+import back.backend.domain.admin.entity.ExternalApiProvider;
+import back.backend.domain.admin.entity.ExternalApiUsage;
 import back.backend.domain.admin.exception.AdminErrorCode;
 import back.backend.domain.admin.repository.AdminActionLogRepository;
 import back.backend.domain.admin.repository.ExternalApiUsageRepository;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
+import back.backend.domain.member.entity.MemberRole;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -21,6 +24,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +33,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class AdminServiceTest {
@@ -81,6 +88,65 @@ class AdminServiceTest {
 
         assertThatThrownBy(() -> adminService.releaseSuspension(1L, 3L, "오조작 복구"))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("t4 최고 관리자가 일반 회원을 지정하면 부관리자 권한과 감사 로그를 부여한다")
+    void t4_grantSubAdminPromotesMemberAndWritesAuditLog() {
+        Member member = member(4L);
+        when(memberRepository.findById(4L)).thenReturn(Optional.of(member));
+
+        var response = adminService.grantSubAdmin(1L, 4L);
+
+        assertThat(response.role()).isEqualTo(MemberRole.SUB_ADMIN);
+        verify(refreshTokenRepository).deleteByMemberId(4L);
+        verify(actionLogRepository).save(org.mockito.ArgumentMatchers.argThat(log ->
+                log.getActionType() == back.backend.domain.admin.entity.AdminActionType.SUB_ADMIN_GRANTED));
+    }
+
+    @Test
+    @DisplayName("t5 최고 관리자가 부관리자 권한을 회수하면 일반 회원으로 변경하고 세션을 폐기한다")
+    void t5_revokeSubAdminDemotesMemberAndRevokesSession() {
+        Member member = member(5L);
+        member.promoteToSubAdmin();
+        when(memberRepository.findById(5L)).thenReturn(Optional.of(member));
+
+        var response = adminService.revokeSubAdmin(1L, 5L);
+
+        assertThat(response.role()).isEqualTo(MemberRole.USER);
+        verify(refreshTokenRepository).deleteByMemberId(5L);
+    }
+
+    @Test
+    @DisplayName("t6 전체 외부 API 사용 이력을 조회하면 날짜 제한 없이 최신순 페이지를 반환한다")
+    void t6_externalApiUsagesReturnsAllDatesInDescendingPages() {
+        when(usageRepository.findAllByOrderByCreatedAtDescIdDesc(org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(Page.empty());
+        when(memberRepository.findAllById(List.of())).thenReturn(List.of());
+
+        var response = adminService.externalApiUsages(1, 20);
+
+        assertThat(response.content()).isEmpty();
+        verify(usageRepository).findAllByOrderByCreatedAtDescIdDesc(
+                org.mockito.ArgumentMatchers.argThat(pageable -> pageable.getPageNumber() == 1
+                        && pageable.getPageSize() == 20));
+    }
+
+    @Test
+    @DisplayName("t7 외부 API 사용 이력에 회원이 연결되어 있으면 회원 번호 대신 식별 가능한 닉네임을 반환한다")
+    void t7_externalApiUsagesIncludesMemberNickname() {
+        Member member = member(2L);
+        ExternalApiUsage usage = ExternalApiUsage.create(
+                2L, ExternalApiProvider.GOOGLE_PLACES, "SEARCH", true, null, null);
+        when(usageRepository.findAllByOrderByCreatedAtDescIdDesc(org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(usage)));
+        when(memberRepository.findAllById(List.of(2L))).thenReturn(List.of(member));
+
+        var response = adminService.externalApiUsages(0, 10);
+
+        assertThat(response.content()).singleElement()
+                .extracting("memberNickname")
+                .isEqualTo(member.getNickname());
     }
 
     private Member member(Long id) {

@@ -42,6 +42,7 @@ const WITHDRAWAL_REASON_HELP: Record<string, string> = {
 export function MyPage() {
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id ?? null
     const {
         changeNickname,
         changeProfileImage,
@@ -70,8 +71,8 @@ export function MyPage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
-        if (currentUser) void loadTrips()
-    }, [currentUser, loadTrips])
+        if (currentUserId != null) void loadTrips()
+    }, [currentUserId, loadTrips])
 
     async function saveNickname() {
         const v = draft.trim()

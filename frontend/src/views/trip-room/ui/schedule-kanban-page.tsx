@@ -27,6 +27,7 @@ export function ScheduleKanbanPage() {
     const { roomId } = useParams<{ roomId: string }>()
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id ?? null
     const isUserInitialized = useCurrentUserStore(
         (state) => state.isInitialized,
     )
@@ -50,7 +51,6 @@ export function ScheduleKanbanPage() {
             const detail = (event as CustomEvent<RealtimeEvent>).detail
             if (detail.tripId !== tripId) return
             setRealtimeVersion((current) => current + 1)
-            void loadTrips()
         }
         window.addEventListener(REALTIME_EVENT_NAME, handleRealtimeChange)
         return () =>
@@ -58,13 +58,13 @@ export function ScheduleKanbanPage() {
                 REALTIME_EVENT_NAME,
                 handleRealtimeChange,
             )
-    }, [loadTrips, tripId])
+    }, [tripId])
 
     // trips 미로드 상태에서 직접 접근한 경우 로드
     useEffect(() => {
         if (!isUserInitialized) return
-        if (currentUser && rooms.length === 0) void loadTrips()
-    }, [currentUser, isUserInitialized, rooms.length, loadTrips])
+        if (currentUserId != null && rooms.length === 0) void loadTrips()
+    }, [currentUserId, isUserInitialized, rooms.length, loadTrips])
 
     // 장소 데이터 로드
     useEffect(() => {
