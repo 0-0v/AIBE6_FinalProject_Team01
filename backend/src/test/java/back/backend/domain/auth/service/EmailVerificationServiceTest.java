@@ -26,7 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class EmailVerificationServiceTest {
 
     @Mock
-    private BrevoEmailClient emailClient;
+    private SmtpEmailClient emailClient;
     @Mock
     private RedisValueService redisValueService;
     @Mock

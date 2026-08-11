@@ -75,8 +75,6 @@ app:
       kakao-admin-key: ${KAKAO_ADMIN_KEY:}
     email:
       from: ${BREVO_FROM_EMAIL:}
-      brevo-api-key: ${BREVO_API_KEY:}
-      verification-template-id: ${BREVO_EMAIL_VERIFICATION_TEMPLATE_ID:}
       code-expiration: ${EMAIL_VERIFICATION_CODE_EXPIRATION:5m}
       verified-expiration: ${EMAIL_VERIFICATION_VERIFIED_EXPIRATION:10m}
       admin-otp-expiration: ${ADMIN_OTP_EXPIRATION:5m}

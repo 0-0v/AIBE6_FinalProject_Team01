@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import back.backend.domain.auth.service.BrevoEmailClient;
+import back.backend.domain.auth.service.SmtpEmailClient;
 import back.backend.domain.admin.repository.AdminActionLogRepository;
 import back.backend.domain.inquiry.dto.*;
 import back.backend.domain.inquiry.entity.*;
@@ -29,7 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class InquiryServiceTest {
     @Mock ServiceInquiryRepository repository;
     @Mock RedisValueService redisValueService;
-    @Mock BrevoEmailClient emailClient;
+    @Mock SmtpEmailClient emailClient;
     @Mock AdminActionLogRepository actionLogRepository;
     InquiryService service;
 

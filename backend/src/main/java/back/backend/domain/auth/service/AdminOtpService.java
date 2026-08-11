@@ -27,12 +27,12 @@ public class AdminOtpService {
     private static final String ATTEMPT_NAMESPACE = "admin-login-attempt";
 
     private final AuthService authService;
-    private final BrevoEmailClient emailClient;
+    private final SmtpEmailClient emailClient;
     private final RedisValueService redisValueService;
     private final PasswordEncoder passwordEncoder;
     private final EmailAuthProperties properties;
 
-    public AdminOtpService(AuthService authService, BrevoEmailClient emailClient,
+    public AdminOtpService(AuthService authService, SmtpEmailClient emailClient,
                            RedisValueService redisValueService, PasswordEncoder passwordEncoder,
                            EmailAuthProperties properties) {
         this.authService = authService;

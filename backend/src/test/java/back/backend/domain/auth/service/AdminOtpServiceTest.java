@@ -29,7 +29,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class AdminOtpServiceTest {
     @Mock AuthService authService;
-    @Mock BrevoEmailClient emailClient;
+    @Mock SmtpEmailClient emailClient;
     @Mock RedisValueService redisValueService;
     @Mock PasswordEncoder passwordEncoder;
     AdminOtpService adminOtpService;

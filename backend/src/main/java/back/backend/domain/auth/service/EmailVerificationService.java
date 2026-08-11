@@ -19,12 +19,12 @@ public class EmailVerificationService {
     private static final String VERIFIED_NAMESPACE = "email-verification-verified";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private final BrevoEmailClient emailClient;
+    private final SmtpEmailClient emailClient;
     private final RedisValueService redisValueService;
     private final MemberRepository memberRepository;
     private final EmailAuthProperties properties;
 
-    public EmailVerificationService(BrevoEmailClient emailClient, RedisValueService redisValueService,
+    public EmailVerificationService(SmtpEmailClient emailClient, RedisValueService redisValueService,
                                     MemberRepository memberRepository, EmailAuthProperties properties) {
         this.emailClient = emailClient;
         this.redisValueService = redisValueService;

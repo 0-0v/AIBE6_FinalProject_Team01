@@ -1,6 +1,6 @@
 package back.backend.domain.inquiry.service;
 
-import back.backend.domain.auth.service.BrevoEmailClient;
+import back.backend.domain.auth.service.SmtpEmailClient;
 import back.backend.domain.admin.entity.AdminActionLog;
 import back.backend.domain.admin.entity.AdminActionType;
 import back.backend.domain.admin.repository.AdminActionLogRepository;
@@ -25,12 +25,12 @@ public class InquiryService {
     private static final long RATE_LIMIT = 5;
     private final ServiceInquiryRepository repository;
     private final RedisValueService redisValueService;
-    private final BrevoEmailClient emailClient;
+    private final SmtpEmailClient emailClient;
     private final Clock clock;
     private final AdminActionLogRepository actionLogRepository;
 
     public InquiryService(ServiceInquiryRepository repository, RedisValueService redisValueService,
-                          BrevoEmailClient emailClient, Clock clock,
+                          SmtpEmailClient emailClient, Clock clock,
                           AdminActionLogRepository actionLogRepository) {
         this.repository = repository;
         this.redisValueService = redisValueService;

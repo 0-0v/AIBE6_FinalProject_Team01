@@ -1,6 +1,6 @@
 package back.backend.domain.trip.service;
 
-import back.backend.domain.auth.service.BrevoEmailClient;
+import back.backend.domain.auth.service.SmtpEmailClient;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
@@ -39,7 +39,7 @@ public class TripEmailInvitationService {
     private final TripMemberRepository tripMemberRepository;
     private final MemberRepository memberRepository;
     private final RedisValueService redisValueService;
-    private final BrevoEmailClient emailClient;
+    private final SmtpEmailClient emailClient;
     private final FrontendProperties frontendProperties;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -48,7 +48,7 @@ public class TripEmailInvitationService {
             TripMemberRepository tripMemberRepository,
             MemberRepository memberRepository,
             RedisValueService redisValueService,
-            BrevoEmailClient emailClient,
+            SmtpEmailClient emailClient,
             FrontendProperties frontendProperties,
             ApplicationEventPublisher eventPublisher
     ) {
