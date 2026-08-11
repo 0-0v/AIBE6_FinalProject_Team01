@@ -11,6 +11,7 @@ import {
 import {
     Place,
     addMapPinComment,
+    deleteMapPinComment,
     getMapPinComments,
     isAnchorPlace,
     resolvePlaceDisplayIcon,
@@ -36,6 +37,7 @@ import { MapPoiPopup } from './map-poi-popup'
 import { MapRouteLayer } from './map-route-layer'
 import { MapPinCommentBadge } from './map-pin-comment-badge'
 import { MapPinCommentSection } from './map-pin-comment-section'
+import type { TripMapViewport } from '@/features/trip-awareness'
 
 // POI 클릭 결과 세션 캐시 — 같은 장소 재클릭 시 API 호출 없음
 const resolvedPoiDetails = new Map<string, PlaceSearchResult>()
@@ -71,6 +73,8 @@ type Props = {
     tripId?: number | null
     mapPins?: MapPinSummaryResponse[]
     onMapPinCommentAdded?: (pin: MapPinSummaryResponse) => void
+    viewportFocusRequest?: (TripMapViewport & { version: number }) | null
+    onViewportChange?: (viewport: TripMapViewport) => void
 }
 
 export function MapCanvas({
@@ -95,6 +99,8 @@ export function MapCanvas({
     tripId,
     mapPins = [],
     onMapPinCommentAdded,
+    viewportFocusRequest,
+    onViewportChange,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -131,6 +137,8 @@ export function MapCanvas({
             tripId={tripId}
             mapPins={mapPins}
             onMapPinCommentAdded={onMapPinCommentAdded}
+            viewportFocusRequest={viewportFocusRequest}
+            onViewportChange={onViewportChange}
         />
     )
 }
@@ -157,6 +165,8 @@ function GoogleMapCanvas({
     tripId,
     mapPins = [],
     onMapPinCommentAdded,
+    viewportFocusRequest,
+    onViewportChange,
 }: Pick<
     Props,
     | 'places'
@@ -180,6 +190,8 @@ function GoogleMapCanvas({
     | 'tripId'
     | 'mapPins'
     | 'onMapPinCommentAdded'
+    | 'viewportFocusRequest'
+    | 'onViewportChange'
 >) {
     const isLoaded = useApiIsLoaded()
     const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID'
@@ -431,6 +443,41 @@ function GoogleMapCanvas({
         }
     }
 
+    async function deletePinComment(commentId: number): Promise<boolean> {
+        if (!poiState || !tripId) return false
+        const { placeId } = poiState
+        try {
+            await deleteMapPinComment(tripId, placeId, commentId)
+            setPinCommentsState((prev) =>
+                prev?.placeId === placeId
+                    ? {
+                          ...prev,
+                          comments: prev.comments.filter(
+                              (comment) => comment.id !== commentId,
+                          ),
+                      }
+                    : prev,
+            )
+            const existingPin = mapPins.find(
+                (pin) => pin.googlePlaceId === placeId,
+            )
+            if (existingPin) {
+                onMapPinCommentAdded?.({
+                    ...existingPin,
+                    commentCount: Math.max(0, existingPin.commentCount - 1),
+                })
+            }
+            return true
+        } catch {
+            setPinCommentsState((prev) =>
+                prev?.placeId === placeId
+                    ? { ...prev, error: '댓글 삭제에 실패했습니다.' }
+                    : prev,
+            )
+            return false
+        }
+    }
+
     const scheduledPlaceDetailsMap = useMemo(() => {
         if (!days) {
             return new Map<
@@ -660,6 +707,16 @@ function GoogleMapCanvas({
                         current === shouldSimplify ? current : shouldSimplify,
                     )
                 }}
+                onIdle={(event) => {
+                    const mapCenter = event.map.getCenter()
+                    const zoom = event.map.getZoom()
+                    if (!mapCenter || zoom == null) return
+                    onViewportChange?.({
+                        lat: mapCenter.lat(),
+                        lng: mapCenter.lng(),
+                        zoom,
+                    })
+                }}
                 onClick={(event) => {
                     const clickedPlaceId = event.detail.placeId
                     if (clickedPlaceId && event.detail.latLng) {
@@ -681,6 +738,7 @@ function GoogleMapCanvas({
                     autoFitPlaces={!routeOverview}
                     focusRequestVersion={focusRequestVersion}
                 />
+                <ViewportFocusController request={viewportFocusRequest} />
                 <RouteFocusController
                     points={
                         focusedSegmentIndex == null ? selectedRoutePoints : []
@@ -762,6 +820,7 @@ function GoogleMapCanvas({
                                         submitting={pinCommentsState.submitting}
                                         error={pinCommentsState.error}
                                         onSubmit={submitPinComment}
+                                        onDeleteComment={deletePinComment}
                                     />
                                 </div>
                             )}
@@ -973,8 +1032,10 @@ function GoogleMapCanvas({
                     selectedDay={activeRouteDay}
                     onSelect={(day) => {
                         // 날짜를 고르면 특정 구간이 아니라 그 날짜 전체가 컴팩하게 보여야 하므로,
-                        // 이전에 남아있던 장소 선택/구간 탐색 상태를 먼저 정리한다.
+                        // 이전에 남아있던 장소 선택/구간 탐색 상태와 열려 있던 팝업을 먼저 정리한다.
                         onDeselect()
+                        setPoiState(null)
+                        setPinCommentsState(null)
                         setSelectedRouteDay(day)
                         setRouteFocusMode(day != null ? 'day-route' : 'none')
                         setFocusedSegmentIndex(null)
@@ -1062,6 +1123,24 @@ function fitBoundsToPoints(
         },
         padding,
     )
+}
+
+function ViewportFocusController({
+    request,
+}: {
+    request?: (TripMapViewport & { version: number }) | null
+}) {
+    const map = useMap()
+
+    useEffect(() => {
+        if (!map || !request) return
+        map.moveCamera({
+            center: { lat: request.lat, lng: request.lng },
+            zoom: request.zoom,
+        })
+    }, [map, request])
+
+    return null
 }
 
 function RouteFocusController({

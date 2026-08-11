@@ -57,3 +57,13 @@ export async function addMapPinComment(
     )
     return res.data
 }
+
+export async function deleteMapPinComment(
+    tripId: number,
+    googlePlaceId: string,
+    commentId: number,
+): Promise<void> {
+    await apiClient.delete(
+        `${mapPinCommentsPath(tripId, googlePlaceId)}/${commentId}`,
+    )
+}

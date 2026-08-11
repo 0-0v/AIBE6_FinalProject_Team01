@@ -39,6 +39,7 @@ export {
     getMapPins,
     getMapPinComments,
     addMapPinComment,
+    deleteMapPinComment,
 } from './api/mapPinApi'
 export type {
     MapPinSummaryResponse,

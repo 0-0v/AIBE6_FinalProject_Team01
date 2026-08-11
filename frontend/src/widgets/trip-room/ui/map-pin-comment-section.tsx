@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { SendIcon } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { SendIcon, Trash2Icon } from 'lucide-react'
 import type { MapPinCommentResponse } from '@/entities/trip'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { useCurrentUserStore } from '@/shared/model'
@@ -14,6 +14,7 @@ type Props = {
     submitting: boolean
     error: string | null
     onSubmit: (content: string) => Promise<boolean>
+    onDeleteComment: (commentId: number) => Promise<boolean>
 }
 
 const COMMENT_DATE_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
@@ -37,12 +38,15 @@ export function MapPinCommentSection({
     submitting,
     error,
     onSubmit,
+    onDeleteComment,
 }: Props) {
     const [text, setText] = useState('')
     const [showAllComments, setShowAllComments] = useState(false)
+    const [deletingId, setDeletingId] = useState<number | null>(null)
     const listRef = useRef<HTMLUListElement>(null)
     const firstAnimationFrameRef = useRef<number | null>(null)
     const secondAnimationFrameRef = useRef<number | null>(null)
+    const previousScrollHeightRef = useRef<number | null>(null)
     const currentMemberId = useCurrentUserStore(
         (state) => state.currentUser?.id ?? null,
     )
@@ -65,6 +69,22 @@ export function MapPinCommentSection({
         },
         [],
     )
+
+    useLayoutEffect(() => {
+        const list = listRef.current
+        const previousScrollHeight = previousScrollHeightRef.current
+        if (list && previousScrollHeight != null) {
+            list.scrollTop += list.scrollHeight - previousScrollHeight
+            previousScrollHeightRef.current = null
+        }
+    }, [showAllComments])
+
+    function revealOlderComments() {
+        if (listRef.current) {
+            previousScrollHeightRef.current = listRef.current.scrollHeight
+        }
+        setShowAllComments(true)
+    }
 
     function revealNewestComment() {
         if (firstAnimationFrameRef.current != null) {
@@ -101,6 +121,16 @@ export function MapPinCommentSection({
         }
     }
 
+    async function handleDelete(commentId: number) {
+        if (deletingId != null) return
+        setDeletingId(commentId)
+        try {
+            await onDeleteComment(commentId)
+        } finally {
+            setDeletingId(null)
+        }
+    }
+
     return (
         <div className="mt-2.5 border-t border-slate-100 pt-2.5">
             <p className="mb-1.5 text-[11px] font-bold text-slate-500">
@@ -120,7 +150,7 @@ export function MapPinCommentSection({
                     {!showAllComments && hiddenCommentCount > 0 && (
                         <button
                             type="button"
-                            onClick={() => setShowAllComments(true)}
+                            onClick={revealOlderComments}
                             className="mb-1.5 w-full text-left text-[10px] font-semibold text-brand-700 hover:underline"
                         >
                             이전 댓글 {hiddenCommentCount}개 더 보기
@@ -129,7 +159,9 @@ export function MapPinCommentSection({
                     <ul
                         ref={listRef}
                         aria-live="polite"
-                        className="mp-scroll max-h-36 space-y-1.5 overflow-y-auto"
+                        className={`mp-scroll space-y-1.5 overflow-y-auto ${
+                            showAllComments ? 'max-h-56' : 'max-h-36'
+                        }`}
                     >
                         {visibleComments.map((comment) => {
                             const isOwn = comment.memberId === currentMemberId
@@ -156,14 +188,34 @@ export function MapPinCommentSection({
                                                     </span>
                                                 )}
                                             </span>
-                                            <time
-                                                dateTime={comment.createdAt}
-                                                className="shrink-0 text-[9px] text-slate-400"
-                                            >
-                                                {formatCommentDate(
-                                                    comment.createdAt,
+                                            <div className="flex shrink-0 items-center gap-1">
+                                                <time
+                                                    dateTime={comment.createdAt}
+                                                    className="text-[9px] text-slate-400"
+                                                >
+                                                    {formatCommentDate(
+                                                        comment.createdAt,
+                                                    )}
+                                                </time>
+                                                {isOwn && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            void handleDelete(
+                                                                comment.id,
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            deletingId ===
+                                                            comment.id
+                                                        }
+                                                        className="rounded p-0.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
+                                                        aria-label="댓글 삭제"
+                                                    >
+                                                        <Trash2Icon size={11} />
+                                                    </button>
                                                 )}
-                                            </time>
+                                            </div>
                                         </div>
                                         <p className="mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-4 text-slate-600">
                                             {comment.content}

@@ -11,7 +11,9 @@ import {
 } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { useCurrentUserStore } from '@/shared/model'
 import { Button } from '@/shared/ui'
+import { useTripAwarenessStore } from '@/features/trip-awareness'
 import { formatTimeRange } from '../lib/itinerary-time'
 import { useItineraryItemEditor } from '../model/use-itinerary-item-editor'
 import { TimeRangeFields } from './time-range-fields'
@@ -66,6 +68,43 @@ export function ScheduleItemCard({
         dayItems: currentDay?.items ?? [],
         onUpdated: onDaysChange,
     })
+    const setLocalEditing = useTripAwarenessStore(
+        (state) => state.setLocalEditing,
+    )
+    const clearLocalEditing = useTripAwarenessStore(
+        (state) => state.clearLocalEditing,
+    )
+    const awarenessByMemberId = useTripAwarenessStore(
+        (state) => state.awarenessByMemberId,
+    )
+    const currentMemberId = useCurrentUserStore(
+        (state) => state.currentUser?.id ?? null,
+    )
+    const remoteEditor = Object.values(awarenessByMemberId).find(
+        (awareness) =>
+            awareness.memberId !== currentMemberId &&
+            awareness.editingTargetId === String(item.id),
+    )
+
+    useEffect(() => {
+        const targetId = String(item.id)
+        if (editor.editing) {
+            setLocalEditing({
+                type: 'itinerary',
+                targetId,
+                label: `${item.placeName ?? '장소'} 일정 편집 중`,
+            })
+        } else {
+            clearLocalEditing(targetId)
+        }
+        return () => clearLocalEditing(targetId)
+    }, [
+        clearLocalEditing,
+        editor.editing,
+        item.id,
+        item.placeName,
+        setLocalEditing,
+    ])
 
     const {
         attributes,
@@ -125,6 +164,12 @@ export function ScheduleItemCard({
             }}
             className={`group relative overflow-hidden rounded-lg border bg-white shadow-sm transition-[border-color,box-shadow] duration-150 ease-out ${highlighted || selected ? 'border-brand ring-2 ring-brand/20 shadow-md' : 'border-slate-100 hover:border-slate-200 hover:shadow-md'}`}
         >
+            {remoteEditor && (
+                <div className="relative z-20 flex items-center gap-1 border-b border-amber-100 bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700">
+                    다른 일행이 편집 중이에요. 동시에 수정하면 마지막 저장
+                    내용이 반영됩니다.
+                </div>
+            )}
             {/* 마우스를 따라다니는 은은한 하이라이트 */}
             <div
                 aria-hidden
