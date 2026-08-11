@@ -7,8 +7,8 @@ type ApiResponse<T> = {
     data: T
 }
 
-type PageResponse<T> = {
-    content: T[]
+export type NotificationPage = {
+    content: Notification[]
     page: number
     size: number
     totalElements: number
@@ -17,6 +17,8 @@ type PageResponse<T> = {
     last: boolean
     empty: boolean
 }
+
+export const NOTIFICATION_PAGE_SIZE = 6
 
 type UnreadCountResponse = {
     count: number
@@ -34,13 +36,16 @@ function authorizationHeaders(): HeadersInit {
     return { Authorization: `Bearer ${accessToken}` }
 }
 
-export async function fetchNotifications(): Promise<Notification[]> {
-    const response = await apiClient.get<
-        ApiResponse<PageResponse<Notification>>
-    >('/api/notifications?page=0&size=20', {
-        headers: authorizationHeaders(),
-    })
-    return response.data.content
+export async function fetchNotifications(
+    page = 0,
+): Promise<NotificationPage> {
+    const response = await apiClient.get<ApiResponse<NotificationPage>>(
+        `/api/notifications?page=${page}&size=${NOTIFICATION_PAGE_SIZE}`,
+        {
+            headers: authorizationHeaders(),
+        },
+    )
+    return response.data
 }
 
 export async function fetchUnreadNotificationCount(): Promise<number> {

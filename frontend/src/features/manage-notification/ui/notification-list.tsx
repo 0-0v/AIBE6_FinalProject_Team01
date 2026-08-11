@@ -10,6 +10,8 @@ export function NotificationList() {
         currentUser,
         notifications,
         unreadCount,
+        page,
+        totalPages,
         isLoading,
         error,
         loadNotifications,
@@ -107,6 +109,29 @@ export function NotificationList() {
                     </button>
                 )
             })}
+            {totalPages > 1 ? (
+                <div className="flex items-center justify-center gap-3 border-t border-slate-100 px-5 py-3">
+                    <button
+                        type="button"
+                        onClick={() => void loadNotifications(page - 1)}
+                        disabled={page === 0 || isLoading}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                        이전
+                    </button>
+                    <span className="min-w-14 text-center text-xs font-semibold text-slate-500">
+                        {page + 1} / {totalPages}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => void loadNotifications(page + 1)}
+                        disabled={page + 1 >= totalPages || isLoading}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                        다음
+                    </button>
+                </div>
+            ) : null}
         </div>
     )
 }
