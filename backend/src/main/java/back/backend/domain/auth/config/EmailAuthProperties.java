@@ -12,6 +12,10 @@ public class EmailAuthProperties {
     private Long verificationTemplateId;
     private Duration codeExpiration = Duration.ofMinutes(5);
     private Duration verifiedExpiration = Duration.ofMinutes(10);
+    private Duration adminOtpExpiration = Duration.ofMinutes(5);
+    private Duration adminOtpResendInterval = Duration.ofSeconds(60);
+    private Duration adminLoginAttemptWindow = Duration.ofMinutes(10);
+    private int adminLoginMaxAttempts = 5;
 
     public String getFrom() { return from; }
     public void setFrom(String from) { this.from = from; }
@@ -25,4 +29,12 @@ public class EmailAuthProperties {
     public void setCodeExpiration(Duration codeExpiration) { this.codeExpiration = codeExpiration; }
     public Duration getVerifiedExpiration() { return verifiedExpiration; }
     public void setVerifiedExpiration(Duration verifiedExpiration) { this.verifiedExpiration = verifiedExpiration; }
+    public Duration getAdminOtpExpiration() { return adminOtpExpiration; }
+    public void setAdminOtpExpiration(Duration adminOtpExpiration) { this.adminOtpExpiration = adminOtpExpiration; }
+    public Duration getAdminOtpResendInterval() { return adminOtpResendInterval; }
+    public void setAdminOtpResendInterval(Duration adminOtpResendInterval) { this.adminOtpResendInterval = adminOtpResendInterval; }
+    public Duration getAdminLoginAttemptWindow() { return adminLoginAttemptWindow; }
+    public void setAdminLoginAttemptWindow(Duration adminLoginAttemptWindow) { this.adminLoginAttemptWindow = adminLoginAttemptWindow; }
+    public int getAdminLoginMaxAttempts() { return adminLoginMaxAttempts; }
+    public void setAdminLoginMaxAttempts(int adminLoginMaxAttempts) { this.adminLoginMaxAttempts = adminLoginMaxAttempts; }
 }

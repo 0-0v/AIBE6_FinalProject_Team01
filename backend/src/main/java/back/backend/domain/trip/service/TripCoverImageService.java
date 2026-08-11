@@ -12,6 +12,8 @@ import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.config.FrontendProperties;
 import back.backend.global.exception.BusinessException;
+import back.backend.domain.admin.repository.TripCoverPresetRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,12 @@ public class TripCoverImageService {
     private final TripCoverImageStorage imageStorage;
     private final ActivityLogService activityLogService;
     private final FrontendProperties frontendProperties;
+    private TripCoverPresetRepository presetRepository;
+
+    @Autowired
+    void setPresetRepository(TripCoverPresetRepository presetRepository) {
+        this.presetRepository = presetRepository;
+    }
 
     public TripCoverImageService(
             TripRepository tripRepository,
@@ -58,10 +66,22 @@ public class TripCoverImageService {
     @Transactional
     public TripResponse updateWithPreset(Long memberId, Long tripId, String presetKey) {
         Trip trip = findEditableTrip(tripId, memberId);
-        String imageUrl = frontendProperties.getFrontendBaseUrl() + TripCoverImagePreset.from(presetKey).path();
+        String imageUrl = resolvePresetUrl(presetKey);
         trip.changeCoverImage(imageUrl);
         logCoverImageChanged(tripId, memberId, imageUrl);
         return TripResponse.from(trip, tripMemberRepository.countByTripId(tripId));
+    }
+
+    private String resolvePresetUrl(String presetKey) {
+        if (presetRepository == null) {
+            return frontendProperties.getFrontendBaseUrl() + TripCoverImagePreset.from(presetKey).path();
+        }
+        String storedUrl = presetRepository.findByPresetKeyAndActiveTrue(presetKey)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.INVALID_COVER_IMAGE_PRESET))
+                .getImageUrl();
+        return storedUrl.startsWith("/") && !storedUrl.startsWith("/uploads/")
+                ? frontendProperties.getFrontendBaseUrl() + storedUrl
+                : storedUrl;
     }
 
     private Trip findEditableTrip(Long tripId, Long memberId) {

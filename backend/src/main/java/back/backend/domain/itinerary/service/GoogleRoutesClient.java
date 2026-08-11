@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import back.backend.domain.admin.entity.ExternalApiProvider;
+import back.backend.domain.admin.service.ExternalApiUsageService;
 
 @Slf4j
 @Component
@@ -27,6 +29,12 @@ public class GoogleRoutesClient {
     private final RestClient restClient;
     private final String apiKey;
     private final boolean configured;
+    private ExternalApiUsageService usageService;
+
+    @Autowired
+    void setUsageService(ExternalApiUsageService usageService) {
+        this.usageService = usageService;
+    }
 
     @Autowired
     public GoogleRoutesClient(
@@ -135,6 +143,7 @@ public class GoogleRoutesClient {
                     || response.routes() == null
                     || response.routes().isEmpty()) {
                 log.debug("Routes API 응답에 경로가 없습니다.");
+                recordUsage(false);
                 return Optional.empty();
             }
 
@@ -145,12 +154,21 @@ public class GoogleRoutesClient {
                     actualTransportMode(route, mode),
                     transitDetail(route)
             );
+            recordUsage(true);
             return Optional.of(routeInfo);
 
         } catch (Exception e) {
+            recordUsage(false);
             log.warn("Routes API 호출 실패 — mode={}, Haversine 폴백: {}",
                     mode, e.getMessage());
             return Optional.empty();
+        }
+    }
+
+    private void recordUsage(boolean success) {
+        if (usageService != null) {
+            usageService.recordSafely(ExternalApiProvider.GOOGLE_ROUTES, "COMPUTE_ROUTES",
+                    success, null, null);
         }
     }
 

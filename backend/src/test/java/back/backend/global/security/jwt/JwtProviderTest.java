@@ -97,4 +97,14 @@ class JwtProviderTest {
 
         assertThat(verifier.isValid(token)).isFalse();
     }
+
+    @Test
+    @DisplayName("t8 관리자 OTP 검증 토큰은 관리자 검증 완료 상태를 포함한다")
+    void t8_adminVerifiedTokenContainsVerificationClaim() {
+        JwtProvider provider = newProvider(60_000, 1_209_600_000);
+
+        String token = provider.createAccessToken(8L, "admin@example.com", true);
+
+        assertThat(provider.isAdminVerified(token)).isTrue();
+    }
 }

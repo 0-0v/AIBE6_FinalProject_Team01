@@ -1,13 +1,15 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { XIcon } from 'lucide-react'
 import { errorMessage } from '@/shared/lib'
 import {
     createTrip,
+    fetchTripCoverImagePresets,
     setTripCoverImagePreset,
     uploadTripCoverImage,
     type TravelStyle,
 } from '../api/trip-api'
 import { pickRandomTripCoverPreset } from '../model/trip-cover-presets'
+import type { TripCoverPreset } from '../model/trip-cover-presets'
 import {
     TripCoverImageField,
     type TripCoverMode,
@@ -47,9 +49,22 @@ export function CreateTripModal({
     const [coverPreset, setCoverPreset] = useState(() =>
         pickRandomTripCoverPreset(),
     )
+    const [coverPresets, setCoverPresets] = useState<TripCoverPreset[]>([])
     const [coverImage, setCoverImage] = useState<File | null>(null)
     const [createdTripId, setCreatedTripId] = useState<number | null>(null)
     const [showInvitationStep, setShowInvitationStep] = useState(false)
+
+    useEffect(() => {
+        fetchTripCoverImagePresets()
+            .then((presets) => {
+                if (presets.length === 0) return
+                setCoverPresets(presets)
+                setCoverPreset(pickRandomTripCoverPreset(undefined, presets))
+            })
+            .catch(() => {
+                // 서버 목록을 불러오지 못하면 번들에 포함된 기본 프리셋을 사용한다.
+            })
+    }, [])
     function toggleStyle(style: TravelStyle) {
         setTravelStyles((current) => {
             if (current.includes(style)) {
@@ -164,7 +179,12 @@ export function CreateTripModal({
                             presetUrl={coverPreset.url}
                             onReroll={() =>
                                 setCoverPreset((current) =>
-                                    pickRandomTripCoverPreset(current.key),
+                                    pickRandomTripCoverPreset(
+                                        current.key,
+                                        coverPresets.length > 0
+                                            ? coverPresets
+                                            : undefined,
+                                    ),
                                 )
                             }
                             file={coverImage}

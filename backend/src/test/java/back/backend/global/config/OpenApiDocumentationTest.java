@@ -50,9 +50,10 @@ class OpenApiDocumentationTest {
                 .getContentAsString();
         JsonNode paths = new ObjectMapper().readTree(content).path("paths");
         Set<String> knownTags = Set.of(
+                "서비스 문의",
                 "인증", "회원", "여행방", "여행방 초대", "장소",
                 "장소 투표·댓글", "일정", "AI 여행", "지출·정산",
-                "여행 기록·회고", "여행 카드", "알림", "활동 로그"
+                "여행 기록·회고", "여행 카드", "알림", "활동 로그", "관리자"
         );
 
         Iterator<Map.Entry<String, JsonNode>> pathEntries = paths.fields();

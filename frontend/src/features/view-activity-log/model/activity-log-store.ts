@@ -20,6 +20,8 @@ function errorMessage(error: unknown): string {
         : '활동 로그를 불러오는 중 오류가 발생했습니다.'
 }
 
+let latestLoadRequestId = 0
+
 export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
     logs: [],
     tripId: null,
@@ -29,8 +31,10 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
     error: null,
 
     loadActivityLogs: async (tripId) => {
+        const requestId = ++latestLoadRequestId
+        const isSameTrip = get().tripId === tripId
         set({
-            logs: [],
+            logs: isSameTrip ? get().logs : [],
             tripId,
             page: 0,
             hasNext: false,
@@ -39,7 +43,7 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
         })
         try {
             const response = await fetchActivityLogs(tripId, 0)
-            if (get().tripId !== tripId) {
+            if (requestId !== latestLoadRequestId || get().tripId !== tripId) {
                 return
             }
             set({
@@ -49,7 +53,7 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
                 isLoading: false,
             })
         } catch (error) {
-            if (get().tripId === tripId) {
+            if (requestId === latestLoadRequestId && get().tripId === tripId) {
                 set({ error: errorMessage(error), isLoading: false })
             }
         }
@@ -79,7 +83,8 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
         }
     },
 
-    resetActivityLogs: () =>
+    resetActivityLogs: () => {
+        latestLoadRequestId += 1
         set({
             logs: [],
             tripId: null,
@@ -87,5 +92,6 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
             hasNext: false,
             isLoading: false,
             error: null,
-        }),
+        })
+    },
 }))

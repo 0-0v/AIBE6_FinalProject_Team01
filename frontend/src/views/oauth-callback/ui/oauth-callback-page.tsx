@@ -35,6 +35,10 @@ export function OAuthCallback() {
                 if (user.provider === 'GOOGLE' || user.provider === 'KAKAO') {
                     setLastLoginProvider(user.provider)
                 }
+                if (user.role === 'SUB_ADMIN') {
+                    navigate('/admin/login', { replace: true })
+                    return
+                }
                 const returnPath = sessionStorage.getItem('postLoginReturnPath')
                 sessionStorage.removeItem('postLoginReturnPath')
                 navigate(returnPath ?? '/app', { replace: true })

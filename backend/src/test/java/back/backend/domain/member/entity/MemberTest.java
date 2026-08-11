@@ -85,4 +85,55 @@ class MemberTest {
         assertThat(member.getLastLoginAt()).isNull();
         assertThat(member.getPersonalInfoDeletedAt()).isEqualTo(expiredAt);
     }
+
+    @Test
+    @DisplayName("t7 새 회원은 일반 사용자 역할과 활성 상태로 생성된다")
+    void t7_newMemberStartsAsActiveUser() {
+        Member member = Member.createLocal("user@example.com", "여행자", "hash");
+
+        assertThat(member.getRole()).isEqualTo(MemberRole.USER);
+        assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("t8 관리자로 승격하면 관리자 역할이 저장된다")
+    void t8_promoteToAdminChangesRole() {
+        Member member = Member.createLocal("admin@example.com", "admin12", "hash");
+
+        member.promoteToAdmin();
+
+        assertThat(member.getRole()).isEqualTo(MemberRole.ADMIN);
+    }
+
+    @Test
+    @DisplayName("t9 활성 회원을 정지하면 사유와 기간 및 처리 관리자가 기록된다")
+    void t9_suspendStoresModerationDetails() {
+        Member member = Member.createLocal("user@example.com", "여행자", "hash");
+        LocalDateTime suspendedAt = LocalDateTime.of(2026, 8, 10, 17, 0);
+        LocalDateTime suspendedUntil = suspendedAt.plusDays(7);
+
+        member.suspend(9L, "자동화 요청 반복", suspendedAt, suspendedUntil);
+
+        assertThat(member.getStatus()).isEqualTo(MemberStatus.SUSPENDED);
+        assertThat(member.getSuspensionReason()).isEqualTo("자동화 요청 반복");
+        assertThat(member.getSuspendedBy()).isEqualTo(9L);
+        assertThat(member.getSuspendedAt()).isEqualTo(suspendedAt);
+        assertThat(member.getSuspendedUntil()).isEqualTo(suspendedUntil);
+    }
+
+    @Test
+    @DisplayName("t10 정지를 해제하면 활성 상태로 돌아가고 현재 정지 정보가 제거된다")
+    void t10_releaseSuspensionRestoresActiveStatus() {
+        Member member = Member.createLocal("user@example.com", "여행자", "hash");
+        LocalDateTime suspendedAt = LocalDateTime.of(2026, 8, 10, 17, 0);
+        member.suspend(9L, "자동화 요청 반복", suspendedAt, null);
+
+        member.releaseSuspension();
+
+        assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
+        assertThat(member.getSuspensionReason()).isNull();
+        assertThat(member.getSuspendedBy()).isNull();
+        assertThat(member.getSuspendedAt()).isNull();
+        assertThat(member.getSuspendedUntil()).isNull();
+    }
 }

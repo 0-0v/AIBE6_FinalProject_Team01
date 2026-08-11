@@ -3,6 +3,7 @@ package back.backend.global.redis;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -43,6 +44,28 @@ public class RedisValueService {
     public boolean exists(String key) {
         validateKey(key);
         return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+    }
+
+    public Optional<Duration> remainingTtl(String key) {
+        validateKey(key);
+        Long milliseconds = redisTemplate.getExpire(key, TimeUnit.MILLISECONDS);
+        if (milliseconds == null || milliseconds <= 0) {
+            return Optional.empty();
+        }
+        return Optional.of(Duration.ofMillis(milliseconds));
+    }
+
+    public long increment(String key, Duration ttl) {
+        validateKey(key);
+        Objects.requireNonNull(ttl, "ttl must not be null");
+        if (ttl.isZero() || ttl.isNegative()) {
+            throw new IllegalArgumentException("ttl must be positive");
+        }
+        Long count = redisTemplate.opsForValue().increment(key);
+        if (count != null && count == 1L) {
+            redisTemplate.expire(key, ttl);
+        }
+        return count == null ? 0L : count;
     }
 
     private void validateKey(String key) {

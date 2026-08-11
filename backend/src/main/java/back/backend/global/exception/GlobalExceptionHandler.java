@@ -1,5 +1,7 @@
 package back.backend.global.exception;
 
+import back.backend.domain.auth.dto.SuspendedAccountErrorResponse;
+import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.global.exception.ErrorResponse.FieldError;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -21,6 +23,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(SuspendedAccountException.class)
+    public ResponseEntity<SuspendedAccountErrorResponse> handleSuspendedAccountException(
+            SuspendedAccountException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(exception.getErrorCode().getStatus())
+                .body(SuspendedAccountErrorResponse.from(exception, request.getRequestURI()));
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(

@@ -126,4 +126,20 @@ class BrevoEmailClientTest {
 
         verify(mailSender).send(message);
     }
+
+    @Test
+    @DisplayName("t5 관리자 OTP는 Brevo API 키 없이 기존 SMTP 설정으로 발송한다")
+    void t5_sendAdminOtpUsesSmtpWithoutApiKey() {
+        EmailAuthProperties properties = new EmailAuthProperties();
+        properties.setFrom("noreply@plamingo.example");
+        JavaMailSender mailSender = mock(JavaMailSender.class);
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+        when(mailSender.createMimeMessage()).thenReturn(message);
+        BrevoEmailClient smtpClient = new BrevoEmailClient(
+                RestClient.builder(), properties, mailSender);
+
+        smtpClient.sendAdminOtpEmail("admin@example.com", "123456", 5L);
+
+        verify(mailSender).send(message);
+    }
 }

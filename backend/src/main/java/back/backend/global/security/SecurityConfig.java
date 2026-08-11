@@ -43,9 +43,12 @@ public class SecurityConfig {
             "/api/auth/reissue",
             "/api/auth/signup",
             "/api/auth/login",
+            "/api/auth/suspension-notices/**",
+            "/api/auth/admin/login/**",
             "/api/auth/nickname-availability",
             "/api/auth/email-verifications/**",
             "/api/auth/password-reset",
+            "/api/inquiries",
             "/ws/**",
             "/uploads/**"
     };
@@ -92,7 +95,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/cards/public").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/*/detail").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/*/comments").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/trip-cover-presets").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

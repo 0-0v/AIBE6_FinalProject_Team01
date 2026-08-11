@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api/client'
+import { apiClient, resolveMediaUrl } from '@/shared/api/client'
 
 export type CompanionType =
     'ALONE' | 'FRIENDS' | 'COUPLE' | 'SPOUSE' | 'CHILDREN' | 'PARENTS'
@@ -153,6 +153,18 @@ export async function setTripCoverImagePreset(id: number, presetKey: string) {
         { presetKey },
     )
     return response.data
+}
+
+export async function fetchTripCoverImagePresets() {
+    const response = await apiClient.get<
+        ApiResponse<Array<{ presetKey: string; imageUrl: string }>>
+    >('/api/trip-cover-presets')
+    return response.data.map((preset) => ({
+        key: preset.presetKey,
+        url: preset.imageUrl.startsWith('/assets/')
+            ? preset.imageUrl
+            : (resolveMediaUrl(preset.imageUrl) ?? preset.imageUrl),
+    }))
 }
 
 export async function deleteTrip(id: number) {

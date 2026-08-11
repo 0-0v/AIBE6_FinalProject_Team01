@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import back.backend.domain.admin.entity.ExternalApiProvider;
+import back.backend.domain.admin.service.ExternalApiUsageService;
 
 @Service
 public class PlaceSearchService {
@@ -42,6 +44,12 @@ public class PlaceSearchService {
             "id,displayName,formattedAddress,location,primaryType,types,rating,userRatingCount";
 
     private final RestClient restClient;
+    private ExternalApiUsageService usageService;
+
+    @Autowired
+    void setUsageService(ExternalApiUsageService usageService) {
+        this.usageService = usageService;
+    }
     @Autowired
     public PlaceSearchService(
             @Value("${app.integrations.google-maps.api-key}") String apiKey,
@@ -173,8 +181,10 @@ public class PlaceSearchService {
                     .body(requestBody)
                     .retrieve()
                     .body(GooglePlacesApiResponse.class);
+            recordUsage("TEXT_SEARCH", true);
             return mapToResponses(response);
         } catch (RestClientException e) {
+            recordUsage("TEXT_SEARCH", false);
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
         }
     }
@@ -211,10 +221,13 @@ public class PlaceSearchService {
                     .retrieve()
                     .body(GooglePlacesApiResponse.Place.class);
             if (place == null) {
+                recordUsage("PLACE_DETAILS", false);
                 throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
             }
+            recordUsage("PLACE_DETAILS", true);
             return place;
         } catch (RestClientException e) {
+            recordUsage("PLACE_DETAILS", false);
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
         }
     }
@@ -233,8 +246,10 @@ public class PlaceSearchService {
                     .retrieve()
                     .body(GooglePlacesApiResponse.Place.class);
             if (place == null || place.displayName() == null) {
+                recordUsage("DESTINATION_METADATA", false);
                 throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
             }
+            recordUsage("DESTINATION_METADATA", true);
             String countryCode = place.addressComponents() == null
                     ? null
                     : place.addressComponents().stream()
@@ -247,7 +262,15 @@ public class PlaceSearchService {
                     .orElse(null);
             return new DestinationMetadataResponse(place.displayName().text(), countryCode);
         } catch (RestClientException e) {
+            recordUsage("DESTINATION_METADATA", false);
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+        }
+    }
+
+    private void recordUsage(String operation, boolean success) {
+        if (usageService != null) {
+            usageService.recordSafely(ExternalApiProvider.GOOGLE_PLACES, operation,
+                    success, null, null);
         }
     }
 

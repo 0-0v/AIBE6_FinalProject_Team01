@@ -4,6 +4,7 @@ import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
+import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.global.security.MemberPrincipal;
 import java.util.List;
 import java.util.Locale;
@@ -21,9 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final MemberRepository memberRepository;
+    private final SuspensionNoticeService suspensionNoticeService;
 
-    public CustomOAuth2UserService(MemberRepository memberRepository) {
+    public CustomOAuth2UserService(MemberRepository memberRepository, SuspensionNoticeService suspensionNoticeService) {
         this.memberRepository = memberRepository;
+        this.suspensionNoticeService = suspensionNoticeService;
     }
 
     @Override
@@ -39,8 +42,12 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         Member member = memberRepository.findByProviderAndProviderId(provider, userInfo.providerId())
                 .map(existing -> {
+                    existing.releaseSuspensionIfExpired(java.time.LocalDateTime.now());
                     if (existing.getStatus() == MemberStatus.WITHDRAWN) {
                         throw withdrawnAccountRetained();
+                    }
+                    if (existing.getStatus() == MemberStatus.SUSPENDED) {
+                        throw suspendedAccount(existing);
                     }
                     existing.recordLogin();
                     return existing;
@@ -50,7 +57,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return new MemberPrincipal(
                 member.getId(),
                 member.getEmail(),
-                List.of(new SimpleGrantedAuthority("ROLE_USER")),
+                member.getRole() == back.backend.domain.member.entity.MemberRole.ADMIN
+                        ? List.of(
+                                new SimpleGrantedAuthority("ROLE_USER"),
+                                new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        : List.of(new SimpleGrantedAuthority("ROLE_USER")),
                 oAuth2User.getAttributes()
         );
     }
@@ -88,5 +99,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 new OAuth2Error("withdrawn_account_retained"),
                 "탈퇴 계정의 개인정보 보관기간이 아직 지나지 않아 재가입할 수 없습니다."
         );
+    }
+
+    private OAuth2AuthenticationException suspendedAccount(Member member) {
+        return new SuspendedOAuth2AuthenticationException(suspensionNoticeService.issue(member));
     }
 }

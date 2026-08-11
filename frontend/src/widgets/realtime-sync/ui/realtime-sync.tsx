@@ -40,7 +40,12 @@ export function RealtimeSync() {
     const handledEventIds = useRef(new Set<string>())
     const [accessTokenVersion, setAccessTokenVersion] = useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id ?? null
     const activeTripId = useTripStore((state) => state.activeTripId)
+    const rooms = useTripStore((state) => state.rooms)
+    const activeTripAccessible = rooms.some(
+        (room) => room.apiTripId === parseActiveTripId(activeTripId),
+    )
 
     useEffect(() => {
         const handleAccessTokenChange = () =>
@@ -58,7 +63,8 @@ export function RealtimeSync() {
 
     useEffect(() => {
         const tripId = parseActiveTripId(activeTripId)
-        if (!currentUser || tripId == null) return
+        if (currentUserId == null || tripId == null || !activeTripAccessible)
+            return
 
         const heartbeat = () => {
             void markTripPresence(tripId).catch(() => undefined)
@@ -66,12 +72,12 @@ export function RealtimeSync() {
         heartbeat()
         const intervalId = window.setInterval(heartbeat, 25_000)
         return () => window.clearInterval(intervalId)
-    }, [accessTokenVersion, activeTripId, currentUser])
+    }, [accessTokenVersion, activeTripAccessible, activeTripId, currentUserId])
 
     useEffect(() => {
         const token = getAccessToken()
         const tripId = parseActiveTripId(activeTripId)
-        if (!currentUser || !token) {
+        if (currentUserId == null || !token) {
             useRealtimeStore.getState().setConnected(false)
             return
         }
@@ -95,7 +101,12 @@ export function RealtimeSync() {
         const handleTripChange = (message: IMessage) => {
             const event = parseEvent(message)
             if (!event) return
-            void useTripStore.getState().loadTrips()
+            if (
+                event.type === 'TRIP_MEMBERS_CHANGED' ||
+                event.targetType === 'TRIP'
+            ) {
+                void useTripStore.getState().loadTrips()
+            }
 
             const activityState = useActivityLogStore.getState()
             if (
@@ -150,7 +161,7 @@ export function RealtimeSync() {
             useRealtimeStore.getState().setConnected(false)
             void client.deactivate()
         }
-    }, [activeTripId, currentUser])
+    }, [activeTripId, currentUserId])
 
     return null
 }

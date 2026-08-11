@@ -11,8 +11,17 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface TripRepository extends JpaRepository<Trip, Long> {
+
+    @Query("""
+            select distinct t from Trip t
+            join TripMember tm on tm.tripId = t.id
+            where tm.memberId = :memberId
+            """)
+    Page<Trip> findAllByParticipantMemberId(@Param("memberId") Long memberId, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from Trip t where t.id = :tripId")

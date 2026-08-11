@@ -34,6 +34,7 @@ export function useDashboardData({
     activeTripApiId: number | undefined
 }) {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id ?? null
     const isInitialized = useCurrentUserStore((state) => state.isInitialized)
     const loadTrips = useTripStore((state) => state.loadTrips)
     const resetTrips = useTripStore((state) => state.resetTrips)
@@ -64,21 +65,21 @@ export function useDashboardData({
 
     useEffect(() => {
         if (!isInitialized) return
-        if (currentUser) void loadTrips()
+        if (currentUserId != null) void loadTrips()
         else {
             resetTrips()
             resetActivityLogs()
         }
-    }, [currentUser, isInitialized, loadTrips, resetActivityLogs, resetTrips])
+    }, [currentUserId, isInitialized, loadTrips, resetActivityLogs, resetTrips])
 
     useEffect(() => {
-        if (currentUser && activeTripApiId)
+        if (currentUserId != null && activeTripApiId)
             void loadActivityLogs(activeTripApiId)
         else resetActivityLogs()
-    }, [activeTripApiId, currentUser, loadActivityLogs, resetActivityLogs])
+    }, [activeTripApiId, currentUserId, loadActivityLogs, resetActivityLogs])
 
     useEffect(() => {
-        if (!currentUser || !activeTripApiId) {
+        if (currentUserId == null || !activeTripApiId) {
             Promise.resolve().then(() => {
                 setPendingVoteCount(0)
                 setOpenPlaceVotes([])
@@ -140,10 +141,10 @@ export function useDashboardData({
                 }
             })
         return () => controller.abort()
-    }, [activeTrip, activeTripApiId, currentUser, voteRevision])
+    }, [activeTrip, activeTripApiId, currentUserId, voteRevision])
 
     useEffect(() => {
-        if (!currentUser || !activeTripApiId) {
+        if (currentUserId == null || !activeTripApiId) {
             Promise.resolve().then(() => setItineraryDays([]))
             return
         }
@@ -158,17 +159,17 @@ export function useDashboardData({
         return () => {
             cancelled = true
         }
-    }, [activeTripApiId, currentUser])
+    }, [activeTripApiId, currentUserId])
 
     useEffect(() => {
-        if (!currentUser) {
+        if (currentUserId == null) {
             Promise.resolve().then(() => setBookmarkedCards([]))
             return
         }
         void fetchBookmarkedCards()
             .then(setBookmarkedCards)
             .catch(() => setBookmarkedCards([]))
-    }, [currentUser])
+    }, [currentUserId])
 
     return {
         tasks,

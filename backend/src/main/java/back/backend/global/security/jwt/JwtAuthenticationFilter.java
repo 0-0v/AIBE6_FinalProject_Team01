@@ -61,13 +61,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private Optional<UsernamePasswordAuthenticationToken> authenticate(String token) {
         Long memberId = jwtProvider.getMemberId(token);
+        boolean adminVerified = jwtProvider.isAdminVerified(token);
         return memberRepository.findById(memberId)
                 .filter(member -> member.getStatus() == MemberStatus.ACTIVE)
-                .map(this::toAuthentication);
+                .map(member -> toAuthentication(member, adminVerified));
     }
 
-    private UsernamePasswordAuthenticationToken toAuthentication(Member member) {
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+    private UsernamePasswordAuthenticationToken toAuthentication(Member member, boolean adminVerified) {
+        List<GrantedAuthority> authorities;
+        if (adminVerified && member.getRole() == back.backend.domain.member.entity.MemberRole.ADMIN) {
+            authorities = List.of(
+                    new SimpleGrantedAuthority("ROLE_USER"),
+                    new SimpleGrantedAuthority("ROLE_ADMIN"),
+                    new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+        } else if (adminVerified
+                && member.getRole() == back.backend.domain.member.entity.MemberRole.SUB_ADMIN) {
+            authorities = List.of(
+                    new SimpleGrantedAuthority("ROLE_USER"),
+                    new SimpleGrantedAuthority("ROLE_ADMIN"),
+                    new SimpleGrantedAuthority("ROLE_SUB_ADMIN"));
+        } else {
+            authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        }
         MemberPrincipal principal = new MemberPrincipal(member.getId(), member.getEmail(), authorities);
         return new UsernamePasswordAuthenticationToken(principal, null, authorities);
     }

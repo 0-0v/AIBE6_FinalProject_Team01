@@ -31,15 +31,18 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
         if (exception instanceof OAuth2AuthenticationException oauth2Exception) {
             String errorCode = oauth2Exception.getError().getErrorCode();
             if ("email_already_registered".equals(errorCode)
-                    || "withdrawn_account_retained".equals(errorCode)) {
+                    || "withdrawn_account_retained".equals(errorCode)
+                    || "suspended_account".equals(errorCode)) {
                 error = errorCode;
             }
         }
-        String redirectUrl = UriComponentsBuilder.fromUriString(frontendProperties.getFrontendBaseUrl())
+        UriComponentsBuilder redirectBuilder = UriComponentsBuilder.fromUriString(frontendProperties.getFrontendBaseUrl())
                 .path(LOGIN_PATH)
-                .queryParam("error", error)
-                .build()
-                .toUriString();
+                .queryParam("error", error);
+        if (exception instanceof SuspendedOAuth2AuthenticationException suspendedException) {
+            redirectBuilder.queryParam("suspensionToken", suspendedException.getNoticeToken());
+        }
+        String redirectUrl = redirectBuilder.build().toUriString();
 
         response.sendRedirect(redirectUrl);
     }

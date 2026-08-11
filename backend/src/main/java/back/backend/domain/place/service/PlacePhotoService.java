@@ -3,6 +3,8 @@ package back.backend.domain.place.service;
 import back.backend.domain.place.dto.response.GooglePlacesApiResponse;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.global.exception.BusinessException;
+import back.backend.domain.admin.entity.ExternalApiProvider;
+import back.backend.domain.admin.service.ExternalApiUsageService;
 import java.time.Duration;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -29,6 +31,12 @@ public class PlacePhotoService {
             "photos.name,photos.googleMapsUri,photos.authorAttributions";
 
     private final RestClient restClient;
+    private ExternalApiUsageService usageService;
+
+    @Autowired
+    void setUsageService(ExternalApiUsageService usageService) {
+        this.usageService = usageService;
+    }
 
     @Autowired
     public PlacePhotoService(
@@ -69,10 +77,13 @@ public class PlacePhotoService {
                 throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_NOT_FOUND);
             }
             MediaType contentType = response.getHeaders().getContentType();
+            recordUsage("PLACE_PHOTO", true);
             return new PhotoContent(bytes, contentType != null ? contentType : MediaType.IMAGE_JPEG);
         } catch (BusinessException exception) {
+            recordUsage("PLACE_PHOTO", false);
             throw exception;
         } catch (RestClientException exception) {
+            recordUsage("PLACE_PHOTO", false);
             log.warn("Google 장소 사진 조회에 실패했습니다. photoName={}, cause={}",
                     photoName, exception.getMessage());
             throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_EXTERNAL_API_ERROR);
@@ -102,13 +113,23 @@ public class PlacePhotoService {
                     : photo.authorAttributions().stream()
                     .map(author -> new PhotoAuthor(author.displayName(), author.uri()))
                     .toList();
+            recordUsage("PHOTO_METADATA", true);
             return new PhotoMetadata(photo.name(), photo.googleMapsUri(), authors);
         } catch (BusinessException exception) {
+            recordUsage("PHOTO_METADATA", false);
             throw exception;
         } catch (RestClientException exception) {
+            recordUsage("PHOTO_METADATA", false);
             log.warn("Google 장소 사진 메타데이터 조회에 실패했습니다. placeId={}, cause={}",
                     googlePlaceId, exception.getMessage());
             throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_EXTERNAL_API_ERROR);
+        }
+    }
+
+    private void recordUsage(String operation, boolean success) {
+        if (usageService != null) {
+            usageService.recordSafely(ExternalApiProvider.GOOGLE_PLACES, operation,
+                    success, null, null);
         }
     }
 

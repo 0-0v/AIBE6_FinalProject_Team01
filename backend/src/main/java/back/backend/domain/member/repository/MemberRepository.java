@@ -7,8 +7,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface MemberRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long>, JpaSpecificationExecutor<Member> {
 
     Optional<Member> findByProviderAndProviderId(AuthProvider provider, String providerId);
 
@@ -28,4 +29,6 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
             MemberStatus status,
             LocalDateTime expiresAt
     );
+
+    long countByStatus(MemberStatus status);
 }

@@ -20,10 +20,14 @@ export const TRIP_COVER_PRESETS: TripCoverPreset[] = [
 ]
 
 /** 기본 이미지 중 하나를 무작위로 고른다. exclude를 주면 같은 이미지가 다시 뽑히지 않는다. */
-export function pickRandomTripCoverPreset(exclude?: string): TripCoverPreset {
+export function pickRandomTripCoverPreset(
+    exclude?: string,
+    presets: TripCoverPreset[] = TRIP_COVER_PRESETS,
+): TripCoverPreset {
     const candidates = exclude
-        ? TRIP_COVER_PRESETS.filter((preset) => preset.key !== exclude)
-        : TRIP_COVER_PRESETS
+        ? presets.filter((preset) => preset.key !== exclude)
+        : presets
+    if (candidates.length === 0) return presets[0] ?? TRIP_COVER_PRESETS[0]
     return candidates[Math.floor(Math.random() * candidates.length)]
 }
 

@@ -23,9 +23,12 @@ import { Landing } from '@/views/landing'
 import { PrivacyPolicyPage, TermsPage } from '@/views/legal'
 import { TripEmailInvitationPage } from '@/views/trip-email-invitation'
 import { ColorPalettePage } from '@/views/design-system'
+import { AdminLoginPage } from '@/views/admin-login'
+import { AdminDashboardPage } from '@/views/admin-dashboard'
+import { ContactPage } from '@/views/contact'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
-import { getJwtExpirationTime } from '@/shared/lib'
+import { getJwtExpirationTime, isAdminVerifiedToken } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 import { BrandLogo } from '@/shared/ui'
 import { useNotificationStore } from '@/features/manage-notification'
@@ -129,6 +132,24 @@ function AppShell() {
                         />
                         <Route path="updates" element={<Updates />} />
                         <Route path="mypage" element={<MyPage />} />
+                        <Route
+                            path="admin"
+                            element={
+                                currentUser?.role !== 'USER' &&
+                                isAdminVerifiedToken(getAccessToken()) ? (
+                                    <AdminDashboardPage />
+                                ) : (
+                                    <Navigate
+                                        to={
+                                            currentUser?.role === 'SUB_ADMIN'
+                                                ? '/admin/login'
+                                                : '/app'
+                                        }
+                                        replace
+                                    />
+                                )
+                            }
+                        />
                     </Routes>
                 </main>
             </div>
@@ -219,10 +240,12 @@ export function App() {
             <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/password-reset" element={<PasswordResetPage />} />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/contact" element={<ContactPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallback />} />
                 <Route
                     path="/trip-invite/:token"

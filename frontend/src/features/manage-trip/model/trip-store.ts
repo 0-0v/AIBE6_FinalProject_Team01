@@ -97,7 +97,7 @@ function calculateDday(startDate: string | null, endDate: string | null) {
 
 export const useTripStore = create<TripState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             trips: [],
             rooms: [],
             guestRoom: null,
@@ -105,9 +105,17 @@ export const useTripStore = create<TripState>()(
             isLoading: false,
             error: null,
             loadTrips: async () => {
-                set({ isLoading: true, error: null })
+                if (get().isLoading) return
+                set({
+                    isLoading: get().rooms.length === 0,
+                    error: null,
+                })
                 try {
                     const trips = await fetchTrips()
+                    if (JSON.stringify(trips) === JSON.stringify(get().trips)) {
+                        set({ isLoading: false })
+                        return
+                    }
                     const rooms = trips.map(toRoom)
                     set((state) => ({
                         trips,
@@ -152,6 +160,7 @@ export const useTripStore = create<TripState>()(
                     trips: [],
                     rooms: [],
                     guestRoom: null,
+                    activeTripId: null,
                     error: null,
                     isLoading: false,
                 }),

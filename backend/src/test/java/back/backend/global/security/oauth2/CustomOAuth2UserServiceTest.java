@@ -11,6 +11,7 @@ import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
+import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.global.security.MemberPrincipal;
 import java.util.Map;
 import java.util.Optional;
@@ -30,6 +31,9 @@ class CustomOAuth2UserServiceTest {
 
     @Mock
     private MemberRepository memberRepository;
+
+    @Mock
+    private SuspensionNoticeService suspensionNoticeService;
 
     private CustomOAuth2UserService service;
 
@@ -52,7 +56,7 @@ class CustomOAuth2UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CustomOAuth2UserService(memberRepository);
+        service = new CustomOAuth2UserService(memberRepository, suspensionNoticeService);
     }
 
     private OAuth2User kakaoOAuth2User() {
