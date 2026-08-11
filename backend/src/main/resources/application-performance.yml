@@ -1,0 +1,55 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+    activate:
+      on-profile: performance
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${MYSQL_PORT:3306}/plamingo?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 3s
+  docker:
+    compose:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: plamingo-backend
+      environment: performance
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+
+app:
+  performance:
+    allow-external-apis: ${PERFORMANCE_ALLOW_EXTERNAL_APIS:false}
+  file-storage:
+    type: local
+    upload-dir: ${PERFORMANCE_UPLOAD_DIR:build/performance-uploads}
+  auth:
+    test-accounts:
+      enabled: true
+  integrations:
+    google-maps:
+      api-key: ${PERFORMANCE_GOOGLE_MAPS_API_KEY:disabled}
+      routes-api-key: ${PERFORMANCE_GOOGLE_ROUTES_API_KEY:disabled}
+    openai:
+      api-key: ${PERFORMANCE_OPENAI_API_KEY:disabled}
+      base-url: ${PERFORMANCE_OPENAI_API_BASE_URL:http://127.0.0.1:9}
+
