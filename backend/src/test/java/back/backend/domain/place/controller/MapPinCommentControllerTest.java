@@ -3,6 +3,9 @@ package back.backend.domain.place.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -10,7 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import back.backend.domain.place.dto.response.MapPinCommentResponse;
 import back.backend.domain.place.dto.response.MapPinSummaryResponse;
+import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.service.MapPinCommentService;
+import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -134,5 +139,24 @@ class MapPinCommentControllerTest {
                                 "placeName", "새 장소"
                         ))))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("t7 DELETE /map-pins/{googlePlaceId}/comments/{commentId} 요청 시 204를 반환한다")
+    void t7_deleteComment() throws Exception {
+        willDoNothing().given(mapPinCommentService).deleteComment(1L, "ChIJnew", 5L);
+
+        mockMvc.perform(delete("/api/trips/1/map-pins/ChIJnew/comments/5"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("t8 본인 댓글이 아닌 경우 404 응답을 반환한다")
+    void t8_deleteOtherCommentReturnsNotFound() throws Exception {
+        willThrow(new BusinessException(PlaceErrorCode.MAP_PIN_COMMENT_NOT_FOUND))
+                .given(mapPinCommentService).deleteComment(1L, "ChIJnew", 99L);
+
+        mockMvc.perform(delete("/api/trips/1/map-pins/ChIJnew/comments/99"))
+                .andExpect(status().isNotFound());
     }
 }

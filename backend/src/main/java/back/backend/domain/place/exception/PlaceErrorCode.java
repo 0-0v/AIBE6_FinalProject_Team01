@@ -16,7 +16,9 @@ public enum PlaceErrorCode implements ErrorCode {
     PLACE_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_CATEGORY_NOT_FOUND", "장소 카테고리를 찾을 수 없습니다."),
     PLACE_PHOTO_NAME_INVALID(HttpStatus.BAD_REQUEST, "PLACE_PHOTO_NAME_INVALID", "올바르지 않은 장소 사진 식별자입니다."),
     PLACE_PHOTO_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_PHOTO_NOT_FOUND", "장소 사진을 찾을 수 없습니다."),
-    PLACE_PHOTO_EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "PLACE_PHOTO_EXTERNAL_API_ERROR", "장소 사진을 불러오지 못했습니다.");
+    PLACE_PHOTO_EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "PLACE_PHOTO_EXTERNAL_API_ERROR", "장소 사진을 불러오지 못했습니다."),
+    MAP_PIN_NOT_FOUND(HttpStatus.NOT_FOUND, "MAP_PIN_NOT_FOUND", "지도 핀을 찾을 수 없습니다."),
+    MAP_PIN_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "MAP_PIN_COMMENT_NOT_FOUND", "지도 핀 댓글을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

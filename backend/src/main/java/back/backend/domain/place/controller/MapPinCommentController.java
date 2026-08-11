@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,5 +50,16 @@ public class MapPinCommentController {
             @RequestBody @Valid AddMapPinCommentRequest request
     ) {
         return ApiResponse.success(mapPinCommentService.addComment(tripId, googlePlaceId, request));
+    }
+
+    @DeleteMapping("/{googlePlaceId}/comments/{commentId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "지도 핀 댓글 삭제")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteComment(
+            @PathVariable Long tripId,
+            @PathVariable String googlePlaceId,
+            @PathVariable Long commentId
+    ) {
+        mapPinCommentService.deleteComment(tripId, googlePlaceId, commentId);
     }
 }

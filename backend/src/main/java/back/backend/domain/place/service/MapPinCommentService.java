@@ -9,8 +9,10 @@ import back.backend.domain.place.dto.response.MapPinCommentResponse;
 import back.backend.domain.place.dto.response.MapPinSummaryResponse;
 import back.backend.domain.place.entity.MapPin;
 import back.backend.domain.place.entity.MapPinComment;
+import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.MapPinCommentRepository;
 import back.backend.domain.place.repository.MapPinRepository;
+import back.backend.global.exception.BusinessException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -95,6 +97,28 @@ public class MapPinCommentService {
                 "지도 댓글"
         );
         return toResponse(comment, memberRepository.findById(memberId).orElse(null));
+    }
+
+    @Transactional
+    public void deleteComment(Long tripId, String googlePlaceId, Long commentId) {
+        Long memberId = accessChecker.requireEdit(tripId);
+        MapPin pin = mapPinRepository.findByTripIdAndGooglePlaceId(tripId, googlePlaceId)
+                .orElseThrow(() -> new BusinessException(PlaceErrorCode.MAP_PIN_NOT_FOUND));
+        MapPinComment comment = commentRepository
+                .findByIdAndMapPinIdAndMemberId(commentId, pin.getId(), memberId)
+                .orElseThrow(() -> new BusinessException(PlaceErrorCode.MAP_PIN_COMMENT_NOT_FOUND));
+        commentRepository.delete(comment);
+        collaborationEventService.record(
+                tripId,
+                memberId,
+                "MAP_PIN_COMMENT_DELETED",
+                "MAP_PIN",
+                pin.getId(),
+                pin.getPlaceName() + " 위치의 댓글이 삭제됐습니다.",
+                Map.of("placeName", pin.getPlaceName()),
+                NotificationType.PLACE,
+                "지도 댓글 삭제"
+        );
     }
 
     private List<MapPinCommentResponse> toResponses(List<MapPinComment> comments) {

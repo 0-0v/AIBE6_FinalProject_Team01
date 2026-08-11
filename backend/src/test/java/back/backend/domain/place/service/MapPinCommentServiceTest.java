@@ -203,6 +203,81 @@ class MapPinCommentServiceTest {
         });
     }
 
+    @Test
+    @DisplayName("t9 본인 댓글을 삭제하면 레포지토리의 delete가 호출된다")
+    void t9_deleteOwnComment() {
+        MapPin existingPin = pin(60L, "ChIJdelete", "삭제 장소");
+        MapPinComment myComment = MapPinComment.builder()
+                .mapPinId(60L)
+                .memberId(1L)
+                .content("삭제할 댓글")
+                .createdAt(LocalDateTime.now())
+                .build();
+        ReflectionTestUtils.setField(myComment, "id", 300L);
+        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJdelete"))
+                .willReturn(Optional.of(existingPin));
+        given(commentRepository.findByIdAndMapPinIdAndMemberId(300L, 60L, 1L))
+                .willReturn(Optional.of(myComment));
+
+        mapPinCommentService.deleteComment(1L, "ChIJdelete", 300L);
+
+        then(commentRepository).should().delete(myComment);
+        then(collaborationEventService).should().record(
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("MAP_PIN_COMMENT_DELETED"),
+                org.mockito.ArgumentMatchers.eq("MAP_PIN"),
+                org.mockito.ArgumentMatchers.eq(60L),
+                any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    @DisplayName("t10 다른 멤버의 댓글을 삭제하면 MAP_PIN_COMMENT_NOT_FOUND 예외가 발생한다")
+    void t10_cannotDeleteOtherMemberComment() {
+        MapPin existingPin = pin(61L, "ChIJotherdelete", "삭제 장소");
+        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJotherdelete"))
+                .willReturn(Optional.of(existingPin));
+        given(commentRepository.findByIdAndMapPinIdAndMemberId(400L, 61L, 1L))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> mapPinCommentService.deleteComment(1L, "ChIJotherdelete", 400L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(back.backend.domain.place.exception.PlaceErrorCode.MAP_PIN_COMMENT_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("t11 존재하지 않는 핀의 댓글을 삭제하면 MAP_PIN_NOT_FOUND 예외가 발생한다")
+    void t11_deleteCommentWithNonExistentPin() {
+        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJnopin"))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> mapPinCommentService.deleteComment(1L, "ChIJnopin", 500L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(back.backend.domain.place.exception.PlaceErrorCode.MAP_PIN_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("t12 URL의 장소와 다른 장소에 작성된 댓글은 삭제할 수 없다")
+    void t12_cannotDeleteCommentFromAnotherPin() {
+        MapPin requestedPin = pin(62L, "ChIJrequested", "요청 장소");
+        given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJrequested"))
+                .willReturn(Optional.of(requestedPin));
+        given(commentRepository.findByIdAndMapPinIdAndMemberId(600L, 62L, 1L))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> mapPinCommentService.deleteComment(1L, "ChIJrequested", 600L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(back.backend.domain.place.exception.PlaceErrorCode.MAP_PIN_COMMENT_NOT_FOUND));
+
+        then(commentRepository).should()
+                .findByIdAndMapPinIdAndMemberId(600L, 62L, 1L);
+        then(commentRepository).shouldHaveNoMoreInteractions();
+    }
+
     private MapPin pin(Long id, String googlePlaceId, String placeName) {
         MapPin p = MapPin.builder()
                 .tripId(1L)
