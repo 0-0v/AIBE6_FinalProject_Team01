@@ -64,7 +64,7 @@ class TripControllerTest {
         when(tripService.create(any(), any())).thenReturn(response());
 
         mockMvc.perform(post("/api/trips").contentType("application/json").content("""
-                {"title":"제주 여행","companionType":"FRIENDS","travelStyles":["FOOD"]}
+                {"title":"제주 여행","companionType":"FRIENDS","travelStyles":["FOOD"],"destination":"제주시"}
                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.title").value("제주 여행"));
@@ -75,6 +75,15 @@ class TripControllerTest {
     void t2_createTripRejectsBlankTitle() throws Exception {
         mockMvc.perform(post("/api/trips").contentType("application/json").content("""
                 {"title":" "}
+                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("t11 여행 목적지가 없으면 여행방 생성을 거부한다")
+    void t11_createTripRejectsBlankDestination() throws Exception {
+        mockMvc.perform(post("/api/trips").contentType("application/json").content("""
+                {"title":"제주 여행","destination":" "}
                 """))
                 .andExpect(status().isBadRequest());
     }

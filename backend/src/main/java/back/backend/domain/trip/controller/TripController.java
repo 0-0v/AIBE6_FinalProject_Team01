@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -55,7 +56,9 @@ public class TripController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "여행방 생성")
-    public ApiResponse<TripResponse> create(@Valid @RequestBody TripRequest request) {
+    public ApiResponse<TripResponse> create(
+            @Validated(TripRequest.Create.class) @RequestBody TripRequest request
+    ) {
         return ApiResponse.success(tripService.create(securityContextAccessor.getCurrentMemberId(), request));
     }
 
