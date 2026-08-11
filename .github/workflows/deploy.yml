@@ -231,6 +231,10 @@ jobs:
               -e MYSQL_PASSWORD="${MYSQL_PASSWORD:-}" \
               -e REDIS_PASSWORD="${REDIS_PASSWORD:-}" \
               -e JWT_SECRET="${JWT_SECRET:-}" \
+              -e ADMIN_ACCOUNT_ENABLED="${ADMIN_ACCOUNT_ENABLED:-false}" \
+              -e ADMIN_USERNAME="${ADMIN_USERNAME:-}" \
+              -e ADMIN_EMAIL="${ADMIN_EMAIL:-}" \
+              -e ADMIN_PASSWORD="${ADMIN_PASSWORD:-}" \
               -e GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_API_KEY:-}" \
               -e GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}" \
               -e GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}" \
