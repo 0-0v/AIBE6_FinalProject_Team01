@@ -28,12 +28,10 @@ export function PasswordField({
 }: PasswordFieldProps) {
     const [visible, setVisible] = useState(false)
     const [capsLock, setCapsLock] = useState(false)
-    const [numLock, setNumLock] = useState(false)
     const passwordChecks = getPasswordChecks(value)
 
     function updateModifierState(event: KeyboardEvent<HTMLInputElement>) {
         setCapsLock(event.getModifierState('CapsLock'))
-        setNumLock(event.getModifierState('NumLock'))
     }
 
     return (
@@ -54,7 +52,6 @@ export function PasswordField({
                     onKeyUp={updateModifierState}
                     onBlur={() => {
                         setCapsLock(false)
-                        setNumLock(false)
                     }}
                     autoComplete={autoComplete}
                     aria-invalid={Boolean(error)}
@@ -71,11 +68,10 @@ export function PasswordField({
             {error && (
                 <span className="mt-1.5 block text-red-600">{error}</span>
             )}
-            {(capsLock || numLock) && (
-                <div className="mt-1.5 space-y-0.5 text-xs text-amber-600">
-                    {capsLock && <p>Caps Lock이 켜져 있어요.</p>}
-                    {numLock && <p>Num Lock이 켜져 있어요.</p>}
-                </div>
+            {capsLock && (
+                <p className="mt-1.5 text-xs text-amber-600">
+                    Caps Lock이 켜져 있어요.
+                </p>
             )}
             {showGuidance && value && (
                 <div className="mt-3">

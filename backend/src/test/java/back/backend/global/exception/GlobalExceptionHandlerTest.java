@@ -2,6 +2,7 @@ package back.backend.global.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import back.backend.domain.auth.exception.EmailVerificationCooldownException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -79,5 +80,21 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(CommonErrorCode.CONFLICT.getStatus());
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo("COMMON_409");
+    }
+
+    @Test
+    @DisplayName("t6 이메일 인증 재요청 제한 응답에 실제 남은 시간을 포함한다")
+    void t6_emailVerificationCooldownReturnsRetryAfterHeader() {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "POST", "/api/auth/email-verifications");
+
+        ResponseEntity<ErrorResponse> response = handler.handleEmailVerificationCooldown(
+                new EmailVerificationCooldownException(157), request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(429);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("157");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().message())
+                .isEqualTo("인증번호가 만료되었습니다. 잠시 후 다시 요청해 주세요.");
     }
 }

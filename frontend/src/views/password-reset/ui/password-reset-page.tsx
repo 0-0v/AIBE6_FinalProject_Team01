@@ -9,8 +9,13 @@ import {
     PasswordField,
     resetPassword,
     sendVerificationCode,
+    useEmailVerificationCooldown,
 } from '@/features/local-auth'
-import { getApiErrorMessage } from '@/shared/api/client'
+import {
+    getApiErrorCode,
+    getApiErrorMessage,
+    getApiRetryAfterSeconds,
+} from '@/shared/api/client'
 import { BrandLogo } from '@/shared/ui'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -30,6 +35,8 @@ export function PasswordResetPage() {
     const [passwordError, setPasswordError] = useState('')
     const [confirmError, setConfirmError] = useState('')
     const [busy, setBusy] = useState(false)
+    const { formattedRemaining, isCoolingDown, startCooldown } =
+        useEmailVerificationCooldown()
 
     async function sendCode() {
         if (!emailPattern.test(email)) {
@@ -45,8 +52,14 @@ export function PasswordResetPage() {
             setVerified(false)
             setCodeMessage('')
             setCodeError(false)
-            setEmailMessage('입력하신 이메일로 인증번호를 전송했습니다.')
+            startCooldown()
+            setEmailMessage('인증번호가 전송되었습니다.')
         } catch (error) {
+            if (getApiErrorCode(error) === 'AUTH_429_EMAIL_VERIFICATION') {
+                setSent(true)
+                setCode('')
+                startCooldown(getApiRetryAfterSeconds(error))
+            }
             setEmailError(true)
             setEmailMessage(
                 getApiErrorMessage(error, '인증번호 전송에 실패했습니다.'),
@@ -138,16 +151,20 @@ export function PasswordResetPage() {
                                 className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3"
                                 type="email"
                                 value={email}
-                                disabled={verified}
+                                disabled={sent || verified}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                             <button
                                 type="button"
                                 onClick={sendCode}
-                                disabled={busy || verified}
+                                disabled={busy || verified || isCoolingDown}
                                 className="rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white disabled:opacity-50"
                             >
-                                인증 요청
+                                {isCoolingDown
+                                    ? `재전송 ${formattedRemaining}`
+                                    : sent
+                                      ? '인증번호 재전송'
+                                      : '인증 요청'}
                             </button>
                         </div>
                         {emailMessage && (

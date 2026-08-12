@@ -1,6 +1,7 @@
 package back.backend.global.exception;
 
 import back.backend.domain.auth.dto.SuspendedAccountErrorResponse;
+import back.backend.domain.auth.exception.EmailVerificationCooldownException;
 import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.global.exception.ErrorResponse.FieldError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +42,19 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = exception.getErrorCode();
         ErrorResponse response = ErrorResponse.of(errorCode, exception.getMessage(), request.getRequestURI());
         return ResponseEntity.status(errorCode.getStatus()).body(response);
+    }
+
+    @ExceptionHandler(EmailVerificationCooldownException.class)
+    public ResponseEntity<ErrorResponse> handleEmailVerificationCooldown(
+            EmailVerificationCooldownException exception,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = exception.getErrorCode();
+        ErrorResponse response = ErrorResponse.of(
+                errorCode, exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(errorCode.getStatus())
+                .header("Retry-After", Long.toString(exception.getRetryAfterSeconds()))
+                .body(response);
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})

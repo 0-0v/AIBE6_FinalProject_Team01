@@ -3,6 +3,7 @@ package back.backend.domain.auth.service;
 import back.backend.domain.auth.config.EmailAuthProperties;
 import back.backend.domain.auth.dto.EmailVerificationPurpose;
 import back.backend.domain.auth.exception.AuthErrorCode;
+import back.backend.domain.auth.exception.EmailVerificationCooldownException;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.MemberStatus;
 import back.backend.domain.member.repository.MemberRepository;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailVerificationService {
     private static final String CODE_NAMESPACE = "email-verification-code";
+    private static final String COOLDOWN_NAMESPACE = "email-verification-cooldown";
     private static final String VERIFIED_NAMESPACE = "email-verification-verified";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -34,27 +36,46 @@ public class EmailVerificationService {
 
     public void sendCode(String rawEmail, EmailVerificationPurpose purpose) {
         String email = normalize(rawEmail);
+        validateRecipient(email, purpose);
+        String cooldownKey = cooldownKey(email, purpose);
+        if (!redisValueService.setIfAbsent(
+                cooldownKey, "true", properties.getResendCooldown())) {
+            redisValueService.delete(codeKey(email, purpose));
+            long retryAfterSeconds = redisValueService.remainingTtl(cooldownKey)
+                    .map(duration -> Math.max(1L, (duration.toMillis() + 999L) / 1000L))
+                    .orElse(properties.getResendCooldown().toSeconds());
+            throw new EmailVerificationCooldownException(retryAfterSeconds);
+        }
+        String codeKey = codeKey(email, purpose);
+        String code = "%06d".formatted(SECURE_RANDOM.nextInt(1_000_000));
+        redisValueService.set(codeKey, code, properties.getCodeExpiration());
+        try {
+            emailClient.sendVerificationEmail(
+                    email,
+                    code,
+                    properties.getCodeExpiration().toMinutes(),
+                    purpose
+            );
+        } catch (RuntimeException exception) {
+            redisValueService.delete(codeKey);
+            redisValueService.delete(cooldownKey);
+            throw exception;
+        }
+    }
+
+    private void validateRecipient(String email, EmailVerificationPurpose purpose) {
         if (purpose == EmailVerificationPurpose.SIGNUP && memberRepository.existsByEmail(email)) {
             throw new BusinessException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
         }
         if (purpose == EmailVerificationPurpose.PASSWORD_RESET) {
             var member = memberRepository.findByEmail(email);
             if (member.isEmpty() || member.get().getStatus() == MemberStatus.WITHDRAWN) {
-                return;
+                throw new BusinessException(AuthErrorCode.LOCAL_ACCOUNT_NOT_FOUND);
             }
             if (member.get().getProvider() != AuthProvider.LOCAL) {
                 throw new BusinessException(AuthErrorCode.SOCIAL_ACCOUNT_PASSWORD_RESET);
             }
         }
-
-        String code = "%06d".formatted(SECURE_RANDOM.nextInt(1_000_000));
-        redisValueService.set(codeKey(email, purpose), code, properties.getCodeExpiration());
-        emailClient.sendVerificationEmail(
-                email,
-                code,
-                properties.getCodeExpiration().toMinutes(),
-                purpose
-        );
     }
 
     public void verifyCode(String rawEmail, String code, EmailVerificationPurpose purpose) {
@@ -88,5 +109,9 @@ public class EmailVerificationService {
 
     private String verifiedKey(String email, EmailVerificationPurpose purpose) {
         return RedisKeyFactory.create(VERIFIED_NAMESPACE, purpose.name().toLowerCase(Locale.ROOT), email);
+    }
+
+    private String cooldownKey(String email, EmailVerificationPurpose purpose) {
+        return RedisKeyFactory.create(COOLDOWN_NAMESPACE, purpose.name().toLowerCase(Locale.ROOT), email);
     }
 }

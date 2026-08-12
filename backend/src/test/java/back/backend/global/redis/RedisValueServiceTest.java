@@ -78,4 +78,30 @@ class RedisValueServiceTest {
         assertThat(count).isEqualTo(1L);
         verify(redisTemplate).expire("attempt-key", Duration.ofMinutes(10));
     }
+
+    @Test
+    @DisplayName("t6 만료시간이 있는 키를 처음 선점하면 true를 반환한다")
+    void t6_setIfAbsentAcquiresKey() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent("cooldown-key", "true", Duration.ofMinutes(5)))
+                .thenReturn(true);
+
+        boolean acquired = redisValueService.setIfAbsent(
+                "cooldown-key", "true", Duration.ofMinutes(5));
+
+        assertThat(acquired).isTrue();
+    }
+
+    @Test
+    @DisplayName("t7 이미 존재하는 키를 선점하면 false를 반환한다")
+    void t7_setIfAbsentRejectsExistingKey() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent("cooldown-key", "true", Duration.ofMinutes(5)))
+                .thenReturn(false);
+
+        boolean acquired = redisValueService.setIfAbsent(
+                "cooldown-key", "true", Duration.ofMinutes(5));
+
+        assertThat(acquired).isFalse();
+    }
 }

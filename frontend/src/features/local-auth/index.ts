@@ -15,4 +15,5 @@ export {
     hasRepeatedPasswordCharacters,
     isPasswordValid,
 } from './lib/password-policy'
+export { useEmailVerificationCooldown } from './model/use-email-verification-cooldown'
 export { PasswordField } from './ui/password-field'
