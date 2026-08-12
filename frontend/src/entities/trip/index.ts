@@ -1,4 +1,5 @@
 export * from './model/types'
+export * from './model/place-vote-results'
 export * from './model/place-presentation'
 export * from './model/place-display-icon'
 export { RoomCard } from './ui/room-card'
@@ -20,6 +21,8 @@ export {
     getTripPlaceVotes,
     startTripPlaceVote,
     respondTripPlaceVote,
+    createTripPlaceVote,
+    respondPlaceVoteById,
     fromApiToPlace,
     apiStatusToPlaceStatus,
     updateTripPlaceCategory,
@@ -27,6 +30,7 @@ export {
 } from './api/tripPlaceApi'
 export type {
     PlaceVoteSummaryResponse,
+    CreatePlaceVoteBody,
     PlacePhotoMetadata,
 } from './api/tripPlaceApi'
 export {

@@ -39,6 +39,13 @@ export type PlaceVoteSummaryResponse = PlaceVoteSummary & {
     tripPlaceId: number
 }
 
+export type CreatePlaceVoteBody = {
+    type: 'PLACE_APPROVAL' | 'PLACE_BATTLE'
+    primaryTripPlaceId: number
+    secondaryTripPlaceId?: number
+    creatorComment?: string
+}
+
 export type PlacePhotoMetadata = {
     photoName: string
     googleMapsUri: string | null
@@ -142,6 +149,17 @@ export async function startTripPlaceVote(
     return res.data
 }
 
+export async function createTripPlaceVote(
+    tripId: number,
+    body: CreatePlaceVoteBody,
+): Promise<PlaceVoteSummaryResponse> {
+    const res = await apiClient.post<ApiResponse<PlaceVoteSummaryResponse>>(
+        `/api/trips/${tripId}/places/votes`,
+        body,
+    )
+    return res.data
+}
+
 export async function respondTripPlaceVote(
     tripId: number,
     tripPlaceId: number,
@@ -149,6 +167,18 @@ export async function respondTripPlaceVote(
 ): Promise<PlaceVoteSummaryResponse> {
     const res = await apiClient.put<ApiResponse<PlaceVoteSummaryResponse>>(
         `/api/trips/${tripId}/places/${tripPlaceId}/votes/me`,
+        { choice },
+    )
+    return res.data
+}
+
+export async function respondPlaceVoteById(
+    tripId: number,
+    voteRequestId: number,
+    choice: 'AGREE' | 'DISAGREE' | 'OPTION_A' | 'OPTION_B',
+): Promise<PlaceVoteSummaryResponse> {
+    const res = await apiClient.put<ApiResponse<PlaceVoteSummaryResponse>>(
+        `/api/trips/${tripId}/places/votes/${voteRequestId}/me`,
         { choice },
     )
     return res.data

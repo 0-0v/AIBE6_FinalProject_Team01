@@ -12,7 +12,26 @@ import org.springframework.data.repository.query.Param;
 
 public interface PlaceVoteRequestRepository extends JpaRepository<PlaceVoteRequest, Long> {
 
+    @Query("""
+            SELECT COUNT(request) > 0 FROM PlaceVoteRequest request
+            WHERE request.status = back.backend.domain.place.entity.PlaceVoteStatus.OPEN
+              AND request.expiresAt > :now
+              AND (request.tripPlaceId IN :tripPlaceIds OR request.secondaryTripPlaceId IN :tripPlaceIds)
+            """)
+    boolean existsOpenVoteForAnyPlace(
+            @Param("tripPlaceIds") Collection<Long> tripPlaceIds,
+            @Param("now") java.time.LocalDateTime now
+    );
+
     Optional<PlaceVoteRequest> findFirstByTripPlaceIdOrderByIdDesc(Long tripPlaceId);
+
+    @Query("""
+            SELECT request FROM PlaceVoteRequest request
+            WHERE request.tripPlaceId IN :tripPlaceIds
+               OR request.secondaryTripPlaceId IN :tripPlaceIds
+            ORDER BY request.id DESC
+            """)
+    List<PlaceVoteRequest> findAllByTripPlaceIds(@Param("tripPlaceIds") Collection<Long> tripPlaceIds);
 
     @Query("""
             SELECT request FROM PlaceVoteRequest request

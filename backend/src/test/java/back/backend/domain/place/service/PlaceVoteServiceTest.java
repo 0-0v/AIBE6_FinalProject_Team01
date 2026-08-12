@@ -5,344 +5,144 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 
-import back.backend.domain.place.dto.request.RespondPlaceVoteRequest;
 import back.backend.domain.collaboration.service.CollaborationEventService;
-import back.backend.domain.place.dto.response.PlaceVoteSummaryResponse;
-import back.backend.domain.place.entity.Place;
-import back.backend.domain.place.entity.PlaceVoteChoice;
-import back.backend.domain.place.entity.PlaceVoteRequest;
-import back.backend.domain.place.entity.PlaceVoteResponse;
-import back.backend.domain.place.entity.PlaceVoteStatus;
-import back.backend.domain.place.entity.TripPlace;
-import back.backend.domain.place.entity.TripPlaceStatus;
-import back.backend.domain.place.exception.PlaceErrorCode;
-import back.backend.domain.place.repository.PlaceVoteRequestRepository;
-import back.backend.domain.place.repository.PlaceVoteResponseRepository;
-import back.backend.domain.place.repository.TripPlaceRepository;
-import back.backend.global.exception.BusinessException;
+import back.backend.domain.place.dto.request.CreatePlaceVoteRequest;
+import back.backend.domain.place.dto.request.RespondPlaceVoteRequest;
+import back.backend.domain.place.entity.*;
+import back.backend.domain.place.repository.*;
 import back.backend.domain.trip.repository.TripMemberRepository;
+import back.backend.global.exception.BusinessException;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class PlaceVoteServiceTest {
+    @Mock TripPlaceRepository tripPlaceRepository;
+    @Mock PlaceVoteRequestRepository voteRequestRepository;
+    @Mock PlaceVoteResponseRepository voteResponseRepository;
+    @Mock TripAccessChecker accessChecker;
+    @Mock TripMemberRepository tripMemberRepository;
+    @Mock CollaborationEventService collaborationEventService;
+    @Mock PlaceVoteAiInfoService aiInfoService;
+    PlaceVoteService service;
+    TripPlace first;
+    TripPlace second;
 
-    @Mock private TripPlaceRepository tripPlaceRepository;
-    @Mock private PlaceVoteRequestRepository voteRequestRepository;
-    @Mock private PlaceVoteResponseRepository voteResponseRepository;
-    @Mock private TripAccessChecker accessChecker;
-    @Mock private TripMemberRepository tripMemberRepository;
-    @Mock private CollaborationEventService collaborationEventService;
-
-    @InjectMocks private PlaceVoteService placeVoteService;
-
-    private TripPlace candidate;
-
-    @BeforeEach
-    void setUp() {
-        lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
-        lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
-        candidate = TripPlace.builder()
-                .tripId(1L)
-                .place(Place.builder().name("성산일출봉").build())
-                .addedBy(1L)
-                .status(TripPlaceStatus.SAVED)
-                .build();
-        ReflectionTestUtils.setField(candidate, "id", 10L);
+    @BeforeEach void setUp() {
+        service = new PlaceVoteService(tripPlaceRepository, voteRequestRepository, voteResponseRepository,
+                accessChecker, tripMemberRepository, collaborationEventService, aiInfoService);
+        first = place(10L, "을지맥옥"); second = place(20L, "맥파이");
+        org.mockito.Mockito.lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
+        org.mockito.Mockito.lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
     }
 
     @Test
-    @DisplayName("t1 여행 멤버가 투표를 신청하면 과반수 기준과 만료 시각 및 알림을 생성한다")
-    void t1_memberStartsVoteAndNotifiesMembers() {
-        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
-        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.empty());
-        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(1L, 2L, 3L, 4L));
-        given(voteRequestRepository.save(any())).willAnswer(invocation -> {
-            PlaceVoteRequest request = invocation.getArgument(0);
-            ReflectionTestUtils.setField(request, "id", 100L);
-            return request;
-        });
-
-        PlaceVoteSummaryResponse result = placeVoteService.startVote(1L, 10L);
-
-        assertThat(result.requiredResponseCount()).isEqualTo(3);
-        assertThat(result.totalMemberCount()).isEqualTo(4);
-        assertThat(result.status()).isEqualTo(PlaceVoteStatus.OPEN);
-        assertThat(result.expiresAt()).isNotNull();
-        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.HOLD);
-        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.HOLD);
-        then(collaborationEventService).should().record(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_STARTED"),
-                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
-                org.mockito.ArgumentMatchers.eq(10L),
-                any(),
-                any(),
-                any(),
-                any()
-        );
-        then(collaborationEventService).should(never()).record(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_RESPONDED"),
-                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
-                org.mockito.ArgumentMatchers.eq(10L),
-                any(),
-                any(),
-                any(),
-                any()
-        );
-    }
-
-    @Test
-    @DisplayName("t2 찬성이 전체 멤버의 과반수에 도달하면 장소를 확정하고 투표를 종료한다")
-    void t2_thirdResponseClosesVote() {
-        PlaceVoteRequest voteRequest = openRequest(3, 4);
-        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
-        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.of(voteRequest));
-        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(voteRequest));
-        given(voteResponseRepository.findByVoteRequestIdAndMemberId(100L, 1L)).willReturn(Optional.empty());
-        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of(
-                response(1L, PlaceVoteChoice.AGREE),
-                response(2L, PlaceVoteChoice.AGREE),
-                response(3L, PlaceVoteChoice.AGREE)
-        ));
-
-        PlaceVoteSummaryResponse result = placeVoteService.respond(
-                1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.AGREE));
-
-        assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
-        assertThat(result.agreeCount()).isEqualTo(3);
-        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.SAVED);
-        then(collaborationEventService).should().record(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_APPROVED"),
-                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
-                org.mockito.ArgumentMatchers.eq(10L),
-                any(),
-                any(),
-                any(),
-                any()
-        );
-        then(collaborationEventService).should(never()).record(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_RESPONDED"),
-                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
-                org.mockito.ArgumentMatchers.eq(10L),
-                any(),
-                any(),
-                any(),
-                any()
-        );
-    }
-
-    @Test
-    @DisplayName("t3 전원이 응답했지만 과반 찬성이 없으면 투표를 종료하고 탈락 이력을 보존한다")
-    void t3_tieKeepsRejectedPlaceHistory() {
-        PlaceVoteRequest voteRequest = openRequest(2, 2);
-        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
-        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.of(voteRequest));
-        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(voteRequest));
-        given(voteResponseRepository.findByVoteRequestIdAndMemberId(100L, 1L)).willReturn(Optional.empty());
-        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of(
-                response(1L, PlaceVoteChoice.DISAGREE),
-                response(2L, PlaceVoteChoice.AGREE)
-        ));
-
-        PlaceVoteSummaryResponse result = placeVoteService.respond(
-                1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.DISAGREE));
-
-        assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
-        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        then(tripPlaceRepository).should(never()).delete(candidate);
-        then(collaborationEventService).should().record(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_REJECTED"),
-                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
-                org.mockito.ArgumentMatchers.eq(10L),
-                any(),
-                any(),
-                any(),
-                any()
-        );
-    }
-
-    @Test
-    @DisplayName("t4 반대가 과반수에 도달하면 장소를 탈락 상태로 변경하고 투표를 종료한다")
-    void t4_majorityDisagreeRejectsPlace() {
-        PlaceVoteRequest voteRequest = openRequest(2, 3);
-        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
-        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.of(voteRequest));
-        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(voteRequest));
-        given(voteResponseRepository.findByVoteRequestIdAndMemberId(100L, 1L)).willReturn(Optional.empty());
-        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of(
-                response(1L, PlaceVoteChoice.DISAGREE),
-                response(2L, PlaceVoteChoice.DISAGREE)
-        ));
-
-        PlaceVoteSummaryResponse result = placeVoteService.respond(
-                1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.DISAGREE));
-
-        assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
-        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        then(tripPlaceRepository).should(never()).delete(candidate);
-    }
-
-    @Test
-    @DisplayName("t5 종료된 투표에는 응답할 수 없다")
-    void t5_cannotRespondToClosedVote() {
-        PlaceVoteRequest voteRequest = openRequest(2, 2);
-        voteRequest.close(java.time.LocalDateTime.now());
-        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
-        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L)).willReturn(Optional.of(voteRequest));
-        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(voteRequest));
-
-        assertThatThrownBy(() -> placeVoteService.respond(
-                1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.AGREE)))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
-                        .isEqualTo(PlaceErrorCode.PLACE_VOTE_CLOSED));
-    }
-
-    @Test
-    @DisplayName("t6 이전 투표가 종료됐으면 같은 장소에 새 투표를 신청할 수 있다")
-    void t6_closedVoteCanBeRequestedAgain() {
-        PlaceVoteRequest closedRequest = openRequest(2, 2);
-        closedRequest.close(java.time.LocalDateTime.now());
-        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(candidate));
-        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L))
-                .willReturn(Optional.of(closedRequest));
-        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(1L, 2L));
-        given(voteRequestRepository.save(any())).willAnswer(invocation -> {
-            PlaceVoteRequest request = invocation.getArgument(0);
-            ReflectionTestUtils.setField(request, "id", 101L);
-            return request;
-        });
-
-        PlaceVoteSummaryResponse result = placeVoteService.startVote(1L, 10L);
-
-        assertThat(result.voteRequestId()).isEqualTo(101L);
-        assertThat(result.status()).isEqualTo(PlaceVoteStatus.OPEN);
-    }
-
-    @Test
-    @DisplayName("t7 투표 목록은 응답을 한 번에 조회해 장소별 최신 결과를 집계한다")
-    void t7_getVotesUsesBatchResponses() {
-        PlaceVoteRequest first = openRequest(3, 4);
-        PlaceVoteRequest second = PlaceVoteRequest.builder()
-                .tripPlaceId(20L)
-                .createdBy(2L)
-                .status(PlaceVoteStatus.CLOSED)
-                .requiredResponseCount(2)
-                .totalMemberCount(2)
-                .createdAt(java.time.LocalDateTime.now())
-                .expiresAt(java.time.LocalDateTime.now().plusHours(24))
-                .build();
-        ReflectionTestUtils.setField(second, "id", 200L);
-        TripPlace secondPlace = TripPlace.builder()
-                .tripId(1L)
-                .place(Place.builder().name("협재해수욕장").build())
-                .addedBy(2L)
-                .status(TripPlaceStatus.HOLD)
-                .build();
-        ReflectionTestUtils.setField(secondPlace, "id", 20L);
-        given(tripPlaceRepository.findAllOrderedByTripId(1L))
-                .willReturn(List.of(candidate, secondPlace));
-        given(voteRequestRepository.findLatestByTripPlaceIdIn(List.of(10L, 20L)))
+    @DisplayName("t1 A/B 투표를 만들면 두 장소와 선택 제목을 저장한다")
+    void t1_createBattleVoteStoresBothPlacesAndTitle() {
+        given(tripPlaceRepository.findAllByIdsAndTripIdForUpdate(List.of(10L, 20L), 1L))
                 .willReturn(List.of(first, second));
-        given(voteResponseRepository.findAllByVoteRequestIdIn(List.of(100L, 200L)))
-                .willReturn(List.of(
-                        response(1L, PlaceVoteChoice.AGREE),
-                        PlaceVoteResponse.builder()
-                                .voteRequestId(200L)
-                                .memberId(2L)
-                                .choice(PlaceVoteChoice.DISAGREE)
-                                .createdAt(java.time.LocalDateTime.now())
-                                .updatedAt(java.time.LocalDateTime.now())
-                                .build()
-                ));
+        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(1L, 2L, 3L));
+        given(aiInfoService.generate(any(), any())).willReturn(new PlaceVoteAiInfoService.VoteAiInfo("A 정보", "B 정보", "비교"));
+        given(voteRequestRepository.save(any())).willAnswer(invocation -> { PlaceVoteRequest vote = invocation.getArgument(0); ReflectionTestUtils.setField(vote, "id", 100L); return vote; });
 
-        List<PlaceVoteSummaryResponse> result = placeVoteService.getVotes(1L);
+        var result = service.startVote(1L, new CreatePlaceVoteRequest(PlaceVoteType.PLACE_BATTLE, 10L, 20L, "가까운 곳 골라주세요"));
 
-        assertThat(result).hasSize(2);
-        assertThat(result).filteredOn(summary -> summary.tripPlaceId().equals(10L))
-                .singleElement().extracting(PlaceVoteSummaryResponse::agreeCount).isEqualTo(1);
-        then(voteResponseRepository).should()
-                .findAllByVoteRequestIdIn(List.of(100L, 200L));
+        assertThat(result.type()).isEqualTo(PlaceVoteType.PLACE_BATTLE);
+        assertThat(result.primaryPlace().name()).isEqualTo("을지맥옥");
+        assertThat(result.secondaryPlace().name()).isEqualTo("맥파이");
+        assertThat(first.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
+        assertThat(second.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
     }
 
     @Test
-    @DisplayName("t8 만료된 투표에 응답하면 응답을 저장하지 않고 장소를 탈락 상태로 변경한다")
-    void t8_expiredVoteClosesAsRejectedWithoutSavingResponse() {
-        PlaceVoteRequest voteRequest = openRequest(2, 3);
-        ReflectionTestUtils.setField(
-                voteRequest, "expiresAt", java.time.LocalDateTime.now().minusMinutes(1));
-        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L))
-                .willReturn(Optional.of(candidate));
-        given(voteRequestRepository.findFirstByTripPlaceIdOrderByIdDesc(10L))
-                .willReturn(Optional.of(voteRequest));
-        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(voteRequest));
-        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of());
+    @DisplayName("t2 A/B 투표 종료 시 승자를 기록하되 장소 상태는 변경하지 않는다")
+    void t2_battleResultDoesNotChangePlaceStatus() {
+        PlaceVoteRequest vote = vote(PlaceVoteType.PLACE_BATTLE, 20L);
+        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(vote));
+        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(first));
+        given(tripPlaceRepository.findByIdAndTripIdForUpdate(20L, 1L)).willReturn(Optional.of(second));
+        given(voteResponseRepository.findByVoteRequestIdAndMemberId(100L, 1L)).willReturn(Optional.empty());
+        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of(response(1L, PlaceVoteChoice.OPTION_A), response(2L, PlaceVoteChoice.OPTION_A)));
 
-        PlaceVoteSummaryResponse result = placeVoteService.respond(
-                1L, 10L, new RespondPlaceVoteRequest(PlaceVoteChoice.AGREE));
+        var result = service.respondByVoteId(1L, 100L, new RespondPlaceVoteRequest(PlaceVoteChoice.OPTION_A));
 
         assertThat(result.status()).isEqualTo(PlaceVoteStatus.CLOSED);
-        assertThat(result.placeStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        assertThat(candidate.getStatus()).isEqualTo(TripPlaceStatus.REJECTED);
-        then(tripPlaceRepository).should(never()).delete(candidate);
-        then(voteResponseRepository).should(never()).saveAndFlush(any());
+        assertThat(result.winnerTripPlaceId()).isEqualTo(10L);
+        assertThat(first.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
+        assertThat(second.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
+    }
+
+    @Test
+    @DisplayName("t3 찬반 투표에서 찬반 동률이면 미선정으로 종료한다")
+    void t3_approvalTieEndsAsNotSelected() {
+        PlaceVoteRequest vote = vote(PlaceVoteType.PLACE_APPROVAL, null);
+        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(vote));
+        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(first));
+        given(voteResponseRepository.findByVoteRequestIdAndMemberId(100L, 1L)).willReturn(Optional.empty());
+        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of(response(1L, PlaceVoteChoice.DISAGREE), response(2L, PlaceVoteChoice.AGREE)));
+
+        var result = service.respondByVoteId(1L, 100L, new RespondPlaceVoteRequest(PlaceVoteChoice.DISAGREE));
+
+        assertThat(result.result()).isEqualTo(PlaceVoteResult.NOT_SELECTED);
+        assertThat(result.winnerTripPlaceId()).isNull();
+        assertThat(first.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
+    }
+
+    @Test
+    @DisplayName("t4 진행 중인 장소로 새 투표를 만들면 중복 투표를 거부한다")
+    void t4_openVotePreventsDuplicateVote() {
+        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(first));
+        given(voteRequestRepository.existsOpenVoteForAnyPlace(any(), any())).willReturn(true);
+
+        assertThatThrownBy(() -> service.startVote(1L, new CreatePlaceVoteRequest(
+                PlaceVoteType.PLACE_APPROVAL, 10L, null, null)))
+                .isInstanceOf(BusinessException.class);
+
+        then(voteRequestRepository).should(org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    @DisplayName("t5 서로 다른 등록 ID여도 같은 Google 장소면 A/B 투표를 거부한다")
+    void t5_sameGooglePlaceCannotBattleItself() {
+        Place sharedPlace = Place.builder().googlePlaceId("same-google-id").name("같은 장소").build();
+        first = tripPlace(10L, sharedPlace);
+        second = tripPlace(20L, sharedPlace);
+        given(tripPlaceRepository.findAllByIdsAndTripIdForUpdate(List.of(10L, 20L), 1L))
+                .willReturn(List.of(first, second));
+
+        assertThatThrownBy(() -> service.startVote(1L, new CreatePlaceVoteRequest(
+                PlaceVoteType.PLACE_BATTLE, 10L, 20L, null)))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("t6 투표 응답을 저장하면 여행방 실시간 갱신 이벤트를 기록한다")
+    void t6_responseRecordsRealtimeCollaborationEvent() {
+        PlaceVoteRequest vote = vote(PlaceVoteType.PLACE_APPROVAL, null);
+        given(voteRequestRepository.findByIdForUpdate(100L)).willReturn(Optional.of(vote));
+        given(tripPlaceRepository.findByIdAndTripIdForUpdate(10L, 1L)).willReturn(Optional.of(first));
+        given(voteResponseRepository.findByVoteRequestIdAndMemberId(100L, 1L)).willReturn(Optional.empty());
+        given(voteResponseRepository.findAllByVoteRequestId(100L)).willReturn(List.of(response(1L, PlaceVoteChoice.AGREE)));
+
+        service.respondByVoteId(1L, 100L, new RespondPlaceVoteRequest(PlaceVoteChoice.AGREE));
+
         then(collaborationEventService).should().record(
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.isNull(),
-                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_EXPIRED"),
-                org.mockito.ArgumentMatchers.eq("TRIP_PLACE"),
-                org.mockito.ArgumentMatchers.eq(10L),
-                any(),
-                any(),
-                any(),
-                any()
-        );
+                org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_RESPONDED"),
+                org.mockito.ArgumentMatchers.eq("PLACE_VOTE"), org.mockito.ArgumentMatchers.eq(100L),
+                any(), any(), any(), any());
     }
 
-    private PlaceVoteRequest openRequest(int requiredCount, int totalCount) {
-        PlaceVoteRequest request = PlaceVoteRequest.builder()
-                .tripPlaceId(10L)
-                .createdBy(2L)
-                .status(PlaceVoteStatus.OPEN)
-                .requiredResponseCount(requiredCount)
-                .totalMemberCount(totalCount)
-                .createdAt(java.time.LocalDateTime.now())
-                .expiresAt(java.time.LocalDateTime.now().plusHours(24))
-                .build();
-        ReflectionTestUtils.setField(request, "id", 100L);
-        return request;
-    }
-
-    private PlaceVoteResponse response(Long memberId, PlaceVoteChoice choice) {
-        return PlaceVoteResponse.builder()
-                .voteRequestId(100L)
-                .memberId(memberId)
-                .choice(choice)
-                .createdAt(java.time.LocalDateTime.now())
-                .updatedAt(java.time.LocalDateTime.now())
-                .build();
-    }
+    private TripPlace place(Long id, String name) { TripPlace p = TripPlace.builder().tripId(1L).place(Place.builder().name(name).address("서울").placeType("restaurant").build()).status(TripPlaceStatus.SAVED).build(); ReflectionTestUtils.setField(p, "id", id); return p; }
+    private TripPlace tripPlace(Long id, Place place) { TripPlace p = TripPlace.builder().tripId(1L).place(place).status(TripPlaceStatus.SAVED).build(); ReflectionTestUtils.setField(p, "id", id); return p; }
+    private PlaceVoteRequest vote(PlaceVoteType type, Long secondary) { PlaceVoteRequest v = PlaceVoteRequest.builder().tripPlaceId(10L).secondaryTripPlaceId(secondary).voteType(type).status(PlaceVoteStatus.OPEN).requiredResponseCount(2).totalMemberCount(2).createdAt(java.time.LocalDateTime.now()).expiresAt(java.time.LocalDateTime.now().plusHours(1)).build(); ReflectionTestUtils.setField(v, "id", 100L); return v; }
+    private PlaceVoteResponse response(Long memberId, PlaceVoteChoice choice) { return PlaceVoteResponse.builder().voteRequestId(100L).memberId(memberId).choice(choice).createdAt(java.time.LocalDateTime.now()).updatedAt(java.time.LocalDateTime.now()).build(); }
 }
