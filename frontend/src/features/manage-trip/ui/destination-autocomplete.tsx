@@ -73,7 +73,6 @@ export function DestinationAutocomplete({
     const containerRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
     const mountedRef = useRef(true)
-    const cacheRef = useRef<Map<string, PlacePrediction[]>>(new Map())
     // 자동완성 세션 토큰: 타이핑 시작 ~ 장소 선택까지를 하나의 과금 단위로 묶음
     const sessionTokenRef = useRef<SessionToken | null>(null)
     useEffect(() => {
@@ -97,13 +96,6 @@ export function DestinationAutocomplete({
 
     const fetchSuggestions = useDebounce((text: string) => {
         if (!placesLib) return
-        const key = text.trim().toLowerCase()
-        if (cacheRef.current.has(key)) {
-            const cached = cacheRef.current.get(key)!
-            setSuggestions(cached)
-            setOpen(cached.length > 0)
-            return
-        }
         const lib = placesLib as unknown as {
             AutocompleteSuggestion: AutocompleteSuggestionLib
             AutocompleteSessionToken: new () => SessionToken
@@ -123,7 +115,6 @@ export function DestinationAutocomplete({
                 const predictions = results
                     .map((s) => s.placePrediction)
                     .filter((p): p is PlacePrediction => p !== null)
-                cacheRef.current.set(key, predictions)
                 setSuggestions(predictions)
                 setOpen(predictions.length > 0)
             })
@@ -156,7 +147,6 @@ export function DestinationAutocomplete({
         // 선택 시 세션 토큰을 fetchFields에 포함 → 세션 종료 후 토큰 초기화
         const token = sessionTokenRef.current
         sessionTokenRef.current = null
-        cacheRef.current.clear()
 
         try {
             const place = prediction.toPlace()

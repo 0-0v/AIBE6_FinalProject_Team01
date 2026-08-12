@@ -40,7 +40,6 @@ import { MapPinCommentSection } from './map-pin-comment-section'
 import type { TripMapViewport } from '@/features/trip-awareness'
 
 // POI 클릭 결과 세션 캐시 — 같은 장소 재클릭 시 API 호출 없음
-const resolvedPoiDetails = new Map<string, PlaceSearchResult>()
 const pendingPoiRequests = new Map<string, Promise<PlaceSearchResult>>()
 
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
@@ -288,7 +287,6 @@ function GoogleMapCanvas({
 
         void request
             .then((fetched) => {
-                resolvedPoiDetails.set(placeId, fetched)
                 if (!cancelled) {
                     setPoiState((prev) =>
                         prev?.placeId === placeId
@@ -365,12 +363,11 @@ function GoogleMapCanvas({
         } = {},
     ) {
         const loadDetails = options.loadDetails ?? true
-        const cached = loadDetails ? resolvedPoiDetails.get(placeId) : undefined
         setPoiState({
             placeId,
             latLng,
-            loading: loadDetails && !cached,
-            result: cached ?? null,
+            loading: loadDetails,
+            result: null,
             fallbackPlaceName: options.fallbackPlaceName ?? null,
             error: null,
             saving: false,
