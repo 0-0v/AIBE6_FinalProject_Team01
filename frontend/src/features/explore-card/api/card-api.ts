@@ -69,6 +69,11 @@ export type PublicCardRecord = {
     recordedByNickname: string
     visitedAt: string
 }
+export type TripSharedBookmark = {
+    card: PublicCard
+    sharerNicknames: string[]
+    sharedByMe: boolean
+}
 export async function fetchPublicCards(
     page: number,
     sort: CardSort,
@@ -101,6 +106,19 @@ export async function addBookmark(cardId: number) {
 }
 export async function removeBookmark(cardId: number) {
     await apiClient.delete(`/api/cards/${cardId}/bookmarks`)
+}
+export async function shareBookmarkToTrip(tripId: number, cardId: number) {
+    await apiClient.post(`/api/trips/${tripId}/bookmarks/${cardId}`, {})
+}
+export async function unshareBookmarkFromTrip(tripId: number, cardId: number) {
+    await apiClient.delete(`/api/trips/${tripId}/bookmarks/${cardId}`)
+}
+export async function fetchTripSharedBookmarks(tripId: number) {
+    return (
+        await apiClient.get<ApiResponse<TripSharedBookmark[]>>(
+            `/api/trips/${tripId}/bookmarks`,
+        )
+    ).data
 }
 export async function fetchCardComments(cardId: number) {
     return (

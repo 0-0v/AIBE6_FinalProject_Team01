@@ -9,6 +9,7 @@ import {
     HomeIcon,
     LogOutIcon,
     MapIcon,
+    BookmarkIcon,
     NotebookTabsIcon,
     ShieldCheckIcon,
 } from 'lucide-react'
@@ -33,13 +34,14 @@ export function Sidebar() {
     const currentUserId = currentUser?.id ?? null
     const rooms = useTripStore((state) => state.rooms)
     const roomRoute = location.pathname.match(
-        /^\/app\/room\/(\d+)(?:\/(record|schedule))?$/,
+        /^\/app\/room\/(\d+)(?:\/(record|schedule|bookmark))?$/,
     )
     const selectedRoom = roomRoute
         ? rooms.find((room) => room.id === roomRoute[1])
         : undefined
     const selectedRoomId = selectedRoom?.id
     const recordActive = roomRoute?.[2] === 'record'
+    const bookmarkActive = roomRoute?.[2] === 'bookmark'
     const unreadCount = useNotificationStore((state) => state.unreadCount)
     const loadUnreadCount = useNotificationStore(
         (state) => state.loadUnreadCount,
@@ -179,7 +181,7 @@ export function Sidebar() {
                                         end
                                         title="Plan"
                                         aria-label={`${selectedRoom.title} Plan`}
-                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${!recordActive ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'}`}
+                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${!recordActive && !bookmarkActive ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'}`}
                                     >
                                         <NotebookTabsIcon size={16} />
                                         {isExpanded && <span>Plan</span>}
@@ -192,6 +194,15 @@ export function Sidebar() {
                                     >
                                         <CameraIcon size={16} />
                                         {isExpanded && <span>Record</span>}
+                                    </NavLink>
+                                    <NavLink
+                                        to={`/app/room/${selectedRoomId}/bookmark`}
+                                        title="Bookmark"
+                                        aria-label={`${selectedRoom.title} Bookmark`}
+                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${bookmarkActive ? 'bg-brand text-white' : 'text-slate-400 hover:bg-brand-50 hover:text-brand-700'}`}
+                                    >
+                                        <BookmarkIcon size={16} />
+                                        {isExpanded && <span>Bookmark</span>}
                                     </NavLink>
                                 </div>
                             )}

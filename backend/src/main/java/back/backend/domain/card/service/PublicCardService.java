@@ -28,17 +28,20 @@ public class PublicCardService {
     private final TripMemberRepository tripMemberRepository;
     private final MemberRepository memberRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TripCardBookmarkShareRepository shareRepository;
 
     public PublicCardService(PlanCardRepository cardRepository, SavedTripRepository savedRepository,
             CardCommentRepository commentRepository, PlanCardTagRepository cardTagRepository,
             TripTagRepository tagRepository, TripRepository tripRepository,
             TripMemberRepository tripMemberRepository, MemberRepository memberRepository,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            TripCardBookmarkShareRepository shareRepository) {
         this.cardRepository = cardRepository; this.savedRepository = savedRepository;
         this.commentRepository = commentRepository; this.cardTagRepository = cardTagRepository;
         this.tagRepository = tagRepository; this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository; this.memberRepository = memberRepository;
         this.eventPublisher = eventPublisher;
+        this.shareRepository = shareRepository;
     }
 
     public PublicCardPageResponse getPublicCards(
@@ -70,6 +73,10 @@ public class PublicCardService {
                 .map(card -> toResponse(card, memberId)).toList();
     }
 
+    public PublicCardResponse getPublicCard(Long cardId, Long memberId) {
+        return toResponse(requirePublic(cardId), memberId);
+    }
+
     @Transactional
     public void bookmark(Long memberId, Long cardId) {
         PlanCard card = requirePublic(cardId);
@@ -84,6 +91,7 @@ public class PublicCardService {
     public void removeBookmark(Long memberId, Long cardId) {
         PlanCard card = requirePublic(cardId);
         savedRepository.findByMemberIdAndTripId(memberId, card.getTripId()).ifPresent(savedRepository::delete);
+        shareRepository.deleteAllByPlanCardIdAndMemberId(cardId, memberId);
         eventPublisher.publishEvent(RealtimeEvent.publicCard(cardId));
     }
 

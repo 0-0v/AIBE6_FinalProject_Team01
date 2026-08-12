@@ -1,0 +1,38 @@
+package back.backend.domain.card.controller;
+
+import back.backend.domain.card.dto.TripSharedBookmarkResponse;
+import back.backend.domain.card.service.TripCardBookmarkService;
+import back.backend.global.response.ApiResponse;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/trips/{tripId}/bookmarks")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "여행 카드")
+public class TripCardBookmarkController {
+    private final TripCardBookmarkService service;
+
+    @GetMapping
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행방 공유 북마크 조회")
+    public ApiResponse<List<TripSharedBookmarkResponse>> getShared(@PathVariable Long tripId) {
+        return ApiResponse.success(service.getShared(tripId));
+    }
+
+    @PostMapping("/{cardId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행방에 북마크 공유")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Void> share(@PathVariable Long tripId, @PathVariable Long cardId) {
+        service.share(tripId, cardId);
+        return ApiResponse.ok();
+    }
+
+    @DeleteMapping("/{cardId}")
+    @io.swagger.v3.oas.annotations.Operation(summary = "여행방 북마크 공유 해제")
+    public ApiResponse<Void> unshare(@PathVariable Long tripId, @PathVariable Long cardId) {
+        service.unshare(tripId, cardId);
+        return ApiResponse.ok();
+    }
+}

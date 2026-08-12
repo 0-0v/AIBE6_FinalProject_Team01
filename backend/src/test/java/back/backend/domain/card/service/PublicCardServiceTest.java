@@ -3,6 +3,7 @@ package back.backend.domain.card.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.BDDMockito.then;
 
 import back.backend.domain.card.dto.CardSort;
 import back.backend.domain.card.entity.PlanCard;
@@ -37,6 +38,7 @@ class PublicCardServiceTest {
     @Mock TripMemberRepository tripMemberRepository;
     @Mock MemberRepository memberRepository;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock TripCardBookmarkShareRepository shareRepository;
 
     @Test
     @DisplayName("t1 본인이 만든 공개 카드를 북마크하면 권한 예외가 발생한다")
@@ -46,7 +48,8 @@ class PublicCardServiceTest {
         when(cardRepository.findById(20L)).thenReturn(Optional.of(card));
         PublicCardService service = new PublicCardService(
                 cardRepository, savedRepository, commentRepository, cardTagRepository,
-                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher);
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
+                shareRepository);
 
         assertThatThrownBy(() -> service.bookmark(1L, 20L))
                 .isInstanceOfSatisfying(BusinessException.class,
@@ -63,7 +66,8 @@ class PublicCardServiceTest {
         when(tripMemberRepository.existsByTripIdAndMemberId(10L, 2L)).thenReturn(true);
         PublicCardService service = new PublicCardService(
                 cardRepository, savedRepository, commentRepository, cardTagRepository,
-                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher);
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
+                shareRepository);
 
         assertThatThrownBy(() -> service.bookmark(2L, 20L))
                 .isInstanceOfSatisfying(BusinessException.class,
@@ -85,7 +89,8 @@ class PublicCardServiceTest {
         when(tripMemberRepository.existsByTripIdAndMemberId(10L, 2L)).thenReturn(true);
         PublicCardService service = new PublicCardService(
                 cardRepository, savedRepository, commentRepository, cardTagRepository,
-                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher);
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
+                shareRepository);
 
         var response = service.getPublicCards(2L, 0, 9, CardSort.LATEST, "");
 
@@ -109,12 +114,29 @@ class PublicCardServiceTest {
         when(cardTagRepository.findAllByPlanCardId(20L)).thenReturn(List.of());
         PublicCardService service = new PublicCardService(
                 cardRepository, savedRepository, commentRepository, cardTagRepository,
-                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher);
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
+                shareRepository);
 
         var response = service.getPublicCards(
                 null, 0, 9, CardSort.LATEST, "", TravelStyle.NATURE);
 
         assertThat(response.content()).isEmpty();
         assertThat(response.totalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("t5 개인 북마크를 해제하면 여행방에 공유한 기록도 모두 삭제한다")
+    void t5_removeBookmarkAlsoRemovesShares() {
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC_ROUTE, 1L);
+        ReflectionTestUtils.setField(card, "id", 20L);
+        when(cardRepository.findById(20L)).thenReturn(Optional.of(card));
+        PublicCardService service = new PublicCardService(
+                cardRepository, savedRepository, commentRepository, cardTagRepository,
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
+                shareRepository);
+
+        service.removeBookmark(2L, 20L);
+
+        then(shareRepository).should().deleteAllByPlanCardIdAndMemberId(20L, 2L);
     }
 }

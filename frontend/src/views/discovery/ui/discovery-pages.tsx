@@ -399,16 +399,18 @@ export function Explore() {
     )
 }
 
-function TravelCard({
+export function TravelCard({
     card,
     onBookmark,
     onCopy,
     onOpen,
+    onShare,
 }: {
     card: PublicCard
     onBookmark: () => void
     onCopy: () => void
     onOpen: () => void
+    onShare?: () => void
 }) {
     return (
         <article
@@ -418,13 +420,13 @@ function TravelCard({
             onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') onOpen()
             }}
-            className="relative flex aspect-[4/3] h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[28px] shadow-[0_8px_24px_rgb(var(--rgb-app-navy)/0.10)] ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgb(var(--rgb-app-navy)/0.16)]"
+            className="relative flex aspect-[4/3] h-full min-w-0 cursor-pointer flex-col border-0 shadow-none outline-none ring-0 transition hover:-translate-y-0.5 focus:outline-none focus-visible:outline-none"
         >
             <img
                 src={resolveMediaUrl(card.coverImageUrl) ?? DEFAULT_COVER_IMAGE}
                 onError={fallbackToDefaultCoverImage}
                 alt=""
-                className="absolute inset-0 h-full w-full object-cover"
+                className="absolute inset-0 h-full w-full rounded-[28px] object-cover"
             />
             {card.ownCard && (
                 <span
@@ -435,7 +437,7 @@ function TravelCard({
                     MY
                 </span>
             )}
-            <div className="absolute inset-x-0 bottom-0 z-10 flex h-[176px] flex-col justify-end gap-2 bg-gradient-to-t from-white via-white/85 to-white/0 px-4 pb-4 pt-16 text-slate-900">
+            <div className="absolute -inset-x-px -bottom-px z-10 flex h-[177px] flex-col justify-end gap-2 rounded-b-[28px] bg-gradient-to-t from-white via-white/85 to-white/0 px-[17px] pb-[17px] pt-16 text-slate-900">
                 <div className="min-w-0 shrink-0">
                     <h2 className="truncate text-lg font-black tracking-[-0.03em]">
                         {card.title}
@@ -489,16 +491,30 @@ function TravelCard({
                         여행자 PICK {card.bookmarkCount}
                     </button>
                     {!card.ownCard && (
-                        <button
-                            type="button"
-                            onClick={(event) => {
-                                event.stopPropagation()
-                                onCopy()
-                            }}
-                            className="flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-brand px-3.5 py-2 font-extrabold text-white transition hover:bg-brand-700"
-                        >
-                            <CalendarPlusIcon size={15} /> 일정 담기
-                        </button>
+                        <div className="flex gap-1.5">
+                            {onShare && (
+                                <button
+                                    type="button"
+                                    onClick={(event) => {
+                                        event.stopPropagation()
+                                        onShare()
+                                    }}
+                                    className="rounded-full border border-brand-100 bg-white px-3 py-2 font-extrabold text-brand-700"
+                                >
+                                    공유
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={(event) => {
+                                    event.stopPropagation()
+                                    onCopy()
+                                }}
+                                className="flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-brand px-3.5 py-2 font-extrabold text-white transition hover:bg-brand-700"
+                            >
+                                <CalendarPlusIcon size={15} /> 일정 담기
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
