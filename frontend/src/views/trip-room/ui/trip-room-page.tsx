@@ -14,6 +14,7 @@ import {
     getTripPlaces,
     getTripPlaceAccess,
     getTripPlaceVotes,
+    latestVoteByPlaceId,
     getItinerary,
     initializeItinerary,
     fromApiToPlace,
@@ -300,8 +301,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
             .then(([tripPlaces, voteSummaries, canEdit]) => {
                 setPlacesError(null)
                 setCanManagePlaces(canEdit)
-                const votesByPlaceId = new Map(
-                    voteSummaries.map((vote) => [vote.tripPlaceId, vote]),
+                const votesByPlaceId = latestVoteByPlaceId(
+                    voteSummaries.filter((vote) => vote.status === 'CLOSED'),
                 )
                 const cachedComments =
                     useCommentStore.getState().commentsByPlaceId

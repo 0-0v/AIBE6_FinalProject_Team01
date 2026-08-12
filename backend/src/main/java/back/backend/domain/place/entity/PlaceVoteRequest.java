@@ -30,6 +30,32 @@ public class PlaceVoteRequest {
     @Column(name = "trip_place_id", nullable = false)
     private Long tripPlaceId;
 
+    @Column(name = "secondary_trip_place_id")
+    private Long secondaryTripPlaceId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vote_type", nullable = false, length = 30)
+    private PlaceVoteType voteType;
+
+    @Column(name = "creator_comment", length = 500)
+    private String creatorComment;
+
+    @Column(name = "primary_ai_description", columnDefinition = "TEXT")
+    private String primaryAiDescription;
+
+    @Column(name = "secondary_ai_description", columnDefinition = "TEXT")
+    private String secondaryAiDescription;
+
+    @Column(name = "comparison_summary", columnDefinition = "TEXT")
+    private String comparisonSummary;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private PlaceVoteResult result;
+
+    @Column(name = "winner_trip_place_id")
+    private Long winnerTripPlaceId;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
@@ -55,5 +81,11 @@ public class PlaceVoteRequest {
     public void close(LocalDateTime closedAt) {
         status = PlaceVoteStatus.CLOSED;
         this.closedAt = closedAt;
+    }
+
+    public void close(LocalDateTime closedAt, PlaceVoteResult result, Long winnerTripPlaceId) {
+        close(closedAt);
+        this.result = result;
+        this.winnerTripPlaceId = winnerTripPlaceId;
     }
 }
