@@ -30,9 +30,9 @@ const dropAnimation: DropAnimation = {
 
 function ScheduleItemDragOverlay({ item }: { item: ItineraryItem }) {
     return (
-        <div className="flex w-64 cursor-grabbing items-stretch rounded-lg border border-brand/40 bg-white shadow-2xl ring-2 ring-brand/20">
+        <div className="flex w-64 cursor-grabbing items-stretch rounded-xl border border-brand/40 bg-white shadow-2xl ring-2 ring-brand/20">
             <div
-                className="w-1.5 shrink-0 rounded-l-lg"
+                className="w-1.5 shrink-0 rounded-l-xl"
                 style={{
                     backgroundColor:
                         item.categoryColor ?? 'var(--color-app-border)',

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { GripVertical, Trash2Icon } from 'lucide-react'
+import { GripVertical, PenLineIcon } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
@@ -11,7 +11,8 @@ import {
 } from '@/entities/trip'
 import type { ItineraryDay, ItineraryItem } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
-import { useCurrentUserStore } from '@/shared/model'
+import { hexWithAlpha } from '@/shared/lib'
+import { globalModal, useCurrentUserStore } from '@/shared/model'
 import { Button } from '@/shared/ui'
 import { useTripAwarenessStore } from '@/features/trip-awareness'
 import { formatTimeRange } from '../lib/itinerary-time'
@@ -64,6 +65,7 @@ export function ScheduleItemCard({
     const currentDay = days.find((day) => String(day.id) === currentDayId)
     const editor = useItineraryItemEditor({
         tripId,
+        dayId: Number(currentDayId),
         item,
         dayItems: currentDay?.items ?? [],
         onUpdated: onDaysChange,
@@ -135,7 +137,7 @@ export function ScheduleItemCard({
             <div
                 ref={setNodeRef}
                 style={style}
-                className="h-11 rounded-lg border-2 border-dashed border-brand/40 bg-brand/5"
+                className="h-11 rounded-xl border-2 border-dashed border-brand/40 bg-brand/5"
             />
         )
     }
@@ -162,10 +164,10 @@ export function ScheduleItemCard({
                 event.currentTarget.style.setProperty('--glare-x', `${x}%`)
                 event.currentTarget.style.setProperty('--glare-y', `${y}%`)
             }}
-            className={`group relative overflow-hidden rounded-lg border bg-white shadow-sm transition-[border-color,box-shadow] duration-150 ease-out ${highlighted || selected ? 'border-brand ring-2 ring-brand/20 shadow-md' : 'border-slate-100 hover:border-slate-200 hover:shadow-md'}`}
+            className={`group relative rounded-xl border bg-white shadow-sm transition-[border-color,box-shadow] duration-150 ease-out ${highlighted || selected ? 'border-brand ring-2 ring-brand/20 shadow-md' : 'border-slate-100 hover:border-slate-200 hover:shadow-md'}`}
         >
             {remoteEditor && (
-                <div className="relative z-20 flex items-center gap-1 border-b border-amber-100 bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700">
+                <div className="relative z-20 flex items-center gap-1 rounded-t-xl border-b border-amber-100 bg-amber-50 px-3 py-1 text-[10px] font-bold text-amber-700">
                     다른 일행이 편집 중이에요. 동시에 수정하면 마지막 저장
                     내용이 반영됩니다.
                 </div>
@@ -173,7 +175,7 @@ export function ScheduleItemCard({
             {/* 마우스를 따라다니는 은은한 하이라이트 */}
             <div
                 aria-hidden
-                className="pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                 style={{
                     background:
                         'radial-gradient(140px circle at var(--glare-x, 50%) var(--glare-y, 50%), rgb(var(--rgb-white)/0.9), transparent 70%)',
@@ -182,14 +184,14 @@ export function ScheduleItemCard({
             <div className="relative z-10 flex items-stretch">
                 {/* 카테고리 컬러 스트라이프 */}
                 <div
-                    className="w-1 shrink-0"
+                    className="w-1.5 shrink-0 rounded-l-xl"
                     style={{
                         backgroundColor:
                             item.categoryColor ?? 'var(--color-app-border)',
                     }}
                 />
 
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1">
+                <div className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5">
                     {/* 왼쪽 그립 핸들 — 이 영역에서만 드래그 */}
                     {canWrite && (
                         <div
@@ -205,84 +207,150 @@ export function ScheduleItemCard({
                     {/* 장소 정보 — 클릭하면 지도 포커스 */}
                     <div
                         onClick={() => onFocusItem?.(String(item.id))}
-                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5"
+                        className="flex min-w-0 flex-1 cursor-pointer items-start gap-2"
                         title="클릭하면 지도에서 위치 확인"
                     >
                         <span
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-extrabold text-white shadow-sm"
+                            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold text-white shadow-sm"
                             style={{ backgroundColor: dayColor }}
                             aria-label={`${visitOrder}번째 방문 장소`}
                         >
                             {visitOrder}
                         </span>
+                        {item.categoryIcon && (
+                            <span
+                                className="mt-1 shrink-0"
+                                style={{
+                                    color:
+                                        item.categoryColor ??
+                                        'var(--color-app-text-muted)',
+                                }}
+                            >
+                                <CategoryIcon
+                                    icon={item.categoryIcon}
+                                    size={13}
+                                    strokeWidth={2.5}
+                                />
+                            </span>
+                        )}
                         <div className="min-w-0 flex-1">
                             {/* 장소명 + 시간 가로 배치 */}
-                            <div className="flex items-center gap-1.5">
-                                {item.categoryIcon && (
-                                    <span
-                                        className="shrink-0"
-                                        style={{
-                                            color:
-                                                item.categoryColor ??
-                                                'var(--color-app-text-muted)',
-                                        }}
-                                    >
-                                        <CategoryIcon
-                                            icon={item.categoryIcon}
-                                            size={12}
-                                            strokeWidth={2.5}
-                                        />
-                                    </span>
-                                )}
-                                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">
+                            <div className="flex items-baseline gap-1.5">
+                                <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">
                                     {item.placeName ?? '(제목 없음)'}
                                 </span>
-                                <span className="shrink-0 text-xs text-slate-400">
+                                <span
+                                    className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                        item.startTime || item.endTime
+                                            ? ''
+                                            : 'bg-slate-100 text-slate-400'
+                                    }`}
+                                    style={
+                                        item.startTime || item.endTime
+                                            ? {
+                                                  backgroundColor:
+                                                      hexWithAlpha(
+                                                          dayColor,
+                                                          '18',
+                                                      ),
+                                                  color: dayColor,
+                                              }
+                                            : undefined
+                                    }
+                                >
                                     {formatTimeRange(
                                         item.startTime,
                                         item.endTime,
                                     )}
                                 </span>
                             </div>
-                            {item.memo && (
-                                <p className="truncate text-[11px] leading-tight text-slate-400">
-                                    {item.memo}
-                                </p>
+                            {item.memo ? (
+                                <button
+                                    type="button"
+                                    onClick={(event) => {
+                                        event.stopPropagation()
+                                        globalModal.open({
+                                            title: `${item.placeName ?? '이 장소'}의 메모`,
+                                            description: item.memo ?? undefined,
+                                        })
+                                    }}
+                                    className="group/memo relative mt-1.5 flex w-full items-start gap-1.5 rounded-lg px-2 py-1.5 text-left transition hover:brightness-95"
+                                    style={{
+                                        backgroundColor:
+                                            'var(--color-app-warm-surface)',
+                                    }}
+                                >
+                                    <PenLineIcon
+                                        size={11}
+                                        className="mt-0.5 shrink-0 text-amber-500"
+                                    />
+                                    <p className="line-clamp-2 text-xs leading-snug text-slate-600">
+                                        {item.memo}
+                                    </p>
+                                    <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-md transition-opacity group-hover/memo:opacity-100">
+                                        {item.placeName ?? '이 장소'}의 메모
+                                    </span>
+                                </button>
+                            ) : (
+                                canWrite && (
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation()
+                                            editor.beginEditing()
+                                        }}
+                                        className="mt-1.5 flex w-full items-center gap-1.5 rounded-lg border border-dashed border-slate-200 px-2 py-1.5 text-left text-xs text-slate-300 transition hover:border-amber-200 hover:bg-amber-50/40 hover:text-amber-500"
+                                    >
+                                        <PenLineIcon
+                                            size={11}
+                                            className="shrink-0"
+                                        />
+                                        메모를 남겨보세요
+                                    </button>
+                                )
                             )}
                         </div>
                     </div>
-
-                    {/* 액션 버튼 */}
-                    {canWrite && (
-                        <div className="flex shrink-0 items-center gap-0.5">
-                            {/* 편집 토글 */}
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    editor.editing
-                                        ? editor.cancelEditing()
-                                        : editor.beginEditing()
-                                }
-                                className={`rounded px-1.5 py-1 text-[10px] font-medium transition ${
-                                    editor.editing
-                                        ? 'bg-brand-50 text-brand'
-                                        : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-                                }`}
-                            >
-                                {editor.editing ? '닫기' : '편집'}
-                            </button>
-
-                            {/* 삭제 */}
-                            <button
-                                type="button"
-                                onClick={() => void handleDelete()}
-                                className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-400"
-                            >
-                                <Trash2Icon size={12} />
-                            </button>
-                        </div>
-                    )}
                 </div>
+
+                {/* 액션 버튼 — 카드 우측에 세로로 붙은 구획 */}
+                {canWrite && (
+                    <div className="flex shrink-0 flex-col divide-y divide-slate-100 overflow-hidden rounded-r-xl border-l border-slate-100">
+                        {/* 편집 토글 */}
+                        <button
+                            type="button"
+                            onClick={() =>
+                                editor.editing
+                                    ? editor.cancelEditing()
+                                    : editor.beginEditing()
+                            }
+                            className={`flex flex-1 items-center justify-center px-3 text-[11px] font-bold transition ${
+                                editor.editing
+                                    ? 'bg-brand-50 text-brand'
+                                    : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+                            }`}
+                        >
+                            {editor.editing ? '닫기' : '편집'}
+                        </button>
+
+                        {/* 삭제 */}
+                        <button
+                            type="button"
+                            onClick={() =>
+                                globalModal.open({
+                                    title: '일정을 삭제할까요?',
+                                    description: `${item.placeName ?? '이 장소'}가 이 일정에서 제외됩니다.\n저장된 장소 목록에서 다시 추가할 수 있어요.`,
+                                    showCancel: true,
+                                    confirmText: '삭제',
+                                    onConfirm: () => void handleDelete(),
+                                })
+                            }
+                            className="flex flex-1 items-center justify-center px-3 text-[11px] font-bold text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
+                        >
+                            삭제
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* 편집 폼 */}
@@ -299,7 +367,7 @@ export function ScheduleItemCard({
                         onChange={(e) => editor.setMemo(e.target.value)}
                         placeholder="메모 입력..."
                         rows={2}
-                        className="mt-1.5 w-full resize-none rounded border border-slate-200 px-1.5 py-1 text-xs"
+                        className="mt-1.5 w-full resize-none rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
                     />
                     {(actionError || editor.saveError) && (
                         <p className="mt-1 text-[10px] text-red-500">

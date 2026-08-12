@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import {
     getItinerary,
+    reorderItineraryItems,
     updateItineraryItem,
     type ItineraryDay,
     type ItineraryItem,
@@ -12,6 +13,7 @@ import { findOverlappingItem } from '../lib/itinerary-time'
 
 type Params = {
     tripId: number
+    dayId: number
     item: ItineraryItem
     dayItems: ItineraryItem[]
     onUpdated: (days: ItineraryDay[]) => void
@@ -19,6 +21,7 @@ type Params = {
 
 export function useItineraryItemEditor({
     tripId,
+    dayId,
     item,
     dayItems,
     onUpdated,
@@ -81,6 +84,32 @@ export function useItineraryItemEditor({
                 endTime: endTime || null,
                 memo: memo || null,
             })
+
+            const timeSortKey = (value: string | null) => value ?? '99:99'
+            const nextOrder = [...dayItems]
+                .map((dayItem) =>
+                    dayItem.id === item.id
+                        ? { ...dayItem, startTime: startTime || null }
+                        : dayItem,
+                )
+                .sort((a, b) => {
+                    const aKey = timeSortKey(a.startTime)
+                    const bKey = timeSortKey(b.startTime)
+                    return aKey < bKey ? -1 : aKey > bKey ? 1 : 0
+                })
+                .map((dayItem) => dayItem.id)
+            const currentOrder = dayItems.map((dayItem) => dayItem.id)
+            const orderChanged =
+                currentOrder.length !== nextOrder.length ||
+                currentOrder.some((id, index) => id !== nextOrder[index])
+            if (orderChanged) {
+                await reorderItineraryItems(
+                    tripId,
+                    dayId,
+                    nextOrder.map((id) => Number(id)),
+                )
+            }
+
             onUpdated(await getItinerary(tripId))
             setEditing(false)
         } catch (error) {
