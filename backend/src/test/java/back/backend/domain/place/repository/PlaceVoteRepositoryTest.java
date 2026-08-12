@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import back.backend.domain.place.entity.PlaceVoteRequest;
 import back.backend.domain.place.entity.PlaceVoteStatus;
+import back.backend.domain.place.entity.PlaceVoteType;
 import back.backend.global.config.JpaConfig;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,6 +45,7 @@ class PlaceVoteRepositoryTest {
     private PlaceVoteRequest request(Long tripPlaceId, PlaceVoteStatus status) {
         return PlaceVoteRequest.builder()
                 .tripPlaceId(tripPlaceId)
+                .voteType(PlaceVoteType.PLACE_APPROVAL)
                 .createdBy(1L)
                 .status(status)
                 .requiredResponseCount(2)

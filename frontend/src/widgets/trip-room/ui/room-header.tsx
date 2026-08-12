@@ -399,5 +399,5 @@ function describeAwareness(awareness?: ActiveTripAwareness) {
         itinerary: '날짜 확인 중',
         schedule: '일정 확인 중',
         record: '기록 확인 중',
-    }[awareness.workspace]
+    }[awareness.workspace === 'votes' ? 'places' : awareness.workspace]
 }

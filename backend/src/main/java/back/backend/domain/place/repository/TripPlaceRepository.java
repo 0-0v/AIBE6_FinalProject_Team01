@@ -45,4 +45,15 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, Long> {
             @Param("tripId") Long tripId
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT tp FROM TripPlace tp JOIN FETCH tp.place
+            WHERE tp.tripId = :tripId AND tp.id IN :ids
+            ORDER BY tp.id ASC
+            """)
+    List<TripPlace> findAllByIdsAndTripIdForUpdate(
+            @Param("ids") List<Long> ids,
+            @Param("tripId") Long tripId
+    );
+
 }

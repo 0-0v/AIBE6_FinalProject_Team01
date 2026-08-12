@@ -6,6 +6,7 @@ import {
     HistoryIcon,
     ListIcon,
     MapIcon,
+    VoteIcon,
     PanelLeftCloseIcon,
     PanelLeftOpenIcon,
 } from 'lucide-react'
@@ -14,10 +15,7 @@ import {
     Room,
     addTripPlace,
     deleteTripPlace,
-    startTripPlaceVote,
-    respondTripPlaceVote,
     fromApiToPlace,
-    apiStatusToPlaceStatus,
     getPlaceComments,
     addPlaceComment,
     deletePlaceComment,
@@ -49,6 +47,7 @@ import {
 import { DateVotePanel } from './date-vote-panel'
 import { SchedulePanel } from './schedule-panel'
 import { PlaceCard } from './place-card'
+import { PlaceVotePanel } from './place-vote-panel'
 import { PlaceDetailOverlay } from './place-detail-overlay'
 import { RoomHeader } from './room-header'
 
@@ -108,27 +107,7 @@ function resolvePlaceSearchCenter(room: Room, places: Place[]) {
         longitude: median(centerCandidates.map((place) => place.lng)),
     }
 }
-type PlanTab = 'places' | 'itinerary' | 'schedule'
-type PlaceVoteFilter = 'all' | 'confirmed' | 'rejected' | 'pending'
-
-const PLACE_VOTE_FILTERS: { value: PlaceVoteFilter; label: string }[] = [
-    { value: 'all', label: '전체' },
-    { value: 'confirmed', label: '투표 종료 · 확정' },
-    { value: 'rejected', label: '투표 종료 · 탈락' },
-    { value: 'pending', label: '진행 중 · 투표 전' },
-]
-
-function matchesPlaceVoteFilter(place: Place, filter: PlaceVoteFilter) {
-    const vote = place.voteSummary
-    if (filter === 'confirmed') {
-        return vote?.status === 'CLOSED' && place.status === 'saved'
-    }
-    if (filter === 'rejected') {
-        return vote?.status === 'CLOSED' && place.status === 'rejected'
-    }
-    if (filter === 'pending') return !vote || vote.status === 'OPEN'
-    return true
-}
+type PlanTab = 'places' | 'votes' | 'itinerary' | 'schedule'
 export type TripRoomWorkspace = PlanTab
 
 type Props = {
@@ -209,8 +188,6 @@ export function RoomDetailPanel({
     onPlacePhotoResolved,
 }: Props) {
     const navigate = useNavigate()
-    const [placeVoteFilter, setPlaceVoteFilter] =
-        useState<PlaceVoteFilter>('all')
     const [activityOpen, setActivityOpen] = useState(initialActivityOpen)
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
@@ -245,13 +222,6 @@ export function RoomDetailPanel({
     const placeSearchCenter = useMemo(
         () => resolvePlaceSearchCenter(room, places),
         [room, places],
-    )
-    const filteredPlaces = useMemo(
-        () =>
-            places.filter((place) =>
-                matchesPlaceVoteFilter(place, placeVoteFilter),
-            ),
-        [placeVoteFilter, places],
     )
 
     useEffect(() => {
@@ -322,32 +292,6 @@ export function RoomDetailPanel({
         requestDiscardDateChanges(onBack)
     }
 
-    async function withVoteError<T>(
-        fn: () => Promise<T>,
-        fallbackMessage: string,
-    ): Promise<T> {
-        setPlaceError(null)
-        try {
-            return await fn()
-        } catch (error) {
-            setPlaceError(getApiErrorMessage(error, fallbackMessage))
-            throw error
-        }
-    }
-
-    async function handleStartVote(id: string) {
-        const voteSummary = await withVoteError(
-            () => startTripPlaceVote(tripId, Number(id)),
-            '투표 신청에 실패했습니다.',
-        )
-        onUpdatePlace(id, (place) => ({
-            ...place,
-            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
-            voteSummary,
-        }))
-        refreshCollaborationData()
-    }
-
     async function openCommentSheet(placeId: string) {
         setCommentError(null)
         setCommentPlaceId(placeId)
@@ -405,24 +349,6 @@ export function RoomDetailPanel({
             )
             throw error
         }
-    }
-
-    async function handleVote(id: string, value: 'up' | 'down') {
-        const voteSummary = await withVoteError(
-            () =>
-                respondTripPlaceVote(
-                    tripId,
-                    Number(id),
-                    value === 'up' ? 'AGREE' : 'DISAGREE',
-                ),
-            '투표 응답에 실패했습니다.',
-        )
-        onUpdatePlace(id, (place) => ({
-            ...place,
-            status: apiStatusToPlaceStatus(voteSummary.placeStatus),
-            voteSummary,
-        }))
-        refreshCollaborationData()
     }
 
     async function handleAdd(result: PlaceSearchResult) {
@@ -556,6 +482,11 @@ export function RoomDetailPanel({
                                 icon: ListIcon,
                             },
                             {
+                                key: 'votes' as const,
+                                label: '투표',
+                                icon: VoteIcon,
+                            },
+                            {
                                 key: 'schedule' as const,
                                 label: '일정',
                                 icon: MapIcon,
@@ -597,7 +528,7 @@ export function RoomDetailPanel({
                 </div>
             </div>
 
-            {planTab !== 'places' && (
+            {(planTab === 'itinerary' || planTab === 'schedule') && (
                 <div className="flex items-center justify-between border-b border-slate-100 px-6 py-2.5">
                     <nav
                         className="flex items-center gap-2"
@@ -689,36 +620,14 @@ export function RoomDetailPanel({
                                 {placeError ?? categoryError ?? loadError}
                             </p>
                         )}
-                        <div className="flex flex-wrap gap-1.5 px-4 pb-3 pt-2">
-                            {PLACE_VOTE_FILTERS.map((filter) => (
-                                <button
-                                    key={filter.value}
-                                    type="button"
-                                    onClick={() =>
-                                        setPlaceVoteFilter(filter.value)
-                                    }
-                                    className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold transition ${placeVoteFilter === filter.value ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                >
-                                    {filter.label}{' '}
-                                    {
-                                        places.filter((place) =>
-                                            matchesPlaceVoteFilter(
-                                                place,
-                                                filter.value,
-                                            ),
-                                        ).length
-                                    }
-                                </button>
-                            ))}
-                        </div>
                     </div>
                     <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2.5 overflow-y-auto px-4 py-3 @min-[760px]:grid-cols-2">
-                        {filteredPlaces.length === 0 ? (
+                        {places.length === 0 ? (
                             <p className="py-16 text-center text-sm text-slate-400">
                                 해당하는 장소가 없어요
                             </p>
                         ) : (
-                            filteredPlaces.map((place) => (
+                            places.map((place) => (
                                 <PlaceCard
                                     key={place.id}
                                     place={place}
@@ -729,12 +638,6 @@ export function RoomDetailPanel({
                                     selected={selectedId === place.id}
                                     canWrite={canPlanWrite}
                                     onSelect={() => onSelectPlace(place.id)}
-                                    onVote={(value) =>
-                                        handleVote(place.id, value)
-                                    }
-                                    onStartVote={() =>
-                                        handleStartVote(place.id)
-                                    }
                                     onDelete={async () => {
                                         setPlaceError(null)
                                         try {
@@ -780,6 +683,15 @@ export function RoomDetailPanel({
                         />
                     )}
                 </div>
+            )}
+            {planTab === 'votes' && (
+                <PlaceVotePanel
+                    tripId={tripId}
+                    places={places}
+                    canWrite={canPlanWrite}
+                    realtimeVersion={realtimeVersion}
+                    onFocusPlace={onSelectPlace}
+                />
             )}
             {planTab === 'itinerary' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">

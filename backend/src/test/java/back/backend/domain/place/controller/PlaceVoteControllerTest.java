@@ -10,9 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.place.dto.response.PlaceVoteSummaryResponse;
+import back.backend.domain.place.dto.request.CreatePlaceVoteRequest;
 import back.backend.domain.place.entity.PlaceVoteChoice;
 import back.backend.domain.place.entity.PlaceVoteStatus;
 import back.backend.domain.place.entity.TripPlaceStatus;
+import back.backend.domain.place.entity.PlaceVoteType;
 import back.backend.domain.place.service.PlaceVoteService;
 import back.backend.global.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,9 +46,10 @@ class PlaceVoteControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
         summary = new PlaceVoteSummaryResponse(
-                10L, 100L, PlaceVoteStatus.OPEN,
-                1, 0, 1, 3, 4, PlaceVoteChoice.AGREE, TripPlaceStatus.HOLD,
-                "2026-07-24T11:00:00");
+                10L, null, 100L, PlaceVoteType.PLACE_APPROVAL, null,
+                new PlaceVoteSummaryResponse.PlaceOptionResponse(10L, "을지맥옥", "서울", "AI 정보"),
+                null, null, PlaceVoteStatus.OPEN, 1, 0, 1, 3, 4,
+                PlaceVoteChoice.AGREE, null, null, "2026-07-24T11:00:00");
     }
 
     @Test
@@ -90,5 +93,31 @@ class PlaceVoteControllerTest {
         mockMvc.perform(get("/api/trips/1/places/votes"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].tripPlaceId").value(10));
+    }
+
+    @Test
+    @DisplayName("t5 새 투표 생성 API는 요청 본문을 받아 201을 반환한다")
+    void t5_createVoteEndpointReturnsCreated() throws Exception {
+        given(placeVoteService.startVote(eq(1L), any(CreatePlaceVoteRequest.class))).willReturn(summary);
+
+        mockMvc.perform(post("/api/trips/1/places/votes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"PLACE_BATTLE","primaryTripPlaceId":10,"secondaryTripPlaceId":20}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.voteRequestId").value(100));
+    }
+
+    @Test
+    @DisplayName("t6 투표 ID 기반 응답 API는 선택지를 받아 200을 반환한다")
+    void t6_respondByVoteIdEndpointReturnsOk() throws Exception {
+        given(placeVoteService.respondByVoteId(eq(1L), eq(100L), any())).willReturn(summary);
+
+        mockMvc.perform(put("/api/trips/1/places/votes/100/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"choice\":\"AGREE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.voteRequestId").value(100));
     }
 }

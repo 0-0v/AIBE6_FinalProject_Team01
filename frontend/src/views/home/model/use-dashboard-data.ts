@@ -23,7 +23,7 @@ export type OpenPlaceVote = {
     categoryName: string
     responseCount: number
     requiredResponseCount: number
-    myChoice: 'AGREE' | 'DISAGREE' | null
+    myChoice: 'AGREE' | 'DISAGREE' | 'OPTION_A' | 'OPTION_B' | null
 }
 
 export function useDashboardData({
