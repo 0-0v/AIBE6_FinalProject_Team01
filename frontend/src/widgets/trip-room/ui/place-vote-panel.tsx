@@ -132,6 +132,10 @@ export function PlaceVotePanel({
         () => buildClosedVotePlaceResults(votes, closedFilter),
         [closedFilter, votes],
     )
+    const closedResultCount = useMemo(
+        () => buildClosedVotePlaceResults(votes, 'ALL').length,
+        [votes],
+    )
 
     function resetForm() {
         setType('PLACE_APPROVAL')
@@ -229,7 +233,7 @@ export function PlaceVotePanel({
                         >
                             {status === 'OPEN'
                                 ? `진행 중 ${votes.filter((vote) => vote.status === status).length}`
-                                : `종료 ${votes.filter((vote) => vote.status === status).length}`}
+                                : `종료 ${closedResultCount}`}
                         </button>
                     ))}
                 </div>
