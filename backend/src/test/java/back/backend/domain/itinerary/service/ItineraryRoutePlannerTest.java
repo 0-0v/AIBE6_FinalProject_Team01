@@ -8,6 +8,7 @@ import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
+import back.backend.domain.place.service.PlaceStyleRelationService;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TravelPace;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,27 +23,19 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryRoutePlannerTest {
 
     @Mock
-    private GoogleRoutesClient routesClient;
-
-    @Mock
-    private OpenAiRouteAdvisor openAiRouteAdvisor;
-
-    @Mock
-    private PlaceGraphEdgeService placeGraphEdgeService;
+    private PlaceStyleRelationService placeStyleRelationService;
 
     @Mock
     private ConstraintSorter constraintSorter;
@@ -51,31 +44,17 @@ class ItineraryRoutePlannerTest {
 
     @BeforeEach
     void setUp() {
-        // Routes API 미설정 → Haversine 폴백 (일부 테스트에서 미호출 허용)
-        lenient().when(routesClient.getRouteInfo(
-                anyDouble(),
-                anyDouble(),
-                anyDouble(),
-                anyDouble(),
-                anyString(),
-                nullable(String.class),
-                nullable(java.time.Instant.class)
-                ))
-                .thenReturn(Optional.empty());
-        lenient().when(placeGraphEdgeService.find(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()
-        )).thenReturn(Optional.empty());
+        lenient().when(placeStyleRelationService.resolveCompatibilities(
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.anySet()
+        )).thenReturn(Map.of());
         // ConstraintSorter: 입력 리스트를 그대로 반환 (정렬 없이 통과)
         lenient().when(constraintSorter.sort(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(inv -> inv.getArgument(0));
 
         planner = new ItineraryRoutePlanner(
-                routesClient,
-                openAiRouteAdvisor,
                 constraintSorter,
-                placeGraphEdgeService
+                placeStyleRelationService
         );
     }
 
@@ -156,7 +135,7 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t4 중복되지 않는 여행 스타일 N개 입력 시 지리 우선 코스 포함 N+1개의 옵션을 반환한다")
+    @DisplayName("t4 여행 스타일 입력 시 맞춤 추천과 지리·스타일별 코스를 반환한다")
     void t4_multiStyleProducesGeoFirstPlusStyleOptions() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
@@ -169,9 +148,8 @@ class ItineraryRoutePlannerTest {
 
         var options = planner.planMulti(days, places, styles, TripScheduleSettings.defaultSettings());
 
-        // 이 픽스처에서는 경로가 중복되지 않으므로 지리 우선 1개 + 스타일 2개 = 3개
-        assertThat(options).hasSize(3);
-        assertThat(options.get(0).routeLabel()).isEqualTo("지리 최적 코스");
+        assertThat(options).hasSize(4);
+        assertThat(options.get(0).routeLabel()).isEqualTo("맞춤 추천 코스");
         assertThat(options).extracting(opt -> opt.routeLabel())
                 .allMatch(label -> label.endsWith("코스"));
         assertThat(options).extracting(opt -> opt.routeLabel())
@@ -209,11 +187,17 @@ class ItineraryRoutePlannerTest {
         Set<TravelStyle> styles = Set.of(TravelStyle.FOOD);
 
         var options = planner.planMulti(days, places, styles, TripScheduleSettings.defaultSettings());
-        assertThat(options).hasSize(2);
-
-        var geoDay1 = options.get(0).plan().days().get(0).items().stream()
+        var geoOption = options.stream()
+                .filter(option -> option.routeLabel().equals("지리 최적 코스"))
+                .findFirst()
+                .orElseThrow();
+        var styleOption = options.stream()
+                .filter(option -> option.routeLabel().startsWith("맛집"))
+                .findFirst()
+                .orElseThrow();
+        var geoDay1 = geoOption.plan().days().get(0).items().stream()
                 .map(i -> i.placeName()).toList();
-        var styleDay1 = options.get(1).plan().days().get(0).items().stream()
+        var styleDay1 = styleOption.plan().days().get(0).items().stream()
                 .map(i -> i.placeName()).toList();
 
         // 두 옵션의 Day1 구성이 달라야 한다
@@ -436,35 +420,31 @@ class ItineraryRoutePlannerTest {
 
         assertThat(options).hasSize(1);
         assertThat(options.getFirst().routeLabel())
-                .isEqualTo("지리 최적 코스");
+                .isEqualTo("맞춤 추천 코스");
     }
 
     @Test
-    @DisplayName("t14 AI 동선 추천이 성공하면 제안한 Day 배치와 순서를 첫 번째 코스에 반영한다")
-    void t14_planMultiAppliesAiRecommendedOrderFirst() {
+    @DisplayName("t14 저장된 스타일 관계 점수가 높은 장소를 맞춤 코스 앞쪽에 배치한다")
+    void t14_planMultiAppliesRelationPriorityFirst() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
                 tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
                 tripPlace(11L, "장소 B", PlaceCategoryType.ATTRACTION, 33.55, 126.60),
                 tripPlace(12L, "장소 C", PlaceCategoryType.ATTRACTION, 33.65, 126.70)
         );
-        when(openAiRouteAdvisor.recommend(days, places, Set.of()))
-                .thenReturn(Optional.of(new OpenAiRouteAdvisor.Recommendation(
-                        "AI가 이동 거리와 장소 구성을 고려해 정리했어요.",
-                        List.of(List.of(12L, 10L), List.of(11L))
-                )));
+        Set<TravelStyle> styles = Set.of(TravelStyle.FAMOUS_ATTRACTIONS);
+        when(placeStyleRelationService.resolveCompatibilities(places, styles))
+                .thenReturn(Map.of(12L, 0.9, 10L, 0.8, 11L, 0.1));
 
-        var options = planner.planMulti(days, places, Set.of(), TripScheduleSettings.defaultSettings());
+        var options = planner.planMulti(days, places, styles, TripScheduleSettings.defaultSettings());
 
-        assertThat(options.getFirst().routeLabel()).isEqualTo("AI 추천 코스");
-        assertThat(options.getFirst().plan().summary())
-                .isEqualTo("AI가 이동 거리와 장소 구성을 고려해 정리했어요.");
+        assertThat(options.getFirst().routeLabel()).isEqualTo("맞춤 추천 코스");
         assertThat(options.getFirst().plan().days().getFirst().items())
                 .extracting(item -> item.tripPlaceId())
-                .containsExactly(12L, 10L);
+                .containsExactly(12L, 11L);
         assertThat(options.getFirst().plan().days().get(1).items())
                 .extracting(item -> item.tripPlaceId())
-                .containsExactly(11L);
+                .containsExactly(10L);
     }
 
     @Test
@@ -529,19 +509,12 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t17 장소 그래프에 경로가 있으면 Routes API 호출 없이 이동 정보를 사용한다")
-    void t17_graphEdgeAvoidsRoutesApiCall() {
+    @DisplayName("t17 동선 미리보기는 좌표 기반 예상 이동 정보를 계산한다")
+    void t17_previewEstimatesTravelFromCoordinates() {
         List<TripPlace> places = List.of(
                 tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
                 tripPlace(11L, "장소 B", PlaceCategoryType.ATTRACTION, 33.46, 126.51)
         );
-        when(placeGraphEdgeService.find(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()
-        )).thenReturn(Optional.of(
-                new PlaceGraphEdgeService.CachedRoute(2400, 11)
-        ));
 
         RoutePlanPreviewResponse result = planner.plan(
                 List.of(day(1L, 1)),
@@ -549,52 +522,28 @@ class ItineraryRoutePlannerTest {
         );
 
         assertThat(result.days().getFirst().items().getFirst().transportMeters())
-                .isEqualTo(2400);
+                .isPositive();
         assertThat(result.days().getFirst().items().getFirst().transportMinutes())
-                .isEqualTo(11);
-        org.mockito.Mockito.verifyNoInteractions(routesClient);
+                .isPositive();
     }
 
     @Test
-    @DisplayName("t18 장소 그래프 저장이 실패해도 조회한 경로로 동선을 생성한다")
-    void t18_graphCacheFailureDoesNotBreakRoutePlan() {
+    @DisplayName("t18 여러 추천 옵션은 장소 관계 점수를 한 번만 일괄 조회한다")
+    void t18_multiOptionsResolveRelationScoresOnce() {
         List<TripPlace> places = List.of(
                 tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
                 tripPlace(11L, "장소 B", PlaceCategoryType.ATTRACTION, 33.46, 126.51)
         );
-        when(routesClient.getRouteInfo(
-                anyDouble(),
-                anyDouble(),
-                anyDouble(),
-                anyDouble(),
-                anyString(),
-                nullable(String.class),
-                nullable(java.time.Instant.class)
-        )).thenReturn(Optional.of(new GoogleRoutesClient.RouteInfo(
-                2300,
-                12,
-                "자동차",
-                null
-        )));
-        org.mockito.Mockito.doThrow(new IllegalStateException("cache unavailable"))
-                .when(placeGraphEdgeService)
-                .cache(
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.anyInt(),
-                        org.mockito.ArgumentMatchers.anyInt()
-                );
+        Set<TravelStyle> styles = Set.of(TravelStyle.FAMOUS_ATTRACTIONS);
 
-        RoutePlanPreviewResponse result = planner.plan(
+        planner.planMulti(
                 List.of(day(1L, 1)),
-                places
+                places,
+                styles,
+                TripScheduleSettings.defaultSettings()
         );
 
-        assertThat(result.days().getFirst().items().getFirst().transportMeters())
-                .isEqualTo(2300);
-        assertThat(result.days().getFirst().items().getFirst().transportMinutes())
-                .isEqualTo(12);
+        verify(placeStyleRelationService).resolveCompatibilities(places, styles);
     }
 
     @Test
@@ -672,8 +621,8 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t21 AI가 만든 Day 묶음을 날짜별 출발지와 가까운 Day에 배정한다")
-    void t21_aiClustersAreAlignedWithEachDayDeparture() {
+    @DisplayName("t21 관계 점수로 만든 Day 묶음을 날짜별 출발지와 가까운 Day에 배정한다")
+    void t21_relationClustersAreAlignedWithEachDayDeparture() {
         ItineraryDay northDay = day(1L, 1);
         northDay.updateDeparture(
                 "CUSTOM",
@@ -696,19 +645,19 @@ class ItineraryRoutePlannerTest {
                 tripPlace(12L, "남쪽 장소 A", PlaceCategoryType.ATTRACTION, 33.21, 126.21),
                 tripPlace(13L, "남쪽 장소 B", PlaceCategoryType.ATTRACTION, 33.22, 126.22)
         );
-        when(openAiRouteAdvisor.recommend(
-                List.of(northDay, southDay),
-                places,
-                Set.of()
-        )).thenReturn(Optional.of(new OpenAiRouteAdvisor.Recommendation(
-                "AI가 장소를 지역별로 묶었어요.",
-                List.of(List.of(12L, 13L), List.of(10L, 11L))
-        )));
+        Set<TravelStyle> styles = Set.of(TravelStyle.FAMOUS_ATTRACTIONS);
+        when(placeStyleRelationService.resolveCompatibilities(places, styles))
+                .thenReturn(Map.of(
+                        12L, 0.9,
+                        10L, 0.8,
+                        13L, 0.7,
+                        11L, 0.6
+                ));
 
         RoutePlanPreviewResponse result = planner.planMulti(
                 List.of(northDay, southDay),
                 places,
-                Set.of(),
+                styles,
                 TripScheduleSettings.defaultSettings()
         ).getFirst().plan();
 
