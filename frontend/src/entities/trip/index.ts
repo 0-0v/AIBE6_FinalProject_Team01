@@ -72,5 +72,6 @@ export {
     updateDayDeparture,
     previewItineraryRoutePlan,
     applyItineraryRoutePlan,
+    applyItineraryRoutePlanDay,
 } from './api/itineraryApi'
 export type { RoutePlanSettings } from './api/itineraryApi'

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import {
     applyItineraryRoutePlan,
+    applyItineraryRoutePlanDay,
     initializeItinerary,
     previewItineraryRoutePlan,
     updateDayDeparture,
@@ -199,6 +200,7 @@ export function AiAgentPanel({
     const [applied, setApplied] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [resolvedDays, setResolvedDays] = useState(days)
+    const [targetDayId, setTargetDayId] = useState<number | null>(null)
     const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => {
@@ -214,6 +216,7 @@ export function AiAgentPanel({
         settings?: RoutePlanSettings,
         departureChanges?: DepartureChange[],
     ) {
+        setTargetDayId(settings?.dayId ?? null)
         setShowSettings(false)
         setLoading(true)
         setShowSuccess(false)
@@ -265,8 +268,14 @@ export function AiAgentPanel({
         setApplying(true)
         setError(null)
         try {
-            const days = await applyItineraryRoutePlan(tripId, preview)
-            onApplied(days)
+            const appliedDays = targetDayId
+                ? await applyItineraryRoutePlanDay(
+                      tripId,
+                      targetDayId,
+                      preview,
+                  )
+                : await applyItineraryRoutePlan(tripId, preview)
+            onApplied(appliedDays)
             setApplied(true)
             closeTimerRef.current = setTimeout(onClose, 1000)
         } catch (requestError) {
@@ -283,7 +292,7 @@ export function AiAgentPanel({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose()
             }}
@@ -427,7 +436,9 @@ export function AiAgentPanel({
                                 )}
                                 {applying
                                     ? '적용 중...'
-                                    : '이 동선으로 일정 만들기'}
+                                    : targetDayId
+                                      ? '선택한 Day만 재배치하기'
+                                      : '이 동선으로 일정 만들기'}
                             </button>
                         )}
                         <button
@@ -437,7 +448,7 @@ export function AiAgentPanel({
                             className="mt-2 flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-600"
                         >
                             <RotateCcwIcon size={12} />
-                            다시 분석하기
+                            다시 추천받기
                         </button>
                     </footer>
                 )}
