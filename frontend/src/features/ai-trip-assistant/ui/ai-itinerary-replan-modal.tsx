@@ -310,7 +310,15 @@ export function AiItineraryReplanModal({
                 if (event.target === event.currentTarget) onClose()
             }}
         >
-            <section className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgb(var(--rgb-app-ink)/0.24)]">
+            <section className="relative flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgb(var(--rgb-app-ink)/0.24)]">
+                {applying && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/85 text-center backdrop-blur-sm">
+                        <AnalysisStatusAnimation phase="loading" />
+                        <p className="text-sm font-extrabold text-slate-700">
+                            선택한 재배치안을 일정에 반영하고 있어요
+                        </p>
+                    </div>
+                )}
                 <header className="flex items-start justify-between gap-4 bg-gradient-to-br from-[var(--color-brand-surface-soft)] via-white to-[var(--color-brand-surface-subtle)] px-6 py-5">
                     <div className="flex min-w-0 items-start gap-4">
                         <AiBrandMark />
