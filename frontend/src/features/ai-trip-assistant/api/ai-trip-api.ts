@@ -3,20 +3,31 @@ import type {
     RoutePlanPreview,
     ItineraryDay,
 } from '@/entities/trip'
-import { apiClient, type ApiResponse } from '@/shared/api/client'
+import {
+    apiClient,
+    getAccessToken,
+    restoreSession,
+    type ApiResponse,
+} from '@/shared/api/client'
 import type { AiPlaceRecommendation } from '../model/types'
 
 export async function recommendPlacesAlongRoute(
     tripId: number,
     input: {
         dayId: number
-        fromTripPlaceId: number
-        toTripPlaceId: number
+        fromTripPlaceId: number | null
+        toTripPlaceId: number | null
         category: string
         prompt: string
         limit?: number
     },
 ): Promise<AiPlaceRecommendation[]> {
+    if (!getAccessToken()) {
+        const restoredToken = await restoreSession()
+        if (!restoredToken) {
+            throw new Error('로그인 세션을 확인할 수 없습니다. 다시 로그인해 주세요.')
+        }
+    }
     const response = await apiClient.post<ApiResponse<AiPlaceRecommendation[]>>(
         `/api/trips/${tripId}/ai/place-recommendations`,
         input,
