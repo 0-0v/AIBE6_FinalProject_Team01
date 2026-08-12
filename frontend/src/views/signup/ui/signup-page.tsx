@@ -10,8 +10,13 @@ import {
     PasswordField,
     sendVerificationCode,
     signup,
+    useEmailVerificationCooldown,
 } from '@/features/local-auth'
-import { getApiErrorCode, getApiErrorMessage } from '@/shared/api/client'
+import {
+    getApiErrorCode,
+    getApiErrorMessage,
+    getApiRetryAfterSeconds,
+} from '@/shared/api/client'
 import { BrandLogo } from '@/shared/ui'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -26,12 +31,15 @@ export function SignupPage() {
     const [codeSent, setCodeSent] = useState(false)
     const [verified, setVerified] = useState(false)
     const [message, setMessage] = useState('')
+    const [codeError, setCodeError] = useState('')
     const [emailError, setEmailError] = useState('')
     const [nicknameError, setNicknameError] = useState('')
     const [checkedNickname, setCheckedNickname] = useState('')
     const [passwordError, setPasswordError] = useState('')
     const [passwordConfirmError, setPasswordConfirmError] = useState('')
     const [busy, setBusy] = useState(false)
+    const { formattedRemaining, isCoolingDown, startCooldown } =
+        useEmailVerificationCooldown()
 
     async function handleSendCode() {
         if (!emailPattern.test(email)) {
@@ -39,13 +47,20 @@ export function SignupPage() {
             return
         }
         setEmailError('')
+        setCodeError('')
         setBusy(true)
         try {
             await sendVerificationCode(email, 'SIGNUP')
             setCodeSent(true)
             setVerified(false)
-            setMessage('인증번호를 전송했습니다.')
+            startCooldown()
+            setMessage('')
         } catch (error) {
+            if (getApiErrorCode(error) === 'AUTH_429_EMAIL_VERIFICATION') {
+                setCodeSent(true)
+                setCode('')
+                startCooldown(getApiRetryAfterSeconds(error))
+            }
             setEmailError(
                 getApiErrorMessage(error, '인증번호 전송에 실패했습니다.'),
             )
@@ -56,7 +71,7 @@ export function SignupPage() {
 
     async function handleVerifyCode() {
         if (!/^\d{6}$/.test(code)) {
-            setMessage('인증번호 6자리를 입력해 주세요.')
+            setCodeError('인증번호 6자리를 입력해 주세요.')
             return
         }
         setBusy(true)
@@ -64,9 +79,12 @@ export function SignupPage() {
             await confirmVerificationCode(email, code, 'SIGNUP')
             setVerified(true)
             setEmailError('')
+            setCodeError('')
             setMessage('')
         } catch (error) {
-            setMessage(getApiErrorMessage(error, '이메일 인증에 실패했습니다.'))
+            setCodeError(
+                getApiErrorMessage(error, '이메일 인증에 실패했습니다.'),
+            )
         } finally {
             setBusy(false)
         }
@@ -133,6 +151,7 @@ export function SignupPage() {
                 setVerified(false)
                 setCodeSent(false)
                 setCode('')
+                setCodeError('')
                 setEmailError(
                     '이메일 인증이 만료되었습니다. 다시 인증해 주세요.',
                 )
@@ -171,11 +190,12 @@ export function SignupPage() {
                             }`}
                             type="email"
                             value={email}
-                            disabled={verified}
+                            disabled={codeSent || verified}
                             onChange={(e) => {
                                 setEmail(e.target.value)
                                 setEmailError('')
                                 setMessage('')
+                                setCodeError('')
                                 setCode('')
                                 setCodeSent(false)
                             }}
@@ -185,11 +205,15 @@ export function SignupPage() {
                         />
                         <button
                             type="button"
-                            disabled={busy || verified}
+                            disabled={busy || verified || isCoolingDown}
                             onClick={handleSendCode}
                             className="rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white disabled:opacity-50"
                         >
-                            인증 요청
+                            {isCoolingDown
+                                ? `재전송 ${formattedRemaining}`
+                                : codeSent
+                                  ? '인증번호 재전송'
+                                  : '인증 요청'}
                         </button>
                     </div>
                     {(emailError || verified) && (
@@ -202,16 +226,30 @@ export function SignupPage() {
                             {emailError || '인증되었습니다.'}
                         </p>
                     )}
+                    {codeSent && !verified && !emailError && (
+                        <p className="mt-1.5 text-xs font-normal text-slate-600">
+                            인증번호가 전송되었습니다.
+                        </p>
+                    )}
                 </Field>
                 {codeSent && !verified && (
                     <Field label="인증번호">
                         <div className="flex gap-2">
                             <input
-                                className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3"
+                                className={`min-w-0 flex-1 rounded-xl border px-4 py-3 ${
+                                    codeError
+                                        ? 'border-red-400'
+                                        : 'border-slate-300'
+                                }`}
                                 inputMode="numeric"
                                 maxLength={6}
                                 value={code}
-                                onChange={(e) => setCode(e.target.value)}
+                                onChange={(e) => {
+                                    setCode(e.target.value)
+                                    setCodeError('')
+                                }}
+                                aria-invalid={Boolean(codeError)}
+                                aria-describedby="signup-code-error"
                             />
                             <button
                                 type="button"
@@ -222,6 +260,14 @@ export function SignupPage() {
                                 확인
                             </button>
                         </div>
+                        {codeError && (
+                            <p
+                                id="signup-code-error"
+                                className="mt-1.5 text-xs font-normal text-red-600"
+                            >
+                                {codeError}
+                            </p>
+                        )}
                     </Field>
                 )}
                 <Field label="닉네임">

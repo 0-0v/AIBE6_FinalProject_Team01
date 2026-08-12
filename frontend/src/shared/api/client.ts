@@ -149,6 +149,18 @@ export function getApiErrorCode(error: unknown): string | null {
     return null
 }
 
+export function getApiRetryAfterSeconds(error: unknown): number | null {
+    if (
+        typeof error === 'object' &&
+        error !== null &&
+        'retryAfterSeconds' in error &&
+        typeof error.retryAfterSeconds === 'number'
+    ) {
+        return error.retryAfterSeconds
+    }
+    return null
+}
+
 async function request<T>(
     path: string,
     init?: RequestInit,
@@ -193,13 +205,24 @@ async function request<T>(
         const errorBody = await res.json().catch(() => ({}))
         const error = Object.assign(
             new Error(errorBody.message ?? res.statusText),
-            { status: res.status, data: errorBody },
+            {
+                status: res.status,
+                data: errorBody,
+                retryAfterSeconds: parseRetryAfter(res.headers),
+            },
         )
         throw error
     }
 
     if (res.status === 204) return undefined as T
     return res.json() as Promise<T>
+}
+
+function parseRetryAfter(headers: Headers): number | null {
+    const value = headers.get('Retry-After')
+    if (!value) return null
+    const seconds = Number(value)
+    return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null
 }
 
 export const apiClient = {
