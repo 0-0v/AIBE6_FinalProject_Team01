@@ -1,6 +1,7 @@
 package back.backend.domain.agent.dto.request;
 
 public enum AiReplanReason {
+    ROUTE_OPTIMIZATION("동선 최적화", 0),
     BUSINESS_HOURS("영업시간 변경", 0),
     WEATHER("날씨 문제", 60),
     TEMPORARY_CLOSURE("임시 휴무", 0),

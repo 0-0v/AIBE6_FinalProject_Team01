@@ -93,4 +93,17 @@ public class AiReplanCutoffPolicy {
                 .sorted(Comparator.comparing(ItineraryDay::getItineraryDate))
                 .toList();
     }
+
+    public Set<Long> movableItemIdsForDay(
+            List<ItineraryDay> days,
+            LocalDateTime now,
+            Long dayId
+    ) {
+        return days.stream()
+                .filter(day -> Objects.equals(day.getId(), dayId))
+                .flatMap(day -> day.getItems().stream()
+                        .filter(item -> !isFixed(day, item, now)))
+                .map(ItineraryItem::getId)
+                .collect(Collectors.toSet());
+    }
 }

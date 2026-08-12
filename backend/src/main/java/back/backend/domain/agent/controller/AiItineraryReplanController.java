@@ -47,4 +47,19 @@ public class AiItineraryReplanController {
     ) {
         return ApiResponse.success(replanService.apply(tripId, plan));
     }
+
+    @PostMapping("/days/{dayId}/apply")
+    @Operation(
+            summary = "AI 하루 일정 재배치 적용",
+            description = "선택한 Day의 장소 구성만 검증하고 재배치하며 다른 Day는 변경하지 않습니다."
+    )
+    public ApiResponse<List<ItineraryDayResponse>> applySingleDay(
+            @PathVariable Long tripId,
+            @PathVariable Long dayId,
+            @RequestBody @Valid RoutePlanPreviewResponse plan
+    ) {
+        return ApiResponse.success(
+                replanService.applySingleDay(tripId, dayId, plan)
+        );
+    }
 }
