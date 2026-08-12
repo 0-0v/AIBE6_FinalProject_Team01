@@ -60,7 +60,7 @@ function mapApiComment(comment: PlaceCommentResponse) {
     }
 }
 
-export type TripRoomMode = 'plan' | 'record'
+export type TripRoomMode = 'plan' | 'record' | 'bookmark'
 
 function median(values: number[]) {
     const sorted = [...values].sort((a, b) => a - b)

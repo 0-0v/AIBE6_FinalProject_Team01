@@ -46,6 +46,7 @@ import {
 import {
     MapCanvas,
     RecordRoomPanel,
+    BookmarkRoomPanel,
     RoomDetailPanel,
     RoomListPanel,
     type TripRoomMode,
@@ -82,6 +83,8 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     } = useTripStore()
     const showRoomList = !inviteCode && !roomId
     const isRecordMode = mode === 'record' && Boolean(roomId)
+    const isBookmarkMode = mode === 'bookmark' && Boolean(roomId)
+    const isWideMode = isRecordMode || isBookmarkMode
     const effectiveRoomId = roomId ?? activeTripId
     const room = inviteCode
         ? guestRoom
@@ -698,7 +701,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         delay: room ? 0.08 : 0,
                     }}
                     className={`relative min-h-[360px] min-w-0 flex-1 overflow-hidden transition-[flex,opacity] duration-300 ease-out ${
-                        isRecordMode ? 'hidden' : ''
+                        isWideMode ? 'hidden' : ''
                     } ${
                         room
                             ? 'rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.08)]'
@@ -776,13 +779,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         delay: room ? 0.13 : 0,
                     }}
                     className={`@container relative flex min-h-0 shrink-0 flex-col ${
-                        isRecordMode
+                        isWideMode
                             ? 'w-full max-w-none flex-1 overflow-visible bg-transparent'
                             : mapCollapsed
                               ? 'w-full flex-1 overflow-hidden border border-slate-200 bg-white'
                               : 'min-w-[360px] max-w-[calc(100%-360px)] flex-none overflow-hidden border border-slate-200 bg-white'
                     } ${
-                        room && !isRecordMode
+                        room && !isWideMode
                             ? 'rounded-3xl shadow-[0_14px_36px_rgb(var(--rgb-app-ink)/0.10)]'
                             : !room
                               ? 'shadow-[-10px_0_28px_rgb(var(--rgb-app-navy)/0.10)]'
@@ -794,12 +797,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                     }`}
                     style={{
                         width:
-                            !isRecordMode && !mapCollapsed
+                            !isWideMode && !mapCollapsed
                                 ? resolvedPanelWidth
                                 : undefined,
                     }}
                 >
-                    {!isRecordMode && (
+                    {!isWideMode && (
                         <div
                             role="separator"
                             aria-label="여행방 패널 너비 조절"
@@ -850,7 +853,14 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                 ease: [0.22, 1, 0.36, 1],
                             }}
                         >
-                            {room && isRecordMode ? (
+                            {room && isBookmarkMode ? (
+                                <BookmarkRoomPanel
+                                    tripId={tripId!}
+                                    onOpen={(cardId) =>
+                                        navigate(`/app/explore/${cardId}`)
+                                    }
+                                />
+                            ) : room && isRecordMode ? (
                                 <RecordRoomPanel
                                     room={room}
                                     places={displayedPlaces}

@@ -125,6 +125,10 @@ function AppShell() {
                             path="room/:roomId/record"
                             element={<TripRoom mode="record" />}
                         />
+                        <Route
+                            path="room/:roomId/bookmark"
+                            element={<TripRoom mode="bookmark" />}
+                        />
                         <Route path="room/:roomId?" element={<TripRoom />} />
                         <Route
                             path="room/invite/:inviteCode"
