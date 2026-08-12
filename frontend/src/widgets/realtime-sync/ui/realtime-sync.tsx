@@ -8,6 +8,7 @@ import { markTripPresence, useTripStore } from '@/features/manage-trip'
 import {
     type TripAwarenessEvent,
     type TripAwarenessPayload,
+    safeStompPublish,
     useTripAwarenessStore,
 } from '@/features/trip-awareness'
 import {
@@ -43,6 +44,7 @@ function parseActiveTripId(value: string | null) {
 
 export function RealtimeSync() {
     const handledEventIds = useRef(new Set<string>())
+    const activeClientRef = useRef<Client | null>(null)
     const [accessTokenVersion, setAccessTokenVersion] = useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const currentUserId = currentUser?.id ?? null
@@ -144,6 +146,12 @@ export function RealtimeSync() {
             useTripAwarenessStore.getState().receive(event)
         }
 
+        const markDisconnected = () => {
+            if (activeClientRef.current !== client) return
+            useRealtimeStore.getState().setConnected(false)
+            useTripAwarenessStore.getState().setPublisher(null)
+        }
+
         const client = new Client({
             brokerURL: websocketUrl(),
             connectHeaders: { Authorization: `Bearer ${token}` },
@@ -153,6 +161,7 @@ export function RealtimeSync() {
             heartbeatIncoming: 10_000,
             heartbeatOutgoing: 10_000,
             onConnect: () => {
+                if (activeClientRef.current !== client) return
                 useRealtimeStore.getState().setConnected(true)
                 client.subscribe(
                     '/user/queue/notifications',
@@ -166,19 +175,23 @@ export function RealtimeSync() {
                         handleTripAwareness,
                     )
                     const publisher = (payload: TripAwarenessPayload) => {
-                        client.publish({
-                            destination: `/app/trip-awareness/${tripId}`,
-                            body: JSON.stringify(payload),
-                        })
+                        const published = safeStompPublish(
+                            client,
+                            `/app/trip-awareness/${tripId}`,
+                            JSON.stringify(payload),
+                        )
+                        if (!published) markDisconnected()
                     }
                     useTripAwarenessStore.getState().setPublisher(publisher)
                 }
             },
-            onDisconnect: () => useRealtimeStore.getState().setConnected(false),
-            onWebSocketClose: () =>
-                useRealtimeStore.getState().setConnected(false),
+            onDisconnect: markDisconnected,
+            onStompError: markDisconnected,
+            onWebSocketClose: markDisconnected,
+            onWebSocketError: markDisconnected,
         })
 
+        activeClientRef.current = client
         client.activate()
         const pruneIntervalId = window.setInterval(
             () => useTripAwarenessStore.getState().pruneExpired(),
@@ -186,11 +199,14 @@ export function RealtimeSync() {
         )
         return () => {
             window.clearInterval(pruneIntervalId)
-            useRealtimeStore.getState().setConnected(false)
-            useTripAwarenessStore.getState().setPublisher(null)
+            if (activeClientRef.current === client) {
+                activeClientRef.current = null
+                useRealtimeStore.getState().setConnected(false)
+                useTripAwarenessStore.getState().setPublisher(null)
+            }
             void client.deactivate()
         }
-    }, [activeTripId, currentUserId])
+    }, [accessTokenVersion, activeTripId, currentUserId])
 
     return null
 }
