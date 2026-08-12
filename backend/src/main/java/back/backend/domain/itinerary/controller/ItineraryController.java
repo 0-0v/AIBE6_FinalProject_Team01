@@ -128,4 +128,16 @@ public class ItineraryController {
     ) {
         return ApiResponse.success(itineraryService.applyRoutePlan(tripId, plan));
     }
+
+    @PostMapping("/route-plan/days/{dayId}/apply")
+    @io.swagger.v3.oas.annotations.Operation(summary = "선택한 날짜의 동선 초안 적용")
+    public ApiResponse<List<ItineraryDayResponse>> applyRoutePlanDay(
+            @PathVariable Long tripId,
+            @PathVariable Long dayId,
+            @RequestBody @Valid RoutePlanPreviewResponse plan
+    ) {
+        return ApiResponse.success(
+                itineraryService.applyRoutePlanDay(tripId, dayId, plan)
+        );
+    }
 }

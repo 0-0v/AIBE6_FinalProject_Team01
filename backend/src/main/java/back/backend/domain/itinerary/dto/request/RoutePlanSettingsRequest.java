@@ -8,5 +8,6 @@ public record RoutePlanSettingsRequest(
         String transportMode,
         String dayStartTime,
         String dayEndTime,
-        String travelPace
+        String travelPace,
+        Long dayId
 ) {}
