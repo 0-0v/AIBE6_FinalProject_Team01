@@ -11,3 +11,4 @@ export type {
     TripMapViewport,
 } from './model/trip-awareness-store'
 export { usePublishTripAwareness } from './model/use-publish-trip-awareness'
+export { safeStompPublish } from './model/safe-stomp-publish'
