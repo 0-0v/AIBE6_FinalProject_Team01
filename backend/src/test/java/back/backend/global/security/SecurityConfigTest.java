@@ -24,6 +24,7 @@ class SecurityConfigTest {
         assertThat(configuration).isNotNull();
         assertThat(configuration.getAllowedOrigins()).containsExactly("https://plamingo.example");
         assertThat(configuration.getAllowedMethods()).contains("GET", "POST", "PATCH", "DELETE");
+        assertThat(configuration.getExposedHeaders()).contains("Retry-After");
         assertThat(configuration.getAllowCredentials()).isTrue();
     }
 }

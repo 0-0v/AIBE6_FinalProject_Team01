@@ -76,6 +76,7 @@ app:
     email:
       from: ${BREVO_FROM_EMAIL:}
       code-expiration: ${EMAIL_VERIFICATION_CODE_EXPIRATION:5m}
+      resend-cooldown: ${EMAIL_VERIFICATION_RESEND_COOLDOWN:5m}
       verified-expiration: ${EMAIL_VERIFICATION_VERIFIED_EXPIRATION:10m}
       admin-otp-expiration: ${ADMIN_OTP_EXPIRATION:5m}
       admin-otp-resend-interval: ${ADMIN_OTP_RESEND_INTERVAL:60s}
