@@ -164,19 +164,19 @@ export function PlaceSidebar({
     return (
         <aside
             ref={setNodeRef}
-            className={`flex w-56 shrink-0 flex-col border-r bg-slate-50 transition ${
+            className={`flex w-56 shrink-0 flex-col bg-white transition ${
                 isOver
-                    ? 'border-brand bg-brand/10 ring-2 ring-inset ring-brand/30'
-                    : 'border-slate-100'
+                    ? 'border-r-2 border-brand bg-brand/10 ring-2 ring-inset ring-brand/30'
+                    : 'border-r-2 border-slate-300'
             }`}
         >
             {/* 헤더 */}
-            <div className="shrink-0 border-b border-slate-100 px-3 py-2.5">
+            <div className="shrink-0 border-b border-brand-100 bg-brand-50 px-3 py-2.5">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
                         저장된 장소
                     </span>
-                    <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                    <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
                         {places.length}
                     </span>
                 </div>

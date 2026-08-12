@@ -432,7 +432,7 @@ export function RoomDetailPanel({
                 <div className="mb-3.5 flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2">
                         <div className="min-w-0">
-                            <h2 className="text-[22px] font-black leading-8 tracking-tight text-slate-900">
+                            <h2 className="text-2xl font-black leading-8 tracking-tight text-slate-900">
                                 Plan
                             </h2>
                             <p className="mt-1 text-xs leading-5 text-slate-400">
