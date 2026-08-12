@@ -5,7 +5,6 @@ import {
     MapPinIcon,
     PlusIcon,
     SearchIcon,
-    SparklesIcon,
     XIcon,
 } from 'lucide-react'
 import {
@@ -326,8 +325,13 @@ export function PlaceVotePanel({
                     >
                         <header className="flex items-start justify-between bg-gradient-to-br from-brand-50 via-white to-rose-50 px-6 py-5">
                             <div>
-                                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-white shadow-sm">
-                                    <SparklesIcon size={19} />
+                                <div className="mb-2 flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-rose-100 bg-rose-50 shadow-sm">
+                                    <img
+                                        src="/plamingo-badge.svg"
+                                        alt=""
+                                        aria-hidden="true"
+                                        className="h-9 w-9 object-contain"
+                                    />
                                 </div>
                                 <h2
                                     id="create-place-vote-title"
