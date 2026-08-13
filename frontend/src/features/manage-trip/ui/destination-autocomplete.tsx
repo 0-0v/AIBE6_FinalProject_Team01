@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { MapPinIcon } from 'lucide-react'
 import { useMapsLibrary } from '@vis.gl/react-google-maps'
 import { useDebounce } from '@/shared/lib/use-debounce'
-import { fetchDestinationMetadata } from '../api/destination-api'
 
 export type DestinationResult = {
     name: string
@@ -160,19 +159,11 @@ export function DestinationAutocomplete({
             const countryCode = place.addressComponents?.find((component) =>
                 component.types.includes('country'),
             )?.shortText
-            const metadata = await fetchDestinationMetadata(
-                prediction.placeId,
-            ).catch(() => null)
-
             onChange(
                 {
                     name: prediction.mainText.text,
-                    englishName:
-                        metadata?.englishName ?? prediction.mainText.text,
-                    countryCode:
-                        metadata?.countryCode ??
-                        countryCode?.toUpperCase() ??
-                        null,
+                    englishName: prediction.mainText.text,
+                    countryCode: countryCode?.toUpperCase() ?? null,
                     lat: loc.lat(),
                     lng: loc.lng(),
                 },

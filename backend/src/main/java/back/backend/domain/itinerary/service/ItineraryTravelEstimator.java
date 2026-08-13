@@ -4,6 +4,7 @@ import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryItem;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.place.entity.TripPlace;
+import back.backend.domain.place.service.GooglePlaceContentRefreshService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,7 @@ import java.time.ZoneId;
 public class ItineraryTravelEstimator {
 
     private final GoogleRoutesClient routesClient;
+    private final GooglePlaceContentRefreshService googlePlaceContentRefreshService;
 
     public void recalculate(
             List<ItineraryItem> itineraryItems,
@@ -149,6 +151,11 @@ public class ItineraryTravelEstimator {
             ItineraryTransportMode transportMode,
             boolean manual
     ) {
+        if (!googlePlaceContentRefreshService.ensureFresh(currentPlace.getPlace())
+                || !googlePlaceContentRefreshService.ensureFresh(nextPlace.getPlace())) {
+            item.updateTravelInformation(null, null, null);
+            return;
+        }
         var routeInfo = routesClient.getRouteInfo(
                 currentPlace.getPlace().getLatitude().doubleValue(),
                 currentPlace.getPlace().getLongitude().doubleValue(),
@@ -214,6 +221,11 @@ public class ItineraryTravelEstimator {
 
         TripPlace firstPlace = tripPlaceById.get(firstItem.getTripPlaceId());
         if (firstPlace == null) {
+            day.updateDepartureTravelInfo(null, null, null);
+            return;
+        }
+
+        if (!googlePlaceContentRefreshService.ensureFresh(firstPlace.getPlace())) {
             day.updateDepartureTravelInfo(null, null, null);
             return;
         }

@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.PrePersist;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -49,4 +50,21 @@ public class MapPin {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "google_content_fetched_at", nullable = false)
+    private LocalDateTime googleContentFetchedAt;
+
+    public void refreshGoogleContent(MapPin source) {
+        lat = source.lat;
+        lng = source.lng;
+        placeName = source.placeName;
+        googleContentFetchedAt = source.googleContentFetchedAt;
+    }
+
+    @PrePersist
+    void initializeGoogleContentFetchedAt() {
+        if (googleContentFetchedAt == null) {
+            googleContentFetchedAt = createdAt != null ? createdAt : LocalDateTime.now();
+        }
+    }
 }

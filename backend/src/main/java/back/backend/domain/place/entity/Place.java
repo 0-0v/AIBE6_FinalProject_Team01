@@ -49,6 +49,9 @@ public class Place {
     @Column(name = "opening_hours_json", columnDefinition = "TEXT")
     private String openingHoursJson;
 
+    @Column(name = "google_content_fetched_at", nullable = false)
+    private LocalDateTime googleContentFetchedAt;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -56,4 +59,20 @@ public class Place {
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public void refreshGoogleContent(Place source) {
+        name = source.name;
+        address = source.address;
+        latitude = source.latitude;
+        longitude = source.longitude;
+        placeType = source.placeType;
+        googleContentFetchedAt = source.googleContentFetchedAt;
+    }
+
+    @PrePersist
+    void initializeGoogleContentFetchedAt() {
+        if (googleContentFetchedAt == null) {
+            googleContentFetchedAt = LocalDateTime.now();
+        }
+    }
 }
