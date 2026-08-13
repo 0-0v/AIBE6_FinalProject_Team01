@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MapPinIcon } from 'lucide-react'
 import { useMapsLibrary } from '@vis.gl/react-google-maps'
 import { useDebounce } from '@/shared/lib/use-debounce'
+import { GoogleMapsProvider } from '@/app/providers/google-maps-provider'
 
 export type DestinationResult = {
     name: string
@@ -59,6 +60,16 @@ type Props = {
 }
 
 export function DestinationAutocomplete({
+    ...props
+}: Props) {
+    return (
+        <GoogleMapsProvider>
+            <DestinationAutocompleteContent {...props} />
+        </GoogleMapsProvider>
+    )
+}
+
+function DestinationAutocompleteContent({
     value,
     onChange,
     locked = false,

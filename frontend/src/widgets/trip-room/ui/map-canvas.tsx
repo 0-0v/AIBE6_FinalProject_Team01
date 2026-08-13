@@ -38,6 +38,7 @@ import { MapRouteLayer } from './map-route-layer'
 import { MapPinCommentBadge } from './map-pin-comment-badge'
 import { MapPinCommentSection } from './map-pin-comment-section'
 import type { TripMapViewport } from '@/features/trip-awareness'
+import { GoogleMapsProvider } from '@/app/providers/google-maps-provider'
 
 // POI 클릭 결과 세션 캐시 — 같은 장소 재클릭 시 API 호출 없음
 const pendingPoiRequests = new Map<string, Promise<PlaceSearchResult>>()
@@ -114,31 +115,33 @@ export function MapCanvas({
     }
 
     return (
-        <GoogleMapCanvas
-            places={places}
-            initialLat={initialLat}
-            initialLng={initialLng}
-            selectedId={selectedId}
-            focusRequestVersion={focusRequestVersion}
-            onSelect={onSelect}
-            onDeselect={onDeselect}
-            days={days}
-            initialRouteDay={initialRouteDay}
-            initialFocusedSegmentIndex={initialFocusedSegmentIndex}
-            routeOverview={routeOverview}
-            outlinedPlaceIds={outlinedPlaceIds}
-            onAddFromPoi={onAddFromPoi}
-            existingGooglePlaceIds={existingGooglePlaceIds}
-            canWrite={canWrite}
-            hoveredPlaceId={hoveredPlaceId}
-            onHoverPlace={onHoverPlace}
-            onRouteDayChange={onRouteDayChange}
-            tripId={tripId}
-            mapPins={mapPins}
-            onMapPinCommentAdded={onMapPinCommentAdded}
-            viewportFocusRequest={viewportFocusRequest}
-            onViewportChange={onViewportChange}
-        />
+        <GoogleMapsProvider>
+            <GoogleMapCanvas
+                places={places}
+                initialLat={initialLat}
+                initialLng={initialLng}
+                selectedId={selectedId}
+                focusRequestVersion={focusRequestVersion}
+                onSelect={onSelect}
+                onDeselect={onDeselect}
+                days={days}
+                initialRouteDay={initialRouteDay}
+                initialFocusedSegmentIndex={initialFocusedSegmentIndex}
+                routeOverview={routeOverview}
+                outlinedPlaceIds={outlinedPlaceIds}
+                onAddFromPoi={onAddFromPoi}
+                existingGooglePlaceIds={existingGooglePlaceIds}
+                canWrite={canWrite}
+                hoveredPlaceId={hoveredPlaceId}
+                onHoverPlace={onHoverPlace}
+                onRouteDayChange={onRouteDayChange}
+                tripId={tripId}
+                mapPins={mapPins}
+                onMapPinCommentAdded={onMapPinCommentAdded}
+                viewportFocusRequest={viewportFocusRequest}
+                onViewportChange={onViewportChange}
+            />
+        </GoogleMapsProvider>
     )
 }
 

@@ -34,6 +34,7 @@ import {
 import { formatTimeRange } from '../lib/itinerary-time'
 import { formatTransportSummary } from '../lib/itinerary-transport'
 import { MapTypeToggle, useMapDisplayType } from './map-type-toggle'
+import { GoogleMapsProvider } from '@/app/providers/google-maps-provider'
 import { ItineraryMapMarker } from './itinerary-map-marker'
 import { ItineraryRoutePolyline } from './itinerary-route-polyline'
 
@@ -818,7 +819,9 @@ export function KanbanMapPanel(props: Props) {
                             </p>
                         </div>
                     ) : (
-                        <MapContent {...props} />
+                        <GoogleMapsProvider>
+                            <MapContent {...props} />
+                        </GoogleMapsProvider>
                     )}
                 </div>
             )}
