@@ -107,6 +107,11 @@ public class ItineraryItem {
         }
     }
 
+    public void updateSchedule(LocalTime startTime, LocalTime endTime) {
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
+
     public void updateDetails(LocalTime startTime, LocalTime endTime, String memo,
                                Integer transportMinutes, Integer transportMeters,
                                String transportMode) {

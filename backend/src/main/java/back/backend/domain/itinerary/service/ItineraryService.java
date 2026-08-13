@@ -712,6 +712,7 @@ public class ItineraryService {
         if (!plannedItems.isEmpty()) {
             itemRepository.saveAllAndFlush(plannedItems);
             recalculateItems(plannedItems);
+            ItineraryScheduleShiftPolicy.alignAppliedPlanTimes(plannedItems);
         }
         recalculateDepartureTravelIfNeeded(targetDay, plannedItems);
         markDayDraft(targetDay);
@@ -1086,6 +1087,7 @@ public class ItineraryService {
             );
             if (!dayItems.isEmpty()) {
                 recalculateItems(dayItems);
+                ItineraryScheduleShiftPolicy.alignAppliedPlanTimes(dayItems);
             }
             recalculateDepartureTravelIfNeeded(day, dayItems);
         }
