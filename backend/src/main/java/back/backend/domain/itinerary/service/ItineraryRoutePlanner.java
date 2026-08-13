@@ -8,7 +8,7 @@ import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
-import back.backend.domain.place.service.PlaceStyleRelationService;
+import back.backend.domain.place.service.PlaceRelationService;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TravelPace;
 import lombok.RequiredArgsConstructor;
@@ -78,7 +78,7 @@ public class ItineraryRoutePlanner {
     );
 
     private final ConstraintSorter constraintSorter;
-    private final PlaceStyleRelationService placeStyleRelationService;
+    private final PlaceRelationService placeRelationService;
 
     /**
      * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
@@ -145,33 +145,41 @@ public class ItineraryRoutePlanner {
                 effectiveSettings
         );
 
-        if (!travelStyles.isEmpty()) {
-            Map<Long, Double> relationScores = placeStyleRelationService
-                    .resolveCompatibilities(eligibleTripPlaces, travelStyles);
-            List<List<TripPlace>> relationClusters = clusterByRelationPriority(
-                    eligibleTripPlaces,
-                    days.size(),
-                    relationScores
-            );
-            RoutePlanPreviewResponse relationPlan = buildResponseFromClusters(
-                    days,
-                    relationClusters,
-                    eligibleTripPlaces.size(),
-                    replanExplanation == null
-                            ? "저장된 장소 관계와 여행 스타일을 함께 반영한 맞춤 코스예요."
-                            : "변경 사유와 저장된 장소 관계를 반영해 일정을 다시 배치했습니다.",
-                    replanExplanation == null
-                            ? "저장된 장소의 스타일 관계 점수가 높은 순서와 이동 거리를 함께 고려했어요."
-                            : replanExplanation,
-                    effectiveSettings
-            );
-            if (routeSignatures.add(routeSignature(relationPlan))) {
-                options.add(new RoutePlanOption("맞춤 추천 코스", relationPlan));
-            }
+        // 관계 기반(공동 방문 이력 + 스타일 유사도) 맞춤 코스는 여행 스타일 선택 여부와 무관하게
+        // 항상 계산한다 — 관계 점수 자체가 개별 장소의 스타일 태그/카테고리에서 나오므로
+        // travelStyles 미선택과는 무관하다.
+        Map<Long, Map<Long, Double>> pairwiseRelationScores =
+                placeRelationService.resolvePairwiseRelationScores(eligibleTripPlaces);
+        List<List<TripPlace>> relationClusters = clusterByRelationPriority(
+                eligibleTripPlaces,
+                days.size(),
+                pairwiseRelationScores
+        );
+        RoutePlanPreviewResponse relationPlan = buildResponseFromClusters(
+                days,
+                relationClusters,
+                eligibleTripPlaces.size(),
+                replanExplanation == null
+                        ? "자주 함께 방문된 장소와 스타일 유사도를 함께 고려한 맞춤 코스예요."
+                        : "변경 사유와 자주 함께 방문된 장소 관계를 반영해 일정을 다시 배치했습니다.",
+                replanExplanation == null
+                        ? "저장된 장소들 사이의 공동 방문 이력과 스타일 유사도를 함께 고려했어요."
+                        : replanExplanation,
+                effectiveSettings
+        );
+
+        // 여행 스타일을 선택했을 때는 관계 코스를 최우선으로 제시하고(기존 동작 유지),
+        // 선택하지 않았을 때는 지리 코스를 기본값으로 유지하면서 관계 코스를 추가로 덧붙인다.
+        if (!travelStyles.isEmpty() && routeSignatures.add(routeSignature(relationPlan))) {
+            options.add(new RoutePlanOption("맞춤 추천 코스", relationPlan));
         }
 
         if (routeSignatures.add(routeSignature(geoPlan))) {
             options.add(new RoutePlanOption("지리 최적 코스", geoPlan));
+        }
+
+        if (travelStyles.isEmpty() && routeSignatures.add(routeSignature(relationPlan))) {
+            options.add(new RoutePlanOption("맞춤 추천 코스", relationPlan));
         }
 
         // 스타일별 코스 추가
@@ -491,26 +499,112 @@ public class ItineraryRoutePlanner {
     private List<List<TripPlace>> clusterByRelationPriority(
             List<TripPlace> places,
             int dayCount,
-            Map<Long, Double> relationScores
+            Map<Long, Map<Long, Double>> pairwiseScores
     ) {
         if (dayCount <= 0 || places.isEmpty()) return List.of();
 
-        List<TripPlace> prioritized = places.stream()
-                .sorted(Comparator
-                        .comparingDouble((TripPlace place) -> relationScores
-                                .getOrDefault(place.getId(), 0.0))
-                        .reversed()
-                        .thenComparing(TripPlace::getId))
-                .toList();
-        List<List<TripPlace>> clusters = emptyClusters(dayCount);
-        for (int index = 0; index < prioritized.size(); index++) {
-            clusters.get(index % dayCount).add(prioritized.get(index));
+        if (dayCount >= places.size()) {
+            List<List<TripPlace>> result = new ArrayList<>();
+            for (TripPlace p : places) result.add(new ArrayList<>(List.of(p)));
+            while (result.size() < dayCount) result.add(new ArrayList<>());
+            return result;
         }
+
+        int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
+        List<TripPlace> seeds = selectDiverseRelationSeeds(places, dayCount, pairwiseScores);
+        List<List<TripPlace>> clusters = emptyClusters(dayCount);
+        for (int index = 0; index < seeds.size(); index++) {
+            clusters.get(index).add(seeds.get(index));
+        }
+
+        List<TripPlace> remaining = places.stream()
+                .filter(place -> !seeds.contains(place))
+                .toList();
+
+        for (TripPlace place : remaining) {
+            int targetIndex = -1;
+            double bestAverage = Double.NEGATIVE_INFINITY;
+            for (int index = 0; index < clusters.size(); index++) {
+                if (clusters.get(index).size() >= maxPerDay) continue;
+                double average = averageRelationScore(
+                        place, clusters.get(index), pairwiseScores
+                );
+                if (average > bestAverage) {
+                    bestAverage = average;
+                    targetIndex = index;
+                }
+            }
+            if (targetIndex < 0) targetIndex = indexOfSmallestCluster(clusters);
+            clusters.get(targetIndex).add(place);
+        }
+
         return clusters.stream()
                 .map(cluster -> cluster.isEmpty()
                         ? cluster
                         : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 관계 점수가 서로 낮은(테마가 겹치지 않는) dayCount개 시드를 선택한다.
+     * 첫 시드는 전체 평균 관계 점수가 가장 낮은 장소, 이후 시드는 기존 시드들과의
+     * 최대 관계 점수가 가장 낮은 장소를 반복 선택한다(관계 그래프판 farthest-first).
+     */
+    private List<TripPlace> selectDiverseRelationSeeds(
+            List<TripPlace> places,
+            int count,
+            Map<Long, Map<Long, Double>> pairwiseScores
+    ) {
+        List<TripPlace> seeds = new ArrayList<>();
+        TripPlace first = places.stream()
+                .min(Comparator
+                        .comparingDouble((TripPlace place) ->
+                                averageRelationScore(place, places, pairwiseScores))
+                        .thenComparing(TripPlace::getId))
+                .orElse(places.get(0));
+        seeds.add(first);
+
+        while (seeds.size() < count && seeds.size() < places.size()) {
+            List<TripPlace> currentSeeds = new ArrayList<>(seeds);
+            TripPlace next = places.stream()
+                    .filter(place -> !currentSeeds.contains(place))
+                    .min(Comparator
+                            .comparingDouble((TripPlace place) ->
+                                    currentSeeds.stream()
+                                            .mapToDouble(seed ->
+                                                    pairwiseScore(place, seed, pairwiseScores))
+                                            .max()
+                                            .orElse(0.0))
+                            .thenComparing(TripPlace::getId))
+                    .orElseThrow();
+            seeds.add(next);
+        }
+        return seeds;
+    }
+
+    private double averageRelationScore(
+            TripPlace place,
+            List<TripPlace> group,
+            Map<Long, Map<Long, Double>> pairwiseScores
+    ) {
+        List<TripPlace> others = group.stream()
+                .filter(candidate -> !candidate.getId().equals(place.getId()))
+                .toList();
+        if (others.isEmpty()) return 0.0;
+        return others.stream()
+                .mapToDouble(other -> pairwiseScore(place, other, pairwiseScores))
+                .average()
+                .orElse(0.0);
+    }
+
+    private double pairwiseScore(
+            TripPlace first,
+            TripPlace second,
+            Map<Long, Map<Long, Double>> pairwiseScores
+    ) {
+        return pairwiseScores
+                .getOrDefault(first.getId(), Map.of())
+                .getOrDefault(second.getId(), 0.0);
     }
 
     private RoutePlanPreviewResponse buildResponseFromClusters(

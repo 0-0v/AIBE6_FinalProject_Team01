@@ -8,7 +8,7 @@ import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
-import back.backend.domain.place.service.PlaceStyleRelationService;
+import back.backend.domain.place.service.PlaceRelationService;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TravelPace;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 class ItineraryRoutePlannerTest {
 
     @Mock
-    private PlaceStyleRelationService placeStyleRelationService;
+    private PlaceRelationService placeRelationService;
 
     @Mock
     private ConstraintSorter constraintSorter;
@@ -44,9 +44,8 @@ class ItineraryRoutePlannerTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(placeStyleRelationService.resolveCompatibilities(
-                org.mockito.ArgumentMatchers.anyList(),
-                org.mockito.ArgumentMatchers.anySet()
+        lenient().when(placeRelationService.resolvePairwiseRelationScores(
+                org.mockito.ArgumentMatchers.anyList()
         )).thenReturn(Map.of());
         // ConstraintSorter: 입력 리스트를 그대로 반환 (정렬 없이 통과)
         lenient().when(constraintSorter.sort(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any()))
@@ -54,7 +53,7 @@ class ItineraryRoutePlannerTest {
 
         planner = new ItineraryRoutePlanner(
                 constraintSorter,
-                placeStyleRelationService
+                placeRelationService
         );
     }
 
@@ -424,27 +423,40 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t14 저장된 스타일 관계 점수가 높은 장소를 맞춤 코스 앞쪽에 배치한다")
-    void t14_planMultiAppliesRelationPriorityFirst() {
+    @DisplayName("t14 서로 관계 점수가 높은 장소를 같은 Day로 묶는다")
+    void t14_planMultiGroupsStronglyRelatedPlacesTogether() {
         List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
         List<TripPlace> places = List.of(
                 tripPlace(10L, "장소 A", PlaceCategoryType.ATTRACTION, 33.45, 126.50),
                 tripPlace(11L, "장소 B", PlaceCategoryType.ATTRACTION, 33.55, 126.60),
-                tripPlace(12L, "장소 C", PlaceCategoryType.ATTRACTION, 33.65, 126.70)
+                tripPlace(12L, "장소 C", PlaceCategoryType.ATTRACTION, 33.65, 126.70),
+                tripPlace(13L, "장소 D", PlaceCategoryType.ATTRACTION, 33.75, 126.80)
         );
         Set<TravelStyle> styles = Set.of(TravelStyle.FAMOUS_ATTRACTIONS);
-        when(placeStyleRelationService.resolveCompatibilities(places, styles))
-                .thenReturn(Map.of(12L, 0.9, 10L, 0.8, 11L, 0.1));
+        Map<Long, Map<Long, Double>> pairwiseScores = Map.of(
+                10L, Map.of(11L, 0.9, 12L, 0.1, 13L, 0.1),
+                11L, Map.of(10L, 0.9, 12L, 0.1, 13L, 0.1),
+                12L, Map.of(10L, 0.1, 11L, 0.1, 13L, 0.9),
+                13L, Map.of(10L, 0.1, 11L, 0.1, 12L, 0.9)
+        );
+        when(placeRelationService.resolvePairwiseRelationScores(places))
+                .thenReturn(pairwiseScores);
 
         var options = planner.planMulti(days, places, styles, TripScheduleSettings.defaultSettings());
 
-        assertThat(options.getFirst().routeLabel()).isEqualTo("맞춤 추천 코스");
-        assertThat(options.getFirst().plan().days().getFirst().items())
-                .extracting(item -> item.tripPlaceId())
-                .containsExactly(12L, 11L);
-        assertThat(options.getFirst().plan().days().get(1).items())
-                .extracting(item -> item.tripPlaceId())
-                .containsExactly(10L);
+        var relationOption = options.stream()
+                .filter(option -> option.routeLabel().equals("맞춤 추천 코스"))
+                .findFirst()
+                .orElseThrow();
+        List<Long> firstDayIds = relationOption.plan().days().getFirst().items().stream()
+                .map(item -> item.tripPlaceId())
+                .toList();
+        List<Long> secondDayIds = relationOption.plan().days().get(1).items().stream()
+                .map(item -> item.tripPlaceId())
+                .toList();
+
+        assertThat(firstDayIds).containsExactly(10L, 11L);
+        assertThat(secondDayIds).containsExactly(12L, 13L);
     }
 
     @Test
@@ -543,7 +555,7 @@ class ItineraryRoutePlannerTest {
                 TripScheduleSettings.defaultSettings()
         );
 
-        verify(placeStyleRelationService).resolveCompatibilities(places, styles);
+        verify(placeRelationService).resolvePairwiseRelationScores(places);
     }
 
     @Test
@@ -646,13 +658,14 @@ class ItineraryRoutePlannerTest {
                 tripPlace(13L, "남쪽 장소 B", PlaceCategoryType.ATTRACTION, 33.22, 126.22)
         );
         Set<TravelStyle> styles = Set.of(TravelStyle.FAMOUS_ATTRACTIONS);
-        when(placeStyleRelationService.resolveCompatibilities(places, styles))
-                .thenReturn(Map.of(
-                        12L, 0.9,
-                        10L, 0.8,
-                        13L, 0.7,
-                        11L, 0.6
-                ));
+        Map<Long, Map<Long, Double>> pairwiseScores = Map.of(
+                10L, Map.of(11L, 0.9, 12L, 0.1, 13L, 0.1),
+                11L, Map.of(10L, 0.9, 12L, 0.1, 13L, 0.1),
+                12L, Map.of(10L, 0.1, 11L, 0.1, 13L, 0.5),
+                13L, Map.of(10L, 0.1, 11L, 0.1, 12L, 0.5)
+        );
+        when(placeRelationService.resolvePairwiseRelationScores(places))
+                .thenReturn(pairwiseScores);
 
         RoutePlanPreviewResponse result = planner.planMulti(
                 List.of(northDay, southDay),
@@ -696,5 +709,45 @@ class ItineraryRoutePlannerTest {
         assertThat(result.days().getFirst().items())
                 .extracting(item -> item.tripPlaceId())
                 .containsExactly(11L);
+    }
+
+    @Test
+    @DisplayName("t23 여행 스타일을 선택하지 않아도 지리 코스와 별개로 관계 기반 맞춤 코스를 함께 제공한다")
+    void t23_relationOptionIsIncludedEvenWithoutSelectedStyles() {
+        List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "북1", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
+                tripPlace(11L, "북2", PlaceCategoryType.ATTRACTION, 33.4510, 126.5010),
+                tripPlace(12L, "남1", PlaceCategoryType.ATTRACTION, 33.5500, 126.5500),
+                tripPlace(13L, "남2", PlaceCategoryType.ATTRACTION, 33.5510, 126.5510)
+        );
+        // 지리적으로는 북(10,11)/남(12,13)이 묶이지만, 관계 점수는 10↔12, 11↔13을 강하게 묶어
+        // 지리 코스와 다른 그룹을 만든다 — 두 옵션이 서로 다른 결과로 공존함을 보인다.
+        Map<Long, Map<Long, Double>> pairwiseScores = Map.of(
+                10L, Map.of(11L, 0.1, 12L, 0.9, 13L, 0.1),
+                11L, Map.of(10L, 0.1, 12L, 0.1, 13L, 0.9),
+                12L, Map.of(10L, 0.9, 11L, 0.1, 13L, 0.1),
+                13L, Map.of(10L, 0.1, 11L, 0.9, 12L, 0.1)
+        );
+        when(placeRelationService.resolvePairwiseRelationScores(places))
+                .thenReturn(pairwiseScores);
+
+        var options = planner.planMulti(
+                days, places, Set.of(), TripScheduleSettings.defaultSettings());
+
+        assertThat(options).extracting(option -> option.routeLabel())
+                .contains("지리 최적 코스", "맞춤 추천 코스");
+        assertThat(options.getFirst().routeLabel()).isEqualTo("지리 최적 코스");
+
+        var relationOption = options.stream()
+                .filter(option -> option.routeLabel().equals("맞춤 추천 코스"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(relationOption.plan().days().getFirst().items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactlyInAnyOrder(10L, 12L);
+        assertThat(relationOption.plan().days().get(1).items())
+                .extracting(item -> item.tripPlaceId())
+                .containsExactlyInAnyOrder(11L, 13L);
     }
 }
