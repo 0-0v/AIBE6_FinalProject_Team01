@@ -18,6 +18,7 @@ import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.place.service.GooglePlaceContentRefreshService;
 import back.backend.domain.trip.entity.TravelPace;
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripRepository;
@@ -50,6 +51,7 @@ public class ItineraryService {
     private final EntityManager entityManager;
     private final ApplicationEventPublisher eventPublisher;
     private final ActivityLogService activityLogService;
+    private final GooglePlaceContentRefreshService googlePlaceContentRefreshService;
 
     @Transactional(readOnly = true)
     public List<ItineraryDayResponse> getItinerary(Long tripId) {
@@ -88,6 +90,9 @@ public class ItineraryService {
             }
             TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(request.tripPlaceId(), tripId)
                     .orElseThrow(() -> new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND));
+            if (!googlePlaceContentRefreshService.ensureFresh(tripPlace.getPlace())) {
+                throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
+            }
             day.updateDeparture(
                     "TRIP_PLACE",
                     tripPlace.getPlace().getName(),
@@ -488,10 +493,7 @@ public class ItineraryService {
             targetPlaces = findSavedTripPlaces(tripId);
         }
 
-        // 좌표 없는 장소는 계획 대상에서 제외한다.
-        List<TripPlace> routablePlaces = targetPlaces.stream()
-                .filter(p -> p.getPlace().getLatitude() != null && p.getPlace().getLongitude() != null)
-                .toList();
+        List<TripPlace> routablePlaces = filterRoutablePlaces(targetPlaces);
 
         if (requestSettings != null
                 && requestSettings.dayId() != null
@@ -507,6 +509,14 @@ public class ItineraryService {
                 travelStyles,
                 scheduleSettings
         );
+    }
+
+    private List<TripPlace> filterRoutablePlaces(List<TripPlace> places) {
+        return places.stream()
+                .filter(place -> googlePlaceContentRefreshService.ensureFresh(place.getPlace()))
+                .filter(place -> place.getPlace().getLatitude() != null
+                        && place.getPlace().getLongitude() != null)
+                .toList();
     }
 
     /**
@@ -529,7 +539,6 @@ public class ItineraryService {
                 ))
                 .collect(Collectors.toSet());
         List<TripPlace> targetDayPlaces = tripPlaceRepository.findAllById(targetPlaceIds).stream()
-                .filter(p -> p.getPlace().getLatitude() != null && p.getPlace().getLongitude() != null)
                 .toList();
         if (targetDayPlaces.size() >= 2) {
             return targetDayPlaces;
@@ -542,7 +551,6 @@ public class ItineraryService {
                 .collect(Collectors.toSet());
         List<TripPlace> unscheduledPlaces = findSavedTripPlaces(tripId).stream()
                 .filter(place -> !scheduledElsewhereIds.contains(place.getId()))
-                .filter(place -> place.getPlace().getLatitude() != null && place.getPlace().getLongitude() != null)
                 .toList();
         List<TripPlace> combined = new ArrayList<>(targetDayPlaces);
         combined.addAll(unscheduledPlaces);
@@ -623,10 +631,8 @@ public class ItineraryService {
                 plan,
                 departurePlaceIds
         );
-        List<TripPlace> expectedPlaces = resolveSingleDayCandidatePlaces(
-                tripId,
-                days,
-                targetDay
+        List<TripPlace> expectedPlaces = filterRoutablePlaces(
+                resolveSingleDayCandidatePlaces(tripId, days, targetDay)
         );
         ItineraryRequestValidator.validateRoutePlan(
                 effectivePlan,
@@ -739,6 +745,7 @@ public class ItineraryService {
         expectedPlaces = expectedPlaces.stream()
                 .filter(place -> !departurePlaceIds.contains(place.getId()))
                 .toList();
+        expectedPlaces = filterRoutablePlaces(expectedPlaces);
         RoutePlanPreviewResponse effectivePlan = removeDepartureVisits(
                 plan,
                 departurePlaceIds

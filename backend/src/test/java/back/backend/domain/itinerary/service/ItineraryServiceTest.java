@@ -16,6 +16,7 @@ import back.backend.domain.itinerary.repository.ItineraryItemRepository;
 import back.backend.domain.place.entity.*;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.place.service.GooglePlaceContentRefreshService;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -57,6 +58,7 @@ class ItineraryServiceTest {
     @Mock EntityManager entityManager;
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock ActivityLogService activityLogService;
+    @Mock GooglePlaceContentRefreshService googlePlaceContentRefreshService;
     @InjectMocks ItineraryService itineraryService;
 
     private static final Long TRIP_ID = 1L;
@@ -74,6 +76,8 @@ class ItineraryServiceTest {
     void setUp() {
         lenient().when(accessChecker.requireEdit(TRIP_ID)).thenReturn(MEMBER_ID);
         lenient().when(accessChecker.requireView(TRIP_ID)).thenReturn(MEMBER_ID);
+        lenient().when(googlePlaceContentRefreshService.ensureFresh(any(Place.class)))
+                .thenReturn(true);
 
         trip = mock(Trip.class);
         lenient().when(trip.getStartDate()).thenReturn(null);
@@ -1547,6 +1551,51 @@ class ItineraryServiceTest {
             items.forEach(savedItems::add);
             return savedItems.size() == 2;
         }));
+    }
+
+    @Test
+    @DisplayName("t49 하루 재배치 적용은 미리보기에서 제외된 갱신 실패 장소를 요구하지 않는다")
+    void t49_applyReplanDayIgnoresPlaceRejectedDuringFreshnessCheck() {
+        TripPlace unavailablePlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google302")
+                        .name("갱신 실패 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.58"))
+                        .longitude(new BigDecimal("126.98"))
+                        .build())
+                .category(savedTripPlace.getCategory())
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(unavailablePlace, "id", 302L);
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "Day 1 동선",
+                1,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        0,
+                        List.of(routePlanItem(TRIP_PLACE_ID, "테스트 장소"))
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllById(Set.of()))
+                .willReturn(List.of());
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(TRIP_ID, TripPlaceStatus.SAVED))
+                .willReturn(List.of(savedTripPlace, unavailablePlace));
+        given(googlePlaceContentRefreshService.ensureFresh(unavailablePlace.getPlace()))
+                .willReturn(false);
+        given(itemRepository.saveAllAndFlush(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        assertThatCode(() ->
+                itineraryService.applyReplanDay(TRIP_ID, DAY_ID, preview)
+        ).doesNotThrowAnyException();
     }
 
     private RoutePlanItemResponse routePlanItem(Long tripPlaceId, String name) {
