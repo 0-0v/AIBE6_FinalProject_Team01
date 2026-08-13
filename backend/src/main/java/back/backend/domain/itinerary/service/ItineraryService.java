@@ -730,26 +730,26 @@ public class ItineraryService {
         tripRepository.findByIdForItineraryInitialization(tripId).ifPresent(trip -> {
             LocalDate startDate = trip.getStartDate();
             LocalDate endDate = trip.getEndDate();
-            if (startDate == null || endDate == null) return;
-
-            List<LocalDate> newDates = startDate.datesUntil(endDate.plusDays(1)).toList();
             List<ItineraryDay> existingDays = new ArrayList<>(
                     dayRepository.findAllByTripIdOrderByItineraryDateAsc(tripId));
             existingDays.sort(
                     Comparator.comparingInt(ItineraryDay::getDayNumber)
                             .thenComparing(ItineraryDay::getItineraryDate));
+            if (startDate == null || endDate == null) {
+                if (!existingDays.isEmpty()) {
+                    dayRepository.deleteAll(existingDays);
+                    dayRepository.flush();
+                }
+                return;
+            }
+
+            List<LocalDate> newDates = startDate.datesUntil(endDate.plusDays(1)).toList();
 
             int overlap = Math.min(existingDays.size(), newDates.size());
             List<ItineraryDay> overflowDays =
                     existingDays.subList(overlap, existingDays.size());
-            List<ItineraryDay> obsoleteEmptyOverflow = overflowDays.stream()
-                    .filter(day -> day.getItems().isEmpty())
-                    .toList();
-            List<ItineraryDay> preservedOverflow = overflowDays.stream()
-                    .filter(day -> !day.getItems().isEmpty())
-                    .toList();
-            if (!obsoleteEmptyOverflow.isEmpty()) {
-                dayRepository.deleteAll(obsoleteEmptyOverflow);
+            if (!overflowDays.isEmpty()) {
+                dayRepository.deleteAll(new ArrayList<>(overflowDays));
                 dayRepository.flush();
             }
 
@@ -768,25 +768,11 @@ public class ItineraryService {
                 newlyCreated.add(ItineraryDay.create(tripId, newDates.get(index), index + 1));
             }
 
-            boolean preservedChanged = false;
-            for (int index = 0; index < preservedOverflow.size(); index++) {
-                ItineraryDay day = preservedOverflow.get(index);
-                LocalDate placeholderDate = endDate.plusDays(index + 1L);
-                int dayNumber = newDates.size() + index + 1;
-                if (day.getDayNumber() != dayNumber
-                        || !day.getItineraryDate().equals(placeholderDate)) {
-                    preservedChanged = true;
-                    break;
-                }
-            }
-
-            if (!overlapChanged && newlyCreated.isEmpty() && !preservedChanged) return;
+            if (!overlapChanged && newlyCreated.isEmpty()) return;
 
             // (trip_id, itinerary_date) 유니크 제약과 충돌하지 않도록, 남길 Day 전부를
             // 임시 날짜로 먼저 옮겨 저장한 뒤 최종 날짜로 다시 옮기는 2단계로 처리한다.
-            // (넘치는 보존 Day의 원래 날짜가 새로 배정될 날짜와 겹칠 수 있어 단순 치환은 위험하다.)
             List<ItineraryDay> keptDays = new ArrayList<>(existingDays.subList(0, overlap));
-            keptDays.addAll(preservedOverflow);
             if (!keptDays.isEmpty()) {
                 for (ItineraryDay day : keptDays) {
                     day.updateItineraryDate(LocalDate.ofEpochDay(-1_000_000L - day.getId()));
@@ -800,15 +786,8 @@ public class ItineraryService {
                 day.updateItineraryDate(newDates.get(index));
                 day.updateDayNumber(index + 1);
             }
-            for (int index = 0; index < preservedOverflow.size(); index++) {
-                ItineraryDay day = preservedOverflow.get(index);
-                day.updateItineraryDate(endDate.plusDays(index + 1L));
-                day.updateDayNumber(newDates.size() + index + 1);
-            }
-
             List<ItineraryDay> toSave = new ArrayList<>(existingDays.subList(0, overlap));
             toSave.addAll(newlyCreated);
-            toSave.addAll(preservedOverflow);
             dayRepository.saveAll(toSave);
         });
     }

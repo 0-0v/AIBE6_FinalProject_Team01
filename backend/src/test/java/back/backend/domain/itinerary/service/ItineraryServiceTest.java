@@ -1086,8 +1086,8 @@ class ItineraryServiceTest {
     }
 
     @Test
-    @DisplayName("t39 여행 날짜 범위가 좁아지면 넘치는 Day 중 저장된 장소가 있는 Day는 뒷번호로 보존한다")
-    void t39_initializeItineraryPreservesOverflowingDaysWithItemsAfterShrink() {
+    @DisplayName("t39 여행 날짜 범위가 좁아지면 넘치는 Day와 일정 배치를 삭제한다")
+    void t39_initializeItineraryDeletesOverflowingDaysWithItemsAfterShrink() {
         given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
         given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 1));
 
@@ -1107,17 +1107,17 @@ class ItineraryServiceTest {
 
         itineraryService.initializeItinerary(TRIP_ID);
 
-        then(dayRepository).should(never()).deleteAll(any());
+        then(dayRepository).should().deleteAll(argThat(days ->
+                ((List<ItineraryDay>) days).size() == 1
+                        && ((List<ItineraryDay>) days).getFirst() == dayTwoWithItems
+        ));
         assertThat(dayOne.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 1));
         assertThat(dayOne.getDayNumber()).isEqualTo(1);
-        assertThat(dayTwoWithItems.getDayNumber()).isEqualTo(2);
-        assertThat(dayTwoWithItems.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 2));
-        assertThat(dayTwoWithItems.getItems()).containsExactly(item);
     }
 
     @Test
-    @DisplayName("t41 넘치는 보존 Day의 원래 날짜가 새 활성 Day의 날짜와 겹쳐도 충돌 없이 처리한다")
-    void t41_initializeItineraryAvoidsDateCollisionWithPreservedOverflowDay() {
+    @DisplayName("t41 넘치는 Day의 날짜가 활성 날짜와 겹쳐도 삭제 후 기존 Day를 재배치한다")
+    void t41_initializeItineraryDeletesCollidingOverflowDayBeforeReassignment() {
         given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
         given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 2));
 
@@ -1145,9 +1145,11 @@ class ItineraryServiceTest {
 
         assertThat(dayOne.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 1));
         assertThat(dayTwoActive.getItineraryDate()).isEqualTo(LocalDate.of(2026, 8, 2));
-        assertThat(overflowDayCollidingDate.getItineraryDate())
-                .isNotEqualTo(LocalDate.of(2026, 8, 2));
-        assertThat(overflowDayCollidingDate.getItems()).containsExactly(item);
+        then(dayRepository).should().deleteAll(argThat(days ->
+                ((List<ItineraryDay>) days).size() == 1
+                        && ((List<ItineraryDay>) days).getFirst()
+                        == overflowDayCollidingDate
+        ));
     }
 
     @Test
@@ -1175,6 +1177,30 @@ class ItineraryServiceTest {
                 ((List<ItineraryDay>) days).size() == 1
                         && ((List<ItineraryDay>) days).get(0) == emptyOverflowDay
         ));
+    }
+
+    @Test
+    @DisplayName("t43 여행 날짜를 초기화하면 모든 Day와 일정 배치를 삭제한다")
+    void t43_initializeItineraryDeletesAllDaysWhenDatesAreCleared() {
+        ItineraryDay dayWithItems = ItineraryDay.create(
+                TRIP_ID,
+                LocalDate.of(2026, 8, 1),
+                1
+        );
+        ReflectionTestUtils.setField(dayWithItems, "id", 101L);
+        ReflectionTestUtils.setField(
+                dayWithItems,
+                "items",
+                new ArrayList<>(List.of(item))
+        );
+        given(dayRepository.findAllByTripIdOrderByItineraryDateAsc(TRIP_ID))
+                .willReturn(List.of(dayWithItems));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of());
+
+        itineraryService.initializeItinerary(TRIP_ID);
+
+        then(dayRepository).should().deleteAll(List.of(dayWithItems));
+        then(dayRepository).should().flush();
     }
 
     @Test
