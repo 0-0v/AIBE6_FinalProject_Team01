@@ -20,6 +20,7 @@ import {
     type RouteOption,
     type RoutePlanPreview,
     TransportModeIcon,
+    CategoryIcon,
 } from '@/entities/trip'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { AnalysisStatusAnimation } from '@/shared/ui'
@@ -46,9 +47,11 @@ function formatDistance(meters: number): string {
 function RoutePlanView({
     plan,
     itineraryDays,
+    places,
 }: {
     plan: RoutePlanPreview
     itineraryDays: ItineraryDay[]
+    places: Place[]
 }) {
     const [selectedDayId, setSelectedDayId] = useState(
         plan.days[0]?.dayId ?? null,
@@ -58,6 +61,9 @@ function RoutePlanView({
     const departure = itineraryDays.find(
         (day) => Number(day.id) === selectedDay?.dayId,
     )?.departure
+    const placeById = new Map(
+        places.map((place) => [Number(place.id), place]),
+    )
 
     return (
         <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
@@ -162,9 +168,35 @@ function RoutePlanView({
                                 )}
                                 <div className="rounded-xl bg-slate-50 px-3 py-2">
                                     <div className="flex items-center justify-between gap-3">
-                                        <p className="min-w-0 truncate text-xs font-bold text-slate-700">
-                                            {index + 1}. {item.placeName}
-                                        </p>
+                                        <div className="flex min-w-0 items-center gap-1.5">
+                                            <span
+                                                className="shrink-0"
+                                                style={{
+                                                    color: item.categoryColor,
+                                                }}
+                                            >
+                                                <CategoryIcon
+                                                    icon={
+                                                        placeById.get(
+                                                            item.tripPlaceId,
+                                                        )?.categoryIcon
+                                                    }
+                                                    size={13}
+                                                />
+                                            </span>
+                                            <p className="min-w-0 truncate text-xs font-bold text-slate-700">
+                                                {index + 1}. {item.placeName}
+                                            </p>
+                                            <span
+                                                className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold"
+                                                style={{
+                                                    color: item.categoryColor,
+                                                    backgroundColor: `${item.categoryColor}18`,
+                                                }}
+                                            >
+                                                {item.categoryName}
+                                            </span>
+                                        </div>
                                         <span className="shrink-0 text-[10px] font-bold text-slate-500">
                                             {item.startTime && item.endTime
                                                 ? `${item.startTime}–${item.endTime}`
@@ -396,6 +428,7 @@ export function AiAgentPanel({
                                 <RoutePlanView
                                     plan={preview}
                                     itineraryDays={resolvedDays}
+                                    places={places}
                                 />
                             )}
                         </div>

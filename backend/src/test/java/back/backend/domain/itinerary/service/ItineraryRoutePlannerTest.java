@@ -750,4 +750,40 @@ class ItineraryRoutePlannerTest {
                 .extracting(item -> item.tripPlaceId())
                 .containsExactlyInAnyOrder(11L, 13L);
     }
+
+    @Test
+    @DisplayName("t24 맞춤 추천 장소마다 공통 문구 대신 확인 가능한 개별 배치 이유를 표시한다")
+    void t24_relationPlanUsesSpecificReasonForEachPlace() {
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "첫 장소", PlaceCategoryType.FOOD, 33.4500, 126.5000),
+                tripPlace(11L, "가까운 공원", PlaceCategoryType.NATURE, 33.4510, 126.5010),
+                tripPlace(12L, "근처 카페", PlaceCategoryType.CAFE, 33.4530, 126.5030)
+        );
+        when(placeRelationService.resolvePairwiseRelationScores(places))
+                .thenReturn(Map.of(
+                        10L, Map.of(11L, 0.9),
+                        11L, Map.of(10L, 0.9, 12L, 0.8),
+                        12L, Map.of(11L, 0.8)
+                ));
+
+        var relationPlan = planner.planMulti(
+                        List.of(day(1L, 1)),
+                        places,
+                        Set.of(TravelStyle.FOOD),
+                        TripScheduleSettings.defaultSettings()
+                ).stream()
+                .filter(option -> option.routeLabel().equals("맞춤 추천 코스"))
+                .findFirst()
+                .orElseThrow()
+                .plan();
+        List<String> reasons = relationPlan.days().getFirst().items().stream()
+                .map(item -> item.reason())
+                .toList();
+
+        assertThat(reasons).doesNotContain(
+                "저장된 장소들 사이의 공동 방문 이력과 스타일 유사도를 함께 고려했어요."
+        );
+        assertThat(reasons.stream().distinct().count()).isGreaterThan(1);
+        assertThat(reasons).anyMatch(reason -> reason.contains("이전 장소에서 약"));
+    }
 }

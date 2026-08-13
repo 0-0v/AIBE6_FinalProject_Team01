@@ -820,7 +820,10 @@ public class ItineraryRoutePlanner {
                             fitsInDay,
                             defaultReason,
                             settings,
-                            day.getId()
+                            day,
+                            current,
+                            index > 0 ? places.get(index - 1) : null,
+                            cursorMinutes
                     );
 
             items.add(new RoutePlanItemResponse(
@@ -855,13 +858,70 @@ public class ItineraryRoutePlanner {
     }
 
     private String buildItemReason(
-            int index, boolean fitsInDay, String defaultReason, TripScheduleSettings settings, Long dayId) {
+            int index,
+            boolean fitsInDay,
+            String defaultReason,
+            TripScheduleSettings settings,
+            ItineraryDay day,
+            TripPlace current,
+            TripPlace previous,
+            int startMinutes
+    ) {
         if (!fitsInDay) return "하루 일정이 길어 방문 시간은 직접 조정해 주세요.";
-        if (defaultReason != null) return defaultReason;
-        if (index == 0) {
-            return settings.dayStartTime(dayId).format(TIME_FORMATTER) + "부터 시작하는 첫 장소예요.";
+        if (index == 0 && isReplanExplanation(defaultReason)) {
+            return defaultReason;
         }
-        return "이전 장소와 가까워 이동 부담이 적어요.";
+        PlaceCategoryType categoryType = current.getCategory().getCategoryType();
+        if (categoryType == PlaceCategoryType.FOOD && isMealTime(startMinutes)) {
+            return startMinutes < 16 * 60
+                    ? "점심 식사 시간대에 방문하도록 배치했어요."
+                    : "저녁 식사 시간대에 방문하도록 배치했어요.";
+        }
+        int previousDistanceMeters = previous == null
+                ? Integer.MAX_VALUE
+                : (int) Math.round(distanceMeters(previous, current));
+        if (previousDistanceMeters <= 3_000) {
+            return String.format(
+                    Locale.ROOT,
+                    "이전 장소에서 약 %s 거리라 이동 부담을 줄였어요.",
+                    formatDistance(previousDistanceMeters)
+            );
+        }
+        if (index == 0) {
+            return day.hasDeparture()
+                    ? "출발지에서 가까운 첫 방문지로 배치했어요."
+                    : settings.dayStartTime(day.getId()).format(TIME_FORMATTER)
+                    + "부터 시작하는 첫 장소예요.";
+        }
+        int stayMinutes = CATEGORY_STAY_MINUTES.getOrDefault(
+                categoryType,
+                DEFAULT_STAY_MINUTES
+        );
+        return switch (categoryType) {
+            case CAFE -> "쉬어갈 수 있도록 카페 체류 시간을 " + stayMinutes + "분 배정했어요.";
+            case NATURE -> "공원·자연 장소를 여유롭게 볼 수 있도록 " + stayMinutes + "분 배정했어요.";
+            case SHOPPING -> "쇼핑에 필요한 체류 시간을 " + stayMinutes + "분 배정했어요.";
+            case ATTRACTION -> "명소 관람 시간을 " + stayMinutes + "분 배정했어요.";
+            case ACTIVITY -> "체험에 필요한 시간을 " + stayMinutes + "분 배정했어요.";
+            default -> "앞뒤 장소의 위치를 고려해 이 순서에 배치했어요.";
+        };
+    }
+
+    private boolean isReplanExplanation(String reason) {
+        return reason != null
+                && (reason.contains("변경 사유") || reason.contains("선택 장소"));
+    }
+
+    private boolean isMealTime(int startMinutes) {
+        return startMinutes >= 11 * 60 && startMinutes < 14 * 60
+                || startMinutes >= 17 * 60 && startMinutes < 20 * 60;
+    }
+
+    private String formatDistance(int distanceMeters) {
+        if (distanceMeters < 1_000) {
+            return distanceMeters + "m";
+        }
+        return String.format(Locale.ROOT, "%.1fkm", distanceMeters / 1_000.0);
     }
 
     private String buildStyleSummary(
