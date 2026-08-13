@@ -61,9 +61,7 @@ function RoutePlanView({
     const departure = itineraryDays.find(
         (day) => Number(day.id) === selectedDay?.dayId,
     )?.departure
-    const placeById = new Map(
-        places.map((place) => [Number(place.id), place]),
-    )
+    const placeById = new Map(places.map((place) => [Number(place.id), place]))
 
     return (
         <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
@@ -301,11 +299,7 @@ export function AiAgentPanel({
         setError(null)
         try {
             const appliedDays = targetDayId
-                ? await applyItineraryRoutePlanDay(
-                      tripId,
-                      targetDayId,
-                      preview,
-                  )
+                ? await applyItineraryRoutePlanDay(tripId, targetDayId, preview)
                 : await applyItineraryRoutePlan(tripId, preview)
             onApplied(appliedDays)
             setApplied(true)

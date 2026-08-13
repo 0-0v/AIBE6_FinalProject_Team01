@@ -59,9 +59,7 @@ type Props = {
     className?: string
 }
 
-export function DestinationAutocomplete({
-    ...props
-}: Props) {
+export function DestinationAutocomplete(props: Props) {
     return (
         <GoogleMapsProvider>
             <DestinationAutocompleteContent {...props} />

@@ -162,9 +162,7 @@ public class ItineraryRoutePlanner {
                 replanExplanation == null
                         ? "자주 함께 방문된 장소와 스타일 유사도를 함께 고려한 맞춤 코스예요."
                         : "변경 사유와 자주 함께 방문된 장소 관계를 반영해 일정을 다시 배치했습니다.",
-                replanExplanation == null
-                        ? "저장된 장소들 사이의 공동 방문 이력과 스타일 유사도를 함께 고려했어요."
-                        : replanExplanation,
+                replanExplanation,
                 effectiveSettings
         );
 
@@ -207,9 +205,7 @@ public class ItineraryRoutePlanner {
                             days.size(),
                             priority
                     ),
-                    replanExplanation == null
-                            ? buildStyleReason(styleLabel)
-                            : replanExplanation,
+                    replanExplanation,
                     effectiveSettings
             );
             if (routeSignatures.add(routeSignature(stylePlan))) {
@@ -940,10 +936,6 @@ public class ItineraryRoutePlanner {
                 .collect(Collectors.joining("·"));
         return String.format("%s(%s)를 앞세워 %d곳을 %d일에 나눴어요.",
                 styleLabel, topCategories, placeCount, dayCount);
-    }
-
-    private String buildStyleReason(String styleLabel) {
-        return styleLabel + " 코스에 맞는 장소예요.";
     }
 
     private String routeSignature(RoutePlanPreviewResponse plan) {
