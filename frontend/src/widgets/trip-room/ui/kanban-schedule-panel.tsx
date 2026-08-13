@@ -212,7 +212,7 @@ export function KanbanSchedulePanel({
                                 className={
                                     useFluidDayColumns
                                         ? 'min-w-64 flex-1'
-                                        : 'w-72 shrink-0'
+                                        : 'w-80 shrink-0'
                                 }
                             >
                                 <DayColumn
