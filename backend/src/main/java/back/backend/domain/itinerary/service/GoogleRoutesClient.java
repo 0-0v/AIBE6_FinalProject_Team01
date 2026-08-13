@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import back.backend.domain.admin.entity.ExternalApiProvider;
 import back.backend.domain.admin.service.ExternalApiUsageService;
+import back.backend.domain.place.service.GoogleMapsQuotaGuard;
 
 @Slf4j
 @Component
@@ -30,10 +31,15 @@ public class GoogleRoutesClient {
     private final String apiKey;
     private final boolean configured;
     private ExternalApiUsageService usageService;
+    private GoogleMapsQuotaGuard quotaGuard;
 
     @Autowired
     void setUsageService(ExternalApiUsageService usageService) {
         this.usageService = usageService;
+    }
+    @Autowired
+    void setQuotaGuard(GoogleMapsQuotaGuard quotaGuard) {
+        this.quotaGuard = quotaGuard;
     }
 
     @Autowired
@@ -112,6 +118,9 @@ public class GoogleRoutesClient {
     ) {
         if (!configured) return Optional.empty();
 
+        if (quotaGuard != null) {
+            quotaGuard.acquire(ExternalApiProvider.GOOGLE_ROUTES);
+        }
         try {
             String travelMode = toRoutesTravelMode(mode);
             // TRAFFIC_AWARE는 DRIVE 모드에서만 지원 (WALK, TRANSIT은 미지원)

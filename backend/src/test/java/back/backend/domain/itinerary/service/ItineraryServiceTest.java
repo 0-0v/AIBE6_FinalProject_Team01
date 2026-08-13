@@ -16,6 +16,7 @@ import back.backend.domain.itinerary.repository.ItineraryItemRepository;
 import back.backend.domain.place.entity.*;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.place.service.GooglePlaceContentRefreshService;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -57,6 +58,7 @@ class ItineraryServiceTest {
     @Mock EntityManager entityManager;
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock ActivityLogService activityLogService;
+    @Mock GooglePlaceContentRefreshService googlePlaceContentRefreshService;
     @InjectMocks ItineraryService itineraryService;
 
     private static final Long TRIP_ID = 1L;
@@ -74,6 +76,8 @@ class ItineraryServiceTest {
     void setUp() {
         lenient().when(accessChecker.requireEdit(TRIP_ID)).thenReturn(MEMBER_ID);
         lenient().when(accessChecker.requireView(TRIP_ID)).thenReturn(MEMBER_ID);
+        lenient().when(googlePlaceContentRefreshService.ensureFresh(any(Place.class)))
+                .thenReturn(true);
 
         trip = mock(Trip.class);
         lenient().when(trip.getStartDate()).thenReturn(null);
@@ -1235,6 +1239,363 @@ class ItineraryServiceTest {
         var ordered = inOrder(itemRepository);
         ordered.verify(itemRepository).parkSortOrdersByIds(List.of(ITEM_ID));
         ordered.verify(itemRepository).saveAllAndFlush(anyList());
+    }
+
+    @Test
+    @DisplayName("t43 하루 재배치 적용은 선택한 Day의 일정만 변경한다")
+    void t43_applyReplanDayOnlyUpdatesSelectedDay() {
+        ItineraryItem targetItem = ItineraryItem.create(day, TRIP_PLACE_ID, 0);
+        ReflectionTestUtils.setField(targetItem, "id", ITEM_ID);
+        ReflectionTestUtils.setField(day, "items", new ArrayList<>(List.of(targetItem)));
+
+        ItineraryDay otherDay = ItineraryDay.create(
+                TRIP_ID, LocalDate.of(2026, 8, 2), 2);
+        ReflectionTestUtils.setField(otherDay, "id", 101L);
+        ItineraryItem otherDayItem = ItineraryItem.create(otherDay, 301L, 0);
+        ReflectionTestUtils.setField(otherDayItem, "id", 201L);
+        ReflectionTestUtils.setField(
+                otherDay, "items", new ArrayList<>(List.of(otherDayItem)));
+
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "Day 1만 재배치",
+                1,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        0,
+                        List.of(routePlanItem(TRIP_PLACE_ID, "테스트 장소"))
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day, otherDay));
+        given(tripPlaceRepository.findAllById(Set.of(TRIP_PLACE_ID)))
+                .willReturn(List.of(savedTripPlace));
+        given(itemRepository.saveAllAndFlush(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        itineraryService.applyReplanDay(TRIP_ID, DAY_ID, preview);
+
+        then(itemRepository).should().parkSortOrdersByIds(List.of(ITEM_ID));
+        then(itemRepository).should().saveAllAndFlush(argThat(items -> {
+            List<ItineraryItem> savedItems = new ArrayList<>();
+            items.forEach(savedItems::add);
+            return savedItems.size() == 1
+                    && savedItems.getFirst().getId().equals(ITEM_ID)
+                    && savedItems.getFirst().getItineraryDay().getId().equals(DAY_ID);
+        }));
+        assertThat(otherDayItem.getItineraryDay()).isSameAs(otherDay);
+        assertThat(otherDayItem.getSortOrder()).isZero();
+    }
+
+    @Test
+    @DisplayName("t44 하루 재배치 적용에 다른 Day 계획이 포함되면 거부한다")
+    void t44_applyReplanDayRejectsAnotherDayPlan() {
+        ReflectionTestUtils.setField(day, "items", new ArrayList<>(List.of(item)));
+        RoutePlanPreviewResponse invalidPreview = new RoutePlanPreviewResponse(
+                "잘못된 Day",
+                1,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        999L,
+                        2,
+                        LocalDate.of(2026, 8, 2),
+                        0,
+                        List.of(routePlanItem(TRIP_PLACE_ID, "테스트 장소"))
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllById(Set.of(TRIP_PLACE_ID)))
+                .willReturn(List.of(savedTripPlace));
+
+        assertThatThrownBy(() ->
+                itineraryService.applyReplanDay(TRIP_ID, DAY_ID, invalidPreview)
+        ).isInstanceOf(BusinessException.class);
+
+        then(itemRepository).should(never()).saveAllAndFlush(anyList());
+    }
+
+    @Test
+    @DisplayName("t45 하루 재배치를 적용하면 선택된 일정 구간만 실제 이동 정보로 계산한다")
+    void t45_applyReplanDayCalculatesTravelOnlyForSelectedPlan() {
+        ItineraryItem first = ItineraryItem.create(day, TRIP_PLACE_ID, 0);
+        ItineraryItem second = ItineraryItem.create(day, 301L, 1);
+        ReflectionTestUtils.setField(first, "id", 201L);
+        ReflectionTestUtils.setField(second, "id", 202L);
+        ReflectionTestUtils.setField(day, "items", new ArrayList<>(List.of(first, second)));
+        TripPlace secondTripPlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google301")
+                        .name("둘째 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.57"))
+                        .longitude(new BigDecimal("126.99"))
+                        .build())
+                .category(savedTripPlace.getCategory())
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(secondTripPlace, "id", 301L);
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "선택 Day 재배치",
+                2,
+                1000,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        1000,
+                        List.of(
+                                routePlanItem(TRIP_PLACE_ID, "첫 장소"),
+                                routePlanItem(301L, "둘째 장소")
+                        )
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllById(Set.of(TRIP_PLACE_ID, 301L)))
+                .willReturn(List.of(savedTripPlace, secondTripPlace));
+
+        itineraryService.applyReplanDay(TRIP_ID, DAY_ID, preview);
+
+        then(travelEstimator).should().recalculate(
+                argThat(items -> items.size() == 2),
+                argThat(places -> places.keySet().containsAll(
+                        Set.of(TRIP_PLACE_ID, 301L)
+                ))
+        );
+    }
+
+    @Test
+    @DisplayName("t46 특정 Day 동선 미리보기는 해당 Day에 배치된 장소만 계획기에 전달한다")
+    void t46_previewRoutePlanForDayUsesOnlyPlacesAssignedToThatDay() {
+        ItineraryItem first = ItineraryItem.create(day, TRIP_PLACE_ID, 0);
+        ItineraryItem second = ItineraryItem.create(day, 301L, 1);
+        ReflectionTestUtils.setField(first, "id", 201L);
+        ReflectionTestUtils.setField(second, "id", 202L);
+        ReflectionTestUtils.setField(day, "items", new ArrayList<>(List.of(first, second)));
+
+        TripPlace secondTripPlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google301")
+                        .name("둘째 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.57"))
+                        .longitude(new BigDecimal("126.99"))
+                        .build())
+                .category(savedTripPlace.getCategory())
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(secondTripPlace, "id", 301L);
+        RoutePlanOption option = new RoutePlanOption(
+                "Day 1 동선",
+                new RoutePlanPreviewResponse("추천", 2, 0, List.of())
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllById(Set.of(TRIP_PLACE_ID, 301L)))
+                .willReturn(List.of(savedTripPlace, secondTripPlace));
+        given(routePlanner.planMulti(any(), any(), any(), any()))
+                .willReturn(List.of(option));
+
+        List<RoutePlanOption> result = itineraryService.previewRoutePlan(
+                TRIP_ID,
+                new RoutePlanSettingsRequest(
+                        null,
+                        "09:00",
+                        "21:00",
+                        "NORMAL",
+                        DAY_ID
+                )
+        );
+
+        assertThat(result).containsExactly(option);
+        then(routePlanner).should().planMulti(
+                argThat(days -> days.size() == 1 && days.getFirst() == day),
+                argThat(places -> places.size() == 2
+                        && places.stream().map(TripPlace::getId).collect(
+                        java.util.stream.Collectors.toSet()
+                ).equals(Set.of(TRIP_PLACE_ID, 301L))),
+                eq(Set.of()),
+                any(TripScheduleSettings.class)
+        );
+    }
+
+    @Test
+    @DisplayName("t47 특정 Day에 장소가 부족하면 다른 Day에 배치되지 않은 저장 장소로 채운다")
+    void t47_previewRoutePlanForDayFillsFromUnscheduledPlacesWhenDayIsShort() {
+        ItineraryDay otherDay = ItineraryDay.create(TRIP_ID, LocalDate.of(2026, 8, 2), 2);
+        ReflectionTestUtils.setField(otherDay, "id", 101L);
+        ItineraryItem otherDayItem = ItineraryItem.create(otherDay, 999L, 0);
+        ReflectionTestUtils.setField(otherDayItem, "id", 203L);
+        ReflectionTestUtils.setField(otherDay, "items", new ArrayList<>(List.of(otherDayItem)));
+
+        TripPlace unscheduledSecondPlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google302")
+                        .name("미배치 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.58"))
+                        .longitude(new BigDecimal("126.98"))
+                        .build())
+                .category(savedTripPlace.getCategory())
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(unscheduledSecondPlace, "id", 302L);
+
+        TripPlace otherDayTripPlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google999")
+                        .name("이미 배치된 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.59"))
+                        .longitude(new BigDecimal("126.97"))
+                        .build())
+                .category(savedTripPlace.getCategory())
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(otherDayTripPlace, "id", 999L);
+
+        RoutePlanOption option = new RoutePlanOption(
+                "Day 1 동선",
+                new RoutePlanPreviewResponse("추천", 2, 0, List.of())
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day, otherDay));
+        given(tripPlaceRepository.findAllById(Set.of()))
+                .willReturn(List.of());
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(TRIP_ID, TripPlaceStatus.SAVED))
+                .willReturn(List.of(savedTripPlace, unscheduledSecondPlace, otherDayTripPlace));
+        given(routePlanner.planMulti(any(), any(), any(), any()))
+                .willReturn(List.of(option));
+
+        List<RoutePlanOption> result = itineraryService.previewRoutePlan(
+                TRIP_ID,
+                new RoutePlanSettingsRequest(
+                        null,
+                        "09:00",
+                        "21:00",
+                        "NORMAL",
+                        DAY_ID
+                )
+        );
+
+        assertThat(result).containsExactly(option);
+        then(routePlanner).should().planMulti(
+                argThat(days -> days.size() == 1 && days.getFirst() == day),
+                argThat(places -> places.stream().map(TripPlace::getId).collect(
+                        java.util.stream.Collectors.toSet()
+                ).equals(Set.of(TRIP_PLACE_ID, 302L))),
+                eq(Set.of()),
+                any(TripScheduleSettings.class)
+        );
+    }
+
+    @Test
+    @DisplayName("t48 하루 재배치 적용은 미배치 저장 장소로 채운 계획도 허용한다")
+    void t48_applyReplanDayAcceptsPlanFilledFromUnscheduledPlaces() {
+        TripPlace unscheduledSecondPlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google302")
+                        .name("미배치 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.58"))
+                        .longitude(new BigDecimal("126.98"))
+                        .build())
+                .category(savedTripPlace.getCategory())
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(unscheduledSecondPlace, "id", 302L);
+
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "Day 1 동선",
+                2,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        0,
+                        List.of(
+                                routePlanItem(TRIP_PLACE_ID, "테스트 장소"),
+                                routePlanItem(302L, "미배치 장소")
+                        )
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllById(Set.of()))
+                .willReturn(List.of());
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(TRIP_ID, TripPlaceStatus.SAVED))
+                .willReturn(List.of(savedTripPlace, unscheduledSecondPlace));
+        given(itemRepository.saveAllAndFlush(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        assertThatCode(() ->
+                itineraryService.applyReplanDay(TRIP_ID, DAY_ID, preview)
+        ).doesNotThrowAnyException();
+
+        then(itemRepository).should().saveAllAndFlush(argThat(items -> {
+            List<ItineraryItem> savedItems = new ArrayList<>();
+            items.forEach(savedItems::add);
+            return savedItems.size() == 2;
+        }));
+    }
+
+    @Test
+    @DisplayName("t49 하루 재배치 적용은 미리보기에서 제외된 갱신 실패 장소를 요구하지 않는다")
+    void t49_applyReplanDayIgnoresPlaceRejectedDuringFreshnessCheck() {
+        TripPlace unavailablePlace = TripPlace.builder()
+                .tripId(TRIP_ID)
+                .place(Place.builder()
+                        .googlePlaceId("google302")
+                        .name("갱신 실패 장소")
+                        .address("서울시")
+                        .latitude(new BigDecimal("37.58"))
+                        .longitude(new BigDecimal("126.98"))
+                        .build())
+                .category(savedTripPlace.getCategory())
+                .addedBy(MEMBER_ID)
+                .status(TripPlaceStatus.SAVED)
+                .build();
+        ReflectionTestUtils.setField(unavailablePlace, "id", 302L);
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "Day 1 동선",
+                1,
+                0,
+                List.of(new RoutePlanDayResponse(
+                        DAY_ID,
+                        1,
+                        LocalDate.of(2026, 8, 1),
+                        0,
+                        List.of(routePlanItem(TRIP_PLACE_ID, "테스트 장소"))
+                ))
+        );
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID))
+                .willReturn(List.of(day));
+        given(tripPlaceRepository.findAllById(Set.of()))
+                .willReturn(List.of());
+        given(tripPlaceRepository.findAllOrderedByTripIdAndStatus(TRIP_ID, TripPlaceStatus.SAVED))
+                .willReturn(List.of(savedTripPlace, unavailablePlace));
+        given(googlePlaceContentRefreshService.ensureFresh(unavailablePlace.getPlace()))
+                .willReturn(false);
+        given(itemRepository.saveAllAndFlush(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        assertThatCode(() ->
+                itineraryService.applyReplanDay(TRIP_ID, DAY_ID, preview)
+        ).doesNotThrowAnyException();
     }
 
     private RoutePlanItemResponse routePlanItem(Long tripPlaceId, String name) {

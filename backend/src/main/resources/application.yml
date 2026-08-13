@@ -93,6 +93,9 @@ app:
       connect-timeout: ${GOOGLE_MAPS_CONNECT_TIMEOUT:3s}
       read-timeout: ${GOOGLE_MAPS_READ_TIMEOUT:5s}
       photo-read-timeout: ${GOOGLE_MAPS_PHOTO_READ_TIMEOUT:30s}
+      places-requests-per-minute: ${GOOGLE_MAPS_PLACES_REQUESTS_PER_MINUTE:300}
+      routes-requests-per-minute: ${GOOGLE_MAPS_ROUTES_REQUESTS_PER_MINUTE:300}
+      public-photo-requests-per-minute: ${GOOGLE_MAPS_PUBLIC_PHOTO_REQUESTS_PER_MINUTE:60}
     openai:
       api-key: ${OPENAI_API_KEY:}
       base-url: ${OPENAI_API_BASE_URL:https://api.openai.com}

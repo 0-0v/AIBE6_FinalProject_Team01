@@ -99,4 +99,66 @@ class AiItineraryReplanControllerTest {
                 any()
         );
     }
+
+    @Test
+    @DisplayName("t4 하루 재배치 범위와 Day를 입력하면 미리보기를 반환한다")
+    void t4_previewAcceptsSingleDayScope() throws Exception {
+        given(replanService.preview(eq(1L), any())).willReturn(List.of());
+
+        mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "scope":"SINGLE_DAY",
+                                  "dayId":22,
+                                  "reasons":["ROUTE_OPTIMIZATION"]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        then(replanService).should().preview(eq(1L), any());
+    }
+
+    @Test
+    @DisplayName("t5 하루 재배치 적용 시 선택한 Day와 미리보기를 전달한다")
+    void t5_applySingleDayForwardsDayAndPreview() throws Exception {
+        given(replanService.applySingleDay(eq(1L), eq(22L), any()))
+                .willReturn(List.of());
+
+        mockMvc.perform(post("/api/trips/1/itinerary/replan/days/22/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "summary":"하루 재배치 결과",
+                                  "totalPlaceCount":2,
+                                  "totalDistanceMeters":1000,
+                                  "days":[{
+                                    "dayId":22,
+                                    "dayNumber":2,
+                                    "itineraryDate":"2026-08-13",
+                                    "totalDistanceMeters":1000,
+                                    "items":[]
+                                  }]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        then(replanService).should().applySingleDay(eq(1L), eq(22L), any());
+    }
+
+    @Test
+    @DisplayName("t6 하루 재배치에서 Day를 선택하지 않으면 잘못된 요청을 반환한다")
+    void t6_previewRejectsSingleDayScopeWithoutDay() throws Exception {
+        mockMvc.perform(post("/api/trips/1/itinerary/replan/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "scope":"SINGLE_DAY",
+                                  "reasons":["ROUTE_OPTIMIZATION"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        then(replanService).shouldHaveNoInteractions();
+    }
 }

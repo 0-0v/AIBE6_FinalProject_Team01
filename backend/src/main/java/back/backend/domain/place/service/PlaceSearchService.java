@@ -45,10 +45,15 @@ public class PlaceSearchService {
 
     private final RestClient restClient;
     private ExternalApiUsageService usageService;
+    private GoogleMapsQuotaGuard quotaGuard;
 
     @Autowired
     void setUsageService(ExternalApiUsageService usageService) {
         this.usageService = usageService;
+    }
+    @Autowired
+    void setQuotaGuard(GoogleMapsQuotaGuard quotaGuard) {
+        this.quotaGuard = quotaGuard;
     }
     @Autowired
     public PlaceSearchService(
@@ -173,6 +178,7 @@ public class PlaceSearchService {
     private List<PlaceSearchResponse> callGooglePlacesApi(
             Map<String, Object> requestBody
     ) {
+        acquireQuota();
         try {
             GooglePlacesApiResponse response = restClient.post()
                     .uri("/places:searchText")
@@ -214,6 +220,7 @@ public class PlaceSearchService {
     }
 
     private GooglePlacesApiResponse.Place fetchPlaceById(String googlePlaceId, String fieldMask) {
+        acquireQuota();
         try {
             GooglePlacesApiResponse.Place place = restClient.get()
                     .uri("/places/{placeId}", googlePlaceId)
@@ -236,6 +243,7 @@ public class PlaceSearchService {
         if (!StringUtils.hasText(googlePlaceId)) {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
+        acquireQuota();
         try {
             GooglePlacesApiResponse.Place place = restClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -271,6 +279,12 @@ public class PlaceSearchService {
         if (usageService != null) {
             usageService.recordSafely(ExternalApiProvider.GOOGLE_PLACES, operation,
                     success, null, null);
+        }
+    }
+
+    private void acquireQuota() {
+        if (quotaGuard != null) {
+            quotaGuard.acquire(ExternalApiProvider.GOOGLE_PLACES);
         }
     }
 

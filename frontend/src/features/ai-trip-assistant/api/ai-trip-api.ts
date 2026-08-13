@@ -11,6 +11,18 @@ import {
 } from '@/shared/api/client'
 import type { AiPlaceRecommendation } from '../model/types'
 
+export type AiItineraryReplanInput =
+    | {
+          scope: 'SINGLE_DAY'
+          dayId: number
+          reasons: string[]
+      }
+    | {
+          scope: 'REMAINING_DAYS'
+          itineraryItemId: number
+          reasons: string[]
+      }
+
 export async function recommendPlacesAlongRoute(
     tripId: number,
     input: {
@@ -37,10 +49,7 @@ export async function recommendPlacesAlongRoute(
 
 export async function previewAiItineraryReplan(
     tripId: number,
-    input: {
-        itineraryItemId: number
-        reasons: string[]
-    },
+    input: AiItineraryReplanInput,
 ): Promise<RouteOption[]> {
     const response = await apiClient.post<ApiResponse<RouteOption[]>>(
         `/api/trips/${tripId}/itinerary/replan/preview`,
@@ -52,9 +61,12 @@ export async function previewAiItineraryReplan(
 export async function applyAiItineraryReplan(
     tripId: number,
     plan: RoutePlanPreview,
+    dayId?: number,
 ): Promise<ItineraryDay[]> {
     const response = await apiClient.post<ApiResponse<ItineraryDay[]>>(
-        `/api/trips/${tripId}/itinerary/replan/apply`,
+        dayId == null
+            ? `/api/trips/${tripId}/itinerary/replan/apply`
+            : `/api/trips/${tripId}/itinerary/replan/days/${dayId}/apply`,
         plan,
     )
     return response.data

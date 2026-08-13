@@ -6,9 +6,9 @@ import back.backend.domain.itinerary.dto.response.RoutePlanOption;
 import back.backend.domain.itinerary.dto.response.RoutePlanPreviewResponse;
 import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
-import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.TripPlace;
+import back.backend.domain.place.service.PlaceRelationService;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.TravelPace;
 import lombok.RequiredArgsConstructor;
@@ -16,10 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.format.DateTimeFormatter;
-import java.time.Instant;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -81,10 +77,8 @@ public class ItineraryRoutePlanner {
                     List.of(PlaceCategoryType.SHOPPING, PlaceCategoryType.FOOD, PlaceCategoryType.CAFE)
     );
 
-    private final GoogleRoutesClient routesClient;
-    private final OpenAiRouteAdvisor openAiRouteAdvisor;
     private final ConstraintSorter constraintSorter;
-    private final PlaceGraphEdgeService placeGraphEdgeService;
+    private final PlaceRelationService placeRelationService;
 
     /**
      * 여행 스타일 수만큼 동선 옵션을 반환합니다. (스타일 없으면 균형 잡힌 코스 1개)
@@ -151,34 +145,39 @@ public class ItineraryRoutePlanner {
                 effectiveSettings
         );
 
-        Optional<OpenAiRouteAdvisor.Recommendation> aiRecommendation =
-                userRequest == null || userRequest.isBlank()
-                        ? openAiRouteAdvisor.recommend(
-                                days,
-                                eligibleTripPlaces,
-                                travelStyles
-                        )
-                        : openAiRouteAdvisor.recommend(
-                                days,
-                                eligibleTripPlaces,
-                                travelStyles,
-                                userRequest
-                        );
-        aiRecommendation
-                .map(recommendation -> buildAiPlan(
-                        days,
-                        eligibleTripPlaces,
-                        recommendation,
-                        effectiveSettings,
-                        replanExplanation
-                ))
-                .ifPresent(aiPlan -> {
-                    options.add(new RoutePlanOption("AI 추천 코스", aiPlan));
-                    routeSignatures.add(routeSignature(aiPlan));
-                });
+        // 관계 기반(공동 방문 이력 + 스타일 유사도) 맞춤 코스는 여행 스타일 선택 여부와 무관하게
+        // 항상 계산한다 — 관계 점수 자체가 개별 장소의 스타일 태그/카테고리에서 나오므로
+        // travelStyles 미선택과는 무관하다.
+        Map<Long, Map<Long, Double>> pairwiseRelationScores =
+                placeRelationService.resolvePairwiseRelationScores(eligibleTripPlaces);
+        List<List<TripPlace>> relationClusters = clusterByRelationPriority(
+                eligibleTripPlaces,
+                days.size(),
+                pairwiseRelationScores
+        );
+        RoutePlanPreviewResponse relationPlan = buildResponseFromClusters(
+                days,
+                relationClusters,
+                eligibleTripPlaces.size(),
+                replanExplanation == null
+                        ? "자주 함께 방문된 장소와 스타일 유사도를 함께 고려한 맞춤 코스예요."
+                        : "변경 사유와 자주 함께 방문된 장소 관계를 반영해 일정을 다시 배치했습니다.",
+                replanExplanation,
+                effectiveSettings
+        );
+
+        // 여행 스타일을 선택했을 때는 관계 코스를 최우선으로 제시하고(기존 동작 유지),
+        // 선택하지 않았을 때는 지리 코스를 기본값으로 유지하면서 관계 코스를 추가로 덧붙인다.
+        if (!travelStyles.isEmpty() && routeSignatures.add(routeSignature(relationPlan))) {
+            options.add(new RoutePlanOption("맞춤 추천 코스", relationPlan));
+        }
 
         if (routeSignatures.add(routeSignature(geoPlan))) {
             options.add(new RoutePlanOption("지리 최적 코스", geoPlan));
+        }
+
+        if (travelStyles.isEmpty() && routeSignatures.add(routeSignature(relationPlan))) {
+            options.add(new RoutePlanOption("맞춤 추천 코스", relationPlan));
         }
 
         // 스타일별 코스 추가
@@ -206,9 +205,7 @@ public class ItineraryRoutePlanner {
                             days.size(),
                             priority
                     ),
-                    replanExplanation == null
-                            ? buildStyleReason(styleLabel)
-                            : replanExplanation,
+                    replanExplanation,
                     effectiveSettings
             );
             if (routeSignatures.add(routeSignature(stylePlan))) {
@@ -219,46 +216,20 @@ public class ItineraryRoutePlanner {
         return options;
     }
 
-    private RoutePlanPreviewResponse buildAiPlan(
-            List<ItineraryDay> days,
-            List<TripPlace> tripPlaces,
-            OpenAiRouteAdvisor.Recommendation recommendation,
-            TripScheduleSettings settings,
-            String replanExplanation
-    ) {
-        Map<Long, TripPlace> placesById = tripPlaces.stream()
-                .collect(Collectors.toMap(TripPlace::getId, place -> place));
-        List<List<TripPlace>> clusters = recommendation.tripPlaceIdsByDay()
-                .stream()
-                .map(placeIds -> placeIds.stream()
-                        .map(placesById::get)
-                        .filter(Objects::nonNull)
-                        .toList())
-                .toList();
-        return buildResponseFromClusters(
-                days,
-                clusters,
-                tripPlaces.size(),
-                replanExplanation == null
-                        ? recommendation.summary()
-                        : "변경 사유를 반영해 선택 일정 이후를 다시 구성했습니다. "
-                        + recommendation.summary(),
-                replanExplanation == null
-                        ? "AI가 여행 스타일과 장소 간 이동을 함께 고려한 순서예요."
-                        : replanExplanation,
-                settings
-        );
-    }
-
     private String extractReplanExplanation(String userRequest) {
-        if (userRequest == null
-                || !userRequest.startsWith("REPLAN_REMAINING_ITINERARY")) {
+        if (userRequest == null) {
             return null;
         }
-        String context = userRequest.substring(
-                "REPLAN_REMAINING_ITINERARY".length()
-        ).trim();
-        return context.isBlank() ? null : context;
+        for (String prefix : List.of(
+                "REPLAN_REMAINING_ITINERARY",
+                "REPLAN_SINGLE_DAY"
+        )) {
+            if (userRequest.startsWith(prefix)) {
+                String context = userRequest.substring(prefix.length()).trim();
+                return context.isBlank() ? null : context;
+            }
+        }
+        return null;
     }
 
     /**
@@ -521,6 +492,117 @@ public class ItineraryRoutePlanner {
                 .collect(Collectors.toList());
     }
 
+    private List<List<TripPlace>> clusterByRelationPriority(
+            List<TripPlace> places,
+            int dayCount,
+            Map<Long, Map<Long, Double>> pairwiseScores
+    ) {
+        if (dayCount <= 0 || places.isEmpty()) return List.of();
+
+        if (dayCount >= places.size()) {
+            List<List<TripPlace>> result = new ArrayList<>();
+            for (TripPlace p : places) result.add(new ArrayList<>(List.of(p)));
+            while (result.size() < dayCount) result.add(new ArrayList<>());
+            return result;
+        }
+
+        int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
+        List<TripPlace> seeds = selectDiverseRelationSeeds(places, dayCount, pairwiseScores);
+        List<List<TripPlace>> clusters = emptyClusters(dayCount);
+        for (int index = 0; index < seeds.size(); index++) {
+            clusters.get(index).add(seeds.get(index));
+        }
+
+        List<TripPlace> remaining = places.stream()
+                .filter(place -> !seeds.contains(place))
+                .toList();
+
+        for (TripPlace place : remaining) {
+            int targetIndex = -1;
+            double bestAverage = Double.NEGATIVE_INFINITY;
+            for (int index = 0; index < clusters.size(); index++) {
+                if (clusters.get(index).size() >= maxPerDay) continue;
+                double average = averageRelationScore(
+                        place, clusters.get(index), pairwiseScores
+                );
+                if (average > bestAverage) {
+                    bestAverage = average;
+                    targetIndex = index;
+                }
+            }
+            if (targetIndex < 0) targetIndex = indexOfSmallestCluster(clusters);
+            clusters.get(targetIndex).add(place);
+        }
+
+        return clusters.stream()
+                .map(cluster -> cluster.isEmpty()
+                        ? cluster
+                        : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 관계 점수가 서로 낮은(테마가 겹치지 않는) dayCount개 시드를 선택한다.
+     * 첫 시드는 전체 평균 관계 점수가 가장 낮은 장소, 이후 시드는 기존 시드들과의
+     * 최대 관계 점수가 가장 낮은 장소를 반복 선택한다(관계 그래프판 farthest-first).
+     */
+    private List<TripPlace> selectDiverseRelationSeeds(
+            List<TripPlace> places,
+            int count,
+            Map<Long, Map<Long, Double>> pairwiseScores
+    ) {
+        List<TripPlace> seeds = new ArrayList<>();
+        TripPlace first = places.stream()
+                .min(Comparator
+                        .comparingDouble((TripPlace place) ->
+                                averageRelationScore(place, places, pairwiseScores))
+                        .thenComparing(TripPlace::getId))
+                .orElse(places.get(0));
+        seeds.add(first);
+
+        while (seeds.size() < count && seeds.size() < places.size()) {
+            List<TripPlace> currentSeeds = new ArrayList<>(seeds);
+            TripPlace next = places.stream()
+                    .filter(place -> !currentSeeds.contains(place))
+                    .min(Comparator
+                            .comparingDouble((TripPlace place) ->
+                                    currentSeeds.stream()
+                                            .mapToDouble(seed ->
+                                                    pairwiseScore(place, seed, pairwiseScores))
+                                            .max()
+                                            .orElse(0.0))
+                            .thenComparing(TripPlace::getId))
+                    .orElseThrow();
+            seeds.add(next);
+        }
+        return seeds;
+    }
+
+    private double averageRelationScore(
+            TripPlace place,
+            List<TripPlace> group,
+            Map<Long, Map<Long, Double>> pairwiseScores
+    ) {
+        List<TripPlace> others = group.stream()
+                .filter(candidate -> !candidate.getId().equals(place.getId()))
+                .toList();
+        if (others.isEmpty()) return 0.0;
+        return others.stream()
+                .mapToDouble(other -> pairwiseScore(place, other, pairwiseScores))
+                .average()
+                .orElse(0.0);
+    }
+
+    private double pairwiseScore(
+            TripPlace first,
+            TripPlace second,
+            Map<Long, Map<Long, Double>> pairwiseScores
+    ) {
+        return pairwiseScores
+                .getOrDefault(first.getId(), Map.of())
+                .getOrDefault(second.getId(), 0.0);
+    }
+
     private RoutePlanPreviewResponse buildResponseFromClusters(
             List<ItineraryDay> days,
             List<List<TripPlace>> clusters,
@@ -720,11 +802,10 @@ public class ItineraryRoutePlanner {
             RouteResult route = null;
             if (next != null) {
                 int haversineMeters = (int) Math.round(distanceMeters(current, next));
-                route = resolveRoute(
+                route = estimateRoute(
                         current,
                         next,
-                        settings.effectiveTransportMode(haversineMeters),
-                        departureTime(day, endMinutes)
+                        settings.effectiveTransportMode(haversineMeters)
                 );
             }
 
@@ -735,7 +816,10 @@ public class ItineraryRoutePlanner {
                             fitsInDay,
                             defaultReason,
                             settings,
-                            day.getId()
+                            day,
+                            current,
+                            index > 0 ? places.get(index - 1) : null,
+                            cursorMinutes
                     );
 
             items.add(new RoutePlanItemResponse(
@@ -770,13 +854,70 @@ public class ItineraryRoutePlanner {
     }
 
     private String buildItemReason(
-            int index, boolean fitsInDay, String defaultReason, TripScheduleSettings settings, Long dayId) {
+            int index,
+            boolean fitsInDay,
+            String defaultReason,
+            TripScheduleSettings settings,
+            ItineraryDay day,
+            TripPlace current,
+            TripPlace previous,
+            int startMinutes
+    ) {
         if (!fitsInDay) return "하루 일정이 길어 방문 시간은 직접 조정해 주세요.";
-        if (defaultReason != null) return defaultReason;
-        if (index == 0) {
-            return settings.dayStartTime(dayId).format(TIME_FORMATTER) + "부터 시작하는 첫 장소예요.";
+        if (index == 0 && isReplanExplanation(defaultReason)) {
+            return defaultReason;
         }
-        return "이전 장소와 가까워 이동 부담이 적어요.";
+        PlaceCategoryType categoryType = current.getCategory().getCategoryType();
+        if (categoryType == PlaceCategoryType.FOOD && isMealTime(startMinutes)) {
+            return startMinutes < 16 * 60
+                    ? "점심 식사 시간대에 방문하도록 배치했어요."
+                    : "저녁 식사 시간대에 방문하도록 배치했어요.";
+        }
+        int previousDistanceMeters = previous == null
+                ? Integer.MAX_VALUE
+                : (int) Math.round(distanceMeters(previous, current));
+        if (previousDistanceMeters <= 3_000) {
+            return String.format(
+                    Locale.ROOT,
+                    "이전 장소에서 약 %s 거리라 이동 부담을 줄였어요.",
+                    formatDistance(previousDistanceMeters)
+            );
+        }
+        if (index == 0) {
+            return day.hasDeparture()
+                    ? "출발지에서 가까운 첫 방문지로 배치했어요."
+                    : settings.dayStartTime(day.getId()).format(TIME_FORMATTER)
+                    + "부터 시작하는 첫 장소예요.";
+        }
+        int stayMinutes = CATEGORY_STAY_MINUTES.getOrDefault(
+                categoryType,
+                DEFAULT_STAY_MINUTES
+        );
+        return switch (categoryType) {
+            case CAFE -> "쉬어갈 수 있도록 카페 체류 시간을 " + stayMinutes + "분 배정했어요.";
+            case NATURE -> "공원·자연 장소를 여유롭게 볼 수 있도록 " + stayMinutes + "분 배정했어요.";
+            case SHOPPING -> "쇼핑에 필요한 체류 시간을 " + stayMinutes + "분 배정했어요.";
+            case ATTRACTION -> "명소 관람 시간을 " + stayMinutes + "분 배정했어요.";
+            case ACTIVITY -> "체험에 필요한 시간을 " + stayMinutes + "분 배정했어요.";
+            default -> "앞뒤 장소의 위치를 고려해 이 순서에 배치했어요.";
+        };
+    }
+
+    private boolean isReplanExplanation(String reason) {
+        return reason != null
+                && (reason.contains("변경 사유") || reason.contains("선택 장소"));
+    }
+
+    private boolean isMealTime(int startMinutes) {
+        return startMinutes >= 11 * 60 && startMinutes < 14 * 60
+                || startMinutes >= 17 * 60 && startMinutes < 20 * 60;
+    }
+
+    private String formatDistance(int distanceMeters) {
+        if (distanceMeters < 1_000) {
+            return distanceMeters + "m";
+        }
+        return String.format(Locale.ROOT, "%.1fkm", distanceMeters / 1_000.0);
     }
 
     private String buildStyleSummary(
@@ -795,10 +936,6 @@ public class ItineraryRoutePlanner {
                 .collect(Collectors.joining("·"));
         return String.format("%s(%s)를 앞세워 %d곳을 %d일에 나눴어요.",
                 styleLabel, topCategories, placeCount, dayCount);
-    }
-
-    private String buildStyleReason(String styleLabel) {
-        return styleLabel + " 코스에 맞는 장소예요.";
     }
 
     private String routeSignature(RoutePlanPreviewResponse plan) {
@@ -844,103 +981,23 @@ public class ItineraryRoutePlanner {
         return ordered;
     }
 
-    // ── Routes API / Haversine ────────────────────────────────────────────────
+    // ── 미리보기용 거리 추정 ───────────────────────────────────────────────────
 
-    /**
-     * Routes API로 실제 거리/시간 조회. 실패 시 Haversine 폴백.
-     */
-    private RouteResult resolveRoute(
+    private RouteResult estimateRoute(
             TripPlace from,
             TripPlace to,
-            ItineraryTransportMode requestedMode,
-            Instant departureTime
+            ItineraryTransportMode requestedMode
     ) {
-        Optional<PlaceGraphEdgeService.CachedRoute> cachedRoute =
-                placeGraphEdgeService.find(
-                        from.getPlace(),
-                        to.getPlace(),
-                        requestedMode
-                );
-        if (cachedRoute.isPresent()) {
-            PlaceGraphEdgeService.CachedRoute cached = cachedRoute.get();
-            return new RouteResult(
-                    cached.distanceMeters(),
-                    cached.travelMinutes(),
-                    requestedMode.displayName(),
-                    null
-            );
-        }
-
-        double fromLat = from.getPlace().getLatitude().doubleValue();
-        double fromLng = from.getPlace().getLongitude().doubleValue();
-        double toLat   = to.getPlace().getLatitude().doubleValue();
-        double toLng   = to.getPlace().getLongitude().doubleValue();
-
-        return routesClient
-                .getRouteInfo(
-                        fromLat,
-                        fromLng,
-                        toLat,
-                        toLng,
-                        requestedMode.directionsMode(),
-                        requestedMode.transitMode(),
-                        departureTime
-                )
-                .map(info -> {
-                    cacheRouteSafely(
-                            from.getPlace(),
-                            to.getPlace(),
-                            requestedMode,
-                            info.distanceMeters(),
-                            info.durationMinutes()
-                    );
-                    return new RouteResult(
-                            info.distanceMeters(),
-                            info.durationMinutes(),
-                            info.actualTransportMode() != null
-                                    ? info.actualTransportMode()
-                                    : requestedMode.displayName(),
-                            info.transportDetail()
-                    );
-                })
-                .orElseGet(() -> {
-                    int haversineMeters = (int) Math.round(distanceMeters(from, to));
-                    return new RouteResult(
-                            haversineMeters,
-                            estimateTransportMinutes(
-                                    haversineMeters,
-                                    requestedMode.fallbackSpeedKmh()
-                            ),
-                            requestedMode.displayName(),
-                            null
-                    );
-                });
-    }
-
-    private void cacheRouteSafely(
-            Place from,
-            Place to,
-            ItineraryTransportMode mode,
-            int distanceMeters,
-            int travelMinutes
-    ) {
-        try {
-            placeGraphEdgeService.cache(
-                    from,
-                    to,
-                    mode,
-                    distanceMeters,
-                    travelMinutes
-            );
-        } catch (RuntimeException exception) {
-            log.warn(
-                    "장소 경로 캐시 저장에 실패했지만 조회한 경로를 계속 사용합니다. from={}, to={}, mode={}, type={}",
-                    from.getId(),
-                    to.getId(),
-                    mode,
-                    exception.getClass().getSimpleName()
-            );
-        }
+        int haversineMeters = (int) Math.round(distanceMeters(from, to));
+        return new RouteResult(
+                haversineMeters,
+                estimateTransportMinutes(
+                        haversineMeters,
+                        requestedMode.fallbackSpeedKmh()
+                ),
+                requestedMode.displayName(),
+                null
+        );
     }
 
     private record RouteResult(
@@ -956,24 +1013,6 @@ public class ItineraryRoutePlanner {
     ) {
         double minutes = distanceMeters / 1000.0 / averageSpeedKmh * 60.0;
         return Math.max(5, (int) Math.ceil(minutes / 5.0) * 5);
-    }
-
-    private Instant departureTime(ItineraryDay day, int minutes) {
-        if (day.getItineraryDate() == null || minutes >= 24 * 60) {
-            return null;
-        }
-        Instant departure = LocalDateTime.of(
-                        day.getItineraryDate(),
-                        java.time.LocalTime.of(minutes / 60, minutes % 60)
-                )
-                .atZone(ZoneId.systemDefault())
-                .toInstant();
-        Instant now = Instant.now();
-        if (departure.isBefore(now.minus(Duration.ofDays(7)))
-                || departure.isAfter(now.plus(Duration.ofDays(100)))) {
-            return null;
-        }
-        return departure;
     }
 
     // ── 공통 유틸 ─────────────────────────────────────────────────────────────

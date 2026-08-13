@@ -5,11 +5,13 @@ import back.backend.domain.itinerary.entity.ItineraryItem;
 import back.backend.domain.itinerary.entity.ItineraryTransportMode;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.TripPlace;
+import back.backend.domain.place.service.GooglePlaceContentRefreshService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -20,6 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
 class ItineraryTravelEstimatorTest {
@@ -27,11 +32,20 @@ class ItineraryTravelEstimatorTest {
     @Mock
     private GoogleRoutesClient routesClient;
 
+    @Mock
+    private GooglePlaceContentRefreshService googlePlaceContentRefreshService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(googlePlaceContentRefreshService.ensureFresh(any(Place.class)))
+                .thenReturn(true);
+    }
+
     @Test
     @DisplayName("t1 일정 순서에 따라 다음 장소까지 예상 이동정보를 계산한다")
     void t1_recalculateAssignsTravelToNextPlace() {
         ItineraryTravelEstimator estimator =
-                new ItineraryTravelEstimator(routesClient);
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
         ItineraryDay day = ItineraryDay.create(
                 1L,
                 LocalDate.of(2026, 8, 1),
@@ -58,7 +72,7 @@ class ItineraryTravelEstimatorTest {
     @DisplayName("t2 장소 좌표가 없으면 이동정보를 비운다")
     void t2_recalculateClearsTravelWhenPlaceIsMissing() {
         ItineraryTravelEstimator estimator =
-                new ItineraryTravelEstimator(routesClient);
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
         ItineraryDay day = ItineraryDay.create(
                 1L,
                 LocalDate.of(2026, 8, 1),
@@ -77,7 +91,7 @@ class ItineraryTravelEstimatorTest {
     @DisplayName("t3 지하철을 선택하면 지하철 경로로 이동정보를 다시 계산한다")
     void t3_recalculateSegmentUsesSelectedSubwayMode() {
         ItineraryTravelEstimator estimator =
-                new ItineraryTravelEstimator(routesClient);
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
         ItineraryDay day = ItineraryDay.create(
                 1L,
                 LocalDate.of(2026, 8, 1),
@@ -122,7 +136,7 @@ class ItineraryTravelEstimatorTest {
     @DisplayName("t4 일정 재계산 후에도 사용자가 선택한 이동수단을 유지한다")
     void t4_recalculatePreservesManuallySelectedMode() {
         ItineraryTravelEstimator estimator =
-                new ItineraryTravelEstimator(routesClient);
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
         ItineraryDay day = ItineraryDay.create(
                 1L,
                 LocalDate.of(2026, 8, 1),
@@ -155,7 +169,7 @@ class ItineraryTravelEstimatorTest {
     @DisplayName("t5 선호 수단과 달라도 실제 반환된 대중교통 경로를 적용한다")
     void t5_usesActualTransitRouteWhenPreferenceIsUnavailable() {
         ItineraryTravelEstimator estimator =
-                new ItineraryTravelEstimator(routesClient);
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
         ItineraryDay day = ItineraryDay.create(
                 1L,
                 LocalDate.of(2026, 8, 1),
@@ -197,7 +211,7 @@ class ItineraryTravelEstimatorTest {
     @DisplayName("t6 자동 추천을 선택하면 거리 기반 이동수단으로 계산하고 수동 설정을 해제한다")
     void t6_recalculateSegmentAutomaticallyClearsManualPreference() {
         ItineraryTravelEstimator estimator =
-                new ItineraryTravelEstimator(routesClient);
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
         ItineraryDay day = ItineraryDay.create(
                 1L,
                 LocalDate.of(2026, 8, 1),
@@ -226,7 +240,7 @@ class ItineraryTravelEstimatorTest {
     @DisplayName("t7 대중교통 API 경로가 없으면 추정값으로 선호 설정을 저장한다")
     void t7_manualTransitWithoutRouteUsesFallbackEstimate() {
         ItineraryTravelEstimator estimator =
-                new ItineraryTravelEstimator(routesClient);
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
         ItineraryDay day = ItineraryDay.create(
                 1L,
                 LocalDate.of(2026, 8, 1),
@@ -254,6 +268,25 @@ class ItineraryTravelEstimatorTest {
         assertThat(item.getTransportMode()).isEqualTo("대중교통");
         assertThat(item.getTransportModePreference()).isEqualTo("SUBWAY");
         assertThat(item.getTransportMinutes()).isPositive();
+    }
+
+    @Test
+    @DisplayName("t8 만료된 장소 정보를 갱신하지 못하면 Routes API를 호출하지 않는다")
+    void t8_unavailableGoogleContentSkipsRoutesApi() {
+        ItineraryTravelEstimator estimator =
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
+        ItineraryDay day = ItineraryDay.create(1L, LocalDate.of(2026, 8, 1), 1);
+        ItineraryItem item = ItineraryItem.create(day, 10L, 0);
+        TripPlace from = tripPlace(10L, 33.4500, 126.5000);
+        TripPlace to = tripPlace(11L, 33.4600, 126.5100);
+        given(googlePlaceContentRefreshService.ensureFresh(from.getPlace()))
+                .willReturn(false);
+
+        estimator.recalculateSegment(item, from, to, ItineraryTransportMode.WALKING);
+
+        assertThat(item.getTransportMinutes()).isNull();
+        assertThat(item.getTransportMeters()).isNull();
+        then(routesClient).shouldHaveNoInteractions();
     }
 
     private TripPlace tripPlace(Long id, double latitude, double longitude) {

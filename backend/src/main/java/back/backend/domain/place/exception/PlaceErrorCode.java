@@ -7,6 +7,7 @@ public enum PlaceErrorCode implements ErrorCode {
 
     PLACE_SEARCH_QUERY_REQUIRED(HttpStatus.BAD_REQUEST, "PLACE_SEARCH_QUERY_REQUIRED", "검색어를 입력해주세요."),
     PLACE_SEARCH_EXTERNAL_API_ERROR(HttpStatus.BAD_GATEWAY, "PLACE_SEARCH_EXTERNAL_API_ERROR", "장소 검색 중 오류가 발생했습니다."),
+    GOOGLE_MAPS_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "GOOGLE_MAPS_RATE_LIMITED", "지도 요청이 많습니다. 잠시 후 다시 시도해주세요."),
     TRIP_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "TRIP_PLACE_NOT_FOUND", "여행 장소를 찾을 수 없습니다."),
     TRIP_PLACE_ALREADY_EXISTS(HttpStatus.CONFLICT, "TRIP_PLACE_ALREADY_EXISTS", "이미 여행에 추가된 장소입니다."),
     PLACE_VOTE_ALREADY_REQUESTED(HttpStatus.CONFLICT, "PLACE_VOTE_ALREADY_REQUESTED", "이미 진행 중인 장소 투표가 있습니다."),

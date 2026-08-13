@@ -42,6 +42,10 @@ public class MapPinPersistenceService {
                                     candidate.getTripId(),
                                     candidate.getGooglePlaceId()
                             )
+                            .map(existing -> {
+                                existing.refreshGoogleContent(candidate);
+                                return existing;
+                            })
                             .orElseGet(() -> mapPinRepository.saveAndFlush(candidate))
             ));
         } catch (DataIntegrityViolationException exception) {
@@ -57,6 +61,10 @@ public class MapPinPersistenceService {
                                     candidate.getTripId(),
                                     candidate.getGooglePlaceId()
                             )
+                            .map(existing -> {
+                                existing.refreshGoogleContent(candidate);
+                                return existing;
+                            })
                             .orElseThrow(() -> exception)
             ));
         }

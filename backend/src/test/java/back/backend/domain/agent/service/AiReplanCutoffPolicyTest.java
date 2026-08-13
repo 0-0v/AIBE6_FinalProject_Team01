@@ -173,4 +173,47 @@ class AiReplanCutoffPolicyTest {
                 LocalDate.of(2026, 8, 6)
         )).isFalse();
     }
+
+    @Test
+    @DisplayName("t10 하루 재배치는 선택한 Day의 남은 일정만 대상으로 반환한다")
+    void t10_singleDayReplanOnlyReturnsRemainingItemsFromSelectedDay() {
+        ItineraryDay day1 = mock(ItineraryDay.class);
+        ItineraryDay day2 = mock(ItineraryDay.class);
+        ItineraryItem day1Item = mock(ItineraryItem.class);
+        ItineraryItem finishedItem = mock(ItineraryItem.class);
+        ItineraryItem remainingItem = mock(ItineraryItem.class);
+        given(day1.getId()).willReturn(1L);
+        given(day2.getId()).willReturn(2L);
+        given(day1.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 2));
+        given(day2.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day1.getItems()).willReturn(List.of(day1Item));
+        given(day2.getItems()).willReturn(List.of(finishedItem, remainingItem));
+        given(finishedItem.getId()).willReturn(20L);
+        given(finishedItem.getEndTime()).willReturn(LocalTime.of(10, 0));
+        given(remainingItem.getId()).willReturn(21L);
+        given(remainingItem.getEndTime()).willReturn(LocalTime.of(15, 0));
+
+        var movableIds = policy.movableItemIdsForDay(
+                List.of(day1, day2),
+                LocalDateTime.of(2026, 8, 3, 12, 0),
+                2L
+        );
+
+        assertThat(movableIds).containsExactly(21L);
+    }
+
+    @Test
+    @DisplayName("t11 다른 여행방 Day 식별자를 선택하면 하루 재배치 대상을 반환하지 않는다")
+    void t11_unknownDayCannotBeReplanned() {
+        ItineraryDay day = mock(ItineraryDay.class);
+        given(day.getId()).willReturn(1L);
+
+        var movableIds = policy.movableItemIdsForDay(
+                List.of(day),
+                LocalDateTime.of(2026, 8, 3, 12, 0),
+                999L
+        );
+
+        assertThat(movableIds).isEmpty();
+    }
 }
