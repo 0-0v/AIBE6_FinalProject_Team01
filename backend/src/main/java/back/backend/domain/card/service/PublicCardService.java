@@ -11,6 +11,7 @@ import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.realtime.RealtimeEvent;
+import back.backend.global.response.PageResponse;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
@@ -73,8 +74,21 @@ public class PublicCardService {
                 .map(card -> toResponse(card, memberId)).toList();
     }
 
+    public PageResponse<PublicCardResponse> getBookmarks(Long memberId, int page, int size) {
+        return paginate(getBookmarks(memberId), page, size);
+    }
+
     public PublicCardResponse getPublicCard(Long cardId, Long memberId) {
         return toResponse(requirePublic(cardId), memberId);
+    }
+
+    public Map<Long, PublicCardResponse> getPublicCards(Collection<Long> cardIds, Long memberId) {
+        return cardRepository.findAllById(cardIds).stream()
+                .filter(card -> card.getVisibility() != TripVisibility.PRIVATE)
+                .collect(java.util.stream.Collectors.toMap(
+                        PlanCard::getId,
+                        card -> toResponse(card, memberId)
+                ));
     }
 
     @Transactional
@@ -99,6 +113,15 @@ public class PublicCardService {
         requirePublic(cardId);
         return commentRepository.findAllByPlanCardIdOrderByCreatedAtAsc(cardId).stream()
                 .map(comment -> toComment(comment, memberId)).toList();
+    }
+
+    public PageResponse<CardCommentResponse> getComments(
+            Long cardId,
+            Long memberId,
+            int page,
+            int size
+    ) {
+        return paginate(getComments(cardId, memberId), page, size);
     }
 
     @Transactional
@@ -165,5 +188,17 @@ public class PublicCardService {
         String nickname = memberRepository.findById(comment.getMemberId()).map(member -> member.getNickname()).orElse("알 수 없음");
         return new CardCommentResponse(comment.getId(), comment.getMemberId(), nickname, comment.getContent(),
                 memberId != null && memberId.equals(comment.getMemberId()), comment.getCreatedAt());
+    }
+
+    private <T> PageResponse<T> paginate(List<T> items, int requestedPage, int requestedSize) {
+        int page = Math.max(requestedPage, 0);
+        int size = Math.min(Math.max(requestedSize, 1), 100);
+        int from = Math.min(page * size, items.size());
+        int to = Math.min(from + size, items.size());
+        int totalPages = (int) Math.ceil((double) items.size() / size);
+        return new PageResponse<>(
+                items.subList(from, to), page, size, items.size(), totalPages,
+                page == 0, page + 1 >= totalPages, items.isEmpty()
+        );
     }
 }
