@@ -14,6 +14,10 @@ public enum AuthErrorCode implements ErrorCode {
     SUSPENDED_ACCOUNT(HttpStatus.FORBIDDEN, "AUTH_403_SUSPENDED", "관리자에 의해 이용이 정지된 계정입니다."),
     SUSPENSION_NOTICE_INVALID(HttpStatus.BAD_REQUEST, "AUTH_400_SUSPENSION_NOTICE", "정지 안내 정보가 만료되었거나 유효하지 않습니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    LOGIN_RATE_LIMITED(
+            HttpStatus.TOO_MANY_REQUESTS,
+            "AUTH_429_LOGIN",
+            "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요."),
     ADMIN_OTP_REQUIRED(HttpStatus.FORBIDDEN, "AUTH_403_ADMIN_OTP", "관리자 전용 OTP 로그인이 필요합니다."),
     ADMIN_OTP_INVALID(HttpStatus.BAD_REQUEST, "AUTH_400_ADMIN_OTP", "OTP가 올바르지 않거나 만료되었습니다."),
     ADMIN_OTP_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_429_ADMIN_OTP", "OTP를 너무 자주 요청했습니다. 잠시 후 다시 시도해 주세요."),
