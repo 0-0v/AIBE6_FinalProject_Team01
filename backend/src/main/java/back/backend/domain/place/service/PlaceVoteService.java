@@ -46,7 +46,7 @@ public class PlaceVoteService {
 
     @Transactional
     public PlaceVoteSummaryResponse startVote(Long tripId, CreatePlaceVoteRequest request) {
-        Long memberId = accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireMember(tripId);
         Map<Long, TripPlace> lockedPlaces = lockVotePlaces(tripId, request);
         TripPlace primary = lockedPlaces.get(request.primaryTripPlaceId());
         TripPlace secondary = request.secondaryTripPlaceId() == null

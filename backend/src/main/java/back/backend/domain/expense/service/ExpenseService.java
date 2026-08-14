@@ -48,7 +48,7 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseResponse create(Long tripId, ExpenseCreateRequest request) {
-        Long actorId = accessChecker.requireEdit(tripId);
+        Long actorId = accessChecker.requireMember(tripId);
         Trip trip = tripRepository.findById(tripId).orElseThrow();
         validateExpenseDate(trip, request.expenseDate());
         List<Long> tripMemberIds = tripMemberRepository.findMemberIdsByTripId(tripId);
@@ -75,7 +75,7 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseResponse update(Long tripId, Long expenseId, ExpenseUpdateRequest request) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         Trip trip = tripRepository.findById(tripId).orElseThrow();
         Expense expense = findExpense(tripId, expenseId);
         validateExpenseDate(trip, request.expenseDate());
@@ -160,7 +160,7 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseResponse completeParticipant(Long tripId, Long expenseId, Long memberId) {
-        Long actorId = accessChecker.requireEdit(tripId);
+        Long actorId = accessChecker.requireMember(tripId);
         if (!actorId.equals(memberId)) {
             throw new BusinessException(ExpenseErrorCode.SETTLEMENT_FORBIDDEN);
         }

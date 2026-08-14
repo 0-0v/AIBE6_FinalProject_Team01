@@ -40,7 +40,7 @@ class PlaceVoteServiceTest {
         service = new PlaceVoteService(tripPlaceRepository, voteRequestRepository, voteResponseRepository,
                 accessChecker, tripMemberRepository, collaborationEventService, aiInfoService);
         first = place(10L, "을지맥옥"); second = place(20L, "맥파이");
-        org.mockito.Mockito.lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
+        org.mockito.Mockito.lenient().when(accessChecker.requireMember(1L)).thenReturn(1L);
         org.mockito.Mockito.lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
     }
 

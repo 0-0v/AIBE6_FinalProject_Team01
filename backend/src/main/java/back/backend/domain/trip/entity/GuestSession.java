@@ -49,6 +49,12 @@ public class GuestSession {
         this.claimedAt = claimedAt;
     }
 
+    public void extendUntil(LocalDateTime newExpiresAt) {
+        if (newExpiresAt.isAfter(expiresAt)) {
+            expiresAt = newExpiresAt;
+        }
+    }
+
     public Long getId() { return id; }
     public String getTokenHash() { return tokenHash; }
     public LocalDateTime getExpiresAt() { return expiresAt; }

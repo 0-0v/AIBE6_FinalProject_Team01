@@ -62,7 +62,7 @@ public class AiItineraryReplanService {
             Long tripId,
             AiItineraryReplanRequest request
     ) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         var trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
         LocalDateTime referenceTime = LocalDateTime.now();
@@ -341,7 +341,7 @@ public class AiItineraryReplanService {
             Long tripId,
             RoutePlanPreviewResponse plan
     ) {
-        Long memberId = accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireMember(tripId);
         var trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(
                         CommonErrorCode.NOT_FOUND
@@ -376,7 +376,7 @@ public class AiItineraryReplanService {
             Long dayId,
             RoutePlanPreviewResponse plan
     ) {
-        Long memberId = accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireMember(tripId);
         var trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(
                         CommonErrorCode.NOT_FOUND

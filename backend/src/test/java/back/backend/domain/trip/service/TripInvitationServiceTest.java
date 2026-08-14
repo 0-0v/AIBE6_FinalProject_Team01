@@ -36,7 +36,7 @@ class TripInvitationServiceTest {
     }
 
     @Test
-    @DisplayName("t1 여행방 멤버가 초대 링크를 생성하면 7일간 유효한 코드를 반환한다")
+    @DisplayName("t1 여행방 멤버가 초대를 생성하면 5분 코드와 7일 링크를 반환한다")
     void t1_createInvitationReturnsPersistedCode() {
         when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
                 .thenReturn(Optional.of(trip()));
@@ -44,14 +44,17 @@ class TripInvitationServiceTest {
 
         var response = service.create(1L, 10L);
 
-        assertThat(response.inviteCode()).hasSize(32);
-        assertThat(response.expiresAt()).isAfter(LocalDateTime.now().plusDays(6));
+        assertThat(response.inviteCode()).hasSize(6);
+        assertThat(response.inviteToken()).hasSize(32);
+        assertThat(response.codeExpiresAt()).isBefore(LocalDateTime.now().plusMinutes(6));
+        assertThat(response.linkExpiresAt()).isAfter(LocalDateTime.now().plusDays(6));
     }
 
     @Test
     @DisplayName("t2 비로그인 사용자가 유효한 초대 코드로 조회하면 여행방 정보를 반환한다")
     void t2_previewInvitationReturnsTrip() {
-        TripInvitation invitation = TripInvitation.create(10L, "valid-code", 1L, LocalDateTime.now().plusDays(1));
+        TripInvitation invitation = TripInvitation.create(10L, "valid-code", "123456", 1L,
+                LocalDateTime.now().plusMinutes(5), LocalDateTime.now().plusDays(1));
         when(invitationRepository.findByInviteCode("valid-code")).thenReturn(Optional.of(invitation));
         when(tripRepository.findByIdAndStatusNot(10L, TripStatus.CANCELLED)).thenReturn(Optional.of(trip()));
         when(tripMemberRepository.countByTripId(10L)).thenReturn(1L);
@@ -62,7 +65,8 @@ class TripInvitationServiceTest {
     @Test
     @DisplayName("t3 만료된 초대 코드로 조회하면 초대 링크 없음 예외가 발생한다")
     void t3_previewInvitationRejectsExpiredCode() {
-        TripInvitation invitation = TripInvitation.create(10L, "expired", 1L, LocalDateTime.now().minusMinutes(1));
+        TripInvitation invitation = TripInvitation.create(10L, "expired", "123456", 1L,
+                LocalDateTime.now().minusMinutes(1), LocalDateTime.now().minusMinutes(1));
         when(invitationRepository.findByInviteCode("expired")).thenReturn(Optional.of(invitation));
 
         assertThatThrownBy(() -> service.preview("expired"))

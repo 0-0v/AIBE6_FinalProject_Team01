@@ -564,7 +564,7 @@ export function RoomDetailPanel({
                             일정
                         </button>
                     </nav>
-                    {planTab === 'schedule' && (
+                    {planTab === 'schedule' && !guestView && (
                         <button
                             type="button"
                             onClick={() =>

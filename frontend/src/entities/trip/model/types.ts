@@ -1,12 +1,9 @@
 import type { PlaceMarkerIcon } from './place-marker-icon'
 
-export type Role = 'OWNER' | 'EDITOR' | 'VIEWER'
-
 export type Member = {
     id: string
     name: string
     avatarColor: string
-    role: Role
 }
 
 export type PlaceCategory =

@@ -99,4 +99,25 @@ class TripAccessCheckerTest {
 
         assertThat(checker.requireView(10L)).isNull();
     }
+
+    @Test
+    @DisplayName("t6 정식 여행방 멤버는 멤버 전용 변경 권한을 가진다")
+    void t6_requireMemberReturnsMemberIdForJoinedMember() {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+
+        assertThat(checker.requireMember(10L)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("t7 여행방 멤버가 아닌 로그인 사용자는 변경 권한이 없다")
+    void t7_requireMemberRejectsNonMember() {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> checker.requireMember(10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(CommonErrorCode.FORBIDDEN));
+    }
 }

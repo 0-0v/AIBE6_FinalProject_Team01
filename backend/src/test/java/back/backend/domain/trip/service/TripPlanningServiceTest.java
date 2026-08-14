@@ -129,7 +129,7 @@ class TripPlanningServiceTest {
                 VALUES (10, 1, DATE '2026-08-12', CURRENT_TIMESTAMP)
                 """).update();
         given(accessChecker.requireView(10L)).willReturn(1L);
-        given(accessChecker.requireEdit(10L)).willReturn(1L);
+        given(accessChecker.requireMember(10L)).willReturn(1L);
         given(tripRepository.findByIdForUpdate(10L))
                 .willReturn(java.util.Optional.of(mock(Trip.class)));
         given(tripMemberRepository.findMemberIdsByTripId(10L))

@@ -63,7 +63,7 @@ class ItineraryDateShiftIntegrationTest {
                 owner.getId(), "도쿄 여행", null, Set.of(), "도쿄",
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 2),
                 TripVisibility.PRIVATE));
-        tripMemberRepository.save(TripMember.owner(trip.getId(), owner.getId()));
+        tripMemberRepository.save(TripMember.member(trip.getId(), owner.getId()));
 
         ItineraryDay dayOne = dayRepository.save(
                 ItineraryDay.create(trip.getId(), LocalDate.of(2026, 8, 1), 1));
@@ -102,7 +102,7 @@ class ItineraryDateShiftIntegrationTest {
                 owner.getId(), "제주 여행", null, Set.of(), "제주",
                 LocalDate.of(2026, 7, 5), LocalDate.of(2026, 8, 2),
                 TripVisibility.PRIVATE));
-        tripMemberRepository.save(TripMember.owner(trip.getId(), owner.getId()));
+        tripMemberRepository.save(TripMember.member(trip.getId(), owner.getId()));
 
         // Day1(dn1,07-05, 빈 Day), Day2(dn2,08-01, 빈 Day), Day3(dn3,08-02, 기록 있음 - 오버플로우 대상)
         dayRepository.save(ItineraryDay.create(trip.getId(), LocalDate.of(2026, 7, 5), 1));
@@ -144,7 +144,7 @@ class ItineraryDateShiftIntegrationTest {
                 owner.getId(), "부산 여행", null, Set.of(), "부산",
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 2),
                 TripVisibility.PRIVATE));
-        tripMemberRepository.save(TripMember.owner(trip.getId(), owner.getId()));
+        tripMemberRepository.save(TripMember.member(trip.getId(), owner.getId()));
         ItineraryDay day = dayRepository.save(
                 ItineraryDay.create(trip.getId(), LocalDate.of(2026, 8, 1), 1));
         itemRepository.save(ItineraryItem.create(day, 999L, 0));

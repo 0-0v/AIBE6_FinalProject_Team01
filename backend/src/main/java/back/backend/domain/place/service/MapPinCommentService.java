@@ -68,7 +68,7 @@ public class MapPinCommentService {
 
     @Transactional
     public MapPinCommentResponse addComment(Long tripId, String googlePlaceId, AddMapPinCommentRequest request) {
-        Long memberId = accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireMember(tripId);
         String content = request.content().strip();
         String placeName = request.placeName().strip();
         MapPin pin = mapPinPersistenceService.findOrCreate(MapPin.builder()
@@ -102,7 +102,7 @@ public class MapPinCommentService {
 
     @Transactional
     public void deleteComment(Long tripId, String googlePlaceId, Long commentId) {
-        Long memberId = accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireMember(tripId);
         MapPin pin = mapPinRepository.findByTripIdAndGooglePlaceId(tripId, googlePlaceId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.MAP_PIN_NOT_FOUND));
         MapPinComment comment = commentRepository

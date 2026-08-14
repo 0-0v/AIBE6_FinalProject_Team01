@@ -38,7 +38,7 @@ public class TripAccessChecker {
         throw new BusinessException(CommonErrorCode.FORBIDDEN);
     }
 
-    public Long requireEdit(Long tripId) {
+    public Long requireMember(Long tripId) {
         Long memberId = securityContextAccessor.getCurrentMemberId();
         if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);

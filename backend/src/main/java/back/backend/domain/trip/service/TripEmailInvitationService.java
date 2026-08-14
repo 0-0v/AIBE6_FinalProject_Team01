@@ -138,7 +138,7 @@ public class TripEmailInvitationService {
         findActiveTrip(tripId);
 
         if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
-            tripMemberRepository.save(TripMember.viewer(tripId, memberId));
+            tripMemberRepository.save(TripMember.member(tripId, memberId));
             eventPublisher.publishEvent(RealtimeEvent.tripMembers(tripId, memberId));
         }
         return tripId;
