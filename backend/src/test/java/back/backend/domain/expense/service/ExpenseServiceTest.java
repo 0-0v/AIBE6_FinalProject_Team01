@@ -72,7 +72,7 @@ class ExpenseServiceTest {
     void t1_participantCanCompleteOwnShare() {
         Expense expense = expense(10L, 1L, 2L);
         ExpenseParticipant participant = participant(10L, 3L, ParticipantSettlementStatus.PENDING);
-        given(accessChecker.requireMember(1L)).willReturn(3L);
+        given(accessChecker.requireEdit(1L)).willReturn(3L);
         given(tripRepository.findById(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(Trip.class)));
         given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
         given(participantRepository.findByExpenseIdAndMemberId(10L, 3L)).willReturn(Optional.of(participant));
@@ -91,7 +91,7 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("t2 다른 사람은 타인의 정산 몫을 완료 처리할 수 없다")
     void t2_memberCannotCompleteAnotherMembersShare() {
-        given(accessChecker.requireMember(1L)).willReturn(4L);
+        given(accessChecker.requireEdit(1L)).willReturn(4L);
 
         assertThatThrownBy(() -> expenseService.completeParticipant(1L, 10L, 3L))
                 .isInstanceOf(BusinessException.class)
@@ -103,7 +103,7 @@ class ExpenseServiceTest {
     @DisplayName("t3 결제자는 자신의 몫을 정산 완료 처리할 수 없다")
     void t3_payerCannotCompleteOwnPayerShare() {
         Expense expense = expense(10L, 1L, 2L);
-        given(accessChecker.requireMember(1L)).willReturn(2L);
+        given(accessChecker.requireEdit(1L)).willReturn(2L);
         given(tripRepository.findById(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(Trip.class)));
         given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
 

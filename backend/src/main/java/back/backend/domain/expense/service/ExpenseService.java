@@ -161,7 +161,7 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseResponse completeParticipant(Long tripId, Long expenseId, Long memberId) {
-        Long actorId = accessChecker.requireMember(tripId);
+        Long actorId = accessChecker.requireEdit(tripId);
         if (!actorId.equals(memberId)) {
             throw new BusinessException(ExpenseErrorCode.SETTLEMENT_FORBIDDEN);
         }

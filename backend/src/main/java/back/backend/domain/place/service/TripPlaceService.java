@@ -48,7 +48,7 @@ public class TripPlaceService {
 
     @Transactional
     public TripPlaceResponse addPlace(Long tripId, AddTripPlaceRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         Place place = placeRepository.findByGooglePlaceId(request.googlePlaceId())
                 .map(existing -> {
                     if (!googlePlaceContentRefreshService.ensureFresh(existing)) {
@@ -145,7 +145,7 @@ public class TripPlaceService {
             Long tripPlaceId,
             Long categoryId
     ) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         var category = categoryService.findCategory(tripId, categoryId);
@@ -189,7 +189,7 @@ public class TripPlaceService {
 
     @Transactional
     public void deletePlace(Long tripId, Long tripPlaceId) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(tripPlaceId, tripId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
         String placeName = tripPlace.getPlace().getName();

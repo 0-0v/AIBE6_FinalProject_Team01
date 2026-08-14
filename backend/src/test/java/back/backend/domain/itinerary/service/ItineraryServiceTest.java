@@ -74,7 +74,7 @@ class ItineraryServiceTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(accessChecker.requireMember(TRIP_ID)).thenReturn(MEMBER_ID);
+        lenient().when(accessChecker.requireEdit(TRIP_ID)).thenReturn(MEMBER_ID);
         lenient().when(accessChecker.requireView(TRIP_ID)).thenReturn(MEMBER_ID);
         lenient().when(googlePlaceContentRefreshService.ensureFresh(any(Place.class)))
                 .thenReturn(true);
@@ -264,7 +264,7 @@ class ItineraryServiceTest {
     @Test
     @DisplayName("t10 Day 상태를 CONFIRMED로 전환하면 활동 로그가 기록된다")
     void t10_updateDayStatusConfirmsDayAndLogsActivity() {
-        given(accessChecker.requireMember(TRIP_ID)).willReturn(MEMBER_ID);
+        given(accessChecker.requireEdit(TRIP_ID)).willReturn(MEMBER_ID);
         given(dayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).willReturn(Optional.of(day));
         given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of(day));
 
@@ -709,7 +709,7 @@ class ItineraryServiceTest {
 
         itineraryService.initializeItinerary(TRIP_ID);
 
-        then(accessChecker).should().requireMember(TRIP_ID);
+        then(accessChecker).should().requireEdit(TRIP_ID);
         then(accessChecker).should(never()).requireView(TRIP_ID);
     }
 
