@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -31,7 +32,7 @@ public class SocialOAuthAccountConnector implements SocialAccountConnector {
             OAuth2TokenRepository tokenRepository,
             OAuth2TokenProperties properties
     ) {
-        this(RestClient.builder(), tokenRepository, properties);
+        this(createRestClientBuilder(properties), tokenRepository, properties);
     }
 
     SocialOAuthAccountConnector(
@@ -122,5 +123,12 @@ public class SocialOAuthAccountConnector implements SocialAccountConnector {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static RestClient.Builder createRestClientBuilder(OAuth2TokenProperties properties) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(properties.getConnectTimeout());
+        requestFactory.setReadTimeout(properties.getReadTimeout());
+        return RestClient.builder().requestFactory(requestFactory);
     }
 }
