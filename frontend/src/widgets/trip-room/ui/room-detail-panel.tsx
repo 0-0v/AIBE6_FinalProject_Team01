@@ -28,7 +28,7 @@ import {
 } from '@/entities/trip'
 import { CommentSheet, useCommentStore } from '@/features/comment-place'
 import { InviteModal } from '@/features/invite-member'
-import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
+import { useTripMembers } from '@/features/manage-trip'
 import { PlaceSearch } from '@/features/search-place'
 import type {
     AiPlaceSearchRecommendation,
@@ -193,7 +193,7 @@ export function RoomDetailPanel({
     const [commentPlaceId, setCommentPlaceId] = useState<string | null>(null)
     const [commentError, setCommentError] = useState<string | null>(null)
     const [inviteOpen, setInviteOpen] = useState(false)
-    const [members, setMembers] = useState<TripMember[]>([])
+    const { members } = useTripMembers(tripId)
     const currentMemberId = useCurrentUserStore(
         (state) => state.currentUser?.id ?? null,
     )
@@ -224,24 +224,6 @@ export function RoomDetailPanel({
         () => resolvePlaceSearchCenter(room, places),
         [room, places],
     )
-
-    useEffect(() => {
-        let active = true
-        const loadMembers = async () => {
-            try {
-                const nextMembers = await fetchTripMembers(tripId)
-                if (active) setMembers(nextMembers)
-            } catch {
-                if (active) setMembers([])
-            }
-        }
-        void loadMembers()
-        const intervalId = window.setInterval(() => void loadMembers(), 30_000)
-        return () => {
-            active = false
-            window.clearInterval(intervalId)
-        }
-    }, [guestView, realtimeVersion, tripId])
 
     const canWrite = canManage
     const canPlanWrite = canWrite && room.lifecycleStatus !== 'COMPLETED'

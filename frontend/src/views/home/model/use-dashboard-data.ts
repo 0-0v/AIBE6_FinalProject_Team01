@@ -98,7 +98,7 @@ export function useDashboardData({
         Promise.all([
             getTripPlaces(activeTripApiId, controller.signal),
             getTripPlaceVotes(activeTripApiId, controller.signal),
-            fetchExpenseData(activeTripApiId),
+            fetchExpenseData(activeTripApiId, controller.signal),
         ])
             .then(([places, votes, expenseData]) => {
                 if (controller.signal.aborted) return
@@ -153,17 +153,15 @@ export function useDashboardData({
             Promise.resolve().then(() => setItineraryDays([]))
             return
         }
-        let cancelled = false
-        void getItinerary(activeTripApiId)
+        const controller = new AbortController()
+        void getItinerary(activeTripApiId, controller.signal)
             .then((days) => {
-                if (!cancelled) setItineraryDays(days)
+                if (!controller.signal.aborted) setItineraryDays(days)
             })
             .catch(() => {
-                if (!cancelled) setItineraryDays([])
+                if (!controller.signal.aborted) setItineraryDays([])
             })
-        return () => {
-            cancelled = true
-        }
+        return () => controller.abort()
     }, [activeTripApiId, tripDataReady])
 
     useEffect(() => {

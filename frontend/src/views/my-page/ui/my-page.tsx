@@ -99,7 +99,7 @@ export function MyPage() {
 
     useEffect(() => {
         if (currentUserId == null) return
-        void loadTrips()
+        void loadTrips(currentUserId)
         void fetchBookmarkedCards()
             .then(setBookmarks)
             .finally(() => setBookmarksLoading(false))

@@ -51,9 +51,13 @@ function normalizeItineraryDays(days: ItineraryDay[]): ItineraryDay[] {
     return days.map(normalizeItineraryDay)
 }
 
-export async function getItinerary(tripId: number): Promise<ItineraryDay[]> {
+export async function getItinerary(
+    tripId: number,
+    signal?: AbortSignal,
+): Promise<ItineraryDay[]> {
     const res = await apiClient.get<ApiResponse<ItineraryDay[]>>(
         `/api/trips/${tripId}/itinerary`,
+        { signal },
     )
     return normalizeItineraryDays(res.data)
 }

@@ -31,10 +31,7 @@ import {
     type PublicCardDetail,
     useExploreCardStore,
 } from '@/features/explore-card'
-import {
-    REALTIME_EVENT_NAME,
-    type RealtimeEvent,
-} from '@/widgets/realtime-sync'
+import { REALTIME_EVENT_NAME, type RealtimeEvent } from '@/shared/lib'
 import { CreateTripModal } from '@/features/manage-trip'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { KanbanMapPanel } from '@/widgets/trip-room'
