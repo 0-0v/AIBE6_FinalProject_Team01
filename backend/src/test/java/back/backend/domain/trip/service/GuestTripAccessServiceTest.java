@@ -233,6 +233,38 @@ class GuestTripAccessServiceTest {
         assertThat(service.accept("invite-token", null, "guest-token").trip().title()).isEqualTo("제주 여행");
     }
 
+    @Test
+    @DisplayName("t11 이미 여행방에 소속된 계정으로 게스트 전환을 시도하면 중복 참여 예외를 반환한다")
+    void t11_claimInvitationRejectsExistingMember() {
+        TripInvitation invitation = invitation();
+        GuestSession session = guestSession();
+        Trip trip = trip();
+        ReflectionTestUtils.setField(trip, "id", 10L);
+        when(invitationRepository.findByInviteCode("invite-token"))
+                .thenReturn(Optional.of(invitation));
+        when(guestSessionRepository.findByTokenHash(tokenHasher.hash("guest-token")))
+                .thenReturn(Optional.of(session));
+        when(tripGuestMemberRepository.existsByTripIdAndGuestSessionId(10L, 20L))
+                .thenReturn(true);
+        when(tripRepository.findByIdAndStatusNot(10L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.claimInvitation(1L, "invite-token", "guest-token"))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(exception -> assertThat(((BusinessException) exception).getErrorCode())
+                        .isEqualTo(TripErrorCode.INVITEE_ALREADY_MEMBER));
+
+        verify(tripGuestMemberRepository, never()).deleteAllByGuestSessionId(20L);
+    }
+
+    @Test
+    @DisplayName("t12 게스트 쿠키가 없으면 초대 접근 상태를 예외 없이 false로 반환한다")
+    void t12_hasInvitationGuestAccessReturnsFalseWithoutCookie() {
+        assertThat(service.hasInvitationGuestAccess("invite-token", null)).isFalse();
+    }
+
     private TripInvitation invitation() {
         return TripInvitation.create(
                 10L, "invite-token", "123456", 1L,
