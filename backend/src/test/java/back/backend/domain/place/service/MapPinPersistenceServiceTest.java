@@ -54,14 +54,25 @@ class MapPinPersistenceServiceTest {
     }
 
     @Test
-    @DisplayName("t1 핀이 이미 존재하면 새로 저장하지 않고 기존 핀을 반환한다")
-    void t1_existingPinIsReturnedWithoutInsert() {
+    @DisplayName("t1 핀이 이미 존재하면 최신 Google 장소 정보와 조회 시각으로 갱신한다")
+    void t1_existingPinRefreshesGoogleContent() {
+        MapPin existing = MapPin.builder()
+                .tripId(1L)
+                .googlePlaceId("ChIJpin")
+                .lat(37.0)
+                .lng(126.0)
+                .placeName("이전 장소")
+                .createdAt(LocalDateTime.now().minusMonths(2))
+                .googleContentFetchedAt(LocalDateTime.now().minusMonths(2))
+                .build();
         given(mapPinRepository.findByTripIdAndGooglePlaceId(1L, "ChIJpin"))
-                .willReturn(Optional.of(candidate));
+                .willReturn(Optional.of(existing));
 
         MapPin result = mapPinPersistenceService.findOrCreate(candidate);
 
-        assertThat(result).isSameAs(candidate);
+        assertThat(result).isSameAs(existing);
+        assertThat(result.getPlaceName()).isEqualTo("테스트 장소");
+        assertThat(result.getLat()).isEqualTo(37.5);
         then(mapPinRepository).should(never()).saveAndFlush(any(MapPin.class));
     }
 

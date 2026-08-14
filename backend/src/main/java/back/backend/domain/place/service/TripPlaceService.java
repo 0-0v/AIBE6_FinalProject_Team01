@@ -11,8 +11,8 @@ import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceCommentRepository;
-import back.backend.domain.place.repository.PlaceCommentRepository.CommentCountProjection;
 import back.backend.domain.place.repository.PlaceRepository;
+import back.backend.domain.place.repository.PlaceCommentRepository.CommentCountProjection;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
@@ -23,7 +23,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +33,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class TripPlaceService {
 
-    private final PlaceRepository placeRepository;
     private final TripPlaceRepository tripPlaceRepository;
+    private final PlaceRepository placeRepository;
     private final ItineraryDayRepository itineraryDayRepository;
     private final TripMemberRepository tripMemberRepository;
     private final PlaceCommentRepository placeCommentRepository;
@@ -45,19 +44,28 @@ public class TripPlaceService {
     private final PlacePersistenceService placePersistenceService;
     private final PlaceStyleRelationService placeStyleRelationService;
     private final CollaborationEventService collaborationEventService;
+    private final GooglePlaceContentRefreshService googlePlaceContentRefreshService;
 
     @Transactional
     public TripPlaceResponse addPlace(Long tripId, AddTripPlaceRequest request) {
         Long memberId = accessChecker.requireEdit(tripId);
         Place place = placeRepository.findByGooglePlaceId(request.googlePlaceId())
-                .orElseGet(() -> placePersistenceService.findOrCreate(Place.builder()
-                        .googlePlaceId(request.googlePlaceId())
-                        .name(request.name())
-                        .address(request.address())
-                        .latitude(BigDecimal.valueOf(request.latitude()))
-                        .longitude(BigDecimal.valueOf(request.longitude()))
-                        .placeType(request.placeType())
-                        .build()));
+                .map(existing -> {
+                    if (!googlePlaceContentRefreshService.ensureFresh(existing)) {
+                        throw new BusinessException(
+                                PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR
+                        );
+                    }
+                    return existing;
+                })
+                .orElseGet(() -> {
+                    Place verified = googlePlaceContentRefreshService
+                            .fetchVerified(request.googlePlaceId())
+                            .orElseThrow(() -> new BusinessException(
+                                    PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR
+                            ));
+                    return placePersistenceService.findOrCreate(verified);
+                });
 
         Optional<TripPlace> existingTripPlace =
                 tripPlaceRepository.findByTripIdAndPlaceId(tripId, place.getId());

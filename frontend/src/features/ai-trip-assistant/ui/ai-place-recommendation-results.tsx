@@ -24,8 +24,8 @@ type Props = {
         dayId: number
         dayNumber: number
         itineraryDate: string
-        from: ItineraryItem
-        to: ItineraryItem
+        from: ItineraryItem | null
+        to: ItineraryItem | null
     }
     renderMap: (
         recommendation: AiPlaceRecommendation,
@@ -178,8 +178,8 @@ export function AiPlaceRecommendationResults({
                         {routeContext.itineraryDate}
                     </p>
                     <p className="mt-1 truncate text-xs font-extrabold text-slate-700">
-                        {routeContext.from.placeName ?? '이전 일정'} →{' '}
-                        {routeContext.to.placeName ?? '다음 일정'} 사이 추천
+                        {routeContext.from?.placeName ?? '첫 장소 이전'} →{' '}
+                        {routeContext.to?.placeName ?? '마지막 장소 이후'} 추천
                     </p>
                 </div>
                 <div className="h-[280px] w-full overflow-hidden bg-slate-100 sm:h-[320px]">

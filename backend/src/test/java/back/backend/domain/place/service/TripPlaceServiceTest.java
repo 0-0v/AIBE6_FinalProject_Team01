@@ -78,6 +78,9 @@ class TripPlaceServiceTest {
     @Mock
     private PlaceStyleRelationService placeStyleRelationService;
 
+    @Mock
+    private GooglePlaceContentRefreshService googlePlaceContentRefreshService;
+
     @InjectMocks
     private TripPlaceService tripPlaceService;
 
@@ -91,7 +94,6 @@ class TripPlaceServiceTest {
         lenient().when(tripMemberRepository.existsByTripIdAndMemberId(1L, 1L)).thenReturn(true);
         lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
         lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
-
         savedPlace = Place.builder()
                 .googlePlaceId("ChIJxxx")
                 .name("오설록 티 뮤지엄")
@@ -101,6 +103,10 @@ class TripPlaceServiceTest {
                 .placeType("tourist_attraction")
                 .build();
         ReflectionTestUtils.setField(savedPlace, "id", 20L);
+        lenient().when(googlePlaceContentRefreshService.fetchVerified(any()))
+                .thenReturn(Optional.of(savedPlace));
+        lenient().when(googlePlaceContentRefreshService.ensureFresh(any(Place.class)))
+                .thenReturn(true);
         foodCategory = PlaceCategory.builder()
                 .tripId(1L)
                 .name("음식점")
@@ -130,7 +136,6 @@ class TripPlaceServiceTest {
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null, List.of());
 
-        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.empty());
         given(placePersistenceService.findOrCreate(any(Place.class))).willReturn(savedPlace);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.empty());
@@ -161,13 +166,15 @@ class TripPlaceServiceTest {
     }
 
     @Test
-    @DisplayName("t2 places에 이미 존재하는 장소를 추가하면 places 저장 없이 trip_places에만 등록한다")
-    void t2_기존장소추가시places저장생략() {
+    @DisplayName("t2 30일 이내 검증된 기존 장소는 Google API 강제 재조회 없이 재사용한다")
+    void t2_기존장소추가시Google정보재사용() {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null, List.of());
 
-        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(placeRepository.findByGooglePlaceId("ChIJxxx"))
+                .willReturn(Optional.of(savedPlace));
+        given(googlePlaceContentRefreshService.ensureFresh(savedPlace)).willReturn(true);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.empty());
         given(tripPlaceRepository.saveAndFlush(any(TripPlace.class))).willReturn(savedTripPlace);
@@ -175,6 +182,8 @@ class TripPlaceServiceTest {
         tripPlaceService.addPlace(1L, request);
 
         then(placePersistenceService).shouldHaveNoInteractions();
+        then(googlePlaceContentRefreshService).should().ensureFresh(savedPlace);
+        then(googlePlaceContentRefreshService).should(never()).fetchVerified(any());
         then(tripPlaceRepository).should().saveAndFlush(any(TripPlace.class));
     }
 
@@ -185,7 +194,7 @@ class TripPlaceServiceTest {
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null, List.of());
 
-        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(placePersistenceService.findOrCreate(any(Place.class))).willReturn(savedPlace);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.of(savedTripPlace));
 
@@ -277,7 +286,7 @@ class TripPlaceServiceTest {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null, List.of());
-        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(placePersistenceService.findOrCreate(any(Place.class))).willReturn(savedPlace);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.of(savedTripPlace));
 
@@ -315,7 +324,7 @@ class TripPlaceServiceTest {
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",
                 33.3065, 126.2897, "tourist_attraction", null, List.of());
-        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(placePersistenceService.findOrCreate(any(Place.class))).willReturn(savedPlace);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.empty());
         given(tripPlaceRepository.saveAndFlush(any(TripPlace.class)))
@@ -337,7 +346,7 @@ class TripPlaceServiceTest {
                 34.6545, 135.4289, "point_of_interest", null,
                 List.of("point_of_interest", "aquarium")
         );
-        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(savedPlace));
+        given(placePersistenceService.findOrCreate(any(Place.class))).willReturn(savedPlace);
         given(tripPlaceRepository.findByTripIdAndPlaceId(1L, savedPlace.getId()))
                 .willReturn(Optional.empty());
         given(tripPlaceRepository.saveAndFlush(any(TripPlace.class))).willReturn(savedTripPlace);
@@ -384,6 +393,24 @@ class TripPlaceServiceTest {
         assertThat(itineraryDay.getDepartureTravelMeters()).isNull();
         assertThat(itineraryDay.getDepartureTravelMode()).isNull();
         then(tripPlaceRepository).should().delete(savedTripPlace);
+    }
+
+    @Test
+    @DisplayName("t15 신규 장소의 Google 검증이 실패하면 places와 trip_places를 저장하지 않는다")
+    void t15_failedGoogleVerificationDoesNotPersistPlace() {
+        AddTripPlaceRequest request = new AddTripPlaceRequest(
+                "ChIJbad", "검증 실패 장소", "서울", 37.5, 127.0,
+                "point_of_interest", null, List.of());
+        given(googlePlaceContentRefreshService.fetchVerified("ChIJbad"))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> tripPlaceService.addPlace(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(error -> ((BusinessException) error).getErrorCode())
+                .isEqualTo(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR);
+
+        then(placePersistenceService).shouldHaveNoInteractions();
+        then(tripPlaceRepository).shouldHaveNoInteractions();
     }
 
 }

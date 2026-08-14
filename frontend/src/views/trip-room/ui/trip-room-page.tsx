@@ -689,7 +689,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
             </AnimatePresence>
             <div
                 className={`relative flex min-h-0 flex-1 flex-row ${
-                    room ? 'gap-5 px-10 py-5' : ''
+                    room ? 'gap-5 px-10 py-5' : 'pl-10'
                 }`}
             >
                 <motion.div

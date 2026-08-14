@@ -89,8 +89,8 @@ class ItineraryDateShiftIntegrationTest {
     }
 
     @Test
-    @DisplayName("t2 넘치는 보존 Day의 원래 날짜가 새 날짜와 겹쳐도 유니크 제약 위반 없이 처리한다")
-    void t2_initializeItineraryAvoidsUniqueConstraintViolationOnDateCollision() {
+    @DisplayName("t2 기간 축소 시 넘치는 Day를 삭제하고 활성 Day 날짜를 충돌 없이 변경한다")
+    void t2_initializeItineraryDeletesOverflowBeforeDateReassignment() {
         Member owner = memberRepository.save(Member.create(
                 "owner2@example.com", "여행자2", null, AuthProvider.KAKAO, "owner-provider-2"));
         MemberPrincipal principal = new MemberPrincipal(owner.getId(), owner.getEmail(), List.of());
@@ -125,7 +125,41 @@ class ItineraryDateShiftIntegrationTest {
         itineraryService.initializeItinerary(trip.getId());
 
         var days = dayRepository.findAllByTripIdOrderByItineraryDateAsc(trip.getId());
-        assertThat(days).hasSize(3);
+        assertThat(days).hasSize(2);
         assertThat(days).extracting(ItineraryDay::getItineraryDate).doesNotHaveDuplicates();
+        assertThat(itemRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("t3 날짜 초기화 시 모든 Day와 일정 항목을 삭제한다")
+    void t3_initializeItineraryDeletesAllDaysAndItemsWhenDatesAreCleared() {
+        Member owner = memberRepository.save(Member.create(
+                "owner3@example.com", "여행자3", null, AuthProvider.KAKAO, "owner-provider-3"));
+        MemberPrincipal principal = new MemberPrincipal(owner.getId(), owner.getEmail(), List.of());
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(
+                        principal, null, principal.getAuthorities()));
+
+        Trip trip = tripRepository.save(Trip.create(
+                owner.getId(), "부산 여행", null, Set.of(), "부산",
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 2),
+                TripVisibility.PRIVATE));
+        tripMemberRepository.save(TripMember.owner(trip.getId(), owner.getId()));
+        ItineraryDay day = dayRepository.save(
+                ItineraryDay.create(trip.getId(), LocalDate.of(2026, 8, 1), 1));
+        itemRepository.save(ItineraryItem.create(day, 999L, 0));
+
+        trip.update(
+                trip.getTitle(), null, Set.of(), trip.getDestination(), null, null,
+                null, null, null, null, null);
+        tripRepository.save(trip);
+        entityManager.flush();
+        entityManager.clear();
+
+        itineraryService.initializeItinerary(trip.getId());
+
+        assertThat(dayRepository.findAllByTripIdOrderByItineraryDateAsc(trip.getId()))
+                .isEmpty();
+        assertThat(itemRepository.findAll()).isEmpty();
     }
 }

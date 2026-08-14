@@ -2,9 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
     CheckIcon,
     ChevronDownIcon,
+    ImageIcon,
     ImagePlusIcon,
+    MapPinIcon,
     PencilIcon,
+    PenLineIcon,
     PlusIcon,
+    SparklesIcon,
     Trash2Icon,
     XIcon,
 } from 'lucide-react'
@@ -1010,7 +1014,8 @@ function RecordComposer({
             >
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-black tracking-[0.14em] text-brand-700">
+                        <p className="flex items-center gap-1 text-[10px] font-black tracking-[0.14em] text-brand-700">
+                            <SparklesIcon size={11} />
                             {editing ? 'EDIT RECORD' : 'NEW RECORD'}
                         </p>
                         <h3
@@ -1028,8 +1033,9 @@ function RecordComposer({
                         <XIcon size={18} />
                     </button>
                 </div>
-                <label className="mt-7 block text-xs font-extrabold text-slate-800">
-                    1. 어디였나요?
+                <label className="mt-7 flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
+                    <MapPinIcon size={14} className="text-brand" />
+                    어디였나요?
                 </label>
                 <div className="relative mt-2">
                     <button
@@ -1078,25 +1084,26 @@ function RecordComposer({
                         </div>
                     )}
                 </div>
-                <p className="mt-6 text-xs font-extrabold text-slate-800">
-                    2. 사진
-                    <span className="float-right font-bold text-slate-400">
+                <p className="mt-6 flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
+                    <ImageIcon size={14} className="text-brand" />
+                    사진
+                    <span className="ml-auto font-bold text-slate-400">
                         {selectedImages.length + selectedLocalPhotos.length} /
                         10
                     </span>
                 </p>
-                <div className="mp-scroll mt-2 flex snap-x gap-2 overflow-x-auto pb-2">
+                <div className="mp-scroll mt-3 flex snap-x gap-3 overflow-x-auto pb-2 pt-1">
                     {photoItems.map((photo, index) => (
                         <div
                             key={photo.key}
-                            className="group relative h-28 w-28 shrink-0 snap-start overflow-hidden rounded-xl bg-slate-100"
+                            className={`group relative shrink-0 snap-start rounded-xl bg-white p-1.5 pb-3 shadow-[0_6px_16px_rgb(var(--rgb-app-ink)/0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_22px_rgb(var(--rgb-app-ink)/0.18)] ${['-rotate-2', 'rotate-1', 'rotate-2', '-rotate-1'][index % 4]}`}
                         >
                             <button
                                 type="button"
                                 onClick={() =>
                                     onImagePreview(previewableImages, index)
                                 }
-                                className="h-full w-full"
+                                className="block h-24 w-24 overflow-hidden rounded-lg bg-slate-100"
                                 aria-label={`${index + 1}번째 사진 미리보기`}
                             >
                                 <img
@@ -1112,7 +1119,7 @@ function RecordComposer({
                                         ? onLocalPhotoRemove(photo.localPhotoId)
                                         : onImageToggle(photo.image)
                                 }
-                                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/60 text-white transition hover:bg-slate-950/80"
+                                className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/60 text-white transition hover:bg-slate-950/80"
                                 aria-label="추가한 사진 삭제"
                             >
                                 <XIcon size={12} />
@@ -1135,15 +1142,17 @@ function RecordComposer({
                         />
                     </label>
                 </div>
-                <p className="mt-6 text-xs font-extrabold text-slate-800">
-                    3. 메모
+                <p className="mt-6 flex items-center gap-1.5 text-xs font-extrabold text-slate-800">
+                    <PenLineIcon size={14} className="text-brand" />
+                    메모
                 </p>
                 <textarea
                     value={memo}
                     onChange={(event) => onMemoChange(event.target.value)}
                     placeholder="이 일정에서 기억하고 싶은 내용을 남겨보세요."
                     maxLength={5000}
-                    className="mt-2 min-h-32 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand-50"
+                    className="mt-2 min-h-32 w-full resize-none rounded-2xl border border-slate-200 p-4 text-sm leading-6 outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand-50"
+                    style={{ backgroundColor: 'var(--color-app-warm-surface)' }}
                 />
                 <button
                     disabled={
@@ -1155,7 +1164,7 @@ function RecordComposer({
                             selectedLocalPhotos.length === 0)
                     }
                     onClick={onSave}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-slate-200"
+                    className="flamingo-gradient flamingo-glow mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:!bg-none disabled:shadow-none"
                 >
                     <ImagePlusIcon size={16} />
                     {isSaving

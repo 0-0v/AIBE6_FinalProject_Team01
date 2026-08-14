@@ -95,7 +95,7 @@ class PlaceControllerTest {
     }
 
     @Test
-    @DisplayName("t4 유효한 사진 식별자로 요청하면 Google API 키 없이 이미지 바이트를 반환한다")
+    @DisplayName("t4 유효한 사진 식별자로 요청하면 저장 금지 헤더와 이미지 바이트를 반환한다")
     void t4_photoProxyReturnsImage() throws Exception {
         String photoName = "places/ChIJphoto/photos/AWCphoto";
         given(placePhotoService.getPhoto(photoName))
@@ -107,11 +107,11 @@ class PlaceControllerTest {
                 .andExpect(content().contentType(MediaType.IMAGE_JPEG))
                 .andExpect(content().bytes(new byte[]{1, 2, 3}))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                        .string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=86400")));
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
     }
 
     @Test
-    @DisplayName("t5 장소 ID로 사진 메타데이터를 요청하면 최신 사진과 출처 정보를 반환한다")
+    @DisplayName("t5 장소 ID로 사진 메타데이터를 요청하면 저장 금지 헤더와 최신 정보를 반환한다")
     void t5_photoMetadataReturnsCurrentPhotoAndAttribution() throws Exception {
         given(placePhotoService.getPhotoMetadata("ChIJphoto"))
                 .willReturn(new PlacePhotoService.PhotoMetadata(
@@ -132,7 +132,7 @@ class PlaceControllerTest {
                 .andExpect(jsonPath("$.data.authorAttributions[0].displayName")
                         .value("사진 제공자"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                        .string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=3600")));
+                        .string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
     }
 
     @Test

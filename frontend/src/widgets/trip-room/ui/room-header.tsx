@@ -87,7 +87,7 @@ export function RoomHeader({
                 <div className="min-w-0 flex-1">
                     <div className="border-l-4 border-[var(--color-app-navy)] py-1 pl-4">
                         <div className="flex items-center gap-2">
-                            <h1 className="truncate text-2xl font-extrabold tracking-tight">
+                            <h1 className="truncate text-2xl font-black tracking-tight">
                                 {title}
                             </h1>
                             <span

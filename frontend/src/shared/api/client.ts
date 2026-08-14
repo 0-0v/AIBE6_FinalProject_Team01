@@ -113,6 +113,15 @@ function withAccessToken(
     return { ...headers, Authorization: `Bearer ${token}` }
 }
 
+function isAccessTokenExpired(token: string): boolean {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1])) as { exp?: number }
+        return typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()
+    } catch {
+        return true
+    }
+}
+
 export function getApiErrorMessage(
     error: unknown,
     fallbackMessage: string,
@@ -166,6 +175,17 @@ async function request<T>(
     init?: RequestInit,
     retryOn401 = true,
 ): Promise<T> {
+    if (retryOn401 && accessToken && isAccessTokenExpired(accessToken)) {
+        try {
+            refreshPromise ??= refreshAccessToken().finally(() => {
+                refreshPromise = null
+            })
+            await refreshPromise
+        } catch {
+            redirectToLogin()
+            throw new Error('인증이 만료되어 다시 로그인해야 합니다.')
+        }
+    }
     const isFormData = init?.body instanceof FormData
     const res = await fetch(`${BASE_URL}${path}`, {
         ...init,

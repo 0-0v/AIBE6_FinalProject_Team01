@@ -18,6 +18,7 @@ import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.TripAccessChecker;
+import back.backend.domain.place.service.GooglePlaceContentRefreshService;
 import back.backend.domain.trip.entity.TravelPace;
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripRepository;
@@ -50,6 +51,7 @@ public class ItineraryService {
     private final EntityManager entityManager;
     private final ApplicationEventPublisher eventPublisher;
     private final ActivityLogService activityLogService;
+    private final GooglePlaceContentRefreshService googlePlaceContentRefreshService;
 
     @Transactional(readOnly = true)
     public List<ItineraryDayResponse> getItinerary(Long tripId) {
@@ -88,6 +90,9 @@ public class ItineraryService {
             }
             TripPlace tripPlace = tripPlaceRepository.findByIdAndTripId(request.tripPlaceId(), tripId)
                     .orElseThrow(() -> new BusinessException(ItineraryErrorCode.ITINERARY_ITEM_NOT_FOUND));
+            if (!googlePlaceContentRefreshService.ensureFresh(tripPlace.getPlace())) {
+                throw new BusinessException(ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN);
+            }
             day.updateDeparture(
                     "TRIP_PLACE",
                     tripPlace.getPlace().getName(),
@@ -470,17 +475,86 @@ public class ItineraryService {
             );
         }).orElse(TripScheduleSettings.defaultSettings());
 
-        // 좌표 없는 장소 필터 (NullPointerException 방지 및 동선 정확도)
-        List<TripPlace> savedPlaces = findSavedTripPlaces(tripId).stream()
-                .filter(p -> p.getPlace().getLatitude() != null && p.getPlace().getLongitude() != null)
-                .collect(Collectors.toList());
+        List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
+        List<TripPlace> targetPlaces;
+        if (requestSettings != null && requestSettings.dayId() != null) {
+            ItineraryDay targetDay = days.stream()
+                    .filter(day -> Objects.equals(
+                            day.getId(),
+                            requestSettings.dayId()
+                    ))
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException(
+                            ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND
+                    ));
+            targetPlaces = resolveSingleDayCandidatePlaces(tripId, days, targetDay);
+            days = List.of(targetDay);
+        } else {
+            targetPlaces = findSavedTripPlaces(tripId);
+        }
+
+        List<TripPlace> routablePlaces = filterRoutablePlaces(targetPlaces);
+
+        if (requestSettings != null
+                && requestSettings.dayId() != null
+                && routablePlaces.size() < 2) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
 
         return routePlanner.planMulti(
-                dayRepository.findAllWithItemsByTripId(tripId),
-                savedPlaces,
+                days,
+                routablePlaces,
                 travelStyles,
                 scheduleSettings
         );
+    }
+
+    private List<TripPlace> filterRoutablePlaces(List<TripPlace> places) {
+        return places.stream()
+                .filter(place -> googlePlaceContentRefreshService.ensureFresh(place.getPlace()))
+                .filter(place -> place.getPlace().getLatitude() != null
+                        && place.getPlace().getLongitude() != null)
+                .toList();
+    }
+
+    /**
+     * 특정 Day 하나만 동선을 계획(미리보기·적용)할 때 대상으로 삼을 장소 목록을 계산한다.
+     * 그 Day에 이미 배치된 장소가 2개 미만이면, 아직 어느 Day에도 배치되지
+     * 않은 저장 장소들로 채워서 반환한다. 미리보기와 적용(applyReplanDay) 양쪽에서
+     * 동일한 기준을 써야 "적용할 계획이 올바르지 않다"는 검증 오류가 나지 않는다.
+     */
+    private List<TripPlace> resolveSingleDayCandidatePlaces(
+            Long tripId,
+            List<ItineraryDay> allDays,
+            ItineraryDay targetDay
+    ) {
+        Set<Long> targetPlaceIds = targetDay.getItems().stream()
+                .map(ItineraryItem::getTripPlaceId)
+                .filter(Objects::nonNull)
+                .filter(placeId -> !Objects.equals(
+                        placeId,
+                        targetDay.getDepartureTripPlaceId()
+                ))
+                .collect(Collectors.toSet());
+        List<TripPlace> targetDayPlaces = tripPlaceRepository.findAllById(targetPlaceIds).stream()
+                .toList();
+        if (targetDayPlaces.size() >= 2) {
+            return targetDayPlaces;
+        }
+
+        Set<Long> scheduledElsewhereIds = allDays.stream()
+                .flatMap(day -> day.getItems().stream())
+                .map(ItineraryItem::getTripPlaceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<TripPlace> unscheduledPlaces = findSavedTripPlaces(tripId).stream()
+                .filter(place -> !scheduledElsewhereIds.contains(place.getId()))
+                .toList();
+        List<TripPlace> combined = new ArrayList<>(targetDayPlaces);
+        combined.addAll(unscheduledPlaces);
+        return combined;
     }
 
     private ItineraryTransportMode resolveTransportMode(RoutePlanSettingsRequest settings) {
@@ -519,11 +593,133 @@ public class ItineraryService {
     }
 
     @Transactional
+    public List<ItineraryDayResponse> applyRoutePlanDay(
+            Long tripId,
+            Long dayId,
+            RoutePlanPreviewResponse plan
+    ) {
+        return applyReplanDay(tripId, dayId, plan);
+    }
+
+    @Transactional
     public List<ItineraryDayResponse> applyReplan(
             Long tripId,
             RoutePlanPreviewResponse plan
     ) {
         return applyRoutePlanInternal(tripId, plan, true);
+    }
+
+    @Transactional
+    public List<ItineraryDayResponse> applyReplanDay(
+            Long tripId,
+            Long dayId,
+            RoutePlanPreviewResponse plan
+    ) {
+        accessChecker.requireEdit(tripId);
+        lockTripForUpdate(tripId);
+
+        List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
+        ItineraryDay targetDay = days.stream()
+                .filter(day -> Objects.equals(day.getId(), dayId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND
+                ));
+        Set<Long> departurePlaceIds = targetDay.getDepartureTripPlaceId() == null
+                ? Set.of() : Set.of(targetDay.getDepartureTripPlaceId());
+        RoutePlanPreviewResponse effectivePlan = removeDepartureVisits(
+                plan,
+                departurePlaceIds
+        );
+        List<TripPlace> expectedPlaces = filterRoutablePlaces(
+                resolveSingleDayCandidatePlaces(tripId, days, targetDay)
+        );
+        ItineraryRequestValidator.validateRoutePlan(
+                effectivePlan,
+                List.of(targetDay),
+                expectedPlaces
+        );
+
+        List<ItineraryItem> targetItems = new ArrayList<>(targetDay.getItems());
+        Set<Long> plannedPlaceIds = effectivePlan.days().getFirst().items().stream()
+                .map(RoutePlanItemResponse::tripPlaceId)
+                .collect(Collectors.toSet());
+        List<ItineraryItem> obsoleteItems = targetItems.stream()
+                .filter(item -> !plannedPlaceIds.contains(item.getTripPlaceId()))
+                .toList();
+        if (!obsoleteItems.isEmpty()) {
+            itemRepository.deleteAll(obsoleteItems);
+            itemRepository.flush();
+        }
+
+        List<ItineraryItem> retainedItems = targetItems.stream()
+                .filter(item -> plannedPlaceIds.contains(item.getTripPlaceId()))
+                .toList();
+        if (!retainedItems.isEmpty()) {
+            itemRepository.parkSortOrdersByIds(retainedItems.stream()
+                    .map(ItineraryItem::getId)
+                    .toList());
+        }
+
+        days = dayRepository.findAllWithItemsByTripId(tripId);
+        targetDay = days.stream()
+                .filter(day -> Objects.equals(day.getId(), dayId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND
+                ));
+        Map<Long, ItineraryItem> targetItemByPlaceId = targetDay.getItems().stream()
+                .filter(item -> item.getTripPlaceId() != null)
+                .filter(item -> plannedPlaceIds.contains(item.getTripPlaceId()))
+                .collect(Collectors.toMap(
+                        ItineraryItem::getTripPlaceId,
+                        item -> item
+                ));
+
+        List<ItineraryItem> plannedItems = new ArrayList<>();
+        List<RoutePlanItemResponse> plannedDayItems =
+                effectivePlan.days().getFirst().items();
+        for (int index = 0; index < plannedDayItems.size(); index++) {
+            RoutePlanItemResponse plannedItem = plannedDayItems.get(index);
+            ItineraryItem item = targetItemByPlaceId.get(plannedItem.tripPlaceId());
+            if (item == null) {
+                item = ItineraryItem.create(
+                        targetDay,
+                        plannedItem.tripPlaceId(),
+                        index
+                );
+            } else {
+                item.updateSortOrder(index);
+            }
+            item.updateDetails(
+                    ItineraryRequestValidator.parseTime(plannedItem.startTime()),
+                    ItineraryRequestValidator.parseTime(plannedItem.endTime()),
+                    item.getMemo(),
+                    plannedItem.transportMinutes(),
+                    plannedItem.transportMeters(),
+                    plannedItem.transportMode()
+            );
+            item.updateTravelInformation(
+                    plannedItem.transportMinutes(),
+                    plannedItem.transportMeters(),
+                    plannedItem.transportMode(),
+                    plannedItem.transportDetail(),
+                    false,
+                    null
+            );
+            plannedItems.add(item);
+        }
+        if (!plannedItems.isEmpty()) {
+            itemRepository.saveAllAndFlush(plannedItems);
+            recalculateItems(plannedItems);
+            ItineraryScheduleShiftPolicy.alignAppliedPlanTimes(plannedItems);
+        }
+        recalculateDepartureTravelIfNeeded(targetDay, plannedItems);
+        markDayDraft(targetDay);
+        dayRepository.saveAndFlush(targetDay);
+        entityManager.clear();
+        publishChanged(tripId, dayId);
+        return buildDayResponses(tripId);
     }
 
     private List<ItineraryDayResponse> applyRoutePlanInternal(
@@ -550,6 +746,7 @@ public class ItineraryService {
         expectedPlaces = expectedPlaces.stream()
                 .filter(place -> !departurePlaceIds.contains(place.getId()))
                 .toList();
+        expectedPlaces = filterRoutablePlaces(expectedPlaces);
         RoutePlanPreviewResponse effectivePlan = removeDepartureVisits(
                 plan,
                 departurePlaceIds
@@ -631,6 +828,7 @@ public class ItineraryService {
         if (!plannedItems.isEmpty()) {
             itemRepository.saveAllAndFlush(plannedItems);
         }
+        recalculateAppliedTravel(days, plannedItems);
         days.forEach(this::markDayDraft);
         dayRepository.saveAllAndFlush(days);
         entityManager.clear();
@@ -730,26 +928,26 @@ public class ItineraryService {
         tripRepository.findByIdForItineraryInitialization(tripId).ifPresent(trip -> {
             LocalDate startDate = trip.getStartDate();
             LocalDate endDate = trip.getEndDate();
-            if (startDate == null || endDate == null) return;
-
-            List<LocalDate> newDates = startDate.datesUntil(endDate.plusDays(1)).toList();
             List<ItineraryDay> existingDays = new ArrayList<>(
                     dayRepository.findAllByTripIdOrderByItineraryDateAsc(tripId));
             existingDays.sort(
                     Comparator.comparingInt(ItineraryDay::getDayNumber)
                             .thenComparing(ItineraryDay::getItineraryDate));
+            if (startDate == null || endDate == null) {
+                if (!existingDays.isEmpty()) {
+                    dayRepository.deleteAll(existingDays);
+                    dayRepository.flush();
+                }
+                return;
+            }
+
+            List<LocalDate> newDates = startDate.datesUntil(endDate.plusDays(1)).toList();
 
             int overlap = Math.min(existingDays.size(), newDates.size());
             List<ItineraryDay> overflowDays =
                     existingDays.subList(overlap, existingDays.size());
-            List<ItineraryDay> obsoleteEmptyOverflow = overflowDays.stream()
-                    .filter(day -> day.getItems().isEmpty())
-                    .toList();
-            List<ItineraryDay> preservedOverflow = overflowDays.stream()
-                    .filter(day -> !day.getItems().isEmpty())
-                    .toList();
-            if (!obsoleteEmptyOverflow.isEmpty()) {
-                dayRepository.deleteAll(obsoleteEmptyOverflow);
+            if (!overflowDays.isEmpty()) {
+                dayRepository.deleteAll(new ArrayList<>(overflowDays));
                 dayRepository.flush();
             }
 
@@ -768,25 +966,11 @@ public class ItineraryService {
                 newlyCreated.add(ItineraryDay.create(tripId, newDates.get(index), index + 1));
             }
 
-            boolean preservedChanged = false;
-            for (int index = 0; index < preservedOverflow.size(); index++) {
-                ItineraryDay day = preservedOverflow.get(index);
-                LocalDate placeholderDate = endDate.plusDays(index + 1L);
-                int dayNumber = newDates.size() + index + 1;
-                if (day.getDayNumber() != dayNumber
-                        || !day.getItineraryDate().equals(placeholderDate)) {
-                    preservedChanged = true;
-                    break;
-                }
-            }
-
-            if (!overlapChanged && newlyCreated.isEmpty() && !preservedChanged) return;
+            if (!overlapChanged && newlyCreated.isEmpty()) return;
 
             // (trip_id, itinerary_date) 유니크 제약과 충돌하지 않도록, 남길 Day 전부를
             // 임시 날짜로 먼저 옮겨 저장한 뒤 최종 날짜로 다시 옮기는 2단계로 처리한다.
-            // (넘치는 보존 Day의 원래 날짜가 새로 배정될 날짜와 겹칠 수 있어 단순 치환은 위험하다.)
             List<ItineraryDay> keptDays = new ArrayList<>(existingDays.subList(0, overlap));
-            keptDays.addAll(preservedOverflow);
             if (!keptDays.isEmpty()) {
                 for (ItineraryDay day : keptDays) {
                     day.updateItineraryDate(LocalDate.ofEpochDay(-1_000_000L - day.getId()));
@@ -800,15 +984,8 @@ public class ItineraryService {
                 day.updateItineraryDate(newDates.get(index));
                 day.updateDayNumber(index + 1);
             }
-            for (int index = 0; index < preservedOverflow.size(); index++) {
-                ItineraryDay day = preservedOverflow.get(index);
-                day.updateItineraryDate(endDate.plusDays(index + 1L));
-                day.updateDayNumber(newDates.size() + index + 1);
-            }
-
             List<ItineraryDay> toSave = new ArrayList<>(existingDays.subList(0, overlap));
             toSave.addAll(newlyCreated);
-            toSave.addAll(preservedOverflow);
             dayRepository.saveAll(toSave);
         });
     }
@@ -894,6 +1071,26 @@ public class ItineraryService {
                 : tripPlaceRepository.findAllById(tripPlaceIds).stream()
                         .collect(Collectors.toMap(TripPlace::getId, place -> place));
         travelEstimator.recalculate(items, tripPlaceById);
+    }
+
+    private void recalculateAppliedTravel(
+            List<ItineraryDay> days,
+            List<ItineraryItem> plannedItems
+    ) {
+        Map<Long, List<ItineraryItem>> itemsByDayId = plannedItems.stream()
+                .collect(Collectors.groupingBy(item ->
+                        item.getItineraryDay().getId()));
+        for (ItineraryDay day : days) {
+            List<ItineraryItem> dayItems = itemsByDayId.getOrDefault(
+                    day.getId(),
+                    List.of()
+            );
+            if (!dayItems.isEmpty()) {
+                recalculateItems(dayItems);
+                ItineraryScheduleShiftPolicy.alignAppliedPlanTimes(dayItems);
+            }
+            recalculateDepartureTravelIfNeeded(day, dayItems);
+        }
     }
 
     /** 변경된 인덱스의 구간만 재계산 — Routes API 호출 최소화용 */

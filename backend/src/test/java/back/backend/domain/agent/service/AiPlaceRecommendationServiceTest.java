@@ -47,6 +47,7 @@ class AiPlaceRecommendationServiceTest {
     @Mock TripPlaceRepository tripPlaceRepository;
     @Mock PlaceSearchService placeSearchService;
     @Mock PlaceStyleRelationService placeStyleRelationService;
+    @Mock AiPlaceRecommendationRanker recommendationRanker;
 
     private AiPlaceRecommendationService service;
     private final Clock clock = Clock.fixed(
@@ -63,6 +64,7 @@ class AiPlaceRecommendationServiceTest {
                 tripPlaceRepository,
                 placeSearchService,
                 placeStyleRelationService,
+                recommendationRanker,
                 clock
         );
     }
@@ -128,8 +130,8 @@ class AiPlaceRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("t2 동선 차이가 작으면 여행 스타일 적합도가 높은 장소를 먼저 추천한다")
-    void t2_styleCompatibilityBreaksSimilarRouteCandidates() {
+    @DisplayName("t2 음식점 요청에서는 다른 카테고리를 제외하고 스타일 적합 장소를 추천한다")
+    void t2_requestedCategoryFiltersCandidatesBeforeStyleRanking() {
         Trip trip = org.mockito.Mockito.mock(Trip.class);
         ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
         ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
@@ -160,9 +162,6 @@ class AiPlaceRecommendationServiceTest {
         given(placeStyleRelationService.calculateCompatibility(
                 PlaceCategoryType.FOOD, Set.of(TravelStyle.FOOD)
         )).willReturn(0.95);
-        given(placeStyleRelationService.calculateCompatibility(
-                PlaceCategoryType.SHOPPING, Set.of(TravelStyle.FOOD)
-        )).willReturn(0.1);
 
         var result = service.recommend(
                 1L,
@@ -170,7 +169,7 @@ class AiPlaceRecommendationServiceTest {
         );
 
         assertThat(result).extracting(itemResult -> itemResult.place().googlePlaceId())
-                .containsExactly("food", "shop");
+                .containsExactly("food");
     }
 
     @Test
@@ -222,21 +221,15 @@ class AiPlaceRecommendationServiceTest {
     }
 
     @Test
-    @DisplayName("t5 사용자 조건 검색 결과가 없으면 같은 동선과 카테고리로 다시 추천한다")
-    void t5_recommendRetriesWithoutPromptWhenStrictSearchIsEmpty() {
+    @DisplayName("t5 사용자 조건 검색 결과가 없으면 조건을 제거해 재검색하지 않는다")
+    void t5_recommendDoesNotIgnorePromptWhenSearchIsEmpty() {
         Trip trip = org.mockito.Mockito.mock(Trip.class);
         ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
         ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
         ItineraryItem secondItem = org.mockito.Mockito.mock(ItineraryItem.class);
         TripPlace firstRoutePlace = tripPlace(100L, "route-place-1", 34.67, 135.5);
         TripPlace secondRoutePlace = tripPlace(101L, "route-place-2", 34.672, 135.502);
-        PlaceSearchResponse fallbackCandidate = searchPlace(
-                "fallback-cafe", "동선 주변 카페", 34.671, 135.501,
-                PlaceCategoryType.CAFE
-        );
-
         given(trip.getDestination()).willReturn("오사카");
-        given(trip.getTravelStyles()).willReturn(Set.of(TravelStyle.RELAXATION));
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(itineraryDayRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(Optional.of(day));
@@ -250,13 +243,6 @@ class AiPlaceRecommendationServiceTest {
         given(placeSearchService.searchNearby(
                 contains("조용하고 특별한 분위기"), anyDouble(), anyDouble(), anyDouble()
         )).willReturn(List.of());
-        given(placeSearchService.searchNearby(
-                eq("오사카 cafe"), anyDouble(), anyDouble(), anyDouble()
-        )).willReturn(List.of(fallbackCandidate));
-        given(placeStyleRelationService.calculateCompatibility(
-                PlaceCategoryType.CAFE, Set.of(TravelStyle.RELAXATION)
-        )).willReturn(0.8);
-
         var result = service.recommend(
                 1L,
                 new AiPlaceRecommendationRequest(
@@ -265,8 +251,111 @@ class AiPlaceRecommendationServiceTest {
                 )
         );
 
+        assertThat(result).isEmpty();
+        then(placeSearchService).should(org.mockito.Mockito.never())
+                .searchNearby(eq("오사카 cafe"), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    @DisplayName("t6 첫 장소 이전 추천은 첫 장소 반경 5km를 검색한다")
+    void t6_recommendBeforeFirstPlaceSearchesWithinFiveKilometers() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem secondItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        TripPlace firstRoutePlace = tripPlace(100L, "route-place-1", 34.67, 135.5);
+
+        given(trip.getDestination()).willReturn("오사카");
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(itineraryDayRepository.findByIdAndTripId(10L, 1L)).willReturn(Optional.of(day));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day.getItems()).willReturn(List.of(firstItem, secondItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(firstItem.getStartTime()).willReturn(LocalTime.of(10, 0));
+        given(secondItem.getTripPlaceId()).willReturn(101L);
+        given(tripPlaceRepository.findAllById(any())).willReturn(List.of(firstRoutePlace));
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
+        given(placeSearchService.searchNearby(anyString(), eq(34.67), eq(135.5), eq(5_000.0)))
+                .willReturn(List.of());
+
+        service.recommend(1L, new AiPlaceRecommendationRequest(
+                10L, null, 100L, "카페", null, 5
+        ));
+
+        then(placeSearchService).should().searchNearby(
+                anyString(), eq(34.67), eq(135.5), eq(5_000.0)
+        );
+    }
+
+    @Test
+    @DisplayName("t7 마지막 장소 이후 추천은 마지막 장소 반경 5km를 검색한다")
+    void t7_recommendAfterLastPlaceSearchesWithinFiveKilometers() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem lastItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        TripPlace lastRoutePlace = tripPlace(101L, "route-place-2", 34.68, 135.51);
+
+        given(trip.getDestination()).willReturn("오사카");
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(itineraryDayRepository.findByIdAndTripId(10L, 1L)).willReturn(Optional.of(day));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day.getItems()).willReturn(List.of(firstItem, lastItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(lastItem.getTripPlaceId()).willReturn(101L);
+        given(tripPlaceRepository.findAllById(any())).willReturn(List.of(lastRoutePlace));
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
+        given(placeSearchService.searchNearby(anyString(), eq(34.68), eq(135.51), eq(5_000.0)))
+                .willReturn(List.of());
+
+        service.recommend(1L, new AiPlaceRecommendationRequest(
+                10L, 101L, null, "카페", null, 5
+        ));
+
+        then(placeSearchService).should().searchNearby(
+                anyString(), eq(34.68), eq(135.51), eq(5_000.0)
+        );
+    }
+
+    @Test
+    @DisplayName("t8 음식점 추천에서는 관광 명소 결과를 제외한다")
+    void t8_recommendFiltersResultsByRequestedCategory() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        ItineraryDay day = org.mockito.Mockito.mock(ItineraryDay.class);
+        ItineraryItem firstItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        ItineraryItem secondItem = org.mockito.Mockito.mock(ItineraryItem.class);
+        TripPlace firstRoutePlace = tripPlace(100L, "route-place-1", 35.658, 139.745);
+        TripPlace secondRoutePlace = tripPlace(101L, "route-place-2", 35.66, 139.747);
+        PlaceSearchResponse restaurant = searchPlace(
+                "restaurant", "도쿄 식당", 35.659, 139.746, PlaceCategoryType.FOOD
+        );
+        PlaceSearchResponse tower = searchPlace(
+                "tokyo-tower", "도쿄타워", 35.6586, 139.7454, PlaceCategoryType.ATTRACTION
+        );
+
+        given(trip.getDestination()).willReturn("도쿄");
+        given(trip.getTravelStyles()).willReturn(Set.of(TravelStyle.FOOD));
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(itineraryDayRepository.findByIdAndTripId(10L, 1L)).willReturn(Optional.of(day));
+        given(day.getItineraryDate()).willReturn(LocalDate.of(2026, 8, 3));
+        given(day.getItems()).willReturn(List.of(firstItem, secondItem));
+        given(firstItem.getTripPlaceId()).willReturn(100L);
+        given(secondItem.getTripPlaceId()).willReturn(101L);
+        given(tripPlaceRepository.findAllById(any()))
+                .willReturn(List.of(firstRoutePlace, secondRoutePlace));
+        given(tripPlaceRepository.findAllOrderedByTripId(1L)).willReturn(List.of());
+        given(placeSearchService.searchNearby(anyString(), anyDouble(), anyDouble(), anyDouble()))
+                .willReturn(List.of(tower, restaurant));
+        given(placeStyleRelationService.calculateCompatibility(
+                PlaceCategoryType.FOOD, Set.of(TravelStyle.FOOD)
+        )).willReturn(0.9);
+
+        var result = service.recommend(1L, new AiPlaceRecommendationRequest(
+                10L, 100L, 101L, "restaurant", null, 5
+        ));
+
         assertThat(result).extracting(item -> item.place().googlePlaceId())
-                .containsExactly("fallback-cafe");
+                .containsExactly("restaurant");
     }
 
     private TripPlace tripPlace(

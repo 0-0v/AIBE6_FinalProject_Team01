@@ -32,10 +32,15 @@ public class PlacePhotoService {
 
     private final RestClient restClient;
     private ExternalApiUsageService usageService;
+    private GoogleMapsQuotaGuard quotaGuard;
 
     @Autowired
     void setUsageService(ExternalApiUsageService usageService) {
         this.usageService = usageService;
+    }
+    @Autowired
+    void setQuotaGuard(GoogleMapsQuotaGuard quotaGuard) {
+        this.quotaGuard = quotaGuard;
     }
 
     @Autowired
@@ -62,6 +67,7 @@ public class PlacePhotoService {
         if (!StringUtils.hasText(photoName) || !PHOTO_NAME_PATTERN.matcher(photoName).matches()) {
             throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_NAME_INVALID);
         }
+        acquireQuota();
         try {
             ResponseEntity<byte[]> response = restClient.get()
                     .uri(uriBuilder -> uriBuilder
@@ -94,6 +100,7 @@ public class PlacePhotoService {
         if (!StringUtils.hasText(googlePlaceId)) {
             throw new BusinessException(PlaceErrorCode.PLACE_PHOTO_NAME_INVALID);
         }
+        acquireQuota();
         try {
             GooglePlacesApiResponse.Place place = restClient.get()
                     .uri("/places/{placeId}", googlePlaceId)
@@ -130,6 +137,12 @@ public class PlacePhotoService {
         if (usageService != null) {
             usageService.recordSafely(ExternalApiProvider.GOOGLE_PLACES, operation,
                     success, null, null);
+        }
+    }
+
+    private void acquireQuota() {
+        if (quotaGuard != null) {
+            quotaGuard.acquire(ExternalApiProvider.GOOGLE_PLACES);
         }
     }
 

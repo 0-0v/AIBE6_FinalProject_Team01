@@ -2,6 +2,7 @@ package back.backend.domain.agent.service;
 
 import back.backend.domain.agent.dto.request.AiItineraryReplanRequest;
 import back.backend.domain.agent.dto.request.AiReplanReason;
+import back.backend.domain.agent.dto.request.AiReplanScope;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.service.CollaborationEventService;
 import back.backend.domain.itinerary.dto.response.RoutePlanDayResponse;
@@ -22,6 +23,7 @@ import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.place.service.PlaceSearchService;
 import back.backend.domain.place.dto.response.PlaceOperationalDetails;
 import back.backend.domain.trip.entity.TravelPace;
+import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
@@ -84,6 +86,15 @@ public class AiItineraryReplanService {
                 .findAllOrderedByTripId(tripId)
                 .stream()
                 .collect(Collectors.toMap(TripPlace::getId, place -> place));
+        if (request.effectiveScope() == AiReplanScope.SINGLE_DAY) {
+            return previewSingleDay(
+                    trip,
+                    days,
+                    tripPlaceById,
+                    request,
+                    referenceTime
+            );
+        }
         Set<Long> selectedItemIds = cutoffPolicy.movableItemIdsFrom(
                 days,
                 referenceTime,
@@ -215,6 +226,115 @@ public class AiItineraryReplanService {
                 .toList();
     }
 
+    private List<RoutePlanOption> previewSingleDay(
+            Trip trip,
+            List<ItineraryDay> days,
+            Map<Long, TripPlace> tripPlaceById,
+            AiItineraryReplanRequest request,
+            LocalDateTime referenceTime
+    ) {
+        ItineraryDay targetDay = days.stream()
+                .filter(day -> Objects.equals(day.getId(), request.dayId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND
+                ));
+        Set<Long> movableItemIds = cutoffPolicy.movableItemIdsForDay(
+                days,
+                referenceTime,
+                targetDay.getId()
+        );
+        List<TripPlace> movablePlaces = targetDay.getItems().stream()
+                .filter(item -> movableItemIds.contains(item.getId()))
+                .map(ItineraryItem::getTripPlaceId)
+                .filter(Objects::nonNull)
+                .filter(placeId -> !Objects.equals(
+                        placeId,
+                        targetDay.getDepartureTripPlaceId()
+                ))
+                .map(tripPlaceById::get)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (movablePlaces.size() < 2) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
+
+        Set<Long> fixedPlaceIds = fixedPlaceIds(
+                days,
+                referenceTime,
+                movableItemIds
+        ).stream()
+                .filter(placeId -> !Objects.equals(
+                        placeId,
+                        targetDay.getDepartureTripPlaceId()
+                ))
+                .collect(Collectors.toSet());
+        LocalTime defaultDayStart = trip.getDayStartTime() == null
+                ? LocalTime.of(9, 0) : trip.getDayStartTime();
+        LocalTime replanStartTime = resolveSingleDayStartTime(
+                targetDay,
+                movableItemIds,
+                referenceTime,
+                defaultDayStart
+        );
+        TripScheduleSettings settings = TripScheduleSettings.of(
+                defaultDayStart,
+                trip.getDayEndTime() == null
+                        ? LocalTime.of(21, 0) : trip.getDayEndTime(),
+                trip.getTravelPace() == null
+                        ? TravelPace.NORMAL : trip.getTravelPace()
+        ).withDayStartOverride(targetDay.getId(), replanStartTime);
+        String reasonLabels = request.reasons().stream()
+                .map(AiReplanReason::label)
+                .distinct()
+                .collect(Collectors.joining(", "));
+
+        return routePlanner.planMulti(
+                        List.of(targetDay),
+                        movablePlaces,
+                        trip.getTravelStyles(),
+                        settings,
+                        "REPLAN_SINGLE_DAY\n선택 Day: "
+                                + targetDay.getDayNumber()
+                                + ". 변경 사유: " + reasonLabels
+                                + ". 이 Day에 등록된 장소만 사용하고 다른 Day로 이동하지 말 것."
+                )
+                .stream()
+                .map(option -> new RoutePlanOption(
+                        option.routeLabel(),
+                        mergeFixedSchedule(
+                                option.plan(),
+                                List.of(targetDay),
+                                tripPlaceById,
+                                fixedPlaceIds
+                        )
+                ))
+                .toList();
+    }
+
+    private LocalTime resolveSingleDayStartTime(
+            ItineraryDay targetDay,
+            Set<Long> movableItemIds,
+            LocalDateTime now,
+            LocalTime defaultDayStart
+    ) {
+        LocalTime start = targetDay.getItems().stream()
+                .filter(item -> !movableItemIds.contains(item.getId()))
+                .map(item -> item.getEndTime() != null
+                        ? item.getEndTime() : item.getStartTime())
+                .filter(Objects::nonNull)
+                .max(LocalTime::compareTo)
+                .orElse(defaultDayStart);
+        if (targetDay.getItineraryDate().equals(now.toLocalDate())
+                && now.toLocalTime().isAfter(start)) {
+            start = now.toLocalTime().withSecond(0).withNano(0);
+        }
+        return start.isBefore(defaultDayStart) ? defaultDayStart : start;
+    }
+
     @Transactional
     public List<back.backend.domain.itinerary.dto.response.ItineraryDayResponse>
     apply(
@@ -247,6 +367,87 @@ public class AiItineraryReplanService {
                 "AI 일정 재배치"
         );
         return applied;
+    }
+
+    @Transactional
+    public List<back.backend.domain.itinerary.dto.response.ItineraryDayResponse>
+    applySingleDay(
+            Long tripId,
+            Long dayId,
+            RoutePlanPreviewResponse plan
+    ) {
+        Long memberId = accessChecker.requireEdit(tripId);
+        var trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.NOT_FOUND
+                ));
+        validateTripPeriod(
+                trip.getStartDate(),
+                trip.getEndDate(),
+                LocalDate.now()
+        );
+        List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
+        ItineraryDay targetDay = days.stream()
+                .filter(day -> Objects.equals(day.getId(), dayId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ItineraryErrorCode.ITINERARY_DAY_NOT_FOUND
+                ));
+        assertSingleDayPlan(plan, targetDay);
+        var applied = itineraryService.applyReplanDay(tripId, dayId, plan);
+        collaborationEventService.record(
+                tripId,
+                memberId,
+                "AI_ITINERARY_DAY_REPLANNED",
+                "ITINERARY_DAY",
+                dayId,
+                "Day " + targetDay.getDayNumber()
+                        + " AI 재배치안이 일정에 반영됐습니다.",
+                Map.of(
+                        "dayId", dayId,
+                        "summary", plan.summary() == null ? "" : plan.summary()
+                ),
+                NotificationType.AI,
+                "AI 하루 일정 재배치"
+        );
+        return applied;
+    }
+
+    private void assertSingleDayPlan(
+            RoutePlanPreviewResponse plan,
+            ItineraryDay targetDay
+    ) {
+        if (plan == null
+                || plan.days() == null
+                || plan.days().size() != 1
+                || !Objects.equals(plan.days().getFirst().dayId(), targetDay.getId())) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
+        Set<Long> targetPlaceIds = targetDay.getItems().stream()
+                .map(ItineraryItem::getTripPlaceId)
+                .filter(Objects::nonNull)
+                .filter(placeId -> !Objects.equals(
+                        placeId,
+                        targetDay.getDepartureTripPlaceId()
+                ))
+                .collect(Collectors.toSet());
+        List<RoutePlanItemResponse> plannedItems = plan.days().getFirst().items();
+        if (plannedItems == null || plannedItems.stream().anyMatch(Objects::isNull)) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
+        Set<Long> plannedPlaceIds = plannedItems.stream()
+                .map(RoutePlanItemResponse::tripPlaceId)
+                .collect(Collectors.toSet());
+        if (plannedPlaceIds.size() != plannedItems.size()
+                || !plannedPlaceIds.equals(targetPlaceIds)) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
     }
 
     private void validateTripPeriod(
