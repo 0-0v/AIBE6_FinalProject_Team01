@@ -112,7 +112,8 @@ export function ScheduleKanbanPage() {
         return () => controller.abort()
     }, [realtimeVersion, room?.id, tripId])
 
-    const canPlanWrite = canManage
+    const canPlanWrite =
+        canManage && room != null && room.lifecycleStatus !== 'COMPLETED'
 
     // 초기화 또는 trips 로딩 중
     if (!isUserInitialized || (isLoading && rooms.length === 0)) {

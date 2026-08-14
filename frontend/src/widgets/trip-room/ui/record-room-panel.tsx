@@ -85,6 +85,9 @@ export function RecordRoomPanel({
                 places={places}
                 itineraryDays={itineraryDays}
                 canWrite={canManage}
+                canManageExpenses={
+                    canManage && room.lifecycleStatus !== 'COMPLETED'
+                }
                 startDate={room.startDate}
                 endDate={room.endDate}
                 onOpenExpenses={() => {
@@ -99,6 +102,7 @@ export function RecordRoomPanel({
             />
 
             {expenseComposerOpen &&
+                room.lifecycleStatus !== 'COMPLETED' &&
                 typeof document !== 'undefined' &&
                 createPortal(
                     <ExpensePanel
@@ -118,7 +122,7 @@ export function RecordRoomPanel({
                     document.body,
                 )}
 
-            {inviteOpen && (
+            {inviteOpen && room.lifecycleStatus !== 'COMPLETED' && (
                 <InviteModal
                     tripId={tripId}
                     onClose={() => setInviteOpen(false)}

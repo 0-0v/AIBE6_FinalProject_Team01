@@ -241,7 +241,7 @@ export function RoomDetailPanel({
     }, [realtimeVersion, tripId])
 
     const canWrite = canManage
-    const canPlanWrite = canWrite
+    const canPlanWrite = canWrite && room.lifecycleStatus !== 'COMPLETED'
     const hasConfirmedDates = Boolean(room.startDate && room.endDate)
     const commentPlace =
         places.find((place) => place.id === commentPlaceId) || null
@@ -567,9 +567,13 @@ export function RoomDetailPanel({
                     {planTab === 'schedule' && (
                         <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
+                                if (guestView) {
+                                    onJoin?.()
+                                    return
+                                }
                                 navigate(`/app/room/${room.id}/schedule`)
-                            }
+                            }}
                             className="flex shrink-0 items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/5 px-2.5 py-1.5 text-[11px] font-bold text-brand transition hover:bg-brand/10"
                         >
                             <svg
@@ -774,7 +778,9 @@ export function RoomDetailPanel({
                     }
                 />
             )}
-            {inviteOpen && room.apiTripId && (
+            {inviteOpen &&
+                room.apiTripId &&
+                room.lifecycleStatus !== 'COMPLETED' && (
                 <InviteModal
                     tripId={room.apiTripId}
                     onClose={() => setInviteOpen(false)}
