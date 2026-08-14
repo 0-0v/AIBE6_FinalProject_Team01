@@ -44,6 +44,9 @@ dependencies {
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
     implementation 'software.amazon.awssdk:s3'
 
+    // Image upload validation (WebP 실제 디코딩 검증 - JDK 기본 ImageIO는 WebP 리더가 없음)
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.11.0'
+
     // Realtime Messaging
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
