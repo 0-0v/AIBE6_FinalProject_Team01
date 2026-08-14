@@ -934,7 +934,7 @@ export function Landing() {
                         style={{
                             position: 'relative',
                             width: '100%',
-                            maxWidth: 420,
+                            maxWidth: 520,
                         }}
                     >
                         <div
@@ -946,115 +946,19 @@ export function Landing() {
                                 ...sceneParallax('place-section', 30),
                             }}
                         >
-                            <div
+                            <img
+                                src="/assets/landing-place-search-preview.png"
+                                alt="도쿄 카페를 검색하고 여행방에 장소를 추가하는 실제 서비스 화면"
                                 style={{
-                                    background: 'var(--color-landing-canvas)',
+                                    display: 'block',
+                                    width: '100%',
+                                    height: 'auto',
                                     border: '3px solid var(--color-landing-ink)',
                                     borderRadius: 22,
-                                    padding: 22,
                                     boxShadow:
                                         '5px 5px 0 var(--color-landing-ink)',
                                 }}
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 10,
-                                        background:
-                                            'var(--color-landing-surface-muted)',
-                                        borderRadius: 12,
-                                        padding: '12px 16px',
-                                        marginBottom: 16,
-                                    }}
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2"
-                                            stroke="var(--color-landing-muted)"
-                                            strokeWidth="2"
-                                            fill="none"
-                                            strokeLinecap="round"
-                                        />
-                                    </svg>
-                                    <span
-                                        style={{
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            color: 'var(--color-landing-ink)',
-                                        }}
-                                    >
-                                        아라시야마 카페
-                                    </span>
-                                </div>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        gap: 14,
-                                        alignItems: 'center',
-                                        border: '1.5px solid var(--color-landing-surface-muted)',
-                                        borderRadius: 16,
-                                        padding: 14,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            width: 64,
-                                            height: 64,
-                                            borderRadius: 12,
-                                            background:
-                                                'linear-gradient(135deg,var(--color-landing-pink),var(--color-landing-lavender))',
-                                            flexShrink: 0,
-                                        }}
-                                    />
-                                    <div>
-                                        <div
-                                            style={{
-                                                fontWeight: 800,
-                                                fontSize: 15,
-                                                marginBottom: 4,
-                                            }}
-                                        >
-                                            교토 아라시야마 카페
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                gap: 6,
-                                                marginBottom: 6,
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    background:
-                                                        'var(--color-landing-rose-soft)',
-                                                    color: 'var(--color-landing-rose)',
-                                                    padding: '3px 8px',
-                                                    borderRadius: 999,
-                                                }}
-                                            >
-                                                카페
-                                            </span>
-                                        </div>
-                                        <div
-                                            style={{
-                                                fontSize: 12,
-                                                color: 'var(--color-landing-muted)',
-                                                fontWeight: 600,
-                                            }}
-                                        >
-                                            교토부 우쿄구 사가노 · Google Maps
-                                            제공
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            />
                         </div>
                     </div>
                 </div>
