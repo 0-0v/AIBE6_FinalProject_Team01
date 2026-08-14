@@ -20,7 +20,7 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
         useTripStore()
 
     useEffect(() => {
-        if (currentUserId != null) void loadTrips()
+        if (currentUserId != null) void loadTrips(currentUserId)
         else resetTrips()
     }, [currentUserId, loadTrips, resetTrips])
 

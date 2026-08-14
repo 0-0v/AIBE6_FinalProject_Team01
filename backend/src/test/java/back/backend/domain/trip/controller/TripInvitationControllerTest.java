@@ -165,6 +165,16 @@ class TripInvitationControllerTest {
                 .andExpect(cookie().value(GuestAccessCookieProvider.COOKIE_NAME, "guest-token"));
     }
 
+    @Test
+    @DisplayName("t9 초대 링크 진입 시 기존 게스트 접근 여부를 정상 응답으로 확인한다")
+    void t9_hasGuestAccessReturnsBooleanWithoutErrorResponse() throws Exception {
+        when(guestTripAccessService.hasInvitationGuestAccess("invite-code", null)).thenReturn(false);
+
+        mockMvc.perform(get("/api/trip-invitations/{inviteCode}/guest-access", "invite-code"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(false));
+    }
+
     private TripResponse response() {
         return new TripResponse(10L, 1L, "제주 여행", CompanionType.FRIENDS,
                 Set.of(TravelStyle.FOOD), null, null, null, null, 1L, TripStatus.PLANNING,

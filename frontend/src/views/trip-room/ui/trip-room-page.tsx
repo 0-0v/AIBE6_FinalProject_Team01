@@ -32,6 +32,8 @@ import {
 import { useCommentStore } from '@/features/comment-place'
 import {
     claimGuestTripAccess,
+    hasInvitedTripGuestAccess,
+    markTripPresence,
     ManageTripModal,
     TripVisibilityModal,
     useTripStore,
@@ -217,6 +219,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         Boolean(inviteCode),
     )
     const checkedInviteTokenRef = useRef<string | null>(null)
+    const autoJoinAttemptedRef = useRef<string | null>(null)
     const [inviteMode, setInviteMode] = useState<
         'guest' | 'join-confirm' | null
     >(null)
@@ -316,17 +319,69 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         }
         checkedInviteTokenRef.current = inviteCode
         setIsCheckingGuestAccess(true)
-        void loadInvitedTrip(inviteCode, undefined, { silent: true }).then(
-            (success) => {
+        void hasInvitedTripGuestAccess(inviteCode)
+            .then((hasAccess) => {
+                if (!hasAccess) {
+                    setIsCheckingGuestAccess(false)
+                    return
+                }
+                return loadInvitedTrip(inviteCode, undefined, { silent: true })
+            })
+            .then((success) => {
+                if (success == null) return
                 setIsCheckingGuestAccess(false)
                 if (!success) return
                 setVerifiedInviteCode(inviteCode)
-                setInviteMode(
-                    isReturningFromLogin ? 'join-confirm' : 'guest',
-                )
-            },
-        )
-    }, [inviteCode, isReturningFromLogin, loadInvitedTrip])
+                setInviteMode('guest')
+            })
+            .catch(() => setIsCheckingGuestAccess(false))
+    }, [inviteCode, loadInvitedTrip])
+
+    useEffect(() => {
+        if (
+            !inviteCode ||
+            !isReturningFromLogin ||
+            !tripId ||
+            verifiedInviteCode !== inviteCode ||
+            autoJoinAttemptedRef.current === inviteCode
+        ) {
+            return
+        }
+        autoJoinAttemptedRef.current = inviteCode
+        void joinInvitedTrip(tripId)
+    }, [
+        inviteCode,
+        isReturningFromLogin,
+        joinInvitedTrip,
+        tripId,
+        verifiedInviteCode,
+    ])
+
+    useEffect(() => {
+        if (
+            !inviteCode ||
+            currentUser ||
+            !tripId ||
+            verifiedInviteCode !== inviteCode
+        ) {
+            return
+        }
+        let stopped = false
+        const heartbeat = async () => {
+            if (stopped) return
+            try {
+                await markTripPresence(tripId)
+            } catch {
+                // 다음 주기에 다시 시도하며 게스트 화면 탐색은 유지한다.
+            }
+        }
+        void heartbeat()
+        const intervalId = window.setInterval(() => void heartbeat(), 25_000)
+        return () => {
+            stopped = true
+            window.clearInterval(intervalId)
+        }
+    }, [currentUser, inviteCode, tripId, verifiedInviteCode])
 
     useEffect(() => {
         if (!activeRoomId || !tripId) return

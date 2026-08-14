@@ -93,6 +93,15 @@ public class TripInvitationController {
         return ApiResponse.success(invitationService.preview(inviteCode));
     }
 
+    @GetMapping("/trip-invitations/{inviteCode}/guest-access")
+    @Operation(summary = "초대 링크의 기존 게스트 접근 권한 확인")
+    public ApiResponse<Boolean> hasGuestAccess(
+            @PathVariable String inviteCode,
+            @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken
+    ) {
+        return ApiResponse.success(guestTripAccessService.hasInvitationGuestAccess(inviteCode, guestToken));
+    }
+
     @PostMapping("/trip-invitations/{inviteCode}/accept")
     @Operation(summary = "비로그인 초대 수락 및 게스트 조회 권한 발급")
     public ResponseEntity<ApiResponse<TripResponse>> accept(

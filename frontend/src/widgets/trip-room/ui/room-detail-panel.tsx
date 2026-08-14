@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
     ChevronRightIcon,
+    CalendarDaysIcon,
     HistoryIcon,
     ListIcon,
     MapIcon,
@@ -235,10 +236,12 @@ export function RoomDetailPanel({
             }
         }
         void loadMembers()
+        const intervalId = window.setInterval(() => void loadMembers(), 30_000)
         return () => {
             active = false
+            window.clearInterval(intervalId)
         }
-    }, [realtimeVersion, tripId])
+    }, [guestView, realtimeVersion, tripId])
 
     const canWrite = canManage
     const canPlanWrite = canWrite && room.lifecycleStatus !== 'COMPLETED'
@@ -699,19 +702,40 @@ export function RoomDetailPanel({
             )}
             {planTab === 'itinerary' && (
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
-                    <DateVotePanel
-                        tripId={tripId}
-                        canWrite={canPlanWrite}
-                        onDirtyChange={setDateAvailabilityDirty}
-                        onCollaborationChanged={refreshCollaborationData}
-                        onTripDatesChanged={() => {
-                            onDeselectPlace?.()
-                            void Promise.resolve(onTripDatesChanged?.()).then(
-                                () => setPlanTab('schedule'),
-                            )
-                        }}
-                        realtimeVersion={realtimeVersion}
-                    />
+                    {guestView ? (
+                        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+                            <CalendarDaysIcon className="mb-3 text-brand-300" size={32} />
+                            <h3 className="text-base font-extrabold text-slate-800">
+                                로그인 후 여행 일정에 참여할 수 있어요
+                            </h3>
+                            <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
+                                게스트는 여행방을 둘러볼 수 있으며, 가능한 날짜 선택과 투표는 로그인 후 이용할 수 있습니다.
+                            </p>
+                            {onJoin && (
+                                <button
+                                    type="button"
+                                    onClick={onJoin}
+                                    className="mt-5 rounded-xl bg-brand px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-brand-700"
+                                >
+                                    로그인하고 참여하기
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <DateVotePanel
+                            tripId={tripId}
+                            canWrite={canPlanWrite}
+                            onDirtyChange={setDateAvailabilityDirty}
+                            onCollaborationChanged={refreshCollaborationData}
+                            onTripDatesChanged={() => {
+                                onDeselectPlace?.()
+                                void Promise.resolve(onTripDatesChanged?.()).then(
+                                    () => setPlanTab('schedule'),
+                                )
+                            }}
+                            realtimeVersion={realtimeVersion}
+                        />
+                    )}
                 </div>
             )}
             {planTab === 'schedule' && (
@@ -729,7 +753,7 @@ export function RoomDetailPanel({
                         onPlacePhotoResolved={onPlacePhotoResolved}
                         onPlaceDeselect={onDeselectPlace}
                         selectedPlaceId={selectedId}
-                        members={members}
+                        members={members.filter((member) => !member.guest)}
                         focusDayNumber={focusDayRequest?.dayNumber ?? null}
                         focusDayVersion={focusDayRequest?.version ?? 0}
                     />

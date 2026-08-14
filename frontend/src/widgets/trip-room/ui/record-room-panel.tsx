@@ -57,7 +57,7 @@ export function RecordRoomPanel({
             active = false
             window.clearInterval(intervalId)
         }
-    }, [tripId])
+    }, [guestView, tripId])
 
     const header = (
         <RoomHeader

@@ -224,6 +224,11 @@ export function RoomHeader({
                                                 }`}
                                             >
                                                 {member.nickname}
+                                                {member.guest && (
+                                                    <span className="ml-1 rounded bg-amber-50 px-1 py-0.5 text-[9px] text-amber-600">
+                                                        게스트
+                                                    </span>
+                                                )}
                                             </span>
                                             <span
                                                 className={`h-2 w-2 shrink-0 rounded-full ${
@@ -354,6 +359,11 @@ function MemberAwarenessPopover({
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-extrabold text-slate-800">
                         {member.nickname}
+                        {member.guest && (
+                            <span className="ml-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] text-amber-600">
+                                게스트
+                            </span>
+                        )}
                         {isCurrentMember && (
                             <span className="ml-1 text-[10px] text-brand">
                                 나
