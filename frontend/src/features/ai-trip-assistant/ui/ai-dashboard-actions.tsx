@@ -252,7 +252,7 @@ export function AiDashboardActions({
                 <button
                     type="button"
                     onClick={openPlaceRecommendation}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-brand-surface-strong)] px-3 py-2 text-xs font-extrabold text-[var(--color-brand-700)] transition hover:bg-rose-100"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--background-trip-selector)] px-3 py-2 text-xs font-extrabold text-[var(--color-trip-selector)] transition hover:brightness-95"
                 >
                     <MapPinnedIcon size={15} />
                     AI 장소 추천
@@ -260,7 +260,7 @@ export function AiDashboardActions({
                 <button
                     type="button"
                     onClick={openItineraryReplan}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-slate-800"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--background-strong-action)] px-3 py-2 text-xs font-extrabold text-white transition hover:brightness-110"
                 >
                     <RouteIcon size={15} />
                     AI 일정 재배치
@@ -380,8 +380,8 @@ export function AiDashboardActions({
                                                                 }}
                                                                 className={`w-full rounded-2xl border p-3 text-left transition ${
                                                                     isSelected
-                                                                        ? 'border-brand bg-rose-50 shadow-[0_6px_18px_rgb(var(--rgb-brand-shadow)/0.12)]'
-                                                                        : 'border-slate-200 bg-white hover:border-rose-200'
+                                                                        ? 'border-brand bg-brand-50 shadow-[0_6px_18px_rgb(var(--rgb-brand-shadow)/0.12)]'
+                                                                        : 'border-slate-200 bg-white hover:border-brand-200'
                                                                 }`}
                                                             >
                                                                 <div className="flex items-center gap-2">
@@ -487,7 +487,7 @@ export function AiDashboardActions({
                                                 className={`rounded-full px-3 py-2 text-xs font-bold transition ${
                                                     category === item.key
                                                         ? 'bg-brand text-white shadow-[0_6px_16px_rgb(var(--rgb-brand-shadow)/0.25)]'
-                                                        : 'border border-slate-200 bg-white text-slate-500 hover:border-rose-200 hover:bg-rose-50'
+                                                        : 'border border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50'
                                                 }`}
                                             >
                                                 {item.label}

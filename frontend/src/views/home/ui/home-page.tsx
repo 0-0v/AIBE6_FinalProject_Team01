@@ -68,12 +68,12 @@ type SurfaceId =
 
 const initialColors: Record<SurfaceId, string> = {
     travel: 'var(--color-app-navy)',
-    tasks: 'var(--color-app-surface)',
-    activity: 'var(--color-app-surface)',
-    calendar: 'var(--color-app-surface)',
-    schedule: 'var(--color-app-surface)',
-    expenses: 'var(--color-app-surface)',
-    notifications: 'var(--color-app-surface)',
+    tasks: 'var(--background-vote-panel)',
+    activity: 'var(--background-app-panel)',
+    calendar: 'var(--background-calendar-panel)',
+    schedule: 'var(--background-app-panel)',
+    expenses: 'var(--background-app-panel)',
+    notifications: 'var(--background-app-panel)',
 }
 
 const DASHBOARD_SCHEDULE_ITEM_LIMIT = 6
@@ -243,7 +243,7 @@ export function Home() {
         return (
             <div
                 className={className}
-                style={{ backgroundColor: color }}
+                style={{ background: color }}
                 aria-label={label}
             >
                 {children}
@@ -275,16 +275,16 @@ export function Home() {
                                 onClick={() =>
                                     setIsTripSelectorOpen((open) => !open)
                                 }
-                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-xl bg-[var(--color-brand-highlight)] px-3 py-1.5 text-left transition hover:bg-[var(--color-brand-vivid)] hover:shadow-[0_10px_24px_rgb(var(--rgb-brand-vivid)/0.35)] disabled:cursor-not-allowed disabled:opacity-60"
+                                className="group flex min-h-10 w-fit max-w-full items-center gap-2 rounded-xl bg-[var(--background-trip-selector)] px-3 py-1.5 text-left transition hover:brightness-95 hover:shadow-[0_10px_24px_rgb(var(--rgb-app-navy)/0.35)] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                <span className="min-w-0 break-keep text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-brand-700)] transition-colors group-hover:text-white">
+                                <span className="min-w-0 break-keep text-2xl font-extrabold tracking-[-0.02em] text-[var(--color-trip-selector)] transition-colors">
                                     {rooms.length > 0
                                         ? activeTrip.location
                                         : '아직 미정'}
                                 </span>
                                 <ChevronDownIcon
                                     size={17}
-                                    className={`shrink-0 text-[var(--color-brand-700)] transition-transform group-hover:text-white ${
+                                    className={`shrink-0 text-[var(--color-trip-selector)] transition-transform ${
                                         isTripSelectorOpen ? 'rotate-180' : ''
                                     }`}
                                 />
@@ -548,7 +548,7 @@ export function Home() {
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.32 }}
-                                        className="relative h-full overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,var(--color-app-navy)_0%,var(--color-app-navy-700)_60%,var(--color-app-navy-600)_100%)] shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.12)]"
+                                        className="relative h-full overflow-hidden rounded-[22px] bg-[var(--background-app-ticket)] shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.12)]"
                                     >
                                         <span className="absolute right-[80px] top-0 z-10 h-6 w-6 -translate-y-1/2 rounded-full bg-[var(--color-app-background-alt)]" />
                                         <span className="absolute right-[80px] bottom-0 z-10 h-6 w-6 translate-y-1/2 rounded-full bg-[var(--color-app-background-alt)]" />
@@ -558,8 +558,8 @@ export function Home() {
                                                     <p className="font-display text-xs font-bold uppercase tracking-[0.24em] text-[var(--color-app-navy-muted)]">
                                                         Boarding pass
                                                     </p>
-                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-300 px-2.5 py-1 text-[10px] font-black text-[var(--color-app-navy)]">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-app-navy)]" />
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--background-trip-status)] px-2.5 py-1 text-[10px] font-black text-[var(--color-trip-status)]">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-trip-status)]" />
                                                         {getTripStatusLabel(
                                                             activeTripData?.startDate,
                                                             activeTripData?.endDate,
@@ -577,7 +577,7 @@ export function Home() {
                                                         )
                                                     }
                                                     disabled={!activeTrip.id}
-                                                    className="flex items-center gap-1 rounded-full bg-[var(--color-app-neutral)]/10 px-3 py-2 text-xs font-extrabold text-[var(--color-app-neutral)] transition hover:bg-[var(--color-app-neutral)]/20 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    className="flex items-center gap-1 rounded-full bg-[var(--theme-dashboard-ticket-button)] px-3 py-2 text-xs font-extrabold text-[var(--theme-dashboard-ticket-button-text)] transition-colors hover:bg-[var(--theme-dashboard-ticket-button-hover)] disabled:cursor-not-allowed disabled:opacity-40"
                                                 >
                                                     여행방 열기
                                                     <ChevronRightIcon
@@ -610,7 +610,7 @@ export function Home() {
                                                         <span className="absolute left-1/2 flex h-8 w-10 -translate-x-1/2 items-center justify-center bg-[var(--color-app-navy-700)]">
                                                             <PlaneIcon
                                                                 size={30}
-                                                                className="rotate-45 text-[var(--color-brand-vivid)]"
+                                                                className="rotate-45 text-[var(--color-app-ticket-accent)]"
                                                             />
                                                         </span>
                                                     </div>
@@ -683,7 +683,7 @@ export function Home() {
                                                 <span className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)] [writing-mode:vertical-rl]">
                                                     Departure
                                                 </span>
-                                                <strong className="font-display text-3xl font-black text-[var(--color-brand-vivid)] [writing-mode:vertical-rl]">
+                                                <strong className="font-display text-3xl font-black text-[var(--color-app-ticket-accent)] [writing-mode:vertical-rl]">
                                                     {tripCountdownLabel}
                                                 </strong>
                                                 <span aria-hidden="true" />
@@ -699,7 +699,7 @@ export function Home() {
                                     <section
                                         className={`flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border p-5 shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.07)] transition-colors duration-500 ${
                                             visibleInsightSlide === 0
-                                                ? 'border-rose-200 bg-[var(--color-brand-surface)]'
+                                                ? 'border-[var(--color-app-border)] bg-[var(--background-vote-panel)]'
                                                 : 'border-slate-200 bg-white'
                                         }`}
                                     >
@@ -724,7 +724,7 @@ export function Home() {
                                                 >
                                                     <div className="flex items-start gap-3">
                                                         <span className="relative h-11 w-11 shrink-0">
-                                                            <span className="absolute bottom-0 left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-brand-accent)] text-white">
+                                                            <span className="absolute bottom-0 left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-vote-accent)] text-white">
                                                                 <ThumbsUpIcon
                                                                     size={18}
                                                                 />
@@ -838,7 +838,7 @@ export function Home() {
                                                                                         }
                                                                                     </span>
                                                                                 )}
-                                                                                <span className="mt-2 block h-2 overflow-hidden rounded-full bg-rose-100">
+                                                                                <span className="mt-2 block h-2 overflow-hidden rounded-full bg-[var(--color-brand-surface-strong)]">
                                                                                     <span
                                                                                         className="block h-full rounded-full bg-[var(--color-brand)]"
                                                                                         style={{
@@ -1090,8 +1090,8 @@ export function Home() {
                                                         className={`h-2 rounded-full transition-all ${
                                                             visibleInsightSlide ===
                                                             index
-                                                                ? 'w-5 bg-[var(--color-brand)]'
-                                                                : 'w-2 bg-rose-200 hover:bg-rose-300'
+                                                                ? 'w-5 bg-[var(--color-carousel-active)]'
+                                                                : 'w-2 bg-[var(--color-carousel-inactive)] hover:brightness-95'
                                                         }`}
                                                     />
                                                 ))}
@@ -1482,7 +1482,7 @@ export function Home() {
                             {editable(
                                 'calendar',
                                 '캘린더',
-                                <section className="h-full rounded-[22px] bg-white p-5">
+                                <section className="h-full rounded-[22px] bg-[var(--background-calendar-panel)] p-5">
                                     <div className="px-1 pb-2">
                                         <div className="flex items-center justify-between">
                                             <h2 className="text-lg font-extrabold tracking-tight">
@@ -1564,9 +1564,9 @@ export function Home() {
                                                         aria-label={`${dateKey}${isAvailable ? ' 여행 일정 선택' : ''}`}
                                                         className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full transition ${
                                                             isSelected
-                                                                ? 'bg-[var(--color-brand)] text-white shadow-sm'
+                                                                ? 'bg-[var(--background-calendar-selected)] text-white shadow-sm'
                                                                 : isAvailable
-                                                                  ? 'bg-[var(--color-brand-surface-strong)] text-[var(--color-brand-dark)] hover:bg-rose-200'
+                                                                  ? 'bg-[var(--background-calendar-range)] text-[var(--color-calendar-range)] hover:brightness-95'
                                                                   : ''
                                                         } ${day.getMonth() !== calendarMonth.getMonth() ? 'text-slate-300' : ''}`}
                                                     >
@@ -1577,7 +1577,7 @@ export function Home() {
                                         </div>
                                     </div>
                                 </section>,
-                                'h-[360px] overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.07)]',
+                                'h-[360px] overflow-hidden rounded-[22px] border border-[var(--color-app-border)] bg-[var(--background-calendar-panel)] shadow-[0_12px_30px_rgb(var(--rgb-app-ink)/0.07)]',
                             )}
                             {editable(
                                 'schedule',
