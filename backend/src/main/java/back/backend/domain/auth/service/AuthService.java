@@ -16,6 +16,7 @@ import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.exception.DataIntegrityConstraintMatcher;
 import back.backend.global.security.jwt.JwtProvider;
+import back.backend.global.security.jwt.RefreshRotationResult;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import back.backend.global.security.jwt.TokenType;
 import org.springframework.stereotype.Service;
@@ -163,17 +164,12 @@ public class AuthService {
         }
 
         Long memberId = jwtProvider.getMemberId(refreshToken);
-        String storedRefreshToken = refreshTokenRepository.findByMemberId(memberId)
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MESSAGE));
-        if (!storedRefreshToken.equals(refreshToken)) {
-            // Rotation 이후 폐기된 토큰의 재사용은 탈취 가능성이 높으므로 현재 세션까지 강제 폐기한다.
-            refreshTokenRepository.deleteByMemberId(memberId);
-            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MESSAGE);
-        }
-
         Member member = memberRepository.findById(memberId)
                 .filter(found -> found.getStatus() == MemberStatus.ACTIVE)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MESSAGE));
+        if (member.getTokenVersion() != jwtProvider.getTokenVersion(refreshToken)) {
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MESSAGE);
+        }
 
         Instant adminVerifiedUntil = jwtProvider.getAdminVerifiedUntil(refreshToken);
         if (adminVerifiedUntil != null && (!Instant.now().isBefore(adminVerifiedUntil)
@@ -181,14 +177,29 @@ public class AuthService {
             adminVerifiedUntil = null;
         }
         String newAccessToken = jwtProvider.createAccessToken(
-                member.getId(), member.getEmail(), adminVerifiedUntil);
-        String newRefreshToken = jwtProvider.createRefreshToken(member.getId(), adminVerifiedUntil);
-        refreshTokenRepository.save(member.getId(), newRefreshToken);
+                member.getId(), member.getEmail(), adminVerifiedUntil, member.getTokenVersion());
+        String candidateRefreshToken = jwtProvider.createRefreshToken(
+                member.getId(), adminVerifiedUntil, member.getTokenVersion());
 
-        return new TokenResponse(newAccessToken, newRefreshToken);
+        // 같은 리프레시 토큰으로 여러 탭이 거의 동시에 재발급을 요청해도 서로를 탈취로
+        // 오인해 세션 전체가 로그아웃되지 않도록, 회전을 원자적으로 처리하고 짧은 유예
+        // 기간 동안은 직전에 폐기된 토큰의 재요청을 정상 동시 요청으로 취급한다.
+        RefreshRotationResult rotation =
+                refreshTokenRepository.rotate(memberId, refreshToken, candidateRefreshToken);
+        if (!rotation.isValid()) {
+            // 유예 기간이 지난 폐기 토큰의 재사용은 탈취 가능성이 높으므로 세션을 강제 폐기한다.
+            throw new BusinessException(CommonErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MESSAGE);
+        }
+
+        return new TokenResponse(newAccessToken, rotation.refreshToken());
     }
 
+    @Transactional
     public void logout(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.UNAUTHORIZED, "인증된 회원을 찾을 수 없습니다."));
+        member.invalidateTokens();
         refreshTokenRepository.deleteByMemberId(memberId);
     }
 
@@ -198,8 +209,9 @@ public class AuthService {
 
     private TokenResponse issueTokens(Member member, boolean adminVerified) {
         String accessToken = jwtProvider.createAccessToken(
-                member.getId(), member.getEmail(), adminVerified);
-        String refreshToken = jwtProvider.createRefreshToken(member.getId(), adminVerified);
+                member.getId(), member.getEmail(), adminVerified, member.getTokenVersion());
+        String refreshToken = jwtProvider.createRefreshToken(
+                member.getId(), adminVerified, member.getTokenVersion());
         refreshTokenRepository.save(member.getId(), refreshToken);
         return new TokenResponse(accessToken, refreshToken);
     }

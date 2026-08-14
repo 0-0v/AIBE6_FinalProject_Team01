@@ -62,8 +62,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private Optional<UsernamePasswordAuthenticationToken> authenticate(String token) {
         Long memberId = jwtProvider.getMemberId(token);
         boolean adminVerified = jwtProvider.isAdminVerified(token);
+        long tokenVersion = jwtProvider.getTokenVersion(token);
         return memberRepository.findById(memberId)
                 .filter(member -> member.getStatus() == MemberStatus.ACTIVE)
+                .filter(member -> member.getTokenVersion() == tokenVersion)
                 .map(member -> toAuthentication(member, adminVerified));
     }
 

@@ -107,4 +107,16 @@ class JwtProviderTest {
 
         assertThat(provider.isAdminVerified(token)).isTrue();
     }
+
+    @Test
+    @DisplayName("t9 토큰을 생성하면 발급 당시 회원 토큰 버전을 담는다")
+    void t9_createdTokenContainsMemberTokenVersion() {
+        JwtProvider provider = newProvider(60_000, 1_209_600_000);
+
+        String accessToken = provider.createAccessToken(9L, "user9@example.com", 3L);
+        String refreshToken = provider.createRefreshToken(9L, 3L);
+
+        assertThat(provider.getTokenVersion(accessToken)).isEqualTo(3L);
+        assertThat(provider.getTokenVersion(refreshToken)).isEqualTo(3L);
+    }
 }

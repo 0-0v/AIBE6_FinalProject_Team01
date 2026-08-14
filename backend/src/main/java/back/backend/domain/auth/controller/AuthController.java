@@ -8,6 +8,7 @@ import back.backend.domain.auth.dto.EmailRequest;
 import back.backend.domain.auth.dto.LoginRequest;
 import back.backend.domain.auth.dto.NicknameAvailabilityRequest;
 import back.backend.domain.auth.dto.NicknameAvailabilityResponse;
+import back.backend.domain.auth.dto.OAuthLoginExchangeRequest;
 import back.backend.domain.auth.dto.PasswordResetRequest;
 import back.backend.domain.auth.dto.SignupRequest;
 import back.backend.domain.auth.dto.TokenResponse;
@@ -15,7 +16,10 @@ import back.backend.domain.auth.dto.SuspensionNoticeRequest;
 import back.backend.domain.auth.dto.SuspensionNoticeResponse;
 import back.backend.domain.auth.service.AuthService;
 import back.backend.domain.auth.service.AdminOtpService;
+import back.backend.domain.auth.service.ClientIpResolver;
 import back.backend.domain.auth.service.EmailVerificationService;
+import back.backend.domain.auth.service.LoginAttemptService;
+import back.backend.domain.auth.service.OAuthLoginCodeService;
 import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
@@ -44,6 +48,9 @@ public class AuthController {
     private final EmailVerificationService emailVerificationService;
     private final AdminOtpService adminOtpService;
     private final SuspensionNoticeService suspensionNoticeService;
+    private final OAuthLoginCodeService oAuthLoginCodeService;
+    private final LoginAttemptService loginAttemptService;
+    private final ClientIpResolver clientIpResolver;
 
     public AuthController(
             AuthService authService,
@@ -51,7 +58,10 @@ public class AuthController {
             RefreshTokenCookieProvider refreshTokenCookieProvider,
             EmailVerificationService emailVerificationService,
             AdminOtpService adminOtpService,
-            SuspensionNoticeService suspensionNoticeService
+            SuspensionNoticeService suspensionNoticeService,
+            OAuthLoginCodeService oAuthLoginCodeService,
+            LoginAttemptService loginAttemptService,
+            ClientIpResolver clientIpResolver
     ) {
         this.authService = authService;
         this.securityContextAccessor = securityContextAccessor;
@@ -59,6 +69,9 @@ public class AuthController {
         this.emailVerificationService = emailVerificationService;
         this.adminOtpService = adminOtpService;
         this.suspensionNoticeService = suspensionNoticeService;
+        this.oAuthLoginCodeService = oAuthLoginCodeService;
+        this.loginAttemptService = loginAttemptService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @PostMapping("/email-verifications")
@@ -98,9 +111,19 @@ public class AuthController {
     @io.swagger.v3.oas.annotations.Operation(summary = "이메일 로그인")
     public ApiResponse<AccessTokenResponse> login(
             @Valid @RequestBody LoginRequest request,
-            HttpServletResponse response
+            HttpServletResponse response,
+            HttpServletRequest servletRequest
     ) {
-        return respondWithTokens(authService.login(request), response);
+        String clientIp = clientIpResolver.resolve(servletRequest);
+        return respondWithTokens(loginAttemptService.login(request, clientIp), response);
+    }
+
+    @PostMapping("/oauth/exchange")
+    @io.swagger.v3.oas.annotations.Operation(summary = "소셜 로그인 임시 코드를 액세스 토큰으로 교환")
+    public ApiResponse<AccessTokenResponse> exchangeOAuthLoginCode(
+            @Valid @RequestBody OAuthLoginExchangeRequest request
+    ) {
+        return ApiResponse.success(new AccessTokenResponse(oAuthLoginCodeService.consume(request.code())));
     }
 
     @PostMapping("/suspension-notices/consume")

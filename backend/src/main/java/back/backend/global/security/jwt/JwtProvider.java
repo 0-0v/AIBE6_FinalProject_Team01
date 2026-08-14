@@ -18,6 +18,7 @@ public class JwtProvider {
     private static final String CLAIM_EMAIL = "email";
     private static final String CLAIM_TYPE = "type";
     private static final String CLAIM_ADMIN_VERIFIED_UNTIL = "adminVerifiedUntil";
+    private static final String CLAIM_TOKEN_VERSION = "tokenVersion";
     private static final Duration ADMIN_VERIFICATION_DURATION = Duration.ofHours(8);
 
     private final SecretKey key;
@@ -31,31 +32,63 @@ public class JwtProvider {
     }
 
     public String createAccessToken(Long memberId, String email) {
-        return createAccessToken(memberId, email, false);
+        return createAccessToken(memberId, email, false, 0L);
     }
 
     public String createAccessToken(Long memberId, String email, boolean adminVerified) {
+        return createAccessToken(memberId, email, adminVerified, 0L);
+    }
+
+    public String createAccessToken(Long memberId, String email, long tokenVersion) {
+        return createAccessToken(memberId, email, false, tokenVersion);
+    }
+
+    public String createAccessToken(
+            Long memberId, String email, boolean adminVerified, long tokenVersion
+    ) {
         return createAccessToken(memberId, email,
-                adminVerified ? Instant.now().plus(ADMIN_VERIFICATION_DURATION) : null);
+                adminVerified ? Instant.now().plus(ADMIN_VERIFICATION_DURATION) : null,
+                tokenVersion);
     }
 
     public String createAccessToken(Long memberId, String email, Instant adminVerifiedUntil) {
+        return createAccessToken(memberId, email, adminVerifiedUntil, 0L);
+    }
+
+    public String createAccessToken(
+            Long memberId, String email, Instant adminVerifiedUntil, long tokenVersion
+    ) {
         return createToken(memberId, TokenType.ACCESS, email, accessTokenExpirationMs,
-                adminVerifiedUntil);
+                adminVerifiedUntil, tokenVersion);
     }
 
     public String createRefreshToken(Long memberId) {
-        return createRefreshToken(memberId, false);
+        return createRefreshToken(memberId, false, 0L);
     }
 
     public String createRefreshToken(Long memberId, boolean adminVerified) {
+        return createRefreshToken(memberId, adminVerified, 0L);
+    }
+
+    public String createRefreshToken(Long memberId, long tokenVersion) {
+        return createRefreshToken(memberId, false, tokenVersion);
+    }
+
+    public String createRefreshToken(Long memberId, boolean adminVerified, long tokenVersion) {
         return createRefreshToken(memberId,
-                adminVerified ? Instant.now().plus(ADMIN_VERIFICATION_DURATION) : null);
+                adminVerified ? Instant.now().plus(ADMIN_VERIFICATION_DURATION) : null,
+                tokenVersion);
     }
 
     public String createRefreshToken(Long memberId, Instant adminVerifiedUntil) {
+        return createRefreshToken(memberId, adminVerifiedUntil, 0L);
+    }
+
+    public String createRefreshToken(
+            Long memberId, Instant adminVerifiedUntil, long tokenVersion
+    ) {
         return createToken(memberId, TokenType.REFRESH, null, refreshTokenExpirationMs,
-                adminVerifiedUntil);
+                adminVerifiedUntil, tokenVersion);
     }
 
     public Long getMemberId(String token) {
@@ -80,6 +113,11 @@ public class JwtProvider {
         return epochMillis == null ? null : Instant.ofEpochMilli(epochMillis.longValue());
     }
 
+    public long getTokenVersion(String token) {
+        Number tokenVersion = parseClaims(token).get(CLAIM_TOKEN_VERSION, Number.class);
+        return tokenVersion == null ? 0L : tokenVersion.longValue();
+    }
+
     public boolean isValid(String token) {
         try {
             parseClaims(token);
@@ -90,11 +128,12 @@ public class JwtProvider {
     }
 
     private String createToken(Long memberId, TokenType type, String email, long expirationMs,
-                               Instant adminVerifiedUntil) {
+                               Instant adminVerifiedUntil, long tokenVersion) {
         Instant now = Instant.now();
         JwtBuilder builder = Jwts.builder()
                 .subject(String.valueOf(memberId))
                 .claim(CLAIM_TYPE, type.name())
+                .claim(CLAIM_TOKEN_VERSION, tokenVersion)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)));
         if (adminVerifiedUntil != null) {

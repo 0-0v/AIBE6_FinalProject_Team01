@@ -44,6 +44,7 @@ public class SecurityConfig {
             "/api/auth/reissue",
             "/api/auth/signup",
             "/api/auth/login",
+            "/api/auth/oauth/exchange",
             "/api/auth/suspension-notices/**",
             "/api/auth/admin/login/**",
             "/api/auth/nickname-availability",

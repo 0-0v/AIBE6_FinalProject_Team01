@@ -2,6 +2,7 @@ export {
     checkNicknameAvailability,
     consumeSuspensionNotice,
     confirmVerificationCode,
+    exchangeOAuthLoginCode,
     login,
     resetPassword,
     sendVerificationCode,

@@ -36,7 +36,8 @@ public enum AuthErrorCode implements ErrorCode {
             HttpStatus.NOT_FOUND,
             "AUTH_404_LOCAL_ACCOUNT",
             "입력한 정보와 일치하는 Plamingo 계정이 없습니다."),
-    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_400_SAME_PASSWORD", "이전에 사용하던 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_400_SAME_PASSWORD", "이전에 사용하던 비밀번호와 동일한 비밀번호는 사용할 수 없습니다."),
+    OAUTH_LOGIN_CODE_INVALID(HttpStatus.BAD_REQUEST, "AUTH_400_OAUTH_CODE", "소셜 로그인 코드가 만료되었거나 유효하지 않습니다.");
 
     private final HttpStatus status;
     private final String code;
