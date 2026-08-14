@@ -5,12 +5,14 @@ import {
     CameraIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
+    PaletteIcon,
     SearchIcon,
     XIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
+import { Avatar, DEFAULT_AVATAR_COLOR, ThemePicker } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
+import { useAppTheme } from '@/shared/lib'
 import { resolveMediaUrl } from '@/shared/api/client'
 import {
     checkNicknameAvailability,
@@ -54,6 +56,7 @@ export function MyPage() {
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const currentUserId = currentUser?.id ?? null
+    const { theme, setTheme, colorMode, setColorMode } = useAppTheme()
     const {
         changeNickname,
         changeProfileImage,
@@ -75,6 +78,7 @@ export function MyPage() {
     const [checkedNickname, setCheckedNickname] = useState('')
     const [isCheckingNickname, setIsCheckingNickname] = useState(false)
     const [imageError, setImageError] = useState('')
+    const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
     const [isWithdrawing, setIsWithdrawing] = useState(false)
     const [withdrawError, setWithdrawError] = useState('')
@@ -463,6 +467,31 @@ export function MyPage() {
                     </div>
                 </section>
 
+                <section className="mb-8 rounded-[22px] border border-slate-100 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-brand-50)] text-[var(--color-brand)]">
+                                <PaletteIcon size={20} />
+                            </span>
+                            <div className="min-w-0">
+                                <h2 className="font-bold text-[var(--color-app-ink)]">
+                                    테마 설정
+                                </h2>
+                                <p className="mt-0.5 text-sm text-[var(--color-app-text-secondary)]">
+                                    화면 모드와 포인트 색상을 변경할 수 있어요.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsThemeModalOpen(true)}
+                            className="shrink-0 rounded-xl border border-[var(--color-app-border)] px-4 py-2.5 text-sm font-bold text-[var(--color-app-text)] transition hover:border-[var(--color-brand-200)] hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-700)]"
+                        >
+                            변경
+                        </button>
+                    </div>
+                </section>
+
                 {/* Bookmarks */}
                 <section className="mb-8">
                     <div className="mb-3 flex items-center justify-between gap-3">
@@ -676,6 +705,51 @@ export function MyPage() {
                     </div>
                 </section>
             </div>
+            {isThemeModalOpen && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-5 py-8"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="theme-modal-title"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) {
+                            setIsThemeModalOpen(false)
+                        }
+                    }}
+                >
+                    <div className="relative w-full max-w-[600px] rounded-[28px] bg-[var(--color-app-surface)] px-7 py-8 shadow-2xl sm:px-9">
+                        <button
+                            type="button"
+                            onClick={() => setIsThemeModalOpen(false)}
+                            aria-label="테마 설정 팝업 닫기"
+                            className="absolute right-5 top-5 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        >
+                            <XIcon size={20} />
+                        </button>
+                        <h2
+                            id="theme-modal-title"
+                            className="pr-10 text-xl font-extrabold text-[var(--color-app-ink)]"
+                        >
+                            테마 설정
+                        </h2>
+                        <div className="mt-6">
+                            <ThemePicker
+                                value={theme}
+                                onChange={setTheme}
+                                colorMode={colorMode}
+                                onColorModeChange={setColorMode}
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsThemeModalOpen(false)}
+                            className="mt-8 w-full rounded-xl bg-[var(--color-brand)] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[var(--color-brand-700)]"
+                        >
+                            적용 완료
+                        </button>
+                    </div>
+                </div>
+            )}
             {isWithdrawModalOpen && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-5 py-8"

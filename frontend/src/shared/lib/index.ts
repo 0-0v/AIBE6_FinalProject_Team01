@@ -11,3 +11,4 @@ export {
 } from './last-login-provider'
 export { createPeerConnection } from './realtime/webrtc'
 export { createWebSocket } from './realtime/websocket'
+export { useAppTheme } from './use-app-theme'

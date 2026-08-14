@@ -103,49 +103,112 @@
     --color-brand-50: #fff0f2;
     --color-brand-100: #fddde2;
     --color-brand-200: #f7cfd5;
-    --color-brand-600: #e7657a;
+    --color-brand-300: #f3a8b4;
+    --color-brand-400: #ed7f91;
+    --color-brand-500: #e7657a;
+    --color-brand-600: #d84f68;
     --color-brand-700: #c94c63;
+    --color-brand-800: #a94359;
+    --color-brand-900: #7f3042;
 
-    /* Application surfaces and typography */
-    --color-app-background: #f8fafb;
-    --color-app-background-alt: #f9fafb;
-    --color-app-surface: #ffffff;
-    --color-app-ink: #0f172a;
-    --color-app-navy: #213c51;
-    --color-app-navy-700: #29485e;
-    --color-app-navy-600: #315a75;
+    /* Application neutral and navy scales */
+    --color-app-neutral-50: #f8fafc;
+    --color-app-neutral-100: #f1f5f9;
+    --color-app-neutral-200: #e2e8f0;
+    --color-app-neutral-300: #cbd5e1;
+    --color-app-neutral-400: #94a3b8;
+    --color-app-neutral-500: #64748b;
+    --color-app-neutral-700: #334155;
+    --color-app-neutral-800: #1e293b;
+    --color-app-neutral-900: #0f172a;
+    --color-app-navy-50: #eef5f8;
+    --color-app-navy-100: #d9e8ef;
+    --color-app-navy-200: #b9d2de;
+    --color-app-navy-300: #9bbbd1;
+    --color-app-navy-400: #6f93ad;
+    --color-app-navy-500: #315a75;
+    --color-app-navy-600: #29485e;
+    --color-app-navy-700: #213c51;
     --color-app-navy-800: #182f40;
     --color-app-navy-900: #172d3d;
-    --color-app-navy-muted: #9bbbd1;
-    --color-app-navy-soft: #6f93ad;
-    --color-app-text: #334155;
-    --color-app-text-secondary: #64748b;
-    --color-app-text-muted: #94a3b8;
-    --color-app-border: #e2e8f0;
-    --color-app-neutral: #eeeeee;
-    --color-app-overlay: #20262e;
-    --color-app-avatar: #f5f7f8;
-    --color-app-avatar-icon: #b4b5b6;
+
+    /* Application semantic aliases */
+    --color-app-background: var(--color-app-neutral-50);
+    --color-app-background-alt: var(--color-app-neutral-50);
+    --color-app-surface: #ffffff;
+    --color-app-surface-raised: #ffffff;
+    --color-app-surface-high: #ffffff;
+    --color-app-ink: var(--color-app-neutral-900);
+    --color-app-navy: var(--color-app-navy-700);
+    --color-app-navy-muted: var(--color-app-navy-300);
+    --color-app-navy-soft: var(--color-app-navy-400);
+    --color-app-text: var(--color-app-neutral-700);
+    --color-app-text-secondary: var(--color-app-neutral-500);
+    --color-app-text-muted: var(--color-app-neutral-400);
+    --color-app-border: var(--color-app-neutral-200);
+    --color-app-neutral: var(--color-app-neutral-100);
+    --color-app-overlay: var(--color-app-neutral-800);
+    --color-app-avatar: var(--color-app-neutral-100);
     --color-app-warm-background: #fffaf5;
-    --color-app-warm-surface: #fffaf0;
-    --color-app-ticket-notch: #d9d4c6;
+    --color-app-ticket-notch: var(--color-app-neutral-300);
+    --background-app-soft-pink: #fff0f2;
+    --shadow-app-surface: 0 10px 30px rgb(15 23 42 / 0.08);
+
+    /* Dashboard theme contract: 새 테마는 아래 역할색만 재정의한다. */
+    --theme-dashboard-surface: #ffffff;
+    --theme-dashboard-vote-surface: var(--background-app-soft-pink);
+    --theme-dashboard-ticket: var(--color-app-navy);
+    --theme-dashboard-primary: var(--color-brand-600);
+    --theme-dashboard-secondary: var(--color-brand-400);
+    --theme-dashboard-border: var(--color-app-border);
+    --theme-dashboard-soft: var(--background-app-soft-pink);
+    --theme-dashboard-accent: var(--color-brand-accent);
+    --theme-dashboard-status: #86efac;
+    --theme-dashboard-status-text: var(--color-app-navy);
+    --theme-dashboard-calendar-selected: var(--color-brand-600);
+    --theme-dashboard-calendar-range: var(--color-app-navy-100);
+    --theme-dashboard-calendar-range-text: var(--color-brand-600);
+    --theme-dashboard-ticket-button: rgb(255 255 255 / 0.1);
+    --theme-dashboard-ticket-button-hover: rgb(255 255 255 / 0.2);
+    --theme-dashboard-ticket-button-text: var(--color-app-neutral);
+
+    /* Components consume semantic aliases, not theme palette values directly. */
+    --background-app-panel: var(--theme-dashboard-surface);
+    --background-vote-panel: var(--theme-dashboard-vote-surface);
+    --background-calendar-panel: var(--theme-dashboard-surface);
+    --background-app-ticket: var(--theme-dashboard-ticket);
+    --color-app-ticket-accent: var(--theme-dashboard-secondary);
+    --background-trip-selector: var(--theme-dashboard-soft);
+    --color-trip-selector: var(--theme-dashboard-primary);
+    --background-trip-status: var(--theme-dashboard-status);
+    --color-trip-status: var(--theme-dashboard-status-text);
+    --color-carousel-active: var(--theme-dashboard-primary);
+    --color-carousel-inactive: var(--theme-dashboard-border);
+    --background-strong-action: var(--theme-dashboard-ticket);
+    --color-notification-badge: var(--theme-dashboard-accent);
+    --color-primary-action: var(--theme-dashboard-primary);
+    --color-secondary-action: var(--theme-dashboard-secondary);
+    --color-vote-accent: var(--theme-dashboard-accent);
+    --background-calendar-selected: var(--theme-dashboard-calendar-selected);
+    --background-calendar-range: var(--theme-dashboard-calendar-range);
+    --color-calendar-range: var(--theme-dashboard-calendar-range-text);
 
     /* Brand interaction states */
-    --color-brand-vivid: #f2647c;
-    --color-brand-dark: #d84f68;
-    --color-brand-deep: #a94359;
-    --color-brand-muted: #cc788a;
-    --color-brand-accent: #ec6680;
-    --color-brand-gradient-end: #ed7188;
-    --color-brand-gradient-start: #f3b8b1;
-    --color-brand-gradient-middle: #ed7887;
-    --color-brand-gradient-finish: #df5d76;
-    --color-brand-scrollbar-hover: #f0b6bf;
-    --color-brand-surface: #fff7f8;
-    --color-brand-surface-soft: #fff8fa;
-    --color-brand-surface-strong: #fff0f3;
-    --color-brand-surface-subtle: #fff1f4;
-    --color-brand-highlight: #fdeef1;
+    --color-brand-vivid: var(--color-brand-500);
+    --color-brand-dark: var(--color-brand-600);
+    --color-brand-deep: var(--color-brand-800);
+    --color-brand-muted: var(--color-brand-400);
+    --color-brand-accent: var(--color-brand-500);
+    --color-brand-gradient-end: var(--color-brand-600);
+    --color-brand-gradient-start: var(--color-brand-200);
+    --color-brand-gradient-middle: var(--color-brand-400);
+    --color-brand-gradient-finish: var(--color-brand-600);
+    --color-brand-scrollbar-hover: var(--color-brand-200);
+    --color-brand-surface: var(--color-brand-50);
+    --color-brand-surface-soft: var(--color-brand-50);
+    --color-brand-surface-strong: var(--color-brand-100);
+    --color-brand-surface-subtle: var(--color-brand-50);
+    --color-brand-highlight: var(--color-brand-100);
 
     /* Landing page palette */
     --color-landing-canvas: #fffdf8;
@@ -223,6 +286,193 @@
         var(--color-brand-gradient-middle) 52%,
         var(--color-brand-gradient-finish) 100%
     );
+    --sidebar-active-background: var(--flamingo-gradient);
+    /* 사이드바 활성 그림자는 sidebar-active-background 자체의 색을 따라간다. 기본 테마는 브랜드색 배경이라 브랜드 그림자를 쓰고, 구조색 배경을 쓰는 테마는 각 블록에서 이 값을 덮어쓴다. */
+    --rgb-sidebar-active-shadow: var(--rgb-brand);
+}
+
+/* 테마는 브랜드 토큰만 교체하고 카테고리·로그인 제공자 색상은 유지한다. */
+/* 딥 네이비: 구조 #1E3D6B · 주 액션 #2C5E9E · 보조·링크 #5995DD · 경계 #D7DDE2 · 바탕 #F6F8F8 */
+:root[data-theme='deep-navy'] {
+    --color-brand: #2c5e9e;
+    --color-brand-50: #eef3f9;
+    --color-brand-100: #dbe6f2;
+    --color-brand-200: #b9cce6;
+    --color-brand-300: #8fadd4;
+    --color-brand-400: #5995dd;
+    --color-brand-500: #2c5e9e;
+    --color-brand-600: #1e3d6b;
+    --color-brand-700: #17304f;
+    --color-brand-800: #112339;
+    --color-brand-900: #0b1726;
+    --color-app-ink: #1e3d6b;
+    --color-app-border: #d7dde2;
+    --color-app-text-secondary: #5a7391;
+    /* 보딩패스 내부(라벨·구분선·D-day 박스·비행기 아이콘 사각형)가 기본 네이비 스케일을 그대로 쓰고 있어 테마와 무관하게 파랑으로 남던 것을 고정 */
+    --color-app-navy: #1e3d6b;
+    --color-app-navy-700: #1e3d6b;
+    --color-app-navy-800: #172e4f;
+    --color-app-navy-900: #112339;
+    --color-app-navy-muted: #8fadd4;
+    --color-app-navy-soft: #5995dd;
+    --rgb-app-navy: 30 61 107;
+    --rgb-sidebar-active-shadow: 30 61 107;
+    --theme-dashboard-surface: #ffffff;
+    --theme-dashboard-vote-surface: #ffffff;
+    --theme-dashboard-ticket: #1e3d6b;
+    --theme-dashboard-primary: #2c5e9e;
+    --theme-dashboard-secondary: #5995dd;
+    --theme-dashboard-border: #d7dde2;
+    --theme-dashboard-soft: #eef3f9;
+    --theme-dashboard-accent: #f0a93b;
+    --theme-dashboard-status: #5995dd;
+    --theme-dashboard-status-text: #ffffff;
+    --theme-dashboard-calendar-selected: #2c5e9e;
+    --theme-dashboard-calendar-range: #dbe6f2;
+    --theme-dashboard-calendar-range-text: #2c5e9e;
+    --sidebar-active-background: linear-gradient(
+        135deg,
+        #1e3d6b 0%,
+        #2c5e9e 100%
+    );
+    --rgb-brand: 44 94 158;
+    --rgb-brand-vivid: 44 94 158;
+    --rgb-brand-soft: 89 149 221;
+    --rgb-brand-shadow: 30 61 107;
+    --rgb-brand-glow: 44 94 158;
+}
+
+/* 스카이 + 샌드(파스텔 유지): 티켓 #BBDCE5 · 바탕 #ECEEDF · 버튼 #D9C4B0 · 진행바 #CFAB8D · 잉크 #4A3B2E */
+/* 잉크가 검정 대신 모든 강한 요소(텍스트·강한 버튼)를 맡고, 강조는 팔레트 안의 스카이블루를 재사용한다. */
+/* 흰 카드와 크림 배경의 명도차가 작아 보더(#E7E2D5)가 구조를 담당 — 보더를 지우면 안 됨. */
+:root[data-theme='sky-sand'] {
+    --color-app-neutral: #4a3b2e;
+    --color-brand: #cfab8d;
+    --color-brand-50: #fbf6f1;
+    --color-brand-100: #f6ebe0;
+    --color-brand-200: #ecd7c3;
+    --color-brand-300: #e0bfa0;
+    --color-brand-400: #7b7161;
+    --color-brand-500: #cfab8d;
+    --color-brand-600: #7b7161;
+    --color-brand-700: #97714f;
+    --color-brand-800: #74573c;
+    --color-brand-900: #4f3a29;
+    --color-app-ink: #4a3b2e;
+    --color-app-border: #e7e2d5;
+    --color-app-text: #4a3b2e;
+    --color-app-text-secondary: #8a7a6c;
+    --color-app-text-muted: #ab9c8d;
+    /* 티켓이 밝은 색이라 다른 테마와 반대로: navy(강한 버튼 전용)는 잉크, navy-700(아이콘 사각형)만 티켓색과 맞춘다. */
+    --color-app-navy: #4a3b2e;
+    --color-app-navy-700: #bbdce5;
+    --color-app-navy-800: #4a3b2e;
+    --color-app-navy-900: #2b221a;
+    --color-app-navy-muted: #4a3b2e;
+    --color-app-navy-soft: #3e7a96;
+    --rgb-app-navy: 74 59 46;
+    --rgb-sidebar-active-shadow: 74 59 46;
+    --theme-dashboard-surface: #ffffff;
+    --theme-dashboard-vote-surface: #edeee0;
+    --theme-dashboard-ticket: #bcdce5;
+    --theme-dashboard-primary: #4a3b2e;
+    --theme-dashboard-secondary: #4a3b2e;
+    --theme-dashboard-border: #e7e2d5;
+    --theme-dashboard-soft: #f2e9dd;
+    /* 알림 배지·투표 강조 아이콘은 흰 글씨/아이콘이 고정이라, 원색 #BBDCE5는 대비가 안 나와 한 단계 짙힌 톤을 씀 */
+    --theme-dashboard-accent: #3e7a96;
+    --theme-dashboard-status: #ebf4f7;
+    --theme-dashboard-status-text: #4a3b2e;
+    /* 선택 날짜도 흰 글씨 고정이라 연한 샌드 대신 잉크로 */
+    --theme-dashboard-calendar-selected: #4a3b2e;
+    --theme-dashboard-calendar-range: #d8ebf0;
+    --theme-dashboard-calendar-range-text: #4a3b2e;
+    --theme-dashboard-ticket-button-text: #ffffff;
+    --sidebar-active-background: #4a3b2e;
+    --theme-dashboard-ticket-button: #4a3b2e;
+    --theme-dashboard-ticket-button-hover: #362a20;
+    --rgb-app-ink: 74 59 46;
+    --rgb-brand: 207 171 141;
+    --rgb-brand-vivid: 207 171 141;
+    --rgb-brand-soft: 213 169 126;
+    --rgb-brand-shadow: 185 141 104;
+    --rgb-brand-glow: 207 171 141;
+}
+
+/* 세이지 + 코랄: 구조(티켓·사이드바·AI버튼) #3A5A55 · 원색 코랄은 어두운 면(티켓 배지) 전용 #EC747C */
+/* 버튼 채움·강조는 대비 보정한 #C04A56, 흰 배경 텍스트는 #A63A4A(6.5:1) · 성공 #94C5A2 */
+/* #80A28F는 아직 배정 안 함 */
+:root[data-theme='sage-coral'] {
+    /* 원색 #EC747C는 스케일에 넣지 않고, 티켓 위 강조(secondary) 한 곳에만 리터럴로 남긴다. */
+    --color-brand: #c0485a;
+    --color-brand-50: #fdf1f2;
+    --color-brand-100: #fbdfe2;
+    --color-brand-200: #f3b9bf;
+    --color-brand-300: #e8919a;
+    --color-brand-400: #d56c78;
+    --color-brand-500: #c0485a;
+    --color-brand-600: #a63a4a;
+    --color-brand-700: #872f3c;
+    --color-brand-800: #6b262f;
+    --color-brand-900: #4a1a20;
+    --color-app-ink: #213f3a;
+    --color-app-border: #dce8e0;
+    --color-app-text: #3a5a55;
+    --color-app-text-secondary: #607b76;
+    --color-app-text-muted: #91a7a2;
+    --color-app-navy: #3a5a55;
+    --color-app-navy-700: #3a5a55;
+    --color-app-navy-800: #2c443f;
+    --color-app-navy-900: #223832;
+    --color-app-navy-muted: #9fc0b5;
+    --color-app-navy-soft: #7fa89a;
+    --rgb-app-navy: 58 90 85;
+    --rgb-sidebar-active-shadow: 58 90 85;
+    --theme-dashboard-surface: #ffffff;
+    --theme-dashboard-vote-surface: #ffffff;
+    --theme-dashboard-ticket: #3a5a55;
+    --theme-dashboard-primary: #3a5a55;
+    --theme-dashboard-secondary: #ec747c;
+    --theme-dashboard-border: #dce8e0;
+    --theme-dashboard-soft: #edf5f0;
+    --theme-dashboard-accent: #c0485a;
+    --theme-dashboard-status: #c7e8cf;
+    --theme-dashboard-status-text: #3a5a55;
+    --theme-dashboard-calendar-selected: #c0485a;
+    --theme-dashboard-calendar-range: #e5f0e9;
+    --theme-dashboard-calendar-range-text: #3a5a55;
+    --sidebar-active-background: #3a5a55;
+    --rgb-app-ink: 33 63 58;
+    --rgb-brand: 192 72 90;
+    --rgb-brand-vivid: 192 72 90;
+    --rgb-brand-soft: 213 108 120;
+    --rgb-brand-shadow: 166 58 74;
+    --rgb-brand-glow: 192 72 90;
+}
+
+/* 화면 모드는 색상 테마와 독립적이다. 포인트색은 유지하고 표면·글자·경계만 교체한다. */
+:root[data-color-mode='dark'] {
+    color-scheme: dark;
+    --color-app-background: #101216;
+    --color-app-background-alt: #15181e;
+    --color-app-surface: #1c2027;
+    --color-app-surface-raised: #242932;
+    --color-app-surface-high: #2c323d;
+    --color-app-ink: #f2f4f7;
+    --color-app-text: #d8dde5;
+    --color-app-text-secondary: #aab3c0;
+    --color-app-text-muted: #838e9e;
+    --color-app-border: #343b47;
+    --color-app-neutral: #eef1f5;
+    --color-app-overlay: #080a0e;
+    --color-app-avatar: #29303a;
+    --color-app-ticket-notch: #101216;
+    --background-app-soft-pink: #291e24;
+    --shadow-app-surface: 0 8px 24px rgb(0 0 0 / 0.18);
+    --theme-dashboard-surface: var(--color-app-surface-raised);
+    --theme-dashboard-vote-surface: #261e24;
+    --theme-dashboard-border: var(--color-app-border);
+    --theme-dashboard-soft: var(--color-app-surface-high);
 }
 
 html,
@@ -234,7 +484,59 @@ body {
     margin: 0;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    background: var(--color-app-background);
     color: var(--color-app-ink);
+    transition:
+        background-color 160ms ease,
+        color 160ms ease;
+}
+
+/* 로그인 화면은 사용자가 선택한 앱 화면 모드와 관계없이 기존 라이트 디자인을 유지한다. */
+.auth-light-page {
+    color-scheme: light;
+    color: #0f172a;
+    background-color: #f8fafc;
+}
+
+.auth-light-page input {
+    color: #0f172a;
+    background-color: #ffffff;
+}
+
+/* 기존 Tailwind 중립색 사용처를 다크 표면 토큰에 연결하는 호환 레이어. */
+:root[data-color-mode='dark'] .app-shell [class~='bg-white'] {
+    background-color: var(--color-app-surface-raised) !important;
+}
+:root[data-color-mode='dark'] .app-shell [class~='bg-slate-50'] {
+    background-color: var(--color-app-background-alt) !important;
+}
+:root[data-color-mode='dark'] .app-shell [class~='bg-slate-100'] {
+    background-color: var(--color-app-surface-high) !important;
+}
+:root[data-color-mode='dark'] .app-shell [class~='border-slate-100'],
+:root[data-color-mode='dark'] .app-shell [class~='border-slate-200'],
+:root[data-color-mode='dark'] .app-shell [class~='border-slate-300'] {
+    border-color: var(--color-app-border) !important;
+}
+:root[data-color-mode='dark'] .app-shell [class~='text-slate-950'],
+:root[data-color-mode='dark'] .app-shell [class~='text-slate-900'],
+:root[data-color-mode='dark'] .app-shell [class~='text-slate-800'],
+:root[data-color-mode='dark'] .app-shell [class~='text-slate-700'] {
+    color: var(--color-app-ink) !important;
+}
+:root[data-color-mode='dark'] .app-shell [class~='text-slate-600'],
+:root[data-color-mode='dark'] .app-shell [class~='text-slate-500'] {
+    color: var(--color-app-text-secondary) !important;
+}
+:root[data-color-mode='dark'] .app-shell [class~='text-slate-400'] {
+    color: var(--color-app-text-muted) !important;
+}
+:root[data-color-mode='dark'] .app-shell [class~='shadow-sm'],
+:root[data-color-mode='dark'] .app-shell [class~='shadow-md'],
+:root[data-color-mode='dark'] .app-shell [class~='shadow-lg'],
+:root[data-color-mode='dark'] .app-shell [class~='shadow-xl'],
+:root[data-color-mode='dark'] .app-shell [class~='shadow-2xl'] {
+    box-shadow: var(--shadow-app-surface) !important;
 }
 
 button,
@@ -251,6 +553,9 @@ button,
 
 .flamingo-gradient {
     background: var(--flamingo-gradient);
+}
+.sidebar-active-background {
+    background: var(--sidebar-active-background);
 }
 .flamingo-glow {
     box-shadow: 0 12px 26px rgb(var(--rgb-brand-glow) / 0.24);
@@ -376,6 +681,16 @@ button,
 
 .itinerary-route-arrow-flow {
     animation: itinerary-route-arrow-flow 1.35s ease-in-out infinite;
+}
+
+.trip-room-map-dark-overlay {
+    display: none;
+}
+
+:root[data-color-mode='dark'] .trip-room-map-dark-overlay {
+    display: block;
+    background: rgb(8 10 14 / 0.42);
+    mix-blend-mode: multiply;
 }
 
 @media (prefers-reduced-motion: reduce) {
