@@ -7,6 +7,7 @@ import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.exception.DataIntegrityConstraintMatcher;
+import back.backend.global.response.PageResponse;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -50,23 +51,48 @@ public class TripCardBookmarkService {
     public List<TripSharedBookmarkResponse> getShared(Long tripId) {
         accessChecker.requireView(tripId);
         Long memberId = security.getCurrentMemberId();
-        return repository.findAllByTripIdOrderBySharedAtDesc(tripId).stream()
+        LinkedHashMap<Long, List<TripCardBookmarkShare>> sharesByCard = repository
+                .findAllByTripIdOrderBySharedAtDesc(tripId).stream()
                 .collect(Collectors.groupingBy(
                         TripCardBookmarkShare::getPlanCardId,
                         LinkedHashMap::new,
-                        Collectors.toList()))
-                .entrySet().stream()
+                        Collectors.toList()));
+        Map<Long, back.backend.domain.card.dto.PublicCardResponse> cardsById =
+                publicCardService.getPublicCards(sharesByCard.keySet(), memberId);
+        Set<Long> sharerIds = sharesByCard.values().stream()
+                .flatMap(Collection::stream)
+                .map(TripCardBookmarkShare::getMemberId)
+                .collect(Collectors.toSet());
+        Map<Long, String> nicknamesByMemberId = memberRepository.findAllById(sharerIds).stream()
+                .collect(Collectors.toMap(
+                        back.backend.domain.member.entity.Member::getId,
+                        back.backend.domain.member.entity.Member::getNickname
+                ));
+
+        return sharesByCard.entrySet().stream()
+                .filter(entry -> cardsById.containsKey(entry.getKey()))
                 .map(entry -> new TripSharedBookmarkResponse(
-                        publicCardService.getPublicCard(entry.getKey(), memberId),
+                        cardsById.get(entry.getKey()),
                         entry.getValue().stream()
                                 .map(TripCardBookmarkShare::getMemberId)
                                 .distinct()
-                                .map(id -> memberRepository.findById(id)
-                                        .map(member -> member.getNickname())
-                                        .orElse("알 수 없음"))
+                                .map(id -> nicknamesByMemberId.getOrDefault(id, "알 수 없음"))
                                 .toList(),
                         entry.getValue().stream()
                                 .anyMatch(share -> memberId.equals(share.getMemberId()))))
                 .toList();
+    }
+
+    public PageResponse<TripSharedBookmarkResponse> getShared(Long tripId, int page, int size) {
+        List<TripSharedBookmarkResponse> items = getShared(tripId);
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int from = Math.min(safePage * safeSize, items.size());
+        int to = Math.min(from + safeSize, items.size());
+        int totalPages = (int) Math.ceil((double) items.size() / safeSize);
+        return new PageResponse<>(
+                items.subList(from, to), safePage, safeSize, items.size(), totalPages,
+                safePage == 0, safePage + 1 >= totalPages, items.isEmpty()
+        );
     }
 }

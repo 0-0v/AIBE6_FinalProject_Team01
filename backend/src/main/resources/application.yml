@@ -1,6 +1,10 @@
 spring:
   application:
     name: backend
+  data:
+    web:
+      pageable:
+        max-page-size: 100
   profiles:
     default: local
   jpa:
