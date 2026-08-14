@@ -31,6 +31,9 @@ spring:
           auth: true
           starttls:
             enable: true
+          connectiontimeout: ${SMTP_CONNECTION_TIMEOUT_MS:5000}
+          timeout: ${SMTP_READ_TIMEOUT_MS:10000}
+          writetimeout: ${SMTP_WRITE_TIMEOUT_MS:10000}
 
 server:
   forward-headers-strategy: framework
@@ -45,6 +48,7 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+    supported-submit-methods: []
 
 app:
   member:
@@ -73,6 +77,8 @@ app:
       encryption-key: ${OAUTH_TOKEN_ENCRYPTION_KEY:}
       retention: ${OAUTH_TOKEN_RETENTION:3650d}
       kakao-admin-key: ${KAKAO_ADMIN_KEY:}
+      connect-timeout: ${OAUTH_UNLINK_CONNECT_TIMEOUT:3s}
+      read-timeout: ${OAUTH_UNLINK_READ_TIMEOUT:5s}
     email:
       from: ${BREVO_FROM_EMAIL:}
       code-expiration: ${EMAIL_VERIFICATION_CODE_EXPIRATION:5m}

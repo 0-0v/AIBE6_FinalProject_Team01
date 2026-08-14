@@ -9,6 +9,8 @@ public class OAuth2TokenProperties {
     private String encryptionKey;
     private Duration retention = Duration.ofDays(3650);
     private String kakaoAdminKey;
+    private Duration connectTimeout = Duration.ofSeconds(3);
+    private Duration readTimeout = Duration.ofSeconds(5);
 
     public String getEncryptionKey() {
         return encryptionKey;
@@ -36,5 +38,21 @@ public class OAuth2TokenProperties {
 
     public boolean isEncryptionConfigured() {
         return encryptionKey != null && !encryptionKey.isBlank();
+    }
+
+    public Duration getConnectTimeout() {
+        return connectTimeout;
+    }
+
+    public void setConnectTimeout(Duration connectTimeout) {
+        this.connectTimeout = connectTimeout;
+    }
+
+    public Duration getReadTimeout() {
+        return readTimeout;
+    }
+
+    public void setReadTimeout(Duration readTimeout) {
+        this.readTimeout = readTimeout;
     }
 }

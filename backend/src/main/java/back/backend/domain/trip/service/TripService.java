@@ -139,7 +139,7 @@ public class TripService {
                     request.destinationEnglishName(), request.destinationCountryCode());
             moveDatedTripContent(tripId, previousStartDate, request.startDate());
         } catch (IllegalArgumentException exception) {
-            throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
+            throw new BusinessException(TripErrorCode.INVALID_TRIP);
         } catch (IllegalStateException exception) {
             throw new BusinessException(TripErrorCode.TRIP_ALREADY_FINISHED);
         }
@@ -214,7 +214,7 @@ public class TripService {
                     request.destinationEnglishName(), request.destinationCountryCode());
             return tripRepository.save(trip);
         } catch (IllegalArgumentException exception) {
-            throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
+            throw new BusinessException(TripErrorCode.INVALID_TRIP);
         }
     }
 
