@@ -198,7 +198,7 @@ export function Login() {
     }
 
     return (
-        <div className="flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
+        <div className="auth-light-page flex min-h-full w-full items-center justify-center bg-slate-50 px-6 py-12">
             <div className="w-full max-w-sm">
                 <div className="mb-8 text-center">
                     <Link
