@@ -213,6 +213,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         null,
     )
     const [inviteCodeError, setInviteCodeError] = useState<string | null>(null)
+    const [isCheckingGuestAccess, setIsCheckingGuestAccess] = useState(
+        Boolean(inviteCode),
+    )
+    const checkedInviteTokenRef = useRef<string | null>(null)
     const [inviteMode, setInviteMode] = useState<
         'guest' | 'join-confirm' | null
     >(null)
@@ -307,34 +311,22 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }, [tripId])
 
     useEffect(() => {
-        if (
-            !inviteCode ||
-            !isReturningFromLogin ||
-            verifiedInviteCode === inviteCode
-        ) {
+        if (!inviteCode || checkedInviteTokenRef.current === inviteCode) {
             return
         }
-        void loadInvitedTrip(inviteCode).then(async (success) => {
-            if (!success) {
-                setIsJoining(false)
-                return
-            }
-            setVerifiedInviteCode(inviteCode)
-            const invitedTripId = useTripStore.getState().guestRoom?.apiTripId
-            if (invitedTripId == null) {
-                setInviteMode('join-confirm')
-                setIsJoining(false)
-                return
-            }
-            await joinInvitedTrip(invitedTripId)
-        })
-    }, [
-        inviteCode,
-        isReturningFromLogin,
-        joinInvitedTrip,
-        loadInvitedTrip,
-        verifiedInviteCode,
-    ])
+        checkedInviteTokenRef.current = inviteCode
+        setIsCheckingGuestAccess(true)
+        void loadInvitedTrip(inviteCode, undefined, { silent: true }).then(
+            (success) => {
+                setIsCheckingGuestAccess(false)
+                if (!success) return
+                setVerifiedInviteCode(inviteCode)
+                setInviteMode(
+                    isReturningFromLogin ? 'join-confirm' : 'guest',
+                )
+            },
+        )
+    }, [inviteCode, isReturningFromLogin, loadInvitedTrip])
 
     useEffect(() => {
         if (!activeRoomId || !tripId) return
@@ -545,20 +537,20 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         if (!inviteCode) return
 
         const normalizedCode = inviteCodeInput.trim()
-        if (!normalizedCode) {
-            setInviteCodeError('초대 코드를 입력해 주세요.')
-            return
-        }
-        if (normalizedCode !== inviteCode) {
-            setInviteCodeError('초대 코드가 일치하지 않습니다.')
+        if (!/^\d{6}$/.test(normalizedCode)) {
+            setInviteCodeError('6자리 초대 코드를 입력해 주세요.')
             return
         }
 
         setInviteCodeError(null)
-        const success = await loadInvitedTrip(normalizedCode)
+        const success = await loadInvitedTrip(inviteCode, normalizedCode, {
+            silent: true,
+        })
         if (success) {
-            setVerifiedInviteCode(normalizedCode)
+            setVerifiedInviteCode(inviteCode)
             setInviteMode(null)
+        } else {
+            setInviteCodeError('초대 코드가 올바르지 않거나 만료되었습니다.')
         }
     }
 
@@ -605,7 +597,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         inviteCode &&
         (verifiedInviteCode !== inviteCode || guestRoom === null)
     ) {
-        if (isReturningFromLogin) {
+        if (isCheckingGuestAccess) {
             return (
                 <main className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-orange-50">
                     <p className="text-sm font-bold text-slate-500">

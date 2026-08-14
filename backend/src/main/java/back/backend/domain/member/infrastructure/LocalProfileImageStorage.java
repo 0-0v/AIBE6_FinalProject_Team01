@@ -4,10 +4,11 @@ import back.backend.domain.member.exception.MemberErrorCode;
 import back.backend.domain.member.port.ProfileImageStorage;
 import back.backend.global.config.FileStorageProperties;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.util.ImageContentInspector;
+import back.backend.global.util.ImageContentInspector.ImageFormat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,7 +16,6 @@ import org.springframework.web.multipart.MultipartFile;
 @Component
 public class LocalProfileImageStorage implements ProfileImageStorage {
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024L;
     private static final String SUB_DIRECTORY = "profile-images";
 
@@ -71,22 +71,20 @@ public class LocalProfileImageStorage implements ProfileImageStorage {
             throw new BusinessException(MemberErrorCode.PROFILE_IMAGE_TOO_LARGE);
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new BusinessException(MemberErrorCode.INVALID_PROFILE_IMAGE_TYPE);
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException exception) {
+            throw new BusinessException(MemberErrorCode.PROFILE_IMAGE_STORAGE_FAILED);
         }
 
-        String extension = extractExtension(file.getOriginalFilename());
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+        // 확장자와 Content-Type 헤더는 클라이언트가 조작할 수 있으므로 신뢰하지 않고,
+        // 파일의 실제 매직 바이트로 형식을 판별한다.
+        ImageFormat format = ImageContentInspector.detectFormat(content)
+                .orElseThrow(() -> new BusinessException(MemberErrorCode.INVALID_PROFILE_IMAGE_TYPE));
+        if (!ImageContentInspector.isDecodableRasterImage(content)) {
             throw new BusinessException(MemberErrorCode.INVALID_PROFILE_IMAGE_TYPE);
         }
-        return extension;
-    }
-
-    private String extractExtension(String filename) {
-        if (filename == null || !filename.contains(".")) {
-            throw new BusinessException(MemberErrorCode.INVALID_PROFILE_IMAGE_TYPE);
-        }
-        return filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+        return format.extension();
     }
 }

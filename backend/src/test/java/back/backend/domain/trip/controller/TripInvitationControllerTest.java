@@ -106,14 +106,16 @@ class TripInvitationControllerTest {
     @Test
     @DisplayName("t5 초대 코드를 수락하면 게스트 쿠키와 여행방 정보를 반환한다")
     void t5_acceptInvitationReturnsGuestCookieAndTrip() throws Exception {
-        when(guestTripAccessService.accept("invite-code", null)).thenReturn(
+        when(guestTripAccessService.accept("invite-code", "123456", null)).thenReturn(
                 new GuestAccessGrant(response(), "guest-token", LocalDateTime.now().plusDays(1)));
         when(guestAccessCookieProvider.create("guest-token")).thenReturn(
                 ResponseCookie.from(GuestAccessCookieProvider.COOKIE_NAME, "guest-token")
                         .httpOnly(true)
                         .build());
 
-        mockMvc.perform(post("/api/trip-invitations/{inviteCode}/accept", "invite-code"))
+        mockMvc.perform(post("/api/trip-invitations/{inviteCode}/accept", "invite-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"accessCode\":\"123456\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(cookie().httpOnly(GuestAccessCookieProvider.COOKIE_NAME, true))
                 .andExpect(jsonPath("$.data.id").value(10));
@@ -153,7 +155,7 @@ class TripInvitationControllerTest {
     @Test
     @DisplayName("t8 로그인 회원이 초대를 수락해도 참여 확인 전에는 게스트 권한을 유지한다")
     void t8_acceptInvitationAsMemberKeepsGuestAccessUntilConfirmation() throws Exception {
-        when(guestTripAccessService.accept("invite-code", null)).thenReturn(
+        when(guestTripAccessService.accept("invite-code", null, null)).thenReturn(
                 new GuestAccessGrant(response(), "guest-token", LocalDateTime.now().plusDays(1)));
         when(guestAccessCookieProvider.create("guest-token")).thenReturn(
                 ResponseCookie.from(GuestAccessCookieProvider.COOKIE_NAME, "guest-token").build());

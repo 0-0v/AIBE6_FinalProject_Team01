@@ -177,7 +177,12 @@ export async function leaveTrip(id: number) {
 
 export async function createTripInvitation(id: number) {
     const response = await apiClient.post<
-        ApiResponse<{ inviteCode: string; expiresAt: string }>
+        ApiResponse<{
+            inviteCode: string
+            inviteToken: string
+            codeExpiresAt: string
+            linkExpiresAt: string
+        }>
     >(`/api/trips/${id}/invitations`, {})
     return response.data
 }
@@ -208,22 +213,26 @@ export async function consumeTripEmailInvitation(token: string) {
 
 const pendingInvitedTripRequests = new Map<string, Promise<TripResponse>>()
 
-export function fetchInvitedTrip(inviteCode: string): Promise<TripResponse> {
-    const pendingRequest = pendingInvitedTripRequests.get(inviteCode)
+export function fetchInvitedTrip(
+    inviteToken: string,
+    accessCode?: string,
+): Promise<TripResponse> {
+    const requestKey = `${inviteToken}:${accessCode ?? ''}`
+    const pendingRequest = pendingInvitedTripRequests.get(requestKey)
     if (pendingRequest) return pendingRequest
 
     const request = apiClient
         .postPublic<ApiResponse<TripResponse>>(
-            `/api/trip-invitations/${encodeURIComponent(inviteCode)}/accept`,
-            {},
+            `/api/trip-invitations/${encodeURIComponent(inviteToken)}/accept`,
+            accessCode ? { accessCode } : {},
         )
         .then((response) => response.data)
         .finally(() => {
-            if (pendingInvitedTripRequests.get(inviteCode) === request) {
-                pendingInvitedTripRequests.delete(inviteCode)
+            if (pendingInvitedTripRequests.get(requestKey) === request) {
+                pendingInvitedTripRequests.delete(requestKey)
             }
         })
-    pendingInvitedTripRequests.set(inviteCode, request)
+    pendingInvitedTripRequests.set(requestKey, request)
     return request
 }
 

@@ -232,4 +232,20 @@ class JwtAuthenticationFilterTest {
                 .extracting("authority")
                 .containsExactlyInAnyOrder("ROLE_USER", "ROLE_ADMIN", "ROLE_SUB_ADMIN");
     }
+
+    @Test
+    @DisplayName("t12 회원 토큰 버전과 다른 액세스 토큰이면 인증 정보를 설정하지 않는다")
+    void t12_staleTokenVersionSkipsAuthentication() throws Exception {
+        Member member = activeMember(9L);
+        member.invalidateTokens();
+        when(memberRepository.findById(9L)).thenReturn(Optional.of(member));
+        String token = jwtProvider.createAccessToken(9L, member.getEmail(), 0L);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(filterChain).doFilter(any(), any());
+    }
 }

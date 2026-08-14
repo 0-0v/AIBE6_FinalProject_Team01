@@ -2,6 +2,7 @@ package back.backend.global.exception;
 
 import back.backend.domain.auth.dto.SuspendedAccountErrorResponse;
 import back.backend.domain.auth.exception.EmailVerificationCooldownException;
+import back.backend.domain.auth.exception.LoginRateLimitException;
 import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.global.exception.ErrorResponse.FieldError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,6 +48,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EmailVerificationCooldownException.class)
     public ResponseEntity<ErrorResponse> handleEmailVerificationCooldown(
             EmailVerificationCooldownException exception,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = exception.getErrorCode();
+        ErrorResponse response = ErrorResponse.of(
+                errorCode, exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(errorCode.getStatus())
+                .header("Retry-After", Long.toString(exception.getRetryAfterSeconds()))
+                .body(response);
+    }
+
+    @ExceptionHandler(LoginRateLimitException.class)
+    public ResponseEntity<ErrorResponse> handleLoginRateLimit(
+            LoginRateLimitException exception,
             HttpServletRequest request
     ) {
         ErrorCode errorCode = exception.getErrorCode();

@@ -137,7 +137,7 @@ public class TripEmailInvitationService {
             throw new BusinessException(TripErrorCode.EMAIL_INVITATION_INVALID);
         }
         if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
-            tripMemberRepository.save(TripMember.viewer(tripId, memberId));
+            tripMemberRepository.save(TripMember.member(tripId, memberId));
             eventPublisher.publishEvent(RealtimeEvent.tripMembers(tripId, memberId));
         }
         return tripId;

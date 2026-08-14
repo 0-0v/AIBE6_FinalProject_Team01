@@ -75,6 +75,17 @@ export async function consumeSuspensionNotice(token: string) {
     return response.data
 }
 
+// 소셜 로그인 콜백 URL에는 액세스 토큰 대신 1회용 교환 코드만 담겨 있다.
+// 이 코드를 백엔드로 보내 실제 액세스 토큰을 발급받는다.
+export async function exchangeOAuthLoginCode(code: string) {
+    const response = await apiClient.postPublic<TokenResponse>(
+        '/api/auth/oauth/exchange',
+        { code },
+    )
+    await establishSession(response.data.accessToken)
+    return useCurrentUserStore.getState().currentUser
+}
+
 export async function resetPassword(email: string, newPassword: string) {
     return apiClient.postPublic<ApiResponse<null>>('/api/auth/password-reset', {
         email,

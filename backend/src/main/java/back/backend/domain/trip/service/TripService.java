@@ -82,7 +82,7 @@ public class TripService {
             throw new BusinessException(CommonErrorCode.NOT_FOUND);
         }
         Trip trip = saveValidTrip(memberId, request);
-        tripMemberRepository.save(TripMember.owner(trip.getId(), memberId));
+        tripMemberRepository.save(TripMember.member(trip.getId(), memberId));
         recordEvent(trip, memberId, "TRIP_CREATED", "여행방을 생성했습니다.");
         return toResponse(trip);
     }

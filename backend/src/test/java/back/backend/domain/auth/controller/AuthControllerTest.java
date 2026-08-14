@@ -15,10 +15,14 @@ import back.backend.domain.auth.dto.AdminOtpChallengeResponse;
 import back.backend.domain.auth.dto.LoginRequest;
 import back.backend.domain.auth.dto.SuspensionNoticeResponse;
 import back.backend.domain.auth.exception.AuthErrorCode;
+import back.backend.domain.auth.exception.LoginRateLimitException;
 import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.domain.auth.service.AuthService;
 import back.backend.domain.auth.service.AdminOtpService;
+import back.backend.domain.auth.service.ClientIpResolver;
 import back.backend.domain.auth.service.EmailVerificationService;
+import back.backend.domain.auth.service.LoginAttemptService;
+import back.backend.domain.auth.service.OAuthLoginCodeService;
 import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
@@ -68,6 +72,15 @@ class AuthControllerTest {
 
     @MockitoBean
     private SuspensionNoticeService suspensionNoticeService;
+
+    @MockitoBean
+    private OAuthLoginCodeService oAuthLoginCodeService;
+
+    @MockitoBean
+    private LoginAttemptService loginAttemptService;
+
+    @MockitoBean
+    private ClientIpResolver clientIpResolver;
 
     @Test
     @DisplayName("t1 유효한 리프레시 토큰 쿠키로 재발급을 요청하면 200과 새 액세스 토큰, 새 리프레시 토큰 쿠키를 반환한다")
@@ -157,7 +170,8 @@ class AuthControllerTest {
     @Test
     @DisplayName("t8 탈퇴한 로컬 회원이 로그인하면 409와 개인정보 보관기간 안내를 반환한다")
     void t8_loginReturnsConflictForWithdrawnLocalMember() throws Exception {
-        when(authService.login(any(LoginRequest.class)))
+        when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
+        when(loginAttemptService.login(any(LoginRequest.class), any()))
                 .thenThrow(new BusinessException(AuthErrorCode.WITHDRAWN_ACCOUNT));
 
         mockMvc.perform(post("/api/auth/login")
@@ -195,7 +209,8 @@ class AuthControllerTest {
         LocalDateTime suspendedAt = LocalDateTime.of(2026, 8, 10, 19, 0);
         LocalDateTime suspendedUntil = LocalDateTime.of(2026, 8, 12, 19, 0);
         member.suspend(1L, "비정상적인 API 반복 호출", suspendedAt, suspendedUntil);
-        when(authService.login(any(LoginRequest.class)))
+        when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
+        when(loginAttemptService.login(any(LoginRequest.class), any()))
                 .thenThrow(new SuspendedAccountException(member));
 
         mockMvc.perform(post("/api/auth/login")
@@ -227,5 +242,52 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.suspensionReason").value("비정상적인 API 반복 호출"))
                 .andExpect(jsonPath("$.data.suspendedUntil").value("2026-08-12T19:00:00"));
+    }
+
+    @Test
+    @DisplayName("t12 유효한 소셜 로그인 코드를 교환하면 200과 액세스 토큰을 반환한다")
+    void t12_exchangeOAuthLoginCodeReturnsAccessToken() throws Exception {
+        when(oAuthLoginCodeService.consume("exchange-code")).thenReturn("access-token");
+
+        mockMvc.perform(post("/api/auth/oauth/exchange")
+                        .contentType("application/json")
+                        .content("{\"code\":\"exchange-code\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"));
+    }
+
+    @Test
+    @DisplayName("t13 만료되었거나 이미 사용된 소셜 로그인 코드로 교환하면 400을 반환한다")
+    void t13_exchangeOAuthLoginCodeReturnsBadRequestWhenCodeInvalid() throws Exception {
+        when(oAuthLoginCodeService.consume("invalid-code"))
+                .thenThrow(new BusinessException(AuthErrorCode.OAUTH_LOGIN_CODE_INVALID));
+
+        mockMvc.perform(post("/api/auth/oauth/exchange")
+                        .contentType("application/json")
+                        .content("{\"code\":\"invalid-code\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("AUTH_400_OAUTH_CODE"));
+    }
+
+    @Test
+    @DisplayName("t14 로그인 시도 제한을 초과하면 429와 재시도 가능 시간을 반환한다")
+    void t14_loginReturnsTooManyRequestsWithRetryAfterHeader() throws Exception {
+        when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
+        when(loginAttemptService.login(any(LoginRequest.class), any()))
+                .thenThrow(new LoginRateLimitException(240));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "identifier": "user@example.com",
+                                  "password": "Password1!"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "240"))
+                .andExpect(jsonPath("$.code").value("AUTH_429_LOGIN"))
+                .andExpect(jsonPath("$.message").value("로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요."));
     }
 }

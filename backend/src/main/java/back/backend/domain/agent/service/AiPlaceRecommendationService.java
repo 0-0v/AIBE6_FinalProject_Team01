@@ -51,7 +51,7 @@ public class AiPlaceRecommendationService {
             Long tripId,
             AiPlaceRecommendationRequest request
     ) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         var trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
         ItineraryDay day = itineraryDayRepository.findByIdAndTripId(

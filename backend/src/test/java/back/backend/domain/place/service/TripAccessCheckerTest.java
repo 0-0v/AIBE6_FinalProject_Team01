@@ -106,38 +106,23 @@ class TripAccessCheckerTest {
     }
 
     @Test
-    @DisplayName("t6 완료된 여행방은 계획 기능을 수정할 수 없다")
-    void t6_requireEditRejectsCompletedTrip() {
-        Trip trip = org.mockito.Mockito.mock(Trip.class);
+    @DisplayName("t6 정식 여행방 멤버는 멤버 전용 변경 권한을 가진다")
+    void t6_requireMemberReturnsMemberIdForJoinedMember() {
         when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
         when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
-        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
-        when(trip.getStatus()).thenReturn(TripStatus.COMPLETED);
 
-        assertThatThrownBy(() -> checker.requireEdit(10L))
+        assertThat(checker.requireMember(10L)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("t7 여행방 멤버가 아닌 로그인 사용자는 변경 권한이 없다")
+    void t7_requireMemberRejectsNonMember() {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> checker.requireMember(10L))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
-                                .isEqualTo(TripErrorCode.TRIP_ALREADY_FINISHED));
-    }
-
-    @Test
-    @DisplayName("t7 진행 중인 여행방 멤버는 계획 기능을 수정할 수 있다")
-    void t7_requireEditAllowsActiveTripMember() {
-        Trip trip = org.mockito.Mockito.mock(Trip.class);
-        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
-        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
-        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
-        when(trip.getStatus()).thenReturn(TripStatus.IN_PROGRESS);
-
-        assertThat(checker.requireEdit(10L)).isEqualTo(1L);
-    }
-
-    @Test
-    @DisplayName("t8 완료된 여행방 멤버도 기록 기능은 수정할 수 있다")
-    void t8_requireRecordEditAllowsCompletedTripMember() {
-        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
-        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
-
-        assertThat(checker.requireRecordEdit(10L)).isEqualTo(1L);
+                                .isEqualTo(CommonErrorCode.FORBIDDEN));
     }
 }

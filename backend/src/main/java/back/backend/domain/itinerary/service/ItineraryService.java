@@ -61,7 +61,7 @@ public class ItineraryService {
 
     @Transactional
     public List<ItineraryDayResponse> initializeItinerary(Long tripId) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         synchronizeItineraryDays(tripId);
         autoSetLodgingDeparture(tripId);
         return buildDayResponses(tripId);
@@ -73,7 +73,7 @@ public class ItineraryService {
             Long dayId,
             UpdateDeparturePlaceRequest request
     ) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         ItineraryDay day = findDayOrThrow(dayId, tripId);
 
@@ -134,7 +134,7 @@ public class ItineraryService {
 
     @Transactional
     public ItineraryDayResponse addItem(Long tripId, Long dayId, AddItineraryItemRequest request) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
 
         ItineraryDay day = findDayOrThrow(dayId, tripId);
@@ -197,7 +197,7 @@ public class ItineraryService {
 
     @Transactional
     public void removeItem(Long tripId, Long itemId) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
         int removedSortOrder = item.getSortOrder(); // 삭제 전 인덱스 기록
@@ -222,7 +222,7 @@ public class ItineraryService {
 
     @Transactional
     public ItineraryItemResponse updateItem(Long tripId, Long itemId, UpdateItineraryItemRequest request) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
 
@@ -258,7 +258,7 @@ public class ItineraryService {
             Long itemId,
             UpdateItineraryTransportModeRequest request
     ) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
         List<ItineraryItem> dayItems =
@@ -321,7 +321,7 @@ public class ItineraryService {
 
     @Transactional
     public ItineraryItemResponse moveItem(Long tripId, Long itemId, MoveItineraryItemRequest request) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         ItineraryItem item = findItemOrThrow(itemId, tripId);
         ItineraryDay sourceDay = item.getItineraryDay();
@@ -397,7 +397,7 @@ public class ItineraryService {
 
     @Transactional
     public ItineraryDayResponse reorderItems(Long tripId, Long dayId, ReorderItineraryItemsRequest request) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         ItineraryDay day = findDayOrThrow(dayId, tripId);
         List<ItineraryItem> dayItems =
@@ -430,7 +430,7 @@ public class ItineraryService {
 
     @Transactional
     public ItineraryDayResponse updateDayStatus(Long tripId, Long dayId, UpdateItineraryDayStatusRequest request) {
-        Long memberId = accessChecker.requireEdit(tripId);
+        Long memberId = accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         ItineraryDay day = findDayOrThrow(dayId, tripId);
 
@@ -615,7 +615,7 @@ public class ItineraryService {
             Long dayId,
             RoutePlanPreviewResponse plan
     ) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
 
         List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId);
@@ -727,7 +727,7 @@ public class ItineraryService {
             RoutePlanPreviewResponse plan,
             boolean scheduledPlacesOnly
     ) {
-        accessChecker.requireEdit(tripId);
+        accessChecker.requireMember(tripId);
         lockTripForUpdate(tripId);
         synchronizeItineraryDays(tripId);
 

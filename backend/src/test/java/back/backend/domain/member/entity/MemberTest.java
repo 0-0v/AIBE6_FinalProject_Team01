@@ -136,4 +136,36 @@ class MemberTest {
         assertThat(member.getSuspendedAt()).isNull();
         assertThat(member.getSuspendedUntil()).isNull();
     }
+
+    @Test
+    @DisplayName("t11 비밀번호를 변경하면 기존 토큰을 무효화한다")
+    void t11_changePasswordInvalidatesExistingTokens() {
+        Member member = Member.createLocal("user@example.com", "여행자", "old-hash");
+
+        member.changePassword("new-hash");
+
+        assertThat(member.getTokenVersion()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("t12 회원을 정지하면 기존 토큰을 무효화한다")
+    void t12_suspendInvalidatesExistingTokens() {
+        Member member = Member.createLocal("user@example.com", "여행자", "hash");
+        LocalDateTime suspendedAt = LocalDateTime.of(2026, 8, 14, 10, 0);
+
+        member.suspend(9L, "보안 정책 위반", suspendedAt, suspendedAt.plusDays(1));
+
+        assertThat(member.getTokenVersion()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("t13 관리자 비밀번호를 재설정하면 기존 토큰을 무효화한다")
+    void t13_reconfigureAdminLocalIdentityInvalidatesExistingTokens() {
+        Member member = Member.createLocal("admin@example.com", "관리자", "old-hash");
+        member.promoteToAdmin();
+
+        member.reconfigureAdminLocalIdentity("admin@example.com", "관리자", "new-hash");
+
+        assertThat(member.getTokenVersion()).isEqualTo(1L);
+    }
 }

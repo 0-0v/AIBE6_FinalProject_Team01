@@ -61,6 +61,10 @@ public class TripAccessChecker {
         return memberId;
     }
 
+    public Long requireMember(Long tripId) {
+        return requireRecordEdit(tripId);
+    }
+
     private String guestToken() {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return null;
