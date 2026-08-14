@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import back.backend.domain.trip.repository.TripMemberRepository;
+import back.backend.domain.trip.repository.TripRepository;
+import back.backend.domain.trip.entity.Trip;
+import back.backend.domain.trip.entity.TripStatus;
+import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.global.exception.BusinessException;
@@ -27,6 +31,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 class TripAccessCheckerTest {
 
     @Mock TripMemberRepository tripMemberRepository;
+    @Mock TripRepository tripRepository;
     @Mock SecurityContextAccessor securityContextAccessor;
     @Mock GuestTripAccessService guestTripAccessService;
     @Mock HttpServletRequest request;
@@ -36,7 +41,7 @@ class TripAccessCheckerTest {
     @BeforeEach
     void setUp() {
         checker = new TripAccessChecker(
-                tripMemberRepository, securityContextAccessor, guestTripAccessService, request);
+                tripMemberRepository, tripRepository, securityContextAccessor, guestTripAccessService, request);
     }
 
     @Test
@@ -98,5 +103,41 @@ class TripAccessCheckerTest {
         when(guestTripAccessService.canView(10L, "guest-token")).thenReturn(true);
 
         assertThat(checker.requireView(10L)).isNull();
+    }
+
+    @Test
+    @DisplayName("t6 완료된 여행방은 계획 기능을 수정할 수 없다")
+    void t6_requireEditRejectsCompletedTrip() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(trip.getStatus()).thenReturn(TripStatus.COMPLETED);
+
+        assertThatThrownBy(() -> checker.requireEdit(10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_ALREADY_FINISHED));
+    }
+
+    @Test
+    @DisplayName("t7 진행 중인 여행방 멤버는 계획 기능을 수정할 수 있다")
+    void t7_requireEditAllowsActiveTripMember() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
+        when(trip.getStatus()).thenReturn(TripStatus.IN_PROGRESS);
+
+        assertThat(checker.requireEdit(10L)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("t8 완료된 여행방 멤버도 기록 기능은 수정할 수 있다")
+    void t8_requireRecordEditAllowsCompletedTripMember() {
+        when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
+        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 1L)).thenReturn(true);
+
+        assertThat(checker.requireRecordEdit(10L)).isEqualTo(1L);
     }
 }
