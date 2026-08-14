@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class TripInvitationServiceTest {
@@ -72,6 +73,37 @@ class TripInvitationServiceTest {
         assertThatThrownBy(() -> service.preview("expired"))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(TripErrorCode.INVITATION_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("t4 완료된 여행방은 조회 초대 링크를 생성할 수 없다")
+    void t4_completedTripRejectsInvitationCreation() {
+        Trip trip = trip();
+        ReflectionTestUtils.setField(trip, "status", TripStatus.COMPLETED);
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> service.create(1L, 10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_ALREADY_FINISHED));
+    }
+
+    @Test
+    @DisplayName("t5 완료된 여행방은 기존 조회 초대 링크로 미리 볼 수 없다")
+    void t5_completedTripRejectsInvitationPreview() {
+        TripInvitation invitation = TripInvitation.create(
+                10L, "valid-code", "123456", 1L,
+                LocalDateTime.now().plusMinutes(5), LocalDateTime.now().plusDays(1));
+        Trip trip = trip();
+        ReflectionTestUtils.setField(trip, "status", TripStatus.COMPLETED);
+        when(invitationRepository.findByInviteCode("valid-code")).thenReturn(Optional.of(invitation));
+        when(tripRepository.findByIdAndStatusNot(10L, TripStatus.CANCELLED)).thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> service.preview("valid-code"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_ALREADY_FINISHED));
     }
 
     private Trip trip() { return Trip.create(1L, "제주 여행", null, Set.of(), null, null, null); }

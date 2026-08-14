@@ -13,13 +13,16 @@ import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.global.security.SecurityContextAccessor;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
 
 @ExtendWith(MockitoExtension.class)
 class TripCardBookmarkServiceTest {
@@ -46,18 +49,21 @@ class TripCardBookmarkServiceTest {
     void t2_sameCardSharesAreGroupedWithSharers() {
         var service = service();
         given(security.getCurrentMemberId()).willReturn(3L);
-        given(repository.findAllByTripIdOrderBySharedAtDesc(1L)).willReturn(List.of(
+        given(repository.findDistinctPlanCardIdsByTripId(1L, PageRequest.of(0, 20)))
+                .willReturn(new PageImpl<>(List.of(2L), PageRequest.of(0, 20), 1));
+        given(repository.findAllByTripIdAndPlanCardIdIn(1L, List.of(2L))).willReturn(List.of(
                 TripCardBookmarkShare.create(1L, 2L, 3L),
                 TripCardBookmarkShare.create(1L, 2L, 4L)));
-        given(publicCardService.getPublicCard(2L, 3L)).willReturn(card());
+        given(publicCardService.getPublicCards(Set.of(2L), 3L)).willReturn(Map.of(2L, card()));
         Member first = org.mockito.Mockito.mock(Member.class);
         Member second = org.mockito.Mockito.mock(Member.class);
+        given(first.getId()).willReturn(3L);
         given(first.getNickname()).willReturn("민수");
+        given(second.getId()).willReturn(4L);
         given(second.getNickname()).willReturn("영희");
-        given(memberRepository.findById(3L)).willReturn(Optional.of(first));
-        given(memberRepository.findById(4L)).willReturn(Optional.of(second));
+        given(memberRepository.findAllById(Set.of(3L, 4L))).willReturn(List.of(first, second));
 
-        var result = service.getShared(1L);
+        var result = service.getShared(1L, 0, 20).content();
 
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().sharerNicknames()).containsExactly("민수", "영희");
@@ -75,6 +81,39 @@ class TripCardBookmarkServiceTest {
         then(accessChecker).should().requireView(1L);
         then(repository).should()
                 .deleteByTripIdAndPlanCardIdAndMemberId(1L, 2L, 3L);
+    }
+
+    @Test
+    @DisplayName("t4 공유 북마크 페이지 크기는 최대 100개로 제한한다")
+    void t4_sharedBookmarkPageSizeIsLimitedToOneHundred() {
+        var service = service();
+        given(security.getCurrentMemberId()).willReturn(3L);
+        given(repository.findDistinctPlanCardIdsByTripId(
+                1L, PageRequest.of(0, 100))).willReturn(Page.empty(PageRequest.of(0, 100)));
+
+        var result = service.getShared(1L, 0, 1_000);
+
+        assertThat(result.size()).isEqualTo(100);
+        assertThat(result.content()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("t5 공유 북마크는 중복 제거된 카드 기준으로 DB 페이지 조회한다")
+    void t5_sharedBookmarksArePagedByDistinctCardInDatabase() {
+        var service = service();
+        var pageable = PageRequest.of(1, 2);
+        given(security.getCurrentMemberId()).willReturn(3L);
+        given(repository.findDistinctPlanCardIdsByTripId(1L, pageable))
+                .willReturn(new PageImpl<>(List.of(7L, 8L), pageable, 5));
+        given(repository.findAllByTripIdAndPlanCardIdIn(1L, List.of(7L, 8L)))
+                .willReturn(List.of());
+
+        var result = service.getShared(1L, 1, 2);
+
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.totalElements()).isEqualTo(5);
+        then(repository).should().findDistinctPlanCardIdsByTripId(1L, pageable);
+        then(repository).should().findAllByTripIdAndPlanCardIdIn(1L, List.of(7L, 8L));
     }
 
     private TripCardBookmarkService service() {

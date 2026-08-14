@@ -2,6 +2,7 @@ package back.backend.global.realtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import back.backend.global.security.CorsProperties;
@@ -49,6 +50,28 @@ class WebSocketConfigTest {
         assertThat(resultAccessor).isNotNull();
         assertThat(resultAccessor.getUser()).isNotNull();
         assertThat(resultAccessor.getUser().getName()).isEqualTo("7");
+    }
+
+    @Test
+    @DisplayName("t2 SEND 메시지는 목적지와 인증 사용자의 여행방 권한을 검증한다")
+    void t2_sendMessageChecksTripAuthorization() {
+        TripSubscriptionAuthorizer authorizer = mock(TripSubscriptionAuthorizer.class);
+        WebSocketConfig config = new WebSocketConfig(
+                mock(JwtProvider.class),
+                mock(CorsProperties.class),
+                authorizer
+        );
+        TestChannelRegistration registration = new TestChannelRegistration();
+        config.configureClientInboundChannel(registration);
+
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SEND);
+        accessor.setDestination("/app/trip-awareness/10");
+        accessor.setUser(() -> "7");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        registration.interceptor().preSend(message, mock(org.springframework.messaging.MessageChannel.class));
+
+        verify(authorizer).authorize("/app/trip-awareness/10", accessor.getUser());
     }
 
     private static class TestChannelRegistration extends ChannelRegistration {

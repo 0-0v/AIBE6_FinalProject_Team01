@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import back.backend.domain.trip.repository.TripMemberRepository;
+import back.backend.domain.trip.repository.TripRepository;
+import back.backend.domain.trip.entity.Trip;
+import back.backend.domain.trip.entity.TripStatus;
+import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.global.exception.BusinessException;
@@ -27,6 +31,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 class TripAccessCheckerTest {
 
     @Mock TripMemberRepository tripMemberRepository;
+    @Mock TripRepository tripRepository;
     @Mock SecurityContextAccessor securityContextAccessor;
     @Mock GuestTripAccessService guestTripAccessService;
     @Mock HttpServletRequest request;
@@ -36,7 +41,7 @@ class TripAccessCheckerTest {
     @BeforeEach
     void setUp() {
         checker = new TripAccessChecker(
-                tripMemberRepository, securityContextAccessor, guestTripAccessService, request);
+                tripMemberRepository, tripRepository, securityContextAccessor, guestTripAccessService, request);
     }
 
     @Test

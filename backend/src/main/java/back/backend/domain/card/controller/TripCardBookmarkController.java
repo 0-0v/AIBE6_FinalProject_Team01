@@ -3,12 +3,15 @@ package back.backend.domain.card.controller;
 import back.backend.domain.card.dto.TripSharedBookmarkResponse;
 import back.backend.domain.card.service.TripCardBookmarkService;
 import back.backend.global.response.ApiResponse;
-import java.util.List;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/api/trips/{tripId}/bookmarks")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "여행 카드")
@@ -17,8 +20,11 @@ public class TripCardBookmarkController {
 
     @GetMapping
     @io.swagger.v3.oas.annotations.Operation(summary = "여행방 공유 북마크 조회")
-    public ApiResponse<List<TripSharedBookmarkResponse>> getShared(@PathVariable Long tripId) {
-        return ApiResponse.success(service.getShared(tripId));
+    public ApiResponse<back.backend.global.response.PageResponse<TripSharedBookmarkResponse>> getShared(
+            @PathVariable Long tripId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return ApiResponse.success(service.getShared(tripId, page, size));
     }
 
     @PostMapping("/{cardId}")

@@ -145,6 +145,39 @@ class TripEmailInvitationServiceTest {
                                 .isEqualTo(TripErrorCode.EMAIL_INVITATION_INVALID));
     }
 
+    @Test
+    @DisplayName("t7 완료된 여행방은 이메일 초대를 발송할 수 없다")
+    void t7_completedTripRejectsEmailInvitation() {
+        Trip trip = trip();
+        ReflectionTestUtils.setField(trip, "status", TripStatus.COMPLETED);
+        when(tripRepository.findByIdAndMemberIdAndStatusNot(10L, 1L, TripStatus.CANCELLED))
+                .thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> service.sendAll(1L, 10L, java.util.List.of("friend@example.com")))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_ALREADY_FINISHED));
+        verify(emailClient, never()).sendTripInvitationEmail(
+                anyString(), anyString(), anyString(), anyString(), anyString(), any(Long.class));
+    }
+
+    @Test
+    @DisplayName("t8 완료된 여행방은 기존 이메일 초대를 수락할 수 없다")
+    void t8_completedTripRejectsEmailInvitationAcceptance() {
+        Trip trip = trip();
+        ReflectionTestUtils.setField(trip, "status", TripStatus.COMPLETED);
+        when(redisValueService.get(anyString())).thenReturn(Optional.of("2:10"));
+        when(memberRepository.findById(2L)).thenReturn(Optional.of(member(2L, "friend@example.com", "친구")));
+        when(tripRepository.findByIdAndStatusNot(10L, TripStatus.CANCELLED)).thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> service.accept(2L, "magic-token"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_ALREADY_FINISHED));
+        verify(tripMemberRepository, never()).save(any());
+        verify(redisValueService, never()).getAndDelete(anyString());
+    }
+
     private Trip trip() {
         Trip trip = Trip.create(1L, "제주 여행", null, Set.of(), null, null, null);
         ReflectionTestUtils.setField(trip, "id", 10L);

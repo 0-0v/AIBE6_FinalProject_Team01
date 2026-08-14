@@ -59,14 +59,14 @@ public class TravelRecordService {
     }
 
     public TravelPhotoUploadResponse uploadPhoto(Long tripId, MultipartFile file) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireRecordEdit(tripId);
         getTrip(tripId);
         return new TravelPhotoUploadResponse(travelPhotoStorage.store(tripId, memberId, file));
     }
 
     @Transactional
     public TravelRecordResponse create(Long tripId, TravelRecordCreateRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireRecordEdit(tripId);
         Trip trip = getTrip(tripId);
         int dayNumber = calculateDayNumber(trip, request.visitedAt().toLocalDate());
         validateContent(request.memo(), request.imageUrls());
@@ -111,7 +111,7 @@ public class TravelRecordService {
 
     @Transactional
     public TravelRecordResponse update(Long tripId, Long recordId, TravelRecordUpdateRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireRecordEdit(tripId);
         Trip trip = getTrip(tripId);
         validateContent(request.memo(), request.imageUrls());
         List<String> imageUrls = normalizeImageUrls(request.imageUrls());
@@ -150,7 +150,7 @@ public class TravelRecordService {
 
     @Transactional
     public void delete(Long tripId, Long recordId) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireRecordEdit(tripId);
         TravelRecord record = recordRepository.findByIdAndTripId(recordId, tripId)
                 .orElseThrow(() -> new BusinessException(TravelRecordErrorCode.RECORD_NOT_FOUND));
         photoRepository.deleteAllByTravelRecordId(recordId);
@@ -199,7 +199,7 @@ public class TravelRecordService {
 
     @Transactional
     public RetrospectiveResponse saveMyRetrospective(Long tripId, RetrospectiveRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireRecordEdit(tripId);
         getTrip(tripId);
         TripRetrospective retrospective = retrospectiveRepository
                 .findByTripIdAndMemberId(tripId, memberId)

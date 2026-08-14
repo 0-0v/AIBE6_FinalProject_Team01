@@ -79,7 +79,7 @@ public class TripCompletionConfirmationService {
         try {
             trip.confirmCompletion(request.visibility(), LocalDateTime.now(clock));
         } catch (IllegalStateException exception) {
-            throw new BusinessException(TripErrorCode.INVALID_TRIP, exception.getMessage());
+            throw new BusinessException(TripErrorCode.INVALID_TRIP);
         }
         card.changeVisibility(request.visibility());
         trip.updateDescription(request.description());

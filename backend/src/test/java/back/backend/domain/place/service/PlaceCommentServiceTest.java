@@ -105,7 +105,8 @@ class PlaceCommentServiceTest {
     @DisplayName("t3 본인 댓글을 삭제하면 레포지토리의 delete가 호출된다")
     void t3_deleteOwnComment() {
         PlaceComment myComment = comment(300L, 1L, "삭제할 댓글");
-        given(commentRepository.findByIdAndMemberId(300L, 1L)).willReturn(Optional.of(myComment));
+        given(commentRepository.findByIdAndTripPlaceIdAndMemberId(300L, 10L, 1L))
+                .willReturn(Optional.of(myComment));
 
         commentService.deleteComment(1L, 10L, 300L);
 
@@ -126,7 +127,8 @@ class PlaceCommentServiceTest {
     @Test
     @DisplayName("t4 다른 멤버의 댓글을 삭제하면 PLACE_COMMENT_NOT_FOUND 예외가 발생한다")
     void t4_cannotDeleteOtherMemberComment() {
-        given(commentRepository.findByIdAndMemberId(400L, 1L)).willReturn(Optional.empty());
+        given(commentRepository.findByIdAndTripPlaceIdAndMemberId(400L, 10L, 1L))
+                .willReturn(Optional.empty());
 
         assertThatThrownBy(() -> commentService.deleteComment(1L, 10L, 400L))
                 .isInstanceOf(BusinessException.class)
@@ -156,6 +158,18 @@ class PlaceCommentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(PlaceErrorCode.TRIP_PLACE_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("t7 다른 장소에 작성한 본인 댓글은 현재 장소에서 삭제할 수 없다")
+    void t7_cannotDeleteOwnCommentThroughAnotherPlace() {
+        given(commentRepository.findByIdAndTripPlaceIdAndMemberId(500L, 10L, 1L))
+                .willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> commentService.deleteComment(1L, 10L, 500L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(PlaceErrorCode.PLACE_COMMENT_NOT_FOUND));
     }
 
     private PlaceComment comment(Long id, Long memberId, String content) {

@@ -13,3 +13,14 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD}
       timeout: 3s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    prometheus:
+      access: none
+    metrics:
+      access: none

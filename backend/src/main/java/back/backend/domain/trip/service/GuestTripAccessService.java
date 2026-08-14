@@ -66,11 +66,11 @@ public class GuestTripAccessService {
         LocalDateTime now = LocalDateTime.now();
         TripInvitation invitation = invitationRepository.findByInviteCode(inviteCode)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.INVITATION_NOT_FOUND));
+        Trip trip = TripInvitationPolicy.requireOpen(findActiveTrip(invitation.getTripId()));
 
         GuestSession existingSession = findUsableSessionOrNull(existingToken, now);
         if (existingSession != null && tripGuestMemberRepository.existsByTripIdAndGuestSessionId(
                 invitation.getTripId(), existingSession.getId())) {
-            Trip trip = findActiveTrip(invitation.getTripId());
             return new GuestAccessGrant(
                     toResponse(trip), existingToken, existingSession.getExpiresAt());
         }
@@ -78,8 +78,6 @@ public class GuestTripAccessService {
         if (!invitation.isAccessCodeUsable(accessCode, now)) {
             throw new BusinessException(TripErrorCode.INVITATION_NOT_FOUND);
         }
-        Trip trip = findActiveTrip(invitation.getTripId());
-
         if (existingSession != null) {
             existingSession.extendUntil(now.plusDays(GUEST_ACCESS_DAYS));
             tripGuestMemberRepository.save(TripGuestMember.guest(trip.getId(), existingSession.getId()));
@@ -135,7 +133,7 @@ public class GuestTripAccessService {
         if (!alreadyAcceptedAsGuest && !invitation.isLinkUsable(now)) {
             throw new BusinessException(TripErrorCode.INVITATION_NOT_FOUND);
         }
-        Trip trip = findActiveTrip(invitation.getTripId());
+        Trip trip = TripInvitationPolicy.requireOpen(findActiveTrip(invitation.getTripId()));
 
         if (!tripMemberRepository.existsByTripIdAndMemberId(trip.getId(), memberId)) {
             tripMemberRepository.save(TripMember.member(trip.getId(), memberId));

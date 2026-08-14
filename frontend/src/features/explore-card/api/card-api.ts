@@ -26,6 +26,16 @@ export type PublicCardPage = {
     totalElements: number
     totalPages: number
 }
+type PageResponse<T> = {
+    content: T[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    first: boolean
+    last: boolean
+    empty: boolean
+}
 export type CardComment = {
     id: number
     memberId: number
@@ -90,9 +100,10 @@ export async function fetchPublicCards(
     ).data
 }
 export async function fetchBookmarkedCards() {
-    return (
-        await apiClient.get<ApiResponse<PublicCard[]>>('/api/cards/bookmarks')
-    ).data
+    const response = await apiClient.get<ApiResponse<PageResponse<PublicCard>>>(
+        '/api/cards/bookmarks?page=0&size=100',
+    )
+    return response.data.content
 }
 export async function fetchPublicCardDetail(cardId: number) {
     return (
@@ -114,18 +125,16 @@ export async function unshareBookmarkFromTrip(tripId: number, cardId: number) {
     await apiClient.delete(`/api/trips/${tripId}/bookmarks/${cardId}`)
 }
 export async function fetchTripSharedBookmarks(tripId: number) {
-    return (
-        await apiClient.get<ApiResponse<TripSharedBookmark[]>>(
-            `/api/trips/${tripId}/bookmarks`,
-        )
-    ).data
+    const response = await apiClient.get<
+        ApiResponse<PageResponse<TripSharedBookmark>>
+    >(`/api/trips/${tripId}/bookmarks?page=0&size=100`)
+    return response.data.content
 }
 export async function fetchCardComments(cardId: number) {
-    return (
-        await apiClient.get<ApiResponse<CardComment[]>>(
-            `/api/cards/${cardId}/comments`,
-        )
-    ).data
+    const response = await apiClient.get<
+        ApiResponse<PageResponse<CardComment>>
+    >(`/api/cards/${cardId}/comments?page=0&size=100`)
+    return response.data.content
 }
 export async function addCardComment(cardId: number, content: string) {
     return (

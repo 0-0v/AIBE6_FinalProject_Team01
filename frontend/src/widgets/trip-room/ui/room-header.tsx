@@ -175,7 +175,7 @@ export function RoomHeader({
                                 +{hiddenMembers.length}명
                             </button>
                         )}
-                        {canWrite && (
+                        {canWrite && !isCompleted && (
                             <button
                                 onClick={onInvite}
                                 className="ml-2 flex h-8 shrink-0 items-center gap-1 rounded-full bg-brand px-3 text-xs font-extrabold text-white shadow-sm hover:bg-brand-700"

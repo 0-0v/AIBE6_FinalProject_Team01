@@ -17,6 +17,7 @@ import back.backend.domain.expense.repository.ExpenseRepository;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.entity.Trip;
+import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
@@ -142,7 +143,7 @@ class ExpenseServiceTest {
         Trip trip = org.mockito.Mockito.mock(Trip.class);
         given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
         given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 5));
-        given(accessChecker.requireMember(1L)).willReturn(2L);
+        given(accessChecker.requireEdit(1L)).willReturn(2L);
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
         given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(2L, 3L));
@@ -159,5 +160,16 @@ class ExpenseServiceTest {
         assertThat(result.participants()).extracting("status")
                 .containsExactlyInAnyOrder(
                         ParticipantSettlementStatus.COMPLETED, ParticipantSettlementStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("t6 존재하지 않는 여행방의 지출 목록은 도메인 예외를 반환한다")
+    void t6_missingTripReturnsDomainException() {
+        given(tripRepository.findById(99L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> expenseService.getExpenses(99L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_NOT_FOUND));
     }
 }

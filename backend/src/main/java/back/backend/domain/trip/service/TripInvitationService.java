@@ -35,7 +35,7 @@ public class TripInvitationService {
 
     @Transactional
     public TripInvitationResponse create(Long memberId, Long tripId) {
-        findJoinedTrip(memberId, tripId);
+        TripInvitationPolicy.requireOpen(findJoinedTrip(memberId, tripId));
         LocalDateTime now = LocalDateTime.now();
         TripInvitation invitation = invitationRepository.save(TripInvitation.create(
                 tripId, UUID.randomUUID().toString().replace("-", ""), generateAccessCode(), memberId,
@@ -50,6 +50,7 @@ public class TripInvitationService {
                 .orElseThrow(() -> new BusinessException(TripErrorCode.INVITATION_NOT_FOUND));
         Trip trip = tripRepository.findByIdAndStatusNot(invitation.getTripId(), TripStatus.CANCELLED)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
+        TripInvitationPolicy.requireOpen(trip);
         return TripResponse.from(trip, tripMemberRepository.countByTripId(invitation.getTripId()));
     }
 

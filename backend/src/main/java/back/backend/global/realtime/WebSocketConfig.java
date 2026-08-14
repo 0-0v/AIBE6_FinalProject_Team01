@@ -57,7 +57,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 if (accessor.getCommand() == StompCommand.CONNECT) {
                     accessor.setUser(authenticate(accessor.getFirstNativeHeader("Authorization")));
                 }
-                if (accessor.getCommand() == StompCommand.SUBSCRIBE) {
+                if (accessor.getCommand() == StompCommand.SUBSCRIBE
+                        || accessor.getCommand() == StompCommand.SEND) {
                     authorizeSubscription(accessor);
                 }
                 return MessageBuilder.createMessage(

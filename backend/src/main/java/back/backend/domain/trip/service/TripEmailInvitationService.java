@@ -62,7 +62,7 @@ public class TripEmailInvitationService {
     }
 
     public TripEmailInvitationAvailabilityResponse validate(Long inviterId, Long tripId, String rawEmail) {
-        findJoinedTrip(inviterId, tripId);
+        TripInvitationPolicy.requireOpen(findJoinedTrip(inviterId, tripId));
         Member invitee = memberRepository.findByEmail(normalizeEmail(rawEmail))
                 .filter(member -> member.getStatus() == MemberStatus.ACTIVE)
                 .orElse(null);
@@ -78,7 +78,7 @@ public class TripEmailInvitationService {
     }
 
     public void sendAll(Long inviterId, Long tripId, List<String> rawEmails) {
-        Trip trip = findJoinedTrip(inviterId, tripId);
+        Trip trip = TripInvitationPolicy.requireOpen(findJoinedTrip(inviterId, tripId));
         Member inviter = findActiveMember(inviterId);
         List<Member> invitees = new LinkedHashSet<>(rawEmails.stream()
                 .map(this::normalizeEmail)
@@ -129,14 +129,13 @@ public class TripEmailInvitationService {
         if (!memberId.equals(authenticatedMemberId)) {
             throw new BusinessException(TripErrorCode.EMAIL_INVITATION_ACCOUNT_MISMATCH);
         }
+        findActiveMember(memberId);
+        TripInvitationPolicy.requireOpen(findActiveTrip(tripId));
         String consumedInvitation = redisValueService.getAndDelete(key)
                 .orElseThrow(() -> new BusinessException(TripErrorCode.EMAIL_INVITATION_INVALID));
         if (!storedInvitation.equals(consumedInvitation)) {
             throw new BusinessException(TripErrorCode.EMAIL_INVITATION_INVALID);
         }
-        findActiveMember(memberId);
-        findActiveTrip(tripId);
-
         if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
             tripMemberRepository.save(TripMember.member(tripId, memberId));
             eventPublisher.publishEvent(RealtimeEvent.tripMembers(tripId, memberId));

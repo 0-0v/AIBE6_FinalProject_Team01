@@ -139,4 +139,19 @@ class PublicCardServiceTest {
 
         then(shareRepository).should().deleteAllByPlanCardIdAndMemberId(20L, 2L);
     }
+
+    @Test
+    @DisplayName("t6 북마크 페이지 크기는 최대 100개로 제한한다")
+    void t6_bookmarkPageSizeIsLimitedToOneHundred() {
+        when(savedRepository.findAllByMemberIdOrderByIdDesc(2L)).thenReturn(List.of());
+        PublicCardService service = new PublicCardService(
+                cardRepository, savedRepository, commentRepository, cardTagRepository,
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
+                shareRepository);
+
+        var response = service.getBookmarks(2L, 0, 1_000);
+
+        assertThat(response.size()).isEqualTo(100);
+        assertThat(response.content()).isEmpty();
+    }
 }
