@@ -48,6 +48,7 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+    supported-submit-methods: []
 
 app:
   member:
