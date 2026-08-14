@@ -10,6 +10,7 @@ import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.entity.Trip;
+import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.*;
 import back.backend.global.exception.BusinessException;
 import java.math.*;
@@ -49,7 +50,7 @@ public class ExpenseService {
     @Transactional
     public ExpenseResponse create(Long tripId, ExpenseCreateRequest request) {
         Long actorId = accessChecker.requireEdit(tripId);
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = findTrip(tripId);
         validateExpenseDate(trip, request.expenseDate());
         List<Long> tripMemberIds = tripMemberRepository.findMemberIdsByTripId(tripId);
         LinkedHashSet<Long> participantIds = new LinkedHashSet<>(request.participantIds());
@@ -76,7 +77,7 @@ public class ExpenseService {
     @Transactional
     public ExpenseResponse update(Long tripId, Long expenseId, ExpenseUpdateRequest request) {
         accessChecker.requireEdit(tripId);
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = findTrip(tripId);
         Expense expense = findExpense(tripId, expenseId);
         validateExpenseDate(trip, request.expenseDate());
         List<Long> tripMemberIds = tripMemberRepository.findMemberIdsByTripId(tripId);
@@ -97,7 +98,7 @@ public class ExpenseService {
 
     public List<ExpenseResponse> getExpenses(Long tripId) {
         accessChecker.requireView(tripId);
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = findTrip(tripId);
         List<Expense> expenses = expenseRepository.findAllByTripIdOrderByExpenseDateAscCreatedAtAscIdAsc(tripId);
         List<Long> ids = expenses.stream().map(Expense::getId).toList();
         Map<Long, List<ExpenseParticipant>> participantsByExpense = ids.isEmpty() ? Map.of()
@@ -110,7 +111,7 @@ public class ExpenseService {
 
     public ExpenseContextResponse getContext(Long tripId) {
         accessChecker.requireView(tripId);
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = findTrip(tripId);
         List<Long> memberIds = tripMemberRepository.findMemberIdsByTripId(tripId);
         List<ExpenseMemberResponse> members = memberRepository.findAllById(memberIds).stream()
                 .sorted(Comparator.comparing(Member::getId))
@@ -164,7 +165,7 @@ public class ExpenseService {
         if (!actorId.equals(memberId)) {
             throw new BusinessException(ExpenseErrorCode.SETTLEMENT_FORBIDDEN);
         }
-        Trip trip = tripRepository.findById(tripId).orElseThrow();
+        Trip trip = findTrip(tripId);
         Expense expense = findExpense(tripId, expenseId);
         if (expense.getPayerId().equals(memberId)) {
             throw new BusinessException(ExpenseErrorCode.CANNOT_SETTLE_PAYER_SHARE);
@@ -181,6 +182,11 @@ public class ExpenseService {
         return expenseRepository.findById(expenseId)
                 .filter(expense -> expense.getTripId().equals(tripId))
                 .orElseThrow(() -> new BusinessException(ExpenseErrorCode.EXPENSE_NOT_FOUND));
+    }
+
+    private Trip findTrip(Long tripId) {
+        return tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND));
     }
 
     private List<ExpenseParticipant> saveParticipants(Long expenseId, Long payerId, Map<Long, BigDecimal> shares) {
