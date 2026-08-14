@@ -431,10 +431,10 @@ export function TravelCard({
             {card.ownCard && (
                 <span
                     title="내가 참여한 여행 카드"
-                    className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-brand px-3 py-2 text-[11px] font-black tracking-[0.08em] text-white shadow-[0_6px_16px_rgb(var(--rgb-app-navy)/0.28)]"
+                    className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3 py-2 text-[11px] font-extrabold text-brand-700 shadow-sm backdrop-blur-sm"
                 >
                     <BadgeCheckIcon size={14} />
-                    MY
+                    내 여행 카드
                 </span>
             )}
             <div className="absolute -inset-x-px -bottom-px z-10 flex h-[177px] flex-col justify-end gap-2 rounded-b-[28px] bg-gradient-to-t from-white via-white/85 to-white/0 px-[17px] pb-[17px] pt-16 text-slate-900">
@@ -468,28 +468,35 @@ export function TravelCard({
                     ))}
                 </div>
                 <div className="flex shrink-0 items-center justify-between gap-3 pt-1 text-xs">
-                    <button
-                        type="button"
-                        disabled={card.ownCard}
-                        onClick={(event) => {
-                            event.stopPropagation()
-                            onBookmark()
-                        }}
-                        className="flex items-center gap-1.5 font-extrabold text-brand-700 disabled:cursor-default"
-                        aria-label={
-                            card.ownCard
-                                ? `여행자 PICK ${card.bookmarkCount}개`
-                                : card.bookmarked
-                                  ? '여행자 PICK 취소'
-                                  : '여행자 PICK'
-                        }
-                    >
-                        <BookmarkIcon
-                            size={15}
-                            fill={card.bookmarked ? 'currentColor' : 'none'}
-                        />
-                        여행자 PICK {card.bookmarkCount}
-                    </button>
+                    {card.ownCard ? (
+                        <span
+                            className="flex items-center gap-1.5 font-extrabold text-brand-700"
+                            aria-label={`${card.bookmarkCount}명이 여행자 PICK으로 저장함`}
+                        >
+                            <BookmarkIcon size={15} fill="currentColor" />
+                            {card.bookmarkCount}명이 PICK
+                        </span>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation()
+                                onBookmark()
+                            }}
+                            className="flex items-center gap-1.5 font-extrabold text-brand-700"
+                            aria-label={
+                                card.bookmarked
+                                    ? '여행자 PICK 취소'
+                                    : '여행자 PICK'
+                            }
+                        >
+                            <BookmarkIcon
+                                size={15}
+                                fill={card.bookmarked ? 'currentColor' : 'none'}
+                            />
+                            여행자 PICK {card.bookmarkCount}
+                        </button>
+                    )}
                     {!card.ownCard && (
                         <div className="flex gap-1.5">
                             {onShare && (
