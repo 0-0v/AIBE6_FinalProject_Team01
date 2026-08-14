@@ -15,6 +15,7 @@ import {
     ACCESS_TOKEN_CHANGED_EVENT,
     BASE_URL,
     getAccessToken,
+    getApiErrorStatus,
 } from '@/shared/api/client'
 import { useCurrentUserStore, useRealtimeStore } from '@/shared/model'
 
@@ -73,12 +74,26 @@ export function RealtimeSync() {
         if (currentUserId == null || tripId == null || !activeTripAccessible)
             return
 
-        const heartbeat = () => {
-            void markTripPresence(tripId).catch(() => undefined)
+        let stopped = false
+        let intervalId: number | null = null
+        const heartbeat = async () => {
+            if (stopped) return
+            try {
+                await markTripPresence(tripId)
+            } catch (error) {
+                const status = getApiErrorStatus(error)
+                if (status !== 403 && status !== 404) return
+                stopped = true
+                if (intervalId !== null) window.clearInterval(intervalId)
+                await useTripStore.getState().loadTrips()
+            }
         }
-        heartbeat()
-        const intervalId = window.setInterval(heartbeat, 25_000)
-        return () => window.clearInterval(intervalId)
+        void heartbeat()
+        intervalId = window.setInterval(() => void heartbeat(), 25_000)
+        return () => {
+            stopped = true
+            if (intervalId !== null) window.clearInterval(intervalId)
+        }
     }, [accessTokenVersion, activeTripAccessible, activeTripId, currentUserId])
 
     useEffect(() => {
