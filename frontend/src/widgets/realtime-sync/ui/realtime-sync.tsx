@@ -51,9 +51,16 @@ export function RealtimeSync() {
     const currentUserId = currentUser?.id ?? null
     const activeTripId = useTripStore((state) => state.activeTripId)
     const rooms = useTripStore((state) => state.rooms)
-    const activeTripAccessible = rooms.some(
-        (room) => room.apiTripId === parseActiveTripId(activeTripId),
+    const loadedForMemberId = useTripStore(
+        (state) => state.loadedForMemberId,
     )
+    const tripStateReady =
+        currentUserId != null && loadedForMemberId === currentUserId
+    const activeTripAccessible =
+        tripStateReady &&
+        rooms.some(
+            (room) => room.apiTripId === parseActiveTripId(activeTripId),
+        )
 
     useEffect(() => {
         const handleAccessTokenChange = () =>
@@ -85,7 +92,7 @@ export function RealtimeSync() {
                 if (status !== 403 && status !== 404) return
                 stopped = true
                 if (intervalId !== null) window.clearInterval(intervalId)
-                await useTripStore.getState().loadTrips()
+                await useTripStore.getState().loadTrips(currentUserId)
             }
         }
         void heartbeat()
@@ -98,7 +105,9 @@ export function RealtimeSync() {
 
     useEffect(() => {
         const token = getAccessToken()
-        const tripId = parseActiveTripId(activeTripId)
+        const tripId = activeTripAccessible
+            ? parseActiveTripId(activeTripId)
+            : null
         useTripAwarenessStore.getState().setTrip(tripId)
         if (currentUserId == null || !token) {
             useRealtimeStore.getState().setConnected(false)
@@ -221,7 +230,12 @@ export function RealtimeSync() {
             }
             void client.deactivate()
         }
-    }, [accessTokenVersion, activeTripId, currentUserId])
+    }, [
+        accessTokenVersion,
+        activeTripAccessible,
+        activeTripId,
+        currentUserId,
+    ])
 
     return null
 }

@@ -13,6 +13,7 @@ export {
     validateTripEmailInvitation,
     consumeTripEmailInvitation,
     claimGuestTripAccess,
+    hasInvitedTripGuestAccess,
     fetchTripMembers,
     markTripPresence,
 } from './api/trip-api'
