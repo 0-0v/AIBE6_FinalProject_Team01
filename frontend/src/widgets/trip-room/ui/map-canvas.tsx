@@ -679,7 +679,7 @@ function GoogleMapCanvas({
     }
 
     return (
-        <div className="relative h-full w-full">
+        <div className="trip-room-map-canvas relative h-full w-full">
             <GoogleMap
                 defaultCenter={center}
                 defaultZoom={initialZoom}
@@ -1019,6 +1019,11 @@ function GoogleMapCanvas({
                     )
                 })}
             </GoogleMap>
+
+            <div
+                aria-hidden="true"
+                className="trip-room-map-dark-overlay pointer-events-none absolute inset-0 z-[1]"
+            />
 
             {!routeOverview && (
                 <MapTypeToggle
