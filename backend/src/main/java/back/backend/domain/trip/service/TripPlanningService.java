@@ -41,7 +41,7 @@ public class TripPlanningService {
 
     @Transactional
     public List<DateAvailabilityResponse> replaceAvailability(Long tripId, Set<LocalDate> dates) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         validateAvailabilityDates(dates);
         jdbcClient.sql("DELETE FROM trip_date_availabilities WHERE trip_id=:tripId AND member_id=:memberId")
                 .param("tripId", tripId).param("memberId", memberId).update();
@@ -105,7 +105,7 @@ public class TripPlanningService {
 
     @Transactional
     public DateProposalResponse propose(Long tripId, DateProposalRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         lockTripForUpdate(tripId);
         validateRange(request.startDate(), request.endDate());
         Proposal existingProposal = findProposalOptional(tripId);
@@ -169,7 +169,7 @@ public class TripPlanningService {
 
     @Transactional
     public DateProposalResponse vote(Long tripId, DateVoteRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         Trip trip = lockTripForUpdate(tripId);
         Proposal proposal = findProposal(tripId);
         if (!"OPEN".equals(proposal.status())) {

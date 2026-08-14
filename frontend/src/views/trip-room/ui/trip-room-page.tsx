@@ -39,6 +39,7 @@ import {
     useTripStore,
 } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { REALTIME_EVENT_NAME, type RealtimeEvent } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 import {
     type ActiveTripAwareness,
@@ -54,10 +55,6 @@ import {
     type TripRoomMode,
     type TripRoomWorkspace,
 } from '@/widgets/trip-room'
-import {
-    REALTIME_EVENT_NAME,
-    type RealtimeEvent,
-} from '@/widgets/realtime-sync'
 import { useResizableTripPanel } from '../model/use-resizable-trip-panel'
 
 export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
@@ -68,6 +65,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         inviteCode?: string
     }>()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id
     const isUserInitialized = useCurrentUserStore(
         (state) => state.isInitialized,
     )
@@ -104,6 +102,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }>({ tripId: undefined, days: [] })
     const [itineraryVersion, setItineraryVersion] = useState(0)
     const [realtimeVersion, setRealtimeVersion] = useState(0)
+    const initializedItineraryTripsRef = useRef(new Set<number>())
     const [mapPinVersion, setMapPinVersion] = useState(0)
     const [mapPinState, setMapPinState] = useState<{
         tripId: number | undefined
@@ -162,13 +161,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         [tripId],
     )
     const refreshTripDates = useCallback(async () => {
-        await loadTrips()
+        await loadTrips(currentUser?.id)
         if (!tripId) return
 
         const days = await initializeItinerary(tripId, { force: true })
         setItineraryState({ tripId, days })
         setItineraryVersion((current) => current + 1)
-    }, [loadTrips, tripId])
+    }, [currentUser?.id, loadTrips, tripId])
 
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [placeFocusRequestVersion, setPlaceFocusRequestVersion] = useState(0)
@@ -236,7 +235,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
             setJoinError(null)
             try {
                 await claimGuestTripAccess(inviteCode)
-                await loadTrips()
+                await loadTrips(currentUserId)
                 selectTrip(String(targetTripId))
                 navigate(`/app/room/${targetTripId}`, { replace: true })
             } catch (claimError) {
@@ -251,7 +250,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 setIsJoining(false)
             }
         },
-        [inviteCode, loadTrips, navigate, selectTrip],
+        [currentUserId, inviteCode, loadTrips, navigate, selectTrip],
     )
     const {
         panelWidth: resolvedWorkspacePanelWidth,
@@ -287,7 +286,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     useEffect(() => {
         if (inviteCode) return
         if (!isUserInitialized) return
-        else if (currentUser?.id != null) void loadTrips()
+        else if (currentUser?.id != null) void loadTrips(currentUser.id)
         else resetTrips()
     }, [
         currentUser?.id,
@@ -431,19 +430,30 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     useEffect(() => {
         if (!tripId) return
         let active = true
-        const loadItinerary = inviteCode ? getItinerary : initializeItinerary
+        const shouldInitialize =
+            canPlanWrite &&
+            !initializedItineraryTripsRef.current.has(tripId)
+        if (shouldInitialize) {
+            initializedItineraryTripsRef.current.add(tripId)
+        }
+        const loadItinerary = shouldInitialize
+            ? initializeItinerary
+            : getItinerary
         loadItinerary(tripId)
             .then((days) => {
                 if (active) setItineraryState({ tripId, days })
             })
             .catch(() => {
+                if (shouldInitialize) {
+                    initializedItineraryTripsRef.current.delete(tripId)
+                }
                 if (active) setItineraryState({ tripId, days: [] })
             })
 
         return () => {
             active = false
         }
-    }, [inviteCode, realtimeVersion, tripId])
+    }, [canPlanWrite, realtimeVersion, tripId])
 
     const displayedPlaces = useMemo(
         () =>

@@ -62,6 +62,15 @@ function redirectToLogin() {
     }
 }
 
+export function redirectToSuspendedLogin(noticeToken: string) {
+    clearSession()
+    const params = new URLSearchParams({
+        error: 'suspended_account',
+        suspensionToken: noticeToken,
+    })
+    window.location.assign(`/login?${params.toString()}`)
+}
+
 async function refreshAccessToken(): Promise<string | null> {
     const res = await fetch(`${BASE_URL}/api/auth/reissue`, {
         method: 'POST',

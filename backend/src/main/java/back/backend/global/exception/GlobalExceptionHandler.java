@@ -133,7 +133,11 @@ public class GlobalExceptionHandler {
                 "uk_members_local_email",
                 "uk_members_local_nickname",
                 "uk_itinerary_items_day_sort_order",
-                "uk_itinerary_items_trip_place"
+                "uk_itinerary_items_trip_place",
+                "uk_saved_trips_member_trip",
+                "uk_trip_card_bookmark_shares_trip_card_member",
+                "uk_trip_guest_members_trip_guest",
+                "uk_trip_members_trip_member"
         );
     }
 

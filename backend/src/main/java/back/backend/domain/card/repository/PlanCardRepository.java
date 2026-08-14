@@ -8,4 +8,5 @@ public interface PlanCardRepository extends JpaRepository<PlanCard, Long> {
     boolean existsByTripId(Long tripId);
     Optional<PlanCard> findByTripId(Long tripId);
     List<PlanCard> findAllByVisibilityNot(TripVisibility visibility);
+    List<PlanCard> findAllByTripIdIn(List<Long> tripIds);
 }

@@ -80,9 +80,10 @@ export async function fetchTrips() {
     return response.data
 }
 
-export async function fetchTripMembers(id: number) {
+export async function fetchTripMembers(id: number, signal?: AbortSignal) {
     const response = await apiClient.get<ApiResponse<TripMember[]>>(
         `/api/trips/${id}/members`,
+        { signal },
     )
     return response.data
 }

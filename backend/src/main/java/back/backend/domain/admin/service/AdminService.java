@@ -7,6 +7,7 @@ import back.backend.domain.admin.entity.ExternalApiUsage;
 import back.backend.domain.admin.exception.AdminErrorCode;
 import back.backend.domain.admin.repository.AdminActionLogRepository;
 import back.backend.domain.admin.repository.ExternalApiUsageRepository;
+import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberRole;
 import back.backend.domain.member.entity.MemberStatus;
@@ -14,6 +15,7 @@ import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.response.PageResponse;
+import back.backend.global.realtime.AccountSuspendedEvent;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -36,17 +39,24 @@ public class AdminService {
     private final AdminActionLogRepository actionLogRepository;
     private final ExternalApiUsageRepository usageRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final SuspensionNoticeService suspensionNoticeService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     public AdminService(MemberRepository memberRepository, TripRepository tripRepository,
                         AdminActionLogRepository actionLogRepository,
                         ExternalApiUsageRepository usageRepository,
-                        RefreshTokenRepository refreshTokenRepository, Clock clock) {
+                        RefreshTokenRepository refreshTokenRepository,
+                        SuspensionNoticeService suspensionNoticeService,
+                        ApplicationEventPublisher eventPublisher,
+                        Clock clock) {
         this.memberRepository = memberRepository;
         this.tripRepository = tripRepository;
         this.actionLogRepository = actionLogRepository;
         this.usageRepository = usageRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.suspensionNoticeService = suspensionNoticeService;
+        this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
 
@@ -96,6 +106,8 @@ public class AdminService {
         LocalDateTime now = LocalDateTime.now(clock);
         member.suspend(adminId, request.reason(), now, request.suspendedUntil());
         refreshTokenRepository.deleteByMemberId(memberId);
+        String noticeToken = suspensionNoticeService.issue(member);
+        eventPublisher.publishEvent(new AccountSuspendedEvent(memberId, noticeToken));
         actionLogRepository.save(AdminActionLog.create(adminId, AdminActionType.MEMBER_SUSPENDED,
                 "MEMBER", memberId, request.reason()));
         return AdminMemberSummaryResponse.from(member);

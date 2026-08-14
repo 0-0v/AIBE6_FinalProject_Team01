@@ -126,7 +126,7 @@ class AiPlaceRecommendationServiceTest {
         assertThat(result.get(0).reason()).contains("기존 동선");
         assertThat(result.get(0).routeDeviationMeters()).isNotNegative();
         assertThat(result.get(0).styleCompatibility()).isEqualTo(0.95);
-        then(accessChecker).should().requireMember(1L);
+        then(accessChecker).should().requireEdit(1L);
     }
 
     @Test

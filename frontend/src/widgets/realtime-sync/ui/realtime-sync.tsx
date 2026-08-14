@@ -16,19 +16,16 @@ import {
     BASE_URL,
     getAccessToken,
     getApiErrorStatus,
+    redirectToSuspendedLogin,
 } from '@/shared/api/client'
 import { useCurrentUserStore, useRealtimeStore } from '@/shared/model'
-
-export const REALTIME_EVENT_NAME = 'plamingo:realtime'
-
-export type RealtimeEvent = {
-    eventId: string
-    type: string
-    tripId: number | null
-    targetType: string | null
-    targetId: number | null
-    occurredAt: string
-}
+import {
+    REALTIME_EVENT_NAME,
+    isAccountSuspendedEvent,
+    parseRealtimeMessage,
+    type AccountSuspendedEvent,
+    type RealtimeEvent,
+} from '@/shared/lib'
 
 function websocketUrl() {
     return (
@@ -116,7 +113,8 @@ export function RealtimeSync() {
         }
 
         const parseEvent = (message: IMessage) => {
-            const event = JSON.parse(message.body) as RealtimeEvent
+            const event = parseRealtimeMessage<RealtimeEvent>(message.body)
+            if (!event?.eventId) return null
             if (handledEventIds.current.has(event.eventId)) return null
             handledEventIds.current.add(event.eventId)
             window.setTimeout(
@@ -166,8 +164,17 @@ export function RealtimeSync() {
         }
 
         const handleTripAwareness = (message: IMessage) => {
-            const event = JSON.parse(message.body) as TripAwarenessEvent
-            useTripAwarenessStore.getState().receive(event)
+            const event = parseRealtimeMessage<TripAwarenessEvent>(message.body)
+            if (event) useTripAwarenessStore.getState().receive(event)
+        }
+
+        const handleAccountStatus = (message: IMessage) => {
+            const event = parseRealtimeMessage<AccountSuspendedEvent>(
+                message.body,
+            )
+            if (!isAccountSuspendedEvent(event, currentUserId)) return
+            client.deactivate().catch(() => undefined)
+            redirectToSuspendedLogin(event.noticeToken)
         }
 
         const markDisconnected = () => {
@@ -190,6 +197,10 @@ export function RealtimeSync() {
                 client.subscribe(
                     '/user/queue/notifications',
                     handleNotification,
+                )
+                client.subscribe(
+                    '/user/queue/account-status',
+                    handleAccountStatus,
                 )
                 client.subscribe('/topic/public-cards', handlePublicCardChange)
                 if (tripId != null) {

@@ -1,4 +1,5 @@
 export { useTripStore } from './model/trip-store'
+export { useTripMembers } from './model/use-trip-members'
 export {
     createTrip,
     updateTrip,

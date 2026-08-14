@@ -97,4 +97,23 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().message())
                 .isEqualTo("인증번호가 만료되었습니다. 잠시 후 다시 요청해 주세요.");
     }
+
+    @Test
+    @DisplayName("t7 북마크와 여행방 참여 중복 제약 위반은 500이 아닌 409를 반환한다")
+    void t7_collaborationDuplicateConstraintsReturnConflict() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/cards/1/bookmark");
+
+        for (String constraint : java.util.List.of(
+                "uk_saved_trips_member_trip",
+                "uk_trip_card_bookmark_shares_trip_card_member",
+                "uk_trip_guest_members_trip_guest",
+                "uk_trip_members_trip_member")) {
+            ResponseEntity<ErrorResponse> response = handler.handleDataIntegrityViolationException(
+                    new DataIntegrityViolationException(constraint), request);
+
+            assertThat(response.getStatusCode()).isEqualTo(CommonErrorCode.CONFLICT.getStatus());
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().code()).isEqualTo("COMMON_409");
+        }
+    }
 }
