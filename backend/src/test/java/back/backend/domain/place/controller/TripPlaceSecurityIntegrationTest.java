@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.place.service.TripPlaceService;
+import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.place.service.PlaceVoteService;
 import back.backend.domain.place.service.PlaceCategoryService;
 import back.backend.domain.itinerary.service.ItineraryService;
@@ -43,6 +44,9 @@ class TripPlaceSecurityIntegrationTest {
 
     @MockitoBean
     private ItineraryService itineraryService;
+
+    @MockitoBean
+    private TripAccessChecker tripAccessChecker;
 
     @Test
     @DisplayName("t1 인증 정보 없이 여행 장소를 조회하면 401을 반환한다")

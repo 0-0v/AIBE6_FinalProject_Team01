@@ -204,6 +204,10 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const [visibilityOpen, setVisibilityOpen] = useState(false)
     const [placesError, setPlacesError] = useState<string | null>(null)
     const [canManagePlaces, setCanManagePlaces] = useState(false)
+    const canPlanWrite =
+        !inviteCode &&
+        canManagePlaces &&
+        room?.lifecycleStatus !== 'COMPLETED'
     const [inviteCodeInput, setInviteCodeInput] = useState('')
     const [verifiedInviteCode, setVerifiedInviteCode] = useState<string | null>(
         null,
@@ -218,6 +222,30 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         Boolean(inviteCode) &&
         searchParams.get('join') === 'true' &&
         Boolean(currentUser)
+    const joinInvitedTrip = useCallback(
+        async (targetTripId: number) => {
+            if (!inviteCode) return
+            setIsJoining(true)
+            setJoinError(null)
+            try {
+                await claimGuestTripAccess(inviteCode)
+                await loadTrips()
+                selectTrip(String(targetTripId))
+                navigate(`/app/room/${targetTripId}`, { replace: true })
+            } catch (claimError) {
+                setInviteMode('join-confirm')
+                setJoinError(
+                    getApiErrorMessage(
+                        claimError,
+                        '여행방 참여에 실패했습니다. 다시 시도해 주세요.',
+                    ),
+                )
+            } finally {
+                setIsJoining(false)
+            }
+        },
+        [inviteCode, loadTrips, navigate, selectTrip],
+    )
     const {
         panelWidth: resolvedWorkspacePanelWidth,
         isResizingPanel,
@@ -286,12 +314,27 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         ) {
             return
         }
-        void loadInvitedTrip(inviteCode).then((success) => {
-            if (!success) return
+        void loadInvitedTrip(inviteCode).then(async (success) => {
+            if (!success) {
+                setIsJoining(false)
+                return
+            }
             setVerifiedInviteCode(inviteCode)
-            setInviteMode('join-confirm')
+            const invitedTripId = useTripStore.getState().guestRoom?.apiTripId
+            if (invitedTripId == null) {
+                setInviteMode('join-confirm')
+                setIsJoining(false)
+                return
+            }
+            await joinInvitedTrip(invitedTripId)
         })
-    }, [inviteCode, isReturningFromLogin, loadInvitedTrip, verifiedInviteCode])
+    }, [
+        inviteCode,
+        isReturningFromLogin,
+        joinInvitedTrip,
+        loadInvitedTrip,
+        verifiedInviteCode,
+    ])
 
     useEffect(() => {
         if (!activeRoomId || !tripId) return
@@ -532,15 +575,15 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         navigate('/login')
     }
 
-    async function handleJoinTrip() {
-        if (!tripId || !inviteCode) return
+    async function joinTrip(targetTripId: number) {
+        if (!inviteCode) return
         setIsJoining(true)
         setJoinError(null)
         try {
             await claimGuestTripAccess(inviteCode)
             await loadTrips()
-            selectTrip(String(tripId))
-            navigate(`/app/room/${tripId}`, { replace: true })
+            selectTrip(String(targetTripId))
+            navigate(`/app/room/${targetTripId}`, { replace: true })
         } catch (claimError) {
             setJoinError(
                 getApiErrorMessage(
@@ -551,6 +594,11 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         } finally {
             setIsJoining(false)
         }
+    }
+
+    async function handleJoinTrip() {
+        if (!tripId) return
+        await joinTrip(tripId)
     }
 
     if (
@@ -732,12 +780,12 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             pendingAiAction?.routeContext?.segmentIndex ?? null
                         }
                         onAddFromPoi={
-                            !inviteCode && canManagePlaces
+                            canPlanWrite
                                 ? handleAddFromPoi
                                 : undefined
                         }
                         existingGooglePlaceIds={existingGooglePlaceIds}
-                        canWrite={!inviteCode && canManagePlaces}
+                        canWrite={canPlanWrite}
                         onRouteDayChange={(dayNumber) => {
                             setViewedDayNumber(dayNumber)
                             if (dayNumber == null) return
@@ -759,7 +807,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             </p>
                         </div>
                     )}
-                    {!inviteCode && canManagePlaces && (
+                    {canPlanWrite && (
                         <button
                             onClick={() => setAiOpen(true)}
                             className="absolute bottom-5 left-5 flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-sm font-extrabold text-white shadow-lg hover:bg-brand-700"

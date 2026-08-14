@@ -199,6 +199,24 @@ class GuestTripAccessServiceTest {
         verify(eventPublisher).publishEvent(any(RealtimeEvent.class));
     }
 
+    @Test
+    @DisplayName("t9 완료된 여행방은 기존 게스트 초대를 수락할 수 없다")
+    void t9_completedTripRejectsGuestInvitationAcceptance() {
+        TripInvitation invitation = TripInvitation.create(
+                10L, "invite-code", 1L, LocalDateTime.now().plusDays(1));
+        Trip trip = trip();
+        ReflectionTestUtils.setField(trip, "id", 10L);
+        ReflectionTestUtils.setField(trip, "status", TripStatus.COMPLETED);
+        when(invitationRepository.findByInviteCode("invite-code")).thenReturn(Optional.of(invitation));
+        when(tripRepository.findByIdAndStatusNot(10L, TripStatus.CANCELLED)).thenReturn(Optional.of(trip));
+
+        assertThatThrownBy(() -> service.accept("invite-code"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(TripErrorCode.TRIP_ALREADY_FINISHED));
+        verify(guestSessionRepository, never()).save(any());
+    }
+
     private GuestSession guestSession() {
         GuestSession session = GuestSession.create(
                 tokenHasher.hash("guest-token"), LocalDateTime.now().plusDays(1));

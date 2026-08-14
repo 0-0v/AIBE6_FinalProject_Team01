@@ -52,6 +52,7 @@ type Props = {
     places: Place[]
     itineraryDays: ItineraryDay[]
     canWrite: boolean
+    canManageExpenses?: boolean
     startDate: string | null
     endDate: string | null
     onChanged?: () => void
@@ -71,6 +72,7 @@ export function RecordPanel({
     places,
     itineraryDays,
     canWrite,
+    canManageExpenses = canWrite,
     startDate,
     endDate,
     onChanged,
@@ -509,7 +511,7 @@ export function RecordPanel({
                     days={days}
                     expenses={expenses}
                     currentMemberId={currentMemberId}
-                    canWrite={canWrite}
+                    canWrite={canManageExpenses}
                     completingKey={completingKey}
                     onOpenExpenses={onOpenExpenses}
                     onEditExpense={onEditExpense}
