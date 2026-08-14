@@ -3,10 +3,13 @@ package back.backend.domain.card.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
 
 import back.backend.domain.card.dto.CardSort;
 import back.backend.domain.card.entity.PlanCard;
+import back.backend.domain.card.entity.CardComment;
 import back.backend.domain.card.repository.*;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.entity.TripVisibility;
@@ -26,6 +29,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class PublicCardServiceTest {
@@ -83,10 +88,10 @@ class PublicCardServiceTest {
         Trip trip = Trip.create(1L, "제주 여행", null, Set.of(TravelStyle.FOOD), "제주", null, null);
         ReflectionTestUtils.setField(trip, "id", 10L);
         when(cardRepository.findAllByVisibilityNot(TripVisibility.PRIVATE)).thenReturn(List.of(card));
-        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
-        when(memberRepository.findById(1L)).thenReturn(Optional.empty());
-        when(cardTagRepository.findAllByPlanCardId(20L)).thenReturn(List.of());
-        when(tripMemberRepository.existsByTripIdAndMemberId(10L, 2L)).thenReturn(true);
+        when(tripRepository.findAllById(List.of(10L))).thenReturn(List.of(trip));
+        when(memberRepository.findAllById(List.of(1L))).thenReturn(List.of());
+        when(cardTagRepository.findAllByPlanCardIdIn(List.of(20L))).thenReturn(List.of());
+        when(tripMemberRepository.findTripIdsByMemberId(2L)).thenReturn(List.of(10L));
         PublicCardService service = new PublicCardService(
                 cardRepository, savedRepository, commentRepository, cardTagRepository,
                 tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
@@ -109,9 +114,9 @@ class PublicCardServiceTest {
         Trip trip = Trip.create(1L, "제주 여행", null, Set.of(TravelStyle.FOOD), "제주", null, null);
         ReflectionTestUtils.setField(trip, "id", 10L);
         when(cardRepository.findAllByVisibilityNot(TripVisibility.PRIVATE)).thenReturn(List.of(card));
-        when(tripRepository.findById(10L)).thenReturn(Optional.of(trip));
-        when(memberRepository.findById(1L)).thenReturn(Optional.empty());
-        when(cardTagRepository.findAllByPlanCardId(20L)).thenReturn(List.of());
+        when(tripRepository.findAllById(List.of(10L))).thenReturn(List.of(trip));
+        when(memberRepository.findAllById(List.of(1L))).thenReturn(List.of());
+        when(cardTagRepository.findAllByPlanCardIdIn(List.of(20L))).thenReturn(List.of());
         PublicCardService service = new PublicCardService(
                 cardRepository, savedRepository, commentRepository, cardTagRepository,
                 tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
@@ -153,5 +158,28 @@ class PublicCardServiceTest {
 
         assertThat(response.size()).isEqualTo(100);
         assertThat(response.content()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("t7 댓글 조회는 데이터베이스 페이지네이션을 사용한다")
+    void t7_commentsUseDatabasePagination() {
+        PlanCard card = PlanCard.create(10L, "제주 여행", TripVisibility.PUBLIC_ROUTE, 1L);
+        ReflectionTestUtils.setField(card, "id", 20L);
+        CardComment comment = CardComment.create(20L, 2L, "좋아요");
+        when(cardRepository.findById(20L)).thenReturn(Optional.of(card));
+        when(commentRepository.findAllByPlanCardIdOrderByCreatedAtAsc(
+                org.mockito.ArgumentMatchers.eq(20L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+        when(memberRepository.findAllById(List.of(2L))).thenReturn(List.of());
+        PublicCardService service = new PublicCardService(
+                cardRepository, savedRepository, commentRepository, cardTagRepository,
+                tagRepository, tripRepository, tripMemberRepository, memberRepository, eventPublisher,
+                shareRepository);
+
+        var response = service.getComments(20L, 2L, 0, 20);
+
+        assertThat(response.content()).hasSize(1);
+        then(commentRepository).should(never())
+                .findAllByPlanCardIdOrderByCreatedAtAsc(20L);
     }
 }
