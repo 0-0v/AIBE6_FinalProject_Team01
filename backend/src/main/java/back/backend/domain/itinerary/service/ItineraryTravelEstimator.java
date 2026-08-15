@@ -174,11 +174,12 @@ public class ItineraryTravelEstimator {
         int distanceMeters = routeInfo
                 .map(GoogleRoutesClient.RouteInfo::distanceMeters)
                 .orElse(fallbackDistance);
+        ItineraryTransportMode fallbackMode = fallbackMode(transportMode, manual);
         int durationMinutes = routeInfo
                 .map(GoogleRoutesClient.RouteInfo::durationMinutes)
                 .orElseGet(() -> estimateTransportMinutes(
                         fallbackDistance,
-                        transportMode.fallbackSpeedKmh()
+                        fallbackMode.fallbackSpeedKmh()
                 ));
         item.updateTravelInformation(
                 durationMinutes,
@@ -247,13 +248,16 @@ public class ItineraryTravelEstimator {
 
         int travelMinutes = routeInfo
                 .map(GoogleRoutesClient.RouteInfo::durationMinutes)
-                .orElseGet(() -> estimateTransportMinutes(distanceMeters, mode.fallbackSpeedKmh()));
+                .orElseGet(() -> estimateTransportMinutes(
+                        distanceMeters,
+                        fallbackMode(mode, false).fallbackSpeedKmh()
+                ));
         int travelMeters = routeInfo
                 .map(GoogleRoutesClient.RouteInfo::distanceMeters)
                 .orElse(distanceMeters);
         String travelMode = routeInfo
                 .map(GoogleRoutesClient.RouteInfo::actualTransportMode)
-                .orElse(mode.displayName());
+                .orElse(fallbackMode(mode, false).displayName());
 
         day.updateDepartureTravelInfo(travelMinutes, travelMeters, travelMode);
     }
@@ -289,7 +293,17 @@ public class ItineraryTravelEstimator {
         return routeInfo != null
                 && routeInfo.actualTransportMode() != null
                 ? routeInfo.actualTransportMode()
-                : requestedMode.displayName();
+                : fallbackMode(requestedMode, manual).displayName();
+    }
+
+    private ItineraryTransportMode fallbackMode(
+            ItineraryTransportMode requestedMode,
+            boolean manual
+    ) {
+        if (!manual && requestedMode == ItineraryTransportMode.TRANSIT) {
+            return ItineraryTransportMode.DRIVING;
+        }
+        return requestedMode;
     }
 
     private Instant departureTime(ItineraryItem item) {
