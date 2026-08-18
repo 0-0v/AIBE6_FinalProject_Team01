@@ -1137,7 +1137,7 @@ export function Landing() {
                         >
                             투표 한 번이면
                             <br />
-                            다수결 끝! 싸울 일 없어요.
+                            싸울 일 없이 결정 끝.
                         </h2>
                         <p
                             style={{
@@ -1166,7 +1166,7 @@ export function Landing() {
                         style={{
                             position: 'relative',
                             width: '100%',
-                            maxWidth: 520,
+                            maxWidth: 560,
                         }}
                     >
                         <div
@@ -1181,7 +1181,7 @@ export function Landing() {
                         >
                             <img
                                 src="/assets/landing-vote-preview.png"
-                                alt="유니버설 스튜디오 재팬이 투표로 선정되고 AI 장소 정보가 표시된 실제 서비스 화면"
+                                alt="한큐 우메다 본점의 AI 장소 정보와 찬반 투표가 표시된 실제 서비스 화면"
                                 style={{
                                     display: 'block',
                                     width: '100%',
