@@ -25,6 +25,11 @@ import java.util.stream.Collectors;
 public class ItineraryRoutePlanner {
 
     private static final int DEFAULT_STAY_MINUTES = 60;
+    private static final double RELATION_AFFINITY_WEIGHT = 0.55;
+    private static final double GEOGRAPHIC_AFFINITY_WEIGHT = 0.25;
+    private static final double CATEGORY_DIVERSITY_WEIGHT = 0.55;
+    private static final double DAY_LOAD_PENALTY_WEIGHT = 0.10;
+    private static final double GEOGRAPHIC_SCALE_KM = 5.0;
 
     private static final Map<PlaceCategoryType, Integer> CATEGORY_STAY_MINUTES =
             Map.ofEntries(
@@ -533,14 +538,18 @@ public class ItineraryRoutePlanner {
 
         for (TripPlace place : remaining) {
             int targetIndex = -1;
-            double bestAverage = Double.NEGATIVE_INFINITY;
+            double bestScore = Double.NEGATIVE_INFINITY;
             for (int index = 0; index < clusters.size(); index++) {
-                if (clusters.get(index).size() >= maxPerDay) continue;
-                double average = averageRelationScore(
-                        place, clusters.get(index), pairwiseScores
+                List<TripPlace> cluster = clusters.get(index);
+                if (cluster.size() >= maxPerDay) continue;
+                double score = relationAssignmentScore(
+                        place,
+                        cluster,
+                        pairwiseScores,
+                        maxPerDay
                 );
-                if (average > bestAverage) {
-                    bestAverage = average;
+                if (score > bestScore) {
+                    bestScore = score;
                     targetIndex = index;
                 }
             }
@@ -553,6 +562,31 @@ public class ItineraryRoutePlanner {
                         ? cluster
                         : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
                 .collect(Collectors.toList());
+    }
+
+    private double relationAssignmentScore(
+            TripPlace place,
+            List<TripPlace> cluster,
+            Map<Long, Map<Long, Double>> pairwiseScores,
+            int maxPerDay
+    ) {
+        double relationAffinity = averageRelationScore(
+                place,
+                cluster,
+                pairwiseScores
+        );
+        double averageDistanceKm = averageDistanceMeters(place, cluster) / 1_000.0;
+        double geographicAffinity = 1.0
+                / (1.0 + averageDistanceKm / GEOGRAPHIC_SCALE_KM);
+        double categoryDiversity = cluster.isEmpty()
+                ? 1.0
+                : 1.0 - (double) countSameCategoryGroup(place, cluster) / cluster.size();
+        double loadRatio = maxPerDay == 0
+                ? 0.0 : (double) cluster.size() / maxPerDay;
+        return relationAffinity * RELATION_AFFINITY_WEIGHT
+                + geographicAffinity * GEOGRAPHIC_AFFINITY_WEIGHT
+                + categoryDiversity * CATEGORY_DIVERSITY_WEIGHT
+                - loadRatio * DAY_LOAD_PENALTY_WEIGHT;
     }
 
     private int countSameCategoryGroup(
