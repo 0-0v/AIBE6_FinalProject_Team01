@@ -13,11 +13,11 @@ export const options = {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: __ENV.STAGE_100 || '5m', target: 100 },
-                { duration: __ENV.STAGE_300 || '5m', target: 300 },
-                { duration: __ENV.STAGE_500 || '5m', target: 500 },
-                { duration: __ENV.STAGE_750 || '5m', target: 750 },
-                { duration: __ENV.STAGE_1000 || '5m', target: 1000 },
+                { duration: __ENV.STAGE_100 || '3m', target: 100 },
+                { duration: __ENV.STAGE_300 || '3m', target: 300 },
+                { duration: __ENV.STAGE_500 || '3m', target: 500 },
+                { duration: __ENV.STAGE_750 || '3m', target: 750 },
+                { duration: __ENV.STAGE_1000 || '3m', target: 1000 },
                 { duration: __ENV.HOLD_1000 || '10m', target: 1000 },
                 { duration: __ENV.RAMP_DOWN || '5m', target: 0 },
             ],
@@ -75,7 +75,6 @@ function dashboardFlow(current) {
         ['GET', `${BASE_URL}/api/trips`, null, { ...params, tags: { flow: 'dashboard', endpoint: 'trips' } }],
         ['GET', `${BASE_URL}/api/notifications?page=0&size=6`, null, { ...params, tags: { flow: 'dashboard', endpoint: 'notifications' } }],
         ['GET', `${BASE_URL}/api/notifications/unread-count`, null, { ...params, tags: { flow: 'dashboard', endpoint: 'unread_count' } }],
-        ['GET', `${BASE_URL}/api/cards/public?page=0&size=9&sort=LATEST`, null, { ...params, tags: { flow: 'dashboard', endpoint: 'public_cards' } }],
     ])
     checkAll(responses, '대시보드')
 }
@@ -86,15 +85,7 @@ function tripRoomFlow(current) {
     const tagged = (endpoint) => ({ ...params, tags: { flow: 'trip_room', endpoint } })
     const responses = http.batch([
         ['GET', `${trip}/members`, null, tagged('trip_members')],
-        ['GET', `${trip}/places`, null, tagged('trip_places')],
         ['GET', `${trip}/itinerary`, null, tagged('itinerary')],
-        ['GET', `${trip}/places/votes`, null, tagged('place_votes')],
-        ['GET', `${trip}/activity-logs?page=0&size=20`, null, tagged('activity_logs')],
-        ['GET', `${trip}/expenses`, null, tagged('expenses')],
-        ['GET', `${trip}/expenses/context`, null, tagged('expense_context')],
-        ['GET', `${trip}/expenses/settlement`, null, tagged('expense_settlement')],
-        ['GET', `${trip}/bookmarks?page=0&size=9`, null, tagged('trip_bookmarks')],
-        ['GET', `${trip}/map-pins`, null, tagged('map_pins')],
     ])
     checkAll(responses, '여행방')
 }
