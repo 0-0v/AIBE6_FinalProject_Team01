@@ -102,8 +102,8 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t3 FOOD 스타일은 음식점·카페 장소를 동선 앞쪽에 배치한다")
-    void t3_foodStylePrioritizesFoodAndCafePlaces() {
+    @DisplayName("t3 FOOD 스타일도 음식 장소와 일반 장소를 Day별로 분산한다")
+    void t3_foodStyleDistributesMealAndGeneralPlacesAcrossDays() {
         List<TripPlace> places = List.of(
                 tripPlace(10L, "명소A", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
                 tripPlace(11L, "음식점B", PlaceCategoryType.FOOD, 33.4600, 126.5100),
@@ -122,15 +122,14 @@ class ItineraryRoutePlannerTest {
                 .filter(option -> option.routeLabel().startsWith("맛집"))
                 .findFirst()
                 .orElseThrow();
-        List<String> firstDayCategories = foodOption.plan().days()
-                .getFirst()
-                .items()
-                .stream()
-                .map(item -> item.categoryName())
-                .toList();
-
-        assertThat(firstDayCategories)
-                .contains("음식점", "카페");
+        assertThat(foodOption.plan().days()).allSatisfy(day -> {
+            List<String> categories = day.items().stream()
+                    .map(item -> item.categoryName())
+                    .toList();
+            assertThat(categories).anyMatch(category ->
+                    category.equals("음식점") || category.equals("카페"));
+            assertThat(categories).contains("명소");
+        });
     }
 
     @Test
@@ -785,5 +784,58 @@ class ItineraryRoutePlannerTest {
         );
         assertThat(reasons.stream().distinct().count()).isGreaterThan(1);
         assertThat(reasons).anyMatch(reason -> reason.contains("이전 장소에서 약"));
+    }
+
+    @Test
+    @DisplayName("t25 관계 점수가 같은 카테고리를 묶어도 Day별 카테고리 다양성을 유지한다")
+    void t25_relationPlanBalancesCategoriesAcrossDays() {
+        List<ItineraryDay> days = List.of(day(1L, 1), day(2L, 2));
+        List<TripPlace> places = List.of(
+                tripPlace(10L, "음식점 A", PlaceCategoryType.FOOD, 34.7000, 135.5000),
+                tripPlace(11L, "음식점 B", PlaceCategoryType.FOOD, 34.7010, 135.5010),
+                tripPlace(12L, "카페 C", PlaceCategoryType.CAFE, 34.7020, 135.5020),
+                tripPlace(13L, "명소 A", PlaceCategoryType.ATTRACTION, 34.7030, 135.5030),
+                tripPlace(14L, "명소 B", PlaceCategoryType.ATTRACTION, 34.7040, 135.5040),
+                tripPlace(15L, "명소 C", PlaceCategoryType.ATTRACTION, 34.7050, 135.5050)
+        );
+        Map<Long, Map<Long, Double>> pairwiseScores = new java.util.HashMap<>();
+        for (TripPlace first : places) {
+            Map<Long, Double> scores = new java.util.HashMap<>();
+            for (TripPlace second : places) {
+                if (first.getId().equals(second.getId())) continue;
+                boolean sameGroup = isMealCategory(first) == isMealCategory(second);
+                scores.put(second.getId(), sameGroup ? 0.9 : 0.1);
+            }
+            pairwiseScores.put(first.getId(), scores);
+        }
+        when(placeRelationService.resolvePairwiseRelationScores(places))
+                .thenReturn(pairwiseScores);
+
+        var relationPlan = planner.planMulti(
+                        days,
+                        places,
+                        Set.of(TravelStyle.FOOD),
+                        TripScheduleSettings.defaultSettings()
+                ).stream()
+                .filter(option -> option.routeLabel().equals("맞춤 추천 코스"))
+                .findFirst()
+                .orElseThrow()
+                .plan();
+
+        assertThat(relationPlan.days()).allSatisfy(day -> {
+            List<String> categories = day.items().stream()
+                    .map(item -> item.categoryName())
+                    .toList();
+            assertThat(categories).anyMatch(category ->
+                    category.equals("음식점") || category.equals("카페"));
+            assertThat(categories).contains("명소");
+        });
+    }
+
+    private boolean isMealCategory(TripPlace place) {
+        PlaceCategoryType type = place.getCategory().getCategoryType();
+        return type == PlaceCategoryType.FOOD
+                || type == PlaceCategoryType.CAFE
+                || type == PlaceCategoryType.BAR;
     }
 }
