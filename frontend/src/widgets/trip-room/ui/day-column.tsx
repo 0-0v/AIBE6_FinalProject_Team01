@@ -5,6 +5,7 @@ import {
     ArrowDownIcon,
     BusIcon,
     CarIcon,
+    CarTaxiFrontIcon,
     CheckCircleIcon,
     ChevronDownIcon,
     ChevronRightIcon,
@@ -13,6 +14,8 @@ import {
     FootprintsIcon,
     MapPinIcon,
     PlusIcon,
+    RouteIcon,
+    SparklesIcon,
     TrainFrontIcon,
     XIcon,
 } from 'lucide-react'
@@ -360,11 +363,13 @@ const TRANSPORT_MODE_OPTIONS: {
     label: string
     icon: typeof FootprintsIcon
 }[] = [
+    { value: 'AUTO', label: '자동 추천', icon: SparklesIcon },
     { value: 'WALKING', label: '도보', icon: FootprintsIcon },
     { value: 'DRIVING', label: '자동차', icon: CarIcon },
-    { value: 'TAXI', label: '택시', icon: CarIcon },
-    { value: 'BUS', label: '버스 우선', icon: BusIcon },
-    { value: 'RAIL', label: '철도 우선', icon: TrainFrontIcon },
+    { value: 'TAXI', label: '택시', icon: CarTaxiFrontIcon },
+    { value: 'TRANSIT', label: '대중교통', icon: RouteIcon },
+    { value: 'BUS', label: '버스', icon: BusIcon },
+    { value: 'RAIL', label: '철도', icon: TrainFrontIcon },
 ]
 
 type TransportConnectorProps = {
@@ -498,31 +503,37 @@ function TransportConnector({
                         aria-label="이동수단 메뉴 닫기"
                         onClick={() => setOpen(false)}
                     />
-                    <div className="absolute top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                        <p className="px-2 py-1 text-[10px] font-bold text-slate-400">
+                    <div className="absolute top-full z-50 mt-1 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                        <p className="px-1 py-1 text-[10px] font-bold text-slate-400">
                             이동수단 선택
                         </p>
-                        {TRANSPORT_MODE_OPTIONS.map((option) => {
-                            const Icon = option.icon
-                            const selected = option.value === currentPreference
-                            return (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    disabled={updating}
-                                    onClick={() => void applyMode(option.value)}
-                                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition ${
-                                        selected
-                                            ? 'bg-brand/10 font-bold text-brand'
-                                            : 'text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <Icon size={13} aria-hidden />
-                                    {option.label}
-                                </button>
-                            )
-                        })}
-                        <p className="border-t border-slate-100 px-2 pt-1.5 text-[9px] leading-relaxed text-slate-400">
+                        <div className="flex flex-wrap gap-1.5 px-1 pb-1 pt-0.5">
+                            {TRANSPORT_MODE_OPTIONS.map((option) => {
+                                const Icon = option.icon
+                                const selected =
+                                    option.value === currentPreference
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        disabled={updating}
+                                        aria-pressed={selected}
+                                        onClick={() =>
+                                            void applyMode(option.value)
+                                        }
+                                        className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition ${
+                                            selected
+                                                ? 'border-brand bg-brand text-white'
+                                                : 'border-slate-200 bg-white text-slate-600 hover:border-brand/40 hover:bg-brand/5'
+                                        } disabled:opacity-60`}
+                                    >
+                                        <Icon size={12} aria-hidden />
+                                        {option.label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        <p className="border-t border-slate-100 px-1 pt-1.5 text-[9px] leading-relaxed text-slate-400">
                             선택하면 바로 이동 시간과 경로를 다시 계산해요.
                         </p>
                     </div>

@@ -208,7 +208,7 @@ class ItineraryTravelEstimatorTest {
     }
 
     @Test
-    @DisplayName("t6 자동 추천을 선택하면 거리 기반 이동수단으로 계산하고 수동 설정을 해제한다")
+    @DisplayName("t6 자동 추천은 대중교통 경로가 없으면 추가 호출 없이 자동차 추정값을 사용한다")
     void t6_recalculateSegmentAutomaticallyClearsManualPreference() {
         ItineraryTravelEstimator estimator =
                 new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
@@ -234,6 +234,15 @@ class ItineraryTravelEstimatorTest {
         assertThat(item.isTransportModeManual()).isFalse();
         assertThat(item.getTransportModePreference()).isNull();
         assertThat(item.getTransportMode()).isEqualTo("자동차");
+        then(routesClient).should().getRouteInfo(
+                eq(33.4500),
+                eq(126.5000),
+                eq(33.4600),
+                eq(126.5100),
+                eq("transit"),
+                nullable(String.class),
+                nullable(java.time.Instant.class)
+        );
     }
 
     @Test
@@ -287,6 +296,29 @@ class ItineraryTravelEstimatorTest {
         assertThat(item.getTransportMinutes()).isNull();
         assertThat(item.getTransportMeters()).isNull();
         then(routesClient).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("t9 자동 추천은 대중교통 경로가 있으면 실제 이동수단을 사용한다")
+    void t9_automaticModeUsesAvailableTransitRoute() {
+        ItineraryTravelEstimator estimator =
+                new ItineraryTravelEstimator(routesClient, googlePlaceContentRefreshService);
+        ItineraryDay day = ItineraryDay.create(1L, LocalDate.of(2026, 8, 1), 1);
+        ItineraryItem item = ItineraryItem.create(day, 10L, 0);
+        TripPlace from = tripPlace(10L, 33.4500, 126.5000);
+        TripPlace to = tripPlace(11L, 33.4600, 126.5100);
+        given(routesClient.getRouteInfo(
+                eq(33.4500), eq(126.5000), eq(33.4600), eq(126.5100),
+                eq("transit"), nullable(String.class), nullable(java.time.Instant.class)
+        )).willReturn(java.util.Optional.of(
+                new GoogleRoutesClient.RouteInfo(1800, 14, "지하철", "2호선")
+        ));
+
+        estimator.recalculateSegmentAutomatically(item, from, to);
+
+        assertThat(item.getTransportMode()).isEqualTo("지하철");
+        assertThat(item.getTransportMinutes()).isEqualTo(14);
+        assertThat(item.getTransportDetail()).isEqualTo("2호선");
     }
 
     private TripPlace tripPlace(Long id, double latitude, double longitude) {

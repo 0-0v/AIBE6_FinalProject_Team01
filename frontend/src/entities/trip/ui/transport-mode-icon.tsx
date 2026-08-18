@@ -1,4 +1,10 @@
-import { BusIcon, CarIcon, FootprintsIcon, TrainFrontIcon } from 'lucide-react'
+import {
+    BusIcon,
+    CarIcon,
+    CarTaxiFrontIcon,
+    FootprintsIcon,
+    TrainFrontIcon,
+} from 'lucide-react'
 
 type Props = {
     mode: string | null
@@ -18,8 +24,7 @@ export function TransportModeIcon({ mode, size = 10 }: Props) {
     if (mode === '대중교통' || mode === '버스') {
         return <BusIcon size={size} />
     }
-    if (mode === '자동차' || mode === '택시') {
-        return <CarIcon size={size} />
-    }
+    if (mode === '택시') return <CarTaxiFrontIcon size={size} />
+    if (mode === '자동차') return <CarIcon size={size} />
     return null
 }

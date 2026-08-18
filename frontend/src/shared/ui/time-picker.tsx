@@ -67,6 +67,7 @@ function DrumColumn({
     const isProgrammatic = useRef(false)
     const initialized = useRef(false)
     const isDragging = useRef(false)
+    const activePointerId = useRef<number | null>(null)
     const dragStartY = useRef(0)
     const dragStartScrollTop = useRef(0)
     const lastPointerY = useRef(0)
@@ -140,38 +141,53 @@ function DrumColumn({
         }, 100)
     }
 
+    // 클릭인지 드래그인지 아직 알 수 없는 시점에 곧바로 setPointerCapture를 걸면
+    // 이후 발생할 click 이벤트의 대상이 버튼이 아닌 이 스크롤 컨테이너로
+    // 넘어가버려서(브라우저 표준 동작) 옵션 버튼을 클릭해도 아무 반응이 없게 된다.
+    // 그래서 실제로 DRAG_THRESHOLD_PX 이상 움직였을 때만 드래그로 전환하고,
+    // 그 전까지는 캡처하지 않아 순수 클릭이 버튼에 정상적으로 도달하게 한다.
+    const DRAG_THRESHOLD_PX = 4
+
     function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
         if (event.pointerType !== 'mouse') return
         const element = scrollRef.current
         if (!element) return
 
-        event.preventDefault()
         if (programmaticTimerRef.current) {
             clearTimeout(programmaticTimerRef.current)
         }
         if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
         isProgrammatic.current = false
-        isDragging.current = true
+        isDragging.current = false
         suppressClick.current = false
+        activePointerId.current = event.pointerId
         dragStartY.current = event.clientY
         dragStartScrollTop.current = element.scrollTop
         lastPointerY.current = event.clientY
         lastPointerTime.current = performance.now()
         dragVelocity.current = 0
-        element.setPointerCapture(event.pointerId)
     }
 
     function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-        if (!isDragging.current || event.pointerType !== 'mouse') return
+        if (event.pointerType !== 'mouse') return
+        if (activePointerId.current !== event.pointerId) return
         const element = scrollRef.current
         if (!element) return
+
+        const totalDelta = event.clientY - dragStartY.current
+
+        if (!isDragging.current) {
+            if (Math.abs(totalDelta) < DRAG_THRESHOLD_PX) return
+            isDragging.current = true
+            suppressClick.current = true
+            event.preventDefault()
+            element.setPointerCapture(event.pointerId)
+        }
 
         const now = performance.now()
         const elapsed = Math.max(1, now - lastPointerTime.current)
         const pointerDelta = event.clientY - lastPointerY.current
-        const totalDelta = event.clientY - dragStartY.current
 
-        if (Math.abs(totalDelta) > 3) suppressClick.current = true
         const currentVelocity = -pointerDelta / elapsed
         dragVelocity.current =
             dragVelocity.current * 0.65 + currentVelocity * 0.35
@@ -181,9 +197,17 @@ function DrumColumn({
     }
 
     function finishDrag(event: ReactPointerEvent<HTMLDivElement>) {
-        if (!isDragging.current || event.pointerType !== 'mouse') return
+        if (event.pointerType !== 'mouse') return
+        if (activePointerId.current !== event.pointerId) return
+        activePointerId.current = null
         const element = scrollRef.current
         if (!element) return
+
+        if (!isDragging.current) {
+            // 임계값 이상 움직이지 않은 순수 클릭 — 캡처한 적이 없으므로
+            // 버튼의 클릭 이벤트가 그대로 처리되도록 별도 동작 없이 종료한다.
+            return
+        }
 
         isDragging.current = false
         if (element.hasPointerCapture(event.pointerId)) {
@@ -443,7 +467,7 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+                                className="rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white hover:bg-brand-700"
                             >
                                 완료
                             </button>
