@@ -39,6 +39,10 @@ management:
 app:
   performance:
     allow-external-apis: ${PERFORMANCE_ALLOW_EXTERNAL_APIS:false}
+    seed:
+      enabled: ${PERFORMANCE_SEED_ENABLED:true}
+      member-count: ${PERFORMANCE_MEMBER_COUNT:1000}
+      members-per-trip: ${PERFORMANCE_MEMBERS_PER_TRIP:10}
   file-storage:
     type: local
     upload-dir: ${PERFORMANCE_UPLOAD_DIR:build/performance-uploads}
