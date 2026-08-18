@@ -67,7 +67,7 @@ type SurfaceId =
     | 'notifications'
 
 const initialColors: Record<SurfaceId, string> = {
-    travel: 'var(--color-app-navy)',
+    travel: 'var(--background-app-ticket)',
     tasks: 'var(--background-vote-panel)',
     activity: 'var(--background-app-panel)',
     calendar: 'var(--background-calendar-panel)',
@@ -337,9 +337,9 @@ export function Home() {
                 <div className="flex items-center justify-end gap-5">
                     <button
                         onClick={() => setCreateTripOpen(true)}
-                        className="flamingo-gradient flamingo-glow flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+                        className="flamingo-glow flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2.5 text-sm font-black text-[var(--color-on-brand)] transition hover:opacity-90"
                     >
-                        <PlusIcon size={16} /> 새 여행방
+                        <PlusIcon size={16} strokeWidth={2.5} /> 새 여행방
                     </button>
                 </div>
             </header>
@@ -555,7 +555,7 @@ export function Home() {
                                         <div className="relative flex h-full flex-col pb-6 pr-[92px]">
                                             <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-6">
                                                 <div className="flex items-center gap-3">
-                                                    <p className="font-display text-xs font-bold uppercase tracking-[0.24em] text-[var(--color-app-navy-muted)]">
+                                                    <p className="font-display text-xs font-black uppercase tracking-[0.24em] text-[var(--color-app-navy-muted)]">
                                                         Boarding pass
                                                     </p>
                                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--background-trip-status)] px-2.5 py-1 text-[10px] font-black text-[var(--color-trip-status)]">
@@ -588,11 +588,11 @@ export function Home() {
 
                                             <div className="mt-5 px-6">
                                                 <div className="grid grid-cols-[auto_minmax(90px,1fr)_auto] gap-3">
-                                                    <p className="font-display text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)]">
+                                                    <p className="font-display text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)]">
                                                         From
                                                     </p>
                                                     <span />
-                                                    <p className="text-right font-display text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)]">
+                                                    <p className="text-right font-display text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)]">
                                                         To
                                                     </p>
                                                 </div>
@@ -634,23 +634,21 @@ export function Home() {
 
                                             <div className="mx-6 mt-auto grid grid-cols-[0.9fr_1.25fr] items-end gap-4 border-t border-dashed border-[var(--color-app-navy-soft)]/55 pt-4">
                                                 <div>
-                                                    <p className="font-display text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-app-navy-muted)]">
+                                                    <p className="font-display text-[10px] font-black uppercase tracking-[0.18em] text-[var(--color-app-navy-muted)]">
                                                         Traveler
                                                     </p>
                                                     <div className="mt-2 flex items-center">
-                                                        <span className="rounded-full bg-[var(--color-app-neutral)] p-0.5 shadow-sm">
-                                                            <Avatar
-                                                                name={
-                                                                    currentUser?.nickname ??
-                                                                    '여행자'
-                                                                }
-                                                                color="var(--color-brand)"
-                                                                imageUrl={resolveMediaUrl(
-                                                                    currentUser?.profileImageUrl,
-                                                                )}
-                                                                size={30}
-                                                            />
-                                                        </span>
+                                                        <Avatar
+                                                            name={
+                                                                currentUser?.nickname ??
+                                                                '여행자'
+                                                            }
+                                                            color="var(--color-brand)"
+                                                            imageUrl={resolveMediaUrl(
+                                                                currentUser?.profileImageUrl,
+                                                            )}
+                                                            size={30}
+                                                        />
                                                         <span className="ml-2 truncate text-xs font-extrabold text-[var(--color-app-neutral)]">
                                                             {currentUser?.nickname ??
                                                                 '여행자'}{' '}
@@ -666,7 +664,7 @@ export function Home() {
                                                 </div>
 
                                                 <div>
-                                                    <p className="font-display text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--color-app-navy-muted)]">
+                                                    <p className="font-display text-[10px] font-black uppercase tracking-[0.18em] text-[var(--color-app-navy-muted)]">
                                                         Travel date
                                                     </p>
                                                     <div className="mt-2">
@@ -679,8 +677,8 @@ export function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="absolute bottom-0 right-0 top-0 flex w-[92px] flex-col items-center justify-between border-l-2 border-dashed border-[var(--color-app-navy-soft)]/65 py-7">
-                                                <span className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)] [writing-mode:vertical-rl]">
+                                            <div className="absolute bottom-0 right-0 top-0 flex w-[92px] flex-col items-center justify-between border-l-2 border-dashed border-[var(--color-app-navy-soft)]/65 bg-[var(--background-app-ticket-stub)] py-7">
+                                                <span className="font-display text-[9px] font-black uppercase tracking-[0.2em] text-[var(--color-app-navy-muted)] [writing-mode:vertical-rl]">
                                                     Departure
                                                 </span>
                                                 <strong className="font-display text-3xl font-black text-[var(--color-app-ticket-accent)] [writing-mode:vertical-rl]">
@@ -724,7 +722,7 @@ export function Home() {
                                                 >
                                                     <div className="flex items-start gap-3">
                                                         <span className="relative h-11 w-11 shrink-0">
-                                                            <span className="absolute bottom-0 left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-vote-accent)] text-white">
+                                                            <span className="absolute bottom-0 left-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-vote-accent)] text-[var(--color-vote-accent-text)]">
                                                                 <ThumbsUpIcon
                                                                     size={18}
                                                                 />
@@ -887,10 +885,12 @@ export function Home() {
 
                                                 <div
                                                     aria-hidden={
-                                                        visibleInsightSlide !== 1
+                                                        visibleInsightSlide !==
+                                                        1
                                                     }
                                                     className={`flex w-full shrink-0 flex-col overflow-hidden transition-opacity duration-300 ${
-                                                        visibleInsightSlide === 1
+                                                        visibleInsightSlide ===
+                                                        1
                                                             ? 'opacity-100'
                                                             : 'pointer-events-none opacity-0'
                                                     }`}
@@ -937,7 +937,8 @@ export function Home() {
                                                         </div>
                                                     ) : (
                                                         <div className="mt-5 flex min-h-0 flex-1 items-center justify-center rounded-[18px] bg-slate-50 px-4 text-center text-xs font-semibold text-slate-400">
-                                                            아직 기록된 활동이 없습니다.
+                                                            아직 기록된 활동이
+                                                            없습니다.
                                                         </div>
                                                     )}
                                                 </div>

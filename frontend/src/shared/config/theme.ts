@@ -3,6 +3,8 @@ export const APP_THEMES = [
     { id: 'deep-navy', label: '딥 네이비', color: '#2c5e9e' },
     { id: 'sky-sand', label: '스카이 + 샌드', color: '#bbdce5' },
     { id: 'sage-coral', label: '세이지 + 코랄', color: '#3a5a55' },
+    { id: 'sky-cream', label: '스카이 + 크림옐로', color: '#95bdd7' },
+    { id: 'mint-rose', label: '민트 + 로즈', color: '#a5cfbc' },
 ] as const
 
 export type AppTheme = (typeof APP_THEMES)[number]['id']

@@ -5,7 +5,6 @@ export const DESIGN_COLORS = {
         textSecondary: '#64748b',
         textMuted: '#94a3b8',
         avatar: '#f5f7f8',
-        avatarIcon: '#b4b5b6',
     },
     landing: {
         coral: '#ff7a59',

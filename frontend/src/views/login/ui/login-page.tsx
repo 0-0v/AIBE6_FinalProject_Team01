@@ -57,7 +57,7 @@ const socials = [
         id: 'google',
         provider: 'GOOGLE',
         label: '구글로 시작하기',
-        bg: 'var(--color-app-surface)',
+        bg: 'var(--color-provider-google-background)',
         color: 'var(--color-provider-google-ink)',
         border: true,
         iconSrc: '/google-g-logo.png',
