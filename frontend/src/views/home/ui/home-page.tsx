@@ -78,6 +78,10 @@ const initialColors: Record<SurfaceId, string> = {
 
 const DASHBOARD_SCHEDULE_ITEM_LIMIT = 6
 
+function getTripVotePath(tripId: number | string) {
+    return `/app/room/${tripId}?workspace=votes`
+}
+
 function SectionTitle({
     title,
     action,
@@ -751,7 +755,9 @@ export function Home() {
                                                                 type="button"
                                                                 onClick={() =>
                                                                     navigate(
-                                                                        `/app/room/${activeTrip.id}`,
+                                                                        getTripVotePath(
+                                                                            activeTrip.id,
+                                                                        ),
                                                                     )
                                                                 }
                                                                 className="ml-auto inline-flex shrink-0 items-center gap-1 pt-1 text-xs font-black text-[var(--color-brand-dark)]"
@@ -792,7 +798,9 @@ export function Home() {
                                                                             type="button"
                                                                             onClick={() =>
                                                                                 navigate(
-                                                                                    `/app/room/${activeTrip.id}`,
+                                                                                    getTripVotePath(
+                                                                                        activeTrip.id,
+                                                                                    ),
                                                                                 )
                                                                             }
                                                                             className={`flex w-full items-center gap-4 rounded-[18px] px-4 py-3 text-left transition ${
@@ -862,7 +870,9 @@ export function Home() {
                                                                     type="button"
                                                                     onClick={() =>
                                                                         navigate(
-                                                                            `/app/room/${activeTrip.id}`,
+                                                                            getTripVotePath(
+                                                                                activeTrip.id,
+                                                                            ),
                                                                         )
                                                                     }
                                                                     disabled={

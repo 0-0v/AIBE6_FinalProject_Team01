@@ -191,8 +191,9 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         useState<HTMLDivElement | null>(null)
     const workspacePanelRef = useRef<HTMLElement>(null)
     const [mapCollapsed, setMapCollapsed] = useState(false)
-    const [activeWorkspace, setActiveWorkspace] =
-        useState<TripRoomWorkspace>('places')
+    const [activeWorkspace, setActiveWorkspace] = useState<TripRoomWorkspace>(
+        () => (searchParams.get('workspace') === 'votes' ? 'votes' : 'places'),
+    )
     const [viewedDayNumber, setViewedDayNumber] = useState<number | null>(null)
     const [mapViewport, setMapViewport] = useState<TripMapViewport | null>(null)
     const [viewportFocusRequest, setViewportFocusRequest] = useState<
