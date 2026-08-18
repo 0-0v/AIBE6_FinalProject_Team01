@@ -16,6 +16,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByMemberIdAndReadFalse(Long memberId);
 
+    long countByMemberId(Long memberId);
+
     Optional<Notification> findByIdAndMemberId(Long notificationId, Long memberId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
