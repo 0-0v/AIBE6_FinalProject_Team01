@@ -692,6 +692,238 @@
     --rgb-brand-glow: 165 207 188;
 }
 
+/* ============================================================
+   다크 모드
+   ------------------------------------------------------------
+   <html data-color-mode='dark'>가 붙으면 활성화된다(useAppTheme 참고).
+   보딩패스 티켓·배지·강조색 같은 "색이 있는 카드"는 라이트 모드와 동일하게 두고,
+   페이지 배경·흰 카드·기본 텍스트 같은 "크롬"만 어둡게 뒤집는다 — 컬러 카드가
+   어두운 배경 위에서 그대로 포인트로 도드라지는 흔한 다크 모드 방식이다.
+   :root[data-color-mode='dark']가 기본(flamingo)이고, 나머지 테마는
+   :root[data-theme='X'][data-color-mode='dark']에서 자기 색조로 한 번 더 덮어쓴다.
+   ⚠️ 첫 번째 초안이라 실제로 눈으로 보면서 톤 조정이 필요할 수 있다.
+   ============================================================ */
+:root[data-color-mode='dark'] {
+    /* 순수 검정/흰색 대신 깊이가 다른 중성 면과 완화된 글자색을 사용한다. */
+    color-scheme: dark;
+    --color-app-background: #111318;
+    --color-app-background-alt: #15181e;
+    --color-app-surface: #1b1f26;
+    --color-app-surface-elevated: #232832;
+    --color-app-surface-subtle: #292f3a;
+    --theme-dashboard-surface: var(--color-app-surface);
+    --theme-dashboard-vote-surface: var(--color-app-surface);
+    --color-app-border: #353c48;
+    --color-app-ink: #e8edf4;
+    --color-app-text: #d7dee8;
+    --color-app-text-secondary: #aab4c1;
+    --color-app-text-muted: #7e8998;
+    --color-app-neutral: var(--color-app-surface-subtle);
+    --color-app-overlay: #090b0f;
+    --color-app-avatar: var(--color-app-surface-subtle);
+    --color-app-avatar-icon: var(--color-app-text-secondary);
+    --color-app-warm-background: var(--color-app-surface-elevated);
+    --background-app-soft-pink: var(--color-app-surface-elevated);
+    --color-brand-surface: var(--color-app-surface-elevated);
+    --color-brand-surface-soft: var(--color-app-surface-elevated);
+    --color-brand-surface-strong: var(--color-app-surface-subtle);
+    --color-brand-surface-subtle: var(--color-app-surface-elevated);
+    --color-brand-highlight: var(--color-app-surface-subtle);
+}
+
+:root[data-theme='deep-navy'][data-color-mode='dark'] {
+    --color-app-background: #0b1220;
+    --color-app-background-alt: #0b1220;
+    --color-app-surface: #131b2c;
+    --theme-dashboard-surface: #131b2c;
+    --color-app-border: #1f2a3d;
+    --color-app-ink: #eef3f9;
+    --color-app-text: #dbe6f2;
+    --color-app-text-secondary: #8fadd4;
+    --color-app-text-muted: #5a7391;
+}
+
+:root[data-theme='sky-sand'][data-color-mode='dark'] {
+    --color-app-background: #171310;
+    --color-app-background-alt: #171310;
+    --color-app-surface: #221c17;
+    --theme-dashboard-surface: #221c17;
+    --color-app-border: #332a22;
+    --color-app-ink: #f3ece4;
+    --color-app-text: #e7ddd1;
+    --color-app-text-secondary: #b8a999;
+    --color-app-text-muted: #8a7a6c;
+}
+
+:root[data-theme='sage-coral'][data-color-mode='dark'] {
+    --color-app-background: #0f1815;
+    --color-app-background-alt: #0f1815;
+    --color-app-surface: #17211d;
+    --theme-dashboard-surface: #17211d;
+    --color-app-border: #233029;
+    --color-app-ink: #e7f0ec;
+    --color-app-text: #d3e2dc;
+    --color-app-text-secondary: #8fada4;
+    --color-app-text-muted: #5f7a72;
+}
+
+:root[data-theme='sky-cream'][data-color-mode='dark'] {
+    --color-app-background: #0c1620;
+    --color-app-background-alt: #0c1620;
+    --color-app-surface: #13202c;
+    --theme-dashboard-surface: #13202c;
+    --color-app-border: #1e2e3d;
+    --color-app-ink: #eaf5f8;
+    --color-app-text: #d7e7ee;
+    --color-app-text-secondary: #8fa8bc;
+    --color-app-text-muted: #5c7286;
+}
+
+:root[data-theme='mint-rose'][data-color-mode='dark'] {
+    --color-app-background: #0f1713;
+    --color-app-background-alt: #0f1713;
+    --color-app-surface: #17211b;
+    --theme-dashboard-surface: #17211b;
+    --color-app-border: #243128;
+    --color-app-ink: #e9f2ed;
+    --color-app-text: #d5e5dd;
+    --color-app-text-secondary: #8ba89b;
+    --color-app-text-muted: #5e7266;
+}
+
+/*
+ * 기존 화면에 남아 있는 Tailwind 중성색 유틸리티를 앱 다크 표면으로 연결한다.
+ * 인증/랜딩 페이지는 app-shell 밖에 있으므로 라이트 디자인을 그대로 유지한다.
+ */
+:root[data-color-mode='dark'] .app-shell {
+    color: var(--color-app-ink);
+}
+
+:root[data-color-mode='dark'] .app-shell .bg-white {
+    background-color: var(--color-app-surface);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(.bg-white\/95, .bg-white\/90, .bg-white\/85, .bg-white\/80) {
+    background-color: rgb(27 31 38 / 0.94);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(.bg-white\/70, .bg-white\/60, .bg-white\/55) {
+    background-color: rgb(27 31 38 / 0.78);
+}
+
+:root[data-color-mode='dark'] .app-shell :is(.bg-slate-50, .bg-gray-50) {
+    background-color: var(--color-app-surface-elevated);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(.bg-slate-100, .bg-slate-200, .bg-gray-100, .bg-gray-200) {
+    background-color: var(--color-app-surface-subtle);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(
+        .hover\:bg-white:hover,
+        .hover\:bg-slate-50:hover,
+        .hover\:bg-slate-100:hover,
+        .hover\:bg-gray-50:hover,
+        .hover\:bg-gray-100:hover
+    ) {
+    background-color: var(--color-app-surface-subtle);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(
+        .border-slate-100,
+        .border-slate-200,
+        .border-slate-300,
+        .border-gray-100,
+        .border-gray-200
+    ) {
+    border-color: var(--color-app-border);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(.divide-slate-100, .divide-slate-200)
+    > :not(:last-child) {
+    border-color: var(--color-app-border);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(
+        .text-slate-950,
+        .text-slate-900,
+        .text-slate-800,
+        .text-gray-950,
+        .text-gray-900,
+        .text-gray-800
+    ) {
+    color: var(--color-app-ink);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(.text-slate-700, .text-slate-600, .text-gray-700, .text-gray-600) {
+    color: var(--color-app-text);
+}
+
+:root[data-color-mode='dark'] .app-shell :is(.text-slate-500, .text-gray-500) {
+    color: var(--color-app-text-secondary);
+}
+
+:root[data-color-mode='dark']
+    .app-shell
+    :is(.text-slate-400, .text-slate-300, .text-gray-400, .text-gray-300) {
+    color: var(--color-app-text-muted);
+}
+
+:root[data-color-mode='dark'] .app-shell input,
+:root[data-color-mode='dark'] .app-shell textarea,
+:root[data-color-mode='dark'] .app-shell select {
+    color: var(--color-app-ink);
+    caret-color: var(--color-brand);
+}
+
+:root[data-color-mode='dark'] .app-shell input::placeholder,
+:root[data-color-mode='dark'] .app-shell textarea::placeholder {
+    color: var(--color-app-text-muted);
+}
+
+/* 지도 원본의 밝기만 낮추고 마커·패널 조작은 방해하지 않는다. */
+:root[data-color-mode='dark'] .trip-room-map-dark-overlay {
+    background: rgb(5 10 14 / 0.32);
+    mix-blend-mode: multiply;
+}
+
+/* 인증 화면은 사용자 테마와 다크 모드의 영향을 받지 않는 고정 라이트 화면이다. */
+.auth-light-page {
+    color-scheme: light;
+    color: #0f172a;
+    background-color: #f8fafc;
+}
+
+.auth-light-page input,
+.auth-light-page textarea,
+.auth-light-page select {
+    color: #0f172a;
+    caret-color: var(--color-brand);
+    background-color: #ffffff;
+}
+
+.auth-light-page input::placeholder,
+.auth-light-page textarea::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+}
+
 html,
 body {
     height: 100%;
