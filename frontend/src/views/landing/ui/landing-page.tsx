@@ -1023,6 +1023,7 @@ export function Landing() {
                                 lineHeight: 1.75,
                                 color: 'var(--color-landing-body)',
                                 fontWeight: 500,
+                                wordBreak: 'keep-all',
                             }}
                         >
                             저장한 장소는 카테고리별로 자동 정리돼서,
@@ -1147,10 +1148,12 @@ export function Landing() {
                                 lineHeight: 1.75,
                                 color: 'var(--color-landing-body)',
                                 fontWeight: 500,
+                                wordBreak: 'keep-all',
                             }}
                         >
-                            멤버들이 장소마다 찬성, 반대로 투표하고 댓글을
-                            남기면, 모두의 의견이 자연스럽게 하나로 모여요.
+                            멤버들이 장소마다 찬성, 반대로 투표하고 댓글을 남기면,
+                            <br />
+                            모두의 의견이 자연스럽게 하나로 모여요.
                         </p>
                     </div>
                 </div>
@@ -1627,11 +1630,14 @@ export function Landing() {
                                 lineHeight: 1.75,
                                 color: 'var(--color-landing-body)',
                                 fontWeight: 500,
+                                wordBreak: 'keep-all',
                             }}
                         >
                             확정된 장소들을 동선까지 고려해 하루씩 배치해드려요.
-                            마음에 안 들면 언제든 직접 수정할 수 있어요 — 결정은
-                            늘 여러분의 몫이에요.
+                            <br />
+                            마음에 안 들면 언제든 직접 수정할 수 있어요.
+                            <br />
+                            결정은 늘 여러분의 몫이에요.
                         </p>
                     </div>
                 </div>
