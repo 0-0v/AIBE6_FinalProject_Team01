@@ -129,7 +129,7 @@ class TripPlanningServiceTest {
                 VALUES (10, 1, DATE '2026-08-12', CURRENT_TIMESTAMP)
                 """).update();
         given(accessChecker.requireView(10L)).willReturn(1L);
-        given(accessChecker.requireMember(10L)).willReturn(1L);
+        given(accessChecker.requireEdit(10L)).willReturn(1L);
         given(tripRepository.findByIdForUpdate(10L))
                 .willReturn(java.util.Optional.of(mock(Trip.class)));
         given(tripMemberRepository.findMemberIdsByTripId(10L))
@@ -406,6 +406,15 @@ class TripPlanningServiceTest {
         );
 
         verify(tripRepository).findByIdForUpdate(10L);
+    }
+
+    @Test
+    @DisplayName("t15 날짜 제안과 확정 기간이 없으면 오류 대신 빈 결과를 반환한다")
+    void t15_getProposalReturnsNullWhenProposalAndConfirmedDatesAreMissing() {
+        Trip trip = mock(Trip.class);
+        given(tripRepository.findById(10L)).willReturn(java.util.Optional.of(trip));
+
+        assertThat(tripPlanningService.getProposal(10L)).isNull();
     }
 
     private long insertProposal(String status) {

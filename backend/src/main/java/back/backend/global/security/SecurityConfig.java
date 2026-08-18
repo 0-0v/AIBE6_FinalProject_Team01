@@ -91,6 +91,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trip-invitations/*/preview").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/trip-invitations/*/guest-access").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/trip-invitations/*/accept").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/guest/trips/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/places/**").permitAll()
@@ -101,6 +102,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/activity-logs").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/travel-records").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/members").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/trips/*/presence").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/photo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/photo/metadata").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/public").permitAll()

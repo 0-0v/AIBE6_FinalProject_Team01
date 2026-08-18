@@ -251,11 +251,13 @@ export function DateVotePanel({
             if (proposalResult.status === 'fulfilled') {
                 const nextProposal = proposalResult.value
                 setProposal(nextProposal)
-                setStartDate(nextProposal.startDate)
-                setEndDate(nextProposal.endDate)
-                setCalendarMonth(
-                    startOfMonth(parseLocalDate(nextProposal.startDate)),
-                )
+                if (nextProposal) {
+                    setStartDate(nextProposal.startDate)
+                    setEndDate(nextProposal.endDate)
+                    setCalendarMonth(
+                        startOfMonth(parseLocalDate(nextProposal.startDate)),
+                    )
+                }
             } else if (getApiErrorStatus(proposalResult.reason) !== 404) {
                 setError(
                     getApiErrorMessage(

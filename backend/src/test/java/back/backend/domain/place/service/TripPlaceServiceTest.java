@@ -93,7 +93,7 @@ class TripPlaceServiceTest {
         lenient().when(securityContextAccessor.getCurrentMemberId()).thenReturn(1L);
         lenient().when(tripMemberRepository.existsByTripIdAndMemberId(1L, 1L)).thenReturn(true);
         lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
-        lenient().when(accessChecker.requireMember(1L)).thenReturn(1L);
+        lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
         savedPlace = Place.builder()
                 .googlePlaceId("ChIJxxx")
                 .name("오설록 티 뮤지엄")
@@ -266,7 +266,7 @@ class TripPlaceServiceTest {
     @Test
     @DisplayName("t9 여행방 멤버가 아닌 회원이 장소를 추가하면 FORBIDDEN 예외가 발생한다")
     void t9_여행방멤버아닌회원장소추가거부() {
-        given(accessChecker.requireMember(1L))
+        given(accessChecker.requireEdit(1L))
                 .willThrow(new BusinessException(CommonErrorCode.FORBIDDEN));
         AddTripPlaceRequest request = new AddTripPlaceRequest(
                 "ChIJxxx", "오설록 티 뮤지엄", "제주 서귀포시 신화역사로 15",

@@ -32,11 +32,14 @@ import {
 import { useCommentStore } from '@/features/comment-place'
 import {
     claimGuestTripAccess,
+    hasInvitedTripGuestAccess,
+    markTripPresence,
     ManageTripModal,
     TripVisibilityModal,
     useTripStore,
 } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { REALTIME_EVENT_NAME, type RealtimeEvent } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 import {
     type ActiveTripAwareness,
@@ -52,10 +55,6 @@ import {
     type TripRoomMode,
     type TripRoomWorkspace,
 } from '@/widgets/trip-room'
-import {
-    REALTIME_EVENT_NAME,
-    type RealtimeEvent,
-} from '@/widgets/realtime-sync'
 import { useResizableTripPanel } from '../model/use-resizable-trip-panel'
 
 export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
@@ -66,6 +65,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         inviteCode?: string
     }>()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
+    const currentUserId = currentUser?.id
     const isUserInitialized = useCurrentUserStore(
         (state) => state.isInitialized,
     )
@@ -102,6 +102,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     }>({ tripId: undefined, days: [] })
     const [itineraryVersion, setItineraryVersion] = useState(0)
     const [realtimeVersion, setRealtimeVersion] = useState(0)
+    const initializedItineraryTripsRef = useRef(new Set<number>())
     const [mapPinVersion, setMapPinVersion] = useState(0)
     const [mapPinState, setMapPinState] = useState<{
         tripId: number | undefined
@@ -160,13 +161,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         [tripId],
     )
     const refreshTripDates = useCallback(async () => {
-        await loadTrips()
+        await loadTrips(currentUser?.id)
         if (!tripId) return
 
         const days = await initializeItinerary(tripId, { force: true })
         setItineraryState({ tripId, days })
         setItineraryVersion((current) => current + 1)
-    }, [loadTrips, tripId])
+    }, [currentUser?.id, loadTrips, tripId])
 
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [placeFocusRequestVersion, setPlaceFocusRequestVersion] = useState(0)
@@ -217,6 +218,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         Boolean(inviteCode),
     )
     const checkedInviteTokenRef = useRef<string | null>(null)
+    const autoJoinAttemptedRef = useRef<string | null>(null)
     const [inviteMode, setInviteMode] = useState<
         'guest' | 'join-confirm' | null
     >(null)
@@ -233,7 +235,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
             setJoinError(null)
             try {
                 await claimGuestTripAccess(inviteCode)
-                await loadTrips()
+                await loadTrips(currentUserId)
                 selectTrip(String(targetTripId))
                 navigate(`/app/room/${targetTripId}`, { replace: true })
             } catch (claimError) {
@@ -248,7 +250,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 setIsJoining(false)
             }
         },
-        [inviteCode, loadTrips, navigate, selectTrip],
+        [currentUserId, inviteCode, loadTrips, navigate, selectTrip],
     )
     const {
         panelWidth: resolvedWorkspacePanelWidth,
@@ -284,7 +286,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     useEffect(() => {
         if (inviteCode) return
         if (!isUserInitialized) return
-        else if (currentUser?.id != null) void loadTrips()
+        else if (currentUser?.id != null) void loadTrips(currentUser.id)
         else resetTrips()
     }, [
         currentUser?.id,
@@ -316,17 +318,69 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         }
         checkedInviteTokenRef.current = inviteCode
         setIsCheckingGuestAccess(true)
-        void loadInvitedTrip(inviteCode, undefined, { silent: true }).then(
-            (success) => {
+        void hasInvitedTripGuestAccess(inviteCode)
+            .then((hasAccess) => {
+                if (!hasAccess) {
+                    setIsCheckingGuestAccess(false)
+                    return
+                }
+                return loadInvitedTrip(inviteCode, undefined, { silent: true })
+            })
+            .then((success) => {
+                if (success == null) return
                 setIsCheckingGuestAccess(false)
                 if (!success) return
                 setVerifiedInviteCode(inviteCode)
-                setInviteMode(
-                    isReturningFromLogin ? 'join-confirm' : 'guest',
-                )
-            },
-        )
-    }, [inviteCode, isReturningFromLogin, loadInvitedTrip])
+                setInviteMode('guest')
+            })
+            .catch(() => setIsCheckingGuestAccess(false))
+    }, [inviteCode, loadInvitedTrip])
+
+    useEffect(() => {
+        if (
+            !inviteCode ||
+            !isReturningFromLogin ||
+            !tripId ||
+            verifiedInviteCode !== inviteCode ||
+            autoJoinAttemptedRef.current === inviteCode
+        ) {
+            return
+        }
+        autoJoinAttemptedRef.current = inviteCode
+        void joinInvitedTrip(tripId)
+    }, [
+        inviteCode,
+        isReturningFromLogin,
+        joinInvitedTrip,
+        tripId,
+        verifiedInviteCode,
+    ])
+
+    useEffect(() => {
+        if (
+            !inviteCode ||
+            currentUser ||
+            !tripId ||
+            verifiedInviteCode !== inviteCode
+        ) {
+            return
+        }
+        let stopped = false
+        const heartbeat = async () => {
+            if (stopped) return
+            try {
+                await markTripPresence(tripId)
+            } catch {
+                // 다음 주기에 다시 시도하며 게스트 화면 탐색은 유지한다.
+            }
+        }
+        void heartbeat()
+        const intervalId = window.setInterval(() => void heartbeat(), 25_000)
+        return () => {
+            stopped = true
+            window.clearInterval(intervalId)
+        }
+    }, [currentUser, inviteCode, tripId, verifiedInviteCode])
 
     useEffect(() => {
         if (!activeRoomId || !tripId) return
@@ -376,19 +430,30 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     useEffect(() => {
         if (!tripId) return
         let active = true
-        const loadItinerary = inviteCode ? getItinerary : initializeItinerary
+        const shouldInitialize =
+            canPlanWrite &&
+            !initializedItineraryTripsRef.current.has(tripId)
+        if (shouldInitialize) {
+            initializedItineraryTripsRef.current.add(tripId)
+        }
+        const loadItinerary = shouldInitialize
+            ? initializeItinerary
+            : getItinerary
         loadItinerary(tripId)
             .then((days) => {
                 if (active) setItineraryState({ tripId, days })
             })
             .catch(() => {
+                if (shouldInitialize) {
+                    initializedItineraryTripsRef.current.delete(tripId)
+                }
                 if (active) setItineraryState({ tripId, days: [] })
             })
 
         return () => {
             active = false
         }
-    }, [inviteCode, realtimeVersion, tripId])
+    }, [canPlanWrite, realtimeVersion, tripId])
 
     const displayedPlaces = useMemo(
         () =>

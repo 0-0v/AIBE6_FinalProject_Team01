@@ -38,7 +38,7 @@ public class PlaceCommentService {
 
     @Transactional
     public PlaceCommentResponse addComment(Long tripId, Long tripPlaceId, AddPlaceCommentRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         var tripPlace = verifyTripPlace(tripPlaceId, tripId);
         PlaceComment comment = commentRepository.save(PlaceComment.builder()
                 .tripPlaceId(tripPlaceId)
@@ -62,7 +62,7 @@ public class PlaceCommentService {
 
     @Transactional
     public void deleteComment(Long tripId, Long tripPlaceId, Long commentId) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         var tripPlace = verifyTripPlace(tripPlaceId, tripId);
         PlaceComment comment = commentRepository
                 .findByIdAndTripPlaceIdAndMemberId(commentId, tripPlaceId, memberId)

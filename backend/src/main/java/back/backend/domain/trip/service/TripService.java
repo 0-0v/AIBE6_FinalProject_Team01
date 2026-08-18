@@ -50,6 +50,7 @@ public class TripService {
     private final TravelRecordRepository travelRecordRepository;
     private final Clock clock;
     private final ApplicationEventPublisher eventPublisher;
+    private final GuestTripAccessService guestTripAccessService;
 
     public TripService(TripRepository tripRepository, TripMemberRepository tripMemberRepository,
                        MemberRepository memberRepository,
@@ -61,7 +62,8 @@ public class TripService {
                        ItineraryDayRepository itineraryDayRepository,
                        TravelRecordRepository travelRecordRepository,
                        Clock clock,
-                       ApplicationEventPublisher eventPublisher) {
+                       ApplicationEventPublisher eventPublisher,
+                       GuestTripAccessService guestTripAccessService) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.memberRepository = memberRepository;
@@ -74,6 +76,7 @@ public class TripService {
         this.travelRecordRepository = travelRecordRepository;
         this.clock = clock;
         this.eventPublisher = eventPublisher;
+        this.guestTripAccessService = guestTripAccessService;
     }
 
     @Transactional
@@ -107,23 +110,40 @@ public class TripService {
         if (memberId != null) {
             tripPresenceService.touch(tripId, memberId);
         }
-        return memberRepository.findAllById(tripMemberRepository.findMemberIdsByTripId(tripId))
+        List<TripMemberResponse> members = new java.util.ArrayList<>(memberRepository
+                .findAllById(tripMemberRepository.findMemberIdsByTripId(tripId))
                 .stream()
                 .map(member -> new TripMemberResponse(
                         member.getId(),
                         member.getNickname(),
                         member.getProfileImageUrl(),
-                        tripPresenceService.isOnline(tripId, member.getId())))
-                .toList();
+                        tripPresenceService.isOnline(tripId, member.getId()),
+                        false))
+                .toList());
+        List<Long> guestSessionIds = guestTripAccessService.getActiveGuestSessionIds(tripId);
+        for (int index = 0; index < guestSessionIds.size(); index++) {
+            Long guestSessionId = guestSessionIds.get(index);
+            members.add(new TripMemberResponse(
+                    -guestSessionId,
+                    "게스트 " + (index + 1),
+                    null,
+                    tripPresenceService.isGuestOnline(tripId, guestSessionId),
+                    true));
+        }
+        return List.copyOf(members);
     }
 
-    public void markPresent(Long tripId) {
+    public void markPresent(Long tripId, String guestToken) {
         Long memberId = tripAccessChecker.requireView(tripId);
+        Long realtimeMemberId = memberId;
         if (memberId == null) {
-            throw new BusinessException(TripErrorCode.TRIP_NOT_FOUND);
+            Long guestSessionId = guestTripAccessService.requireGuestSessionId(tripId, guestToken);
+            tripPresenceService.touchGuest(tripId, guestSessionId);
+            realtimeMemberId = -guestSessionId;
+        } else {
+            tripPresenceService.touch(tripId, memberId);
         }
-        tripPresenceService.touch(tripId, memberId);
-        eventPublisher.publishEvent(RealtimeEvent.tripMembers(tripId, memberId));
+        eventPublisher.publishEvent(RealtimeEvent.tripMembers(tripId, realtimeMemberId));
     }
 
     @Transactional

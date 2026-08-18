@@ -20,6 +20,7 @@ import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.entity.TripVisibility;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.service.TripService;
+import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.service.TripPlanningService;
 import back.backend.domain.trip.service.TripCompletionConfirmationService;
 import back.backend.global.security.SecurityConfig;
@@ -28,6 +29,7 @@ import back.backend.global.security.jwt.JwtAuthenticationFilter;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,7 +56,17 @@ class TripControllerTest {
         mockMvc.perform(post("/api/trips/{tripId}/presence", 10L))
                 .andExpect(status().isOk());
 
-        verify(tripService).markPresent(10L);
+        verify(tripService).markPresent(10L, null);
+    }
+
+    @Test
+    @DisplayName("t12 게스트가 접속 상태를 갱신하면 게스트 쿠키를 서비스에 전달한다")
+    void t12_guestMarkPresentPassesGuestCookie() throws Exception {
+        mockMvc.perform(post("/api/trips/{tripId}/presence", 10L)
+                        .cookie(new Cookie(GuestAccessCookieProvider.COOKIE_NAME, "guest-token")))
+                .andExpect(status().isOk());
+
+        verify(tripService).markPresent(10L, "guest-token");
     }
 
     @Test

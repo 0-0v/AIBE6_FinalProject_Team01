@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ItineraryDay, Place, Room } from '@/entities/trip'
 import { ExpensePanel, type ExpenseResponse } from '@/features/manage-expense'
 import { InviteModal } from '@/features/invite-member'
-import { fetchTripMembers, type TripMember } from '@/features/manage-trip'
+import { useTripMembers } from '@/features/manage-trip'
 import { RecordPanel } from './record-panel'
 import { RoomHeader } from './room-header'
 
@@ -39,25 +39,7 @@ export function RecordRoomPanel({
     const [editingExpense, setEditingExpense] =
         useState<ExpenseResponse | null>(null)
     const [expenseRevision, setExpenseRevision] = useState(0)
-    const [members, setMembers] = useState<TripMember[]>([])
-
-    useEffect(() => {
-        let active = true
-        const loadMembers = async () => {
-            try {
-                const nextMembers = await fetchTripMembers(tripId)
-                if (active) setMembers(nextMembers)
-            } catch {
-                if (active) setMembers([])
-            }
-        }
-        void loadMembers()
-        const intervalId = window.setInterval(() => void loadMembers(), 30_000)
-        return () => {
-            active = false
-            window.clearInterval(intervalId)
-        }
-    }, [tripId])
+    const { members } = useTripMembers(tripId)
 
     const header = (
         <RoomHeader

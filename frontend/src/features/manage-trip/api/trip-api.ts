@@ -69,6 +69,7 @@ export type TripMember = {
     nickname: string
     profileImageUrl: string | null
     online: boolean
+    guest: boolean
 }
 
 type ApiResponse<T> = { success: boolean; message: string; data: T }
@@ -79,9 +80,10 @@ export async function fetchTrips() {
     return response.data
 }
 
-export async function fetchTripMembers(id: number) {
+export async function fetchTripMembers(id: number, signal?: AbortSignal) {
     const response = await apiClient.get<ApiResponse<TripMember[]>>(
         `/api/trips/${id}/members`,
+        { signal },
     )
     return response.data
 }
@@ -212,6 +214,14 @@ export async function consumeTripEmailInvitation(token: string) {
 }
 
 const pendingInvitedTripRequests = new Map<string, Promise<TripResponse>>()
+
+export async function hasInvitedTripGuestAccess(inviteToken: string) {
+    return (
+        await apiClient.get<ApiResponse<boolean>>(
+            `/api/trip-invitations/${encodeURIComponent(inviteToken)}/guest-access`,
+        )
+    ).data
+}
 
 export function fetchInvitedTrip(
     inviteToken: string,

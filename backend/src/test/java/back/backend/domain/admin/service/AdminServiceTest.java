@@ -12,6 +12,7 @@ import back.backend.domain.admin.entity.ExternalApiUsage;
 import back.backend.domain.admin.exception.AdminErrorCode;
 import back.backend.domain.admin.repository.AdminActionLogRepository;
 import back.backend.domain.admin.repository.ExternalApiUsageRepository;
+import back.backend.domain.auth.service.SuspensionNoticeService;
 import back.backend.domain.member.entity.AuthProvider;
 import back.backend.domain.member.entity.Member;
 import back.backend.domain.member.entity.MemberStatus;
@@ -20,6 +21,7 @@ import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.security.jwt.RefreshTokenRepository;
+import back.backend.global.realtime.AccountSuspendedEvent;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -36,6 +38,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class AdminServiceTest {
@@ -45,13 +48,16 @@ class AdminServiceTest {
     @Mock AdminActionLogRepository actionLogRepository;
     @Mock ExternalApiUsageRepository usageRepository;
     @Mock RefreshTokenRepository refreshTokenRepository;
+    @Mock SuspensionNoticeService suspensionNoticeService;
+    @Mock ApplicationEventPublisher eventPublisher;
     AdminService adminService;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.atZone(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"));
         adminService = new AdminService(memberRepository, tripRepository, actionLogRepository,
-                usageRepository, refreshTokenRepository, clock);
+                usageRepository, refreshTokenRepository, suspensionNoticeService, eventPublisher,
+                clock);
     }
 
     @Test
@@ -59,12 +65,14 @@ class AdminServiceTest {
     void t1_suspendMemberRevokesSessionAndWritesAuditLog() {
         Member member = member(2L);
         when(memberRepository.findById(2L)).thenReturn(Optional.of(member));
+        when(suspensionNoticeService.issue(member)).thenReturn("notice-token");
 
         var response = adminService.suspend(1L, 2L,
                 new AdminMemberStatusRequest("비정상 자동 호출", NOW.plusDays(1)));
 
         assertThat(response.status()).isEqualTo(MemberStatus.SUSPENDED);
         verify(refreshTokenRepository).deleteByMemberId(2L);
+        verify(eventPublisher).publishEvent(new AccountSuspendedEvent(2L, "notice-token"));
         ArgumentCaptor<AdminActionLog> captor = ArgumentCaptor.forClass(AdminActionLog.class);
         verify(actionLogRepository).save(captor.capture());
         assertThat(captor.getValue().getReason()).isEqualTo("비정상 자동 호출");

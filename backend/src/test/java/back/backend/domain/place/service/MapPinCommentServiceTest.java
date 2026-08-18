@@ -47,7 +47,7 @@ class MapPinCommentServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(accessChecker.requireView(1L)).thenReturn(1L);
-        lenient().when(accessChecker.requireMember(1L)).thenReturn(1L);
+        lenient().when(accessChecker.requireEdit(1L)).thenReturn(1L);
     }
 
     @Test

@@ -46,7 +46,7 @@ public class PlaceVoteService {
 
     @Transactional
     public PlaceVoteSummaryResponse startVote(Long tripId, CreatePlaceVoteRequest request) {
-        Long memberId = accessChecker.requireMember(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         Map<Long, TripPlace> lockedPlaces = lockVotePlaces(tripId, request);
         TripPlace primary = lockedPlaces.get(request.primaryTripPlaceId());
         TripPlace secondary = request.secondaryTripPlaceId() == null
@@ -99,7 +99,7 @@ public class PlaceVoteService {
     }
 
     private PlaceVoteSummaryResponse respond(Long tripId, Long voteRequestId, RespondPlaceVoteRequest input, boolean legacy) {
-        Long memberId = accessChecker.requireView(tripId);
+        Long memberId = accessChecker.requireEdit(tripId);
         PlaceVoteRequest vote = voteRequestRepository.findByIdForUpdate(voteRequestId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.PLACE_VOTE_NOT_FOUND));
         Map<Long, TripPlace> places = loadVotePlaces(tripId, vote);
