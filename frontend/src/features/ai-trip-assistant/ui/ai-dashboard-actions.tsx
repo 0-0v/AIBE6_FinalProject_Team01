@@ -112,20 +112,18 @@ export function AiDashboardActions({
             )
             .sort((first, second) => first.sortOrder - second.sortOrder)
         if (orderedItems.length === 0) return []
-        const betweenSegments = orderedItems
-            .slice(0, -1)
-            .map((from, index) => {
-                const to = orderedItems[index + 1]
-                return {
-                    key: `${day.id}:${from.tripPlaceId}:${to.tripPlaceId}`,
-                    dayId: Number(day.id),
-                    dayNumber: day.dayNumber,
-                    itineraryDate: day.itineraryDate,
-                    segmentNumber: index + 1,
-                    from,
-                    to,
-                }
-            })
+        const betweenSegments = orderedItems.slice(0, -1).map((from, index) => {
+            const to = orderedItems[index + 1]
+            return {
+                key: `${day.id}:${from.tripPlaceId}:${to.tripPlaceId}`,
+                dayId: Number(day.id),
+                dayNumber: day.dayNumber,
+                itineraryDate: day.itineraryDate,
+                segmentNumber: index + 1,
+                from,
+                to,
+            }
+        })
         return [
             {
                 key: `${day.id}:before:${orderedItems[0].tripPlaceId}`,
@@ -146,14 +144,13 @@ export function AiDashboardActions({
                 from: orderedItems.at(-1)!,
                 to: null,
             },
-        ]
-            .filter((segment) =>
-                isUpcomingSegment(
-                    segment.itineraryDate,
-                    (segment.to ?? segment.from)?.startTime ?? null,
-                    recommendationReferenceTime,
-                ),
-            )
+        ].filter((segment) =>
+            isUpcomingSegment(
+                segment.itineraryDate,
+                (segment.to ?? segment.from)?.startTime ?? null,
+                recommendationReferenceTime,
+            ),
+        )
     })
     const routeDays = Array.from(
         new Map(
@@ -286,7 +283,7 @@ export function AiDashboardActions({
                 <button
                     type="button"
                     onClick={openItineraryReplan}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--background-strong-action)] px-3 py-2 text-xs font-extrabold text-white transition hover:brightness-110"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--background-strong-action)] px-3 py-2 text-xs font-extrabold text-[var(--color-strong-action-text)] transition hover:brightness-110"
                 >
                     <RouteIcon size={15} />
                     AI 일정 재배치
@@ -310,8 +307,8 @@ export function AiDashboardActions({
                                         동선 주변 장소 추천
                                     </h2>
                                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                                        첫 장소 이전·장소 사이·마지막 장소 이후의
-                                        실제 장소를 추천해요.
+                                        첫 장소 이전·장소 사이·마지막 장소
+                                        이후의 실제 장소를 추천해요.
                                     </p>
                                 </div>
                             </div>

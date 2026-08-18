@@ -59,9 +59,9 @@ export function TravelRooms({ embedded = false, compact = false }: Props) {
                     {!embedded && (
                         <button
                             onClick={() => setCreateOpen(true)}
-                            className="flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white"
+                            className="flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-xs font-black text-[var(--color-on-brand)]"
                         >
-                            <PlusIcon size={14} /> 새 여행방
+                            <PlusIcon size={14} strokeWidth={2.5} /> 새 여행방
                         </button>
                     )}
                 </div>

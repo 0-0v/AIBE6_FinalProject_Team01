@@ -139,7 +139,7 @@ export function Sidebar() {
                                             : 'w-12 justify-center self-center overflow-visible'
                                     } ${
                                         isActive
-                                            ? 'sidebar-active-background text-white shadow-[0_10px_22px_rgb(var(--rgb-sidebar-active-shadow)/0.24)]'
+                                            ? 'sidebar-active-background text-[var(--color-sidebar-active-text)] shadow-[0_10px_22px_rgb(var(--rgb-sidebar-active-shadow)/0.24)]'
                                             : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'
                                     }`
                                 }
@@ -156,7 +156,7 @@ export function Sidebar() {
                                 )}
                                 {badge > 0 ? (
                                     <span
-                                        className={`flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--color-notification-badge)] px-1 text-[10px] font-extrabold text-white ring-2 ring-white ${
+                                        className={`flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--color-notification-badge)] px-1 text-[10px] font-extrabold text-[var(--color-notification-badge-text)] ring-2 ring-white ${
                                             isExpanded
                                                 ? 'ml-auto'
                                                 : 'absolute -right-1 -top-1 z-10'
