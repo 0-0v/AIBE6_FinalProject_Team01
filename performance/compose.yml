@@ -11,6 +11,7 @@ services:
       TEST_PASSWORD: ${TEST_PASSWORD:?TEST_PASSWORD must be set}
       TRIP_ID: ${TRIP_ID:-}
       EXPECT_EXTERNAL_GUARD: ${EXPECT_EXTERNAL_GUARD:-false}
+      PERFORMANCE_MEMBER_COUNT: ${PERFORMANCE_MEMBER_COUNT:-1000}
       K6_PROMETHEUS_RW_SERVER_URL: http://host.docker.internal:9090/api/v1/write
     volumes:
       - ./k6:/scripts:ro

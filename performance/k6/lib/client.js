@@ -9,14 +9,20 @@ export const defaultThresholds = {
     http_req_duration: ['p(95)<500', 'p(99)<1000'],
 }
 
-export function login() {
+export function login(credentials = {}) {
     const response = http.post(
         `${BASE_URL}/api/auth/login`,
         JSON.stringify({
-            identifier: __ENV.TEST_EMAIL || 'test-user-1@plamingo.app',
-            password: __ENV.TEST_PASSWORD,
+            identifier:
+                credentials.email ||
+                __ENV.TEST_EMAIL ||
+                'test-user-1@plamingo.app',
+            password: credentials.password || __ENV.TEST_PASSWORD,
         }),
-        { headers: { 'Content-Type': 'application/json' } },
+        {
+            headers: { 'Content-Type': 'application/json' },
+            tags: { endpoint: 'auth_login' },
+        },
     )
     const passed = check(response, {
         '로그인 성공': (result) => result.status === 200,

@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('smoke', 'load', 'spike', 'stress', 'soak', 'websocket')]
+    [ValidateSet('smoke', 'load', 'spike', 'stress', 'soak', 'websocket', 'realistic-load', 'realistic-websocket')]
     [string]$Scenario = 'smoke',
     [switch]$PrometheusOutput
 )

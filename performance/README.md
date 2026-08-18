@@ -428,3 +428,59 @@ kill -TERM <확인한_PID>
 docker compose -f backend/compose.yml logs --tail=200 prometheus
 docker compose -f backend/compose.yml logs --tail=200 grafana
 ```
+
+## 13. 실서비스형 1,000명 시나리오
+
+외부 API를 호출하지 않고 서로 다른 계정 1,000명이 서비스를 사용하는 상황을 재현한다.
+`performance` 프로필을 처음 실행하면 아래 데이터가 자동으로 준비된다.
+
+- 회원 1,000명: `performance-user-0001@plamingo.app` ~ `performance-user-1000@plamingo.app`
+- 공통 비밀번호: `PlamingoLoad1!`
+- 여행방 100개, 여행방별 회원 10명
+- 여행방별 일정 5일
+- 회원별 알림 5개
+
+시드 설정은 필요할 때만 성능 테스트 전용 환경변수로 변경한다.
+
+```env
+PERFORMANCE_SEED_ENABLED=true
+PERFORMANCE_MEMBER_COUNT=1000
+PERFORMANCE_MEMBERS_PER_TRIP=10
+```
+
+시드는 이메일과 여행방 제목을 기준으로 중복 생성을 방지한다. 운영 환경에서는
+`performance` 프로필을 활성화하지 않는다.
+
+### HTTP 혼합 부하
+
+실행 시간은 총 40분이며 100명, 300명, 500명, 750명, 1,000명 순서로 증가한 뒤
+1,000명을 10분간 유지한다.
+
+- 사용자마다 서로 다른 계정으로 1회 로그인
+- 30%: 여행방 목록, 알림, 읽지 않은 알림 수, 공개 여행 카드 조회
+- 70%: 멤버, 장소, 일정, 투표, 활동 로그, 지출, 정산, 북마크, 지도 핀 조회
+- 30초마다 접속 상태 갱신
+- 사용자 행동 간 2~8초 대기
+- Google Maps, OpenAI, Brevo, S3 호출 없음
+
+```powershell
+$env:TEST_PASSWORD='PlamingoLoad1!'
+.\performance\run-test.ps1 -Scenario realistic-load -PrometheusOutput
+```
+
+기본 합격 기준은 전체 HTTP 실패율 1% 미만, 대시보드 조회 p95 500ms 미만,
+여행방 조회 p95 700ms 미만, 쓰기 요청 p95 1초 미만이다.
+
+### WebSocket 1,000연결
+
+HTTP 부하와 분리해 STOMP 인증, 구독, 연결 유지 한계를 측정한다. 100개, 500개,
+1,000개 연결로 단계적으로 증가하고 1,000개 연결을 5분간 유지한다.
+
+```powershell
+$env:TEST_PASSWORD='PlamingoLoad1!'
+.\performance\run-test.ps1 -Scenario realistic-websocket -PrometheusOutput
+```
+
+기본 합격 기준은 연결 실패율 1% 미만, 연결 수립 p95 1초 미만이다. 단일 로컬 PC에서
+HTTP 1,000명과 WebSocket 1,000연결을 동시에 실행하면 부하 발생기 자체가 병목이 될 수
+있으므로 기준 측정은 각각 실행한다.
