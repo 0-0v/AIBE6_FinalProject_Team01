@@ -87,7 +87,7 @@ export function RoomHeader({
                 <div className="min-w-0 flex-1">
                     <div className="border-l-4 border-[var(--color-app-navy)] py-1 pl-4">
                         <div className="flex items-center gap-2">
-                            <h1 className="truncate text-2xl font-extrabold tracking-tight">
+                            <h1 className="truncate text-2xl font-black tracking-tight">
                                 {title}
                             </h1>
                             <span
@@ -175,7 +175,7 @@ export function RoomHeader({
                                 +{hiddenMembers.length}명
                             </button>
                         )}
-                        {canWrite && (
+                        {canWrite && !isCompleted && (
                             <button
                                 onClick={onInvite}
                                 className="ml-2 flex h-8 shrink-0 items-center gap-1 rounded-full bg-brand px-3 text-xs font-extrabold text-white shadow-sm hover:bg-brand-700"
@@ -224,6 +224,11 @@ export function RoomHeader({
                                                 }`}
                                             >
                                                 {member.nickname}
+                                                {member.guest && (
+                                                    <span className="ml-1 rounded bg-amber-50 px-1 py-0.5 text-[9px] text-amber-600">
+                                                        게스트
+                                                    </span>
+                                                )}
                                             </span>
                                             <span
                                                 className={`h-2 w-2 shrink-0 rounded-full ${
@@ -354,6 +359,11 @@ function MemberAwarenessPopover({
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-extrabold text-slate-800">
                         {member.nickname}
+                        {member.guest && (
+                            <span className="ml-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] text-amber-600">
+                                게스트
+                            </span>
+                        )}
                         {isCurrentMember && (
                             <span className="ml-1 text-[10px] text-brand">
                                 나
@@ -399,5 +409,5 @@ function describeAwareness(awareness?: ActiveTripAwareness) {
         itinerary: '날짜 확인 중',
         schedule: '일정 확인 중',
         record: '기록 확인 중',
-    }[awareness.workspace]
+    }[awareness.workspace === 'votes' ? 'places' : awareness.workspace]
 }

@@ -2,6 +2,7 @@ package back.backend.global.security;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,8 @@ class ActuatorHealthSecurityIntegrationTest {
     @DisplayName("t1 인증 정보 없이 /actuator/health를 조회하면 200을 반환한다")
     void t1_unauthenticatedRequestReturnsOk() throws Exception {
         mockMvc.perform(get("/actuator/health"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(header().string("Referrer-Policy", "no-referrer"));
     }
 }

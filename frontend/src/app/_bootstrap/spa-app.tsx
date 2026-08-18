@@ -4,7 +4,6 @@ import React, { useEffect, useLayoutEffect, useRef } from 'react'
 import {
     BrowserRouter,
     Navigate,
-    NavLink,
     Route,
     Routes,
     useLocation,
@@ -28,9 +27,12 @@ import { AdminDashboardPage } from '@/views/admin-dashboard'
 import { ContactPage } from '@/views/contact'
 import { getAccessToken, restoreSession } from '@/shared/api/client'
 import { fetchCurrentUser } from '@/shared/api/current-user'
-import { getJwtExpirationTime, isAdminVerifiedToken } from '@/shared/lib'
+import {
+    getJwtExpirationTime,
+    isAdminVerifiedToken,
+    useAppTheme,
+} from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
-import { BrandLogo } from '@/shared/ui'
 import { useNotificationStore } from '@/features/manage-notification'
 
 function AppShell() {
@@ -92,23 +94,12 @@ function AppShell() {
     }
 
     return (
-        <div className="mp-scroll h-full w-full overflow-x-auto overflow-y-hidden bg-white">
-            <div className="relative flex h-full min-w-[1500px] bg-white">
+        <div className="app-shell mp-scroll h-full w-full overflow-x-auto overflow-y-hidden bg-[var(--color-app-background)]">
+            <div className="relative flex h-full min-w-[1500px] bg-[var(--color-app-background)]">
                 <RealtimeSync />
-                {isGuestInvite ? (
-                    <NavLink
-                        to="/"
-                        className="absolute left-7 top-7 z-50 flex h-11 w-11 items-center justify-center"
-                        aria-label="랜딩 페이지로 이동"
-                        title="여지도 홈"
-                    >
-                        <BrandLogo />
-                    </NavLink>
-                ) : (
-                    <Sidebar />
-                )}
+                {!isGuestInvite && <Sidebar />}
                 <main
-                    className={`min-w-0 flex-1 bg-white ${isRoom ? 'overflow-hidden' : 'mp-scroll overflow-y-auto'}`}
+                    className={`min-w-0 flex-1 bg-[var(--color-app-background)] ${isRoom ? 'overflow-hidden' : 'mp-scroll overflow-y-auto'}`}
                 >
                     <Routes>
                         <Route index element={<Home />} />
@@ -124,6 +115,10 @@ function AppShell() {
                         <Route
                             path="room/:roomId/record"
                             element={<TripRoom mode="record" />}
+                        />
+                        <Route
+                            path="room/:roomId/bookmark"
+                            element={<TripRoom mode="bookmark" />}
                         />
                         <Route path="room/:roomId?" element={<TripRoom />} />
                         <Route
@@ -158,6 +153,7 @@ function AppShell() {
 }
 
 export function App() {
+    useAppTheme()
     const sessionRestoreStarted = useRef(false)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const setCurrentUser = useCurrentUserStore((state) => state.setCurrentUser)

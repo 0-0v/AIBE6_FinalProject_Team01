@@ -1,6 +1,8 @@
 package back.backend.global.exception;
 
 import back.backend.domain.auth.dto.SuspendedAccountErrorResponse;
+import back.backend.domain.auth.exception.EmailVerificationCooldownException;
+import back.backend.domain.auth.exception.LoginRateLimitException;
 import back.backend.domain.auth.exception.SuspendedAccountException;
 import back.backend.global.exception.ErrorResponse.FieldError;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +43,32 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = exception.getErrorCode();
         ErrorResponse response = ErrorResponse.of(errorCode, exception.getMessage(), request.getRequestURI());
         return ResponseEntity.status(errorCode.getStatus()).body(response);
+    }
+
+    @ExceptionHandler(EmailVerificationCooldownException.class)
+    public ResponseEntity<ErrorResponse> handleEmailVerificationCooldown(
+            EmailVerificationCooldownException exception,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = exception.getErrorCode();
+        ErrorResponse response = ErrorResponse.of(
+                errorCode, exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(errorCode.getStatus())
+                .header("Retry-After", Long.toString(exception.getRetryAfterSeconds()))
+                .body(response);
+    }
+
+    @ExceptionHandler(LoginRateLimitException.class)
+    public ResponseEntity<ErrorResponse> handleLoginRateLimit(
+            LoginRateLimitException exception,
+            HttpServletRequest request
+    ) {
+        ErrorCode errorCode = exception.getErrorCode();
+        ErrorResponse response = ErrorResponse.of(
+                errorCode, exception.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(errorCode.getStatus())
+                .header("Retry-After", Long.toString(exception.getRetryAfterSeconds()))
+                .body(response);
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})
@@ -105,7 +133,11 @@ public class GlobalExceptionHandler {
                 "uk_members_local_email",
                 "uk_members_local_nickname",
                 "uk_itinerary_items_day_sort_order",
-                "uk_itinerary_items_trip_place"
+                "uk_itinerary_items_trip_place",
+                "uk_saved_trips_member_trip",
+                "uk_trip_card_bookmark_shares_trip_card_member",
+                "uk_trip_guest_members_trip_guest",
+                "uk_trip_members_trip_member"
         );
     }
 

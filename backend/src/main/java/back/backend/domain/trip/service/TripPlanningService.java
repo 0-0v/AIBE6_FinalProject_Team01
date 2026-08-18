@@ -162,7 +162,7 @@ public class TripPlanningService {
                 return new DateProposalResponse(null, trip.getStartDate(), trip.getEndDate(),
                         "CONFIRMED", 0, 0, 0, null);
             }
-            throw new BusinessException(TripErrorCode.DATE_PROPOSAL_NOT_FOUND);
+            return null;
         }
         return summarize(proposal, memberId);
     }

@@ -33,6 +33,11 @@ type Props = {
 
 const REPLAN_REASONS = [
     {
+        key: 'ROUTE_OPTIMIZATION',
+        label: '동선 최적화',
+        hint: '선택 범위 안에서 이동 순서 개선',
+    },
+    {
         key: 'BUSINESS_HOURS',
         label: '영업시간 변경',
         hint: 'Google 운영시간 재확인',
@@ -53,6 +58,7 @@ const REPLAN_REASONS = [
 ] as const
 
 type ReplanReasonKey = (typeof REPLAN_REASONS)[number]['key']
+type ReplanScope = 'SINGLE_DAY' | 'REMAINING_DAYS'
 
 function localDateValue(date: Date) {
     const year = date.getFullYear()
@@ -176,9 +182,10 @@ export function AiItineraryReplanModal({
     onApplied,
 }: Props) {
     const [openedAt] = useState(() => new Date())
+    const [scope, setScope] = useState<ReplanScope>('SINGLE_DAY')
     const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
     const [selectedReason, setSelectedReason] =
-        useState<ReplanReasonKey | null>(null)
+        useState<ReplanReasonKey>('ROUTE_OPTIMIZATION')
     const [options, setOptions] = useState<RouteOption[]>([])
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [loading, setLoading] = useState(false)
@@ -192,7 +199,10 @@ export function AiItineraryReplanModal({
                 .map((day) => ({
                     ...day,
                     items: day.items.filter(
-                        (item) => item.tripPlaceId !== null,
+                        (item) =>
+                            item.tripPlaceId !== null &&
+                            Number(item.tripPlaceId) !==
+                                day.departure?.tripPlaceId,
                     ),
                 }))
                 .filter((day) => day.items.length > 0),
@@ -200,8 +210,15 @@ export function AiItineraryReplanModal({
     )
     const [selectedDayId, setSelectedDayId] = useState(() =>
         String(
-            days.find((day) =>
-                day.items.some((item) => item.tripPlaceId !== null),
+            days.find(
+                (day) =>
+                    day.items.filter(
+                        (item) =>
+                            item.tripPlaceId !== null &&
+                            Number(item.tripPlaceId) !==
+                                day.departure?.tripPlaceId &&
+                            isRemainingItem(day.itineraryDate, item, openedAt),
+                    ).length >= 2,
             )?.id ?? '',
         ),
     )
@@ -224,36 +241,67 @@ export function AiItineraryReplanModal({
             ),
         [displayDays, openedAt],
     )
+    const selectedDayRemainingItems = useMemo(
+        () =>
+            selectedDisplayDay?.items.filter((item) =>
+                isRemainingItem(
+                    selectedDisplayDay.itineraryDate,
+                    item,
+                    openedAt,
+                ),
+            ) ?? [],
+        [openedAt, selectedDisplayDay],
+    )
     const selectedItemIndex = remainingItems.findIndex(
         (item) => Number(item.id) === selectedItemId,
     )
-    const affectedTripPlaceIds = useMemo(
-        () =>
-            new Set(
-                (selectedItemIndex < 0
-                    ? []
-                    : remainingItems.slice(selectedItemIndex)
-                )
-                    .map((item) => Number(item.tripPlaceId))
-                    .filter(Number.isFinite),
-            ),
-        [remainingItems, selectedItemIndex],
-    )
+    const affectedTripPlaceIds = useMemo(() => {
+        const affectedItems =
+            scope === 'SINGLE_DAY'
+                ? selectedDayRemainingItems
+                : selectedItemIndex < 0
+                  ? []
+                  : remainingItems.slice(selectedItemIndex)
+        return new Set(
+            affectedItems
+                .map((item) => Number(item.tripPlaceId))
+                .filter(Number.isFinite),
+        )
+    }, [remainingItems, scope, selectedDayRemainingItems, selectedItemIndex])
     const selectedPlan = options[selectedIndex]?.plan ?? null
+    const canPreview =
+        selectedReason !== null &&
+        (scope === 'SINGLE_DAY'
+            ? selectedDisplayDay !== null &&
+              selectedDayRemainingItems.length >= 2
+            : selectedItemId !== null)
+
+    function resetPreview() {
+        setOptions([])
+        setSelectedIndex(0)
+        setShowSuccess(false)
+        setApplied(false)
+    }
 
     function selectStartingItem(itemId: number) {
         setSelectedItemId(itemId)
+        resetPreview()
         setError(null)
     }
 
     function selectReason(reason: ReplanReasonKey) {
         setSelectedReason(reason)
+        resetPreview()
         setError(null)
     }
 
     async function preview() {
-        if (selectedItemId === null || selectedReason === null) {
-            setError('재배치를 시작할 일정과 변경 사유를 선택해 주세요.')
+        if (!canPreview || selectedReason === null) {
+            setError(
+                scope === 'SINGLE_DAY'
+                    ? '장소가 2곳 이상 남은 Day와 변경 사유를 선택해 주세요.'
+                    : '재배치를 시작할 일정과 변경 사유를 선택해 주세요.',
+            )
             return
         }
         setLoading(true)
@@ -261,10 +309,20 @@ export function AiItineraryReplanModal({
         setApplied(false)
         setError(null)
         try {
-            const result = await previewAiItineraryReplan(tripId, {
-                itineraryItemId: selectedItemId,
-                reasons: [selectedReason],
-            })
+            const result = await previewAiItineraryReplan(
+                tripId,
+                scope === 'SINGLE_DAY'
+                    ? {
+                          scope,
+                          dayId: Number(selectedDisplayDay?.id),
+                          reasons: [selectedReason],
+                      }
+                    : {
+                          scope,
+                          itineraryItemId: selectedItemId as number,
+                          reasons: [selectedReason],
+                      },
+            )
             setOptions(result)
             setSelectedIndex(0)
             setShowSuccess(true)
@@ -288,6 +346,9 @@ export function AiItineraryReplanModal({
             const updatedDays = await applyAiItineraryReplan(
                 tripId,
                 selectedPlan,
+                scope === 'SINGLE_DAY'
+                    ? Number(selectedDisplayDay?.id)
+                    : undefined,
             )
             onApplied(updatedDays)
             setApplied(true)
@@ -310,7 +371,15 @@ export function AiItineraryReplanModal({
                 if (event.target === event.currentTarget) onClose()
             }}
         >
-            <section className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgb(var(--rgb-app-ink)/0.24)]">
+            <section className="relative flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_28px_80px_rgb(var(--rgb-app-ink)/0.24)]">
+                {applying && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/85 text-center backdrop-blur-sm">
+                        <AnalysisStatusAnimation phase="loading" />
+                        <p className="text-sm font-extrabold text-slate-700">
+                            선택한 재배치안을 일정에 반영하고 있어요
+                        </p>
+                    </div>
+                )}
                 <header className="flex items-start justify-between gap-4 bg-gradient-to-br from-[var(--color-brand-surface-soft)] via-white to-[var(--color-brand-surface-subtle)] px-6 py-5">
                     <div className="flex min-w-0 items-start gap-4">
                         <AiBrandMark />
@@ -319,11 +388,11 @@ export function AiItineraryReplanModal({
                                 PLAMINGO AI
                             </span>
                             <h2 className="mt-2 text-xl font-black tracking-tight text-slate-900">
-                                남은 일정 다시 배치하기
+                                일정 다시 배치하기
                             </h2>
                             <p className="mt-1 text-xs leading-5 text-slate-500">
-                                이미 지난 일정은 유지하고, 문제가 생긴 남은
-                                일정만 선택해 다시 구성해요.
+                                선택한 하루만 정리하거나, 특정 일정 이후를 다시
+                                구성할 수 있어요.
                             </p>
                         </div>
                     </div>
@@ -339,170 +408,239 @@ export function AiItineraryReplanModal({
 
                 <div className="mp-scroll flex-1 overflow-y-auto px-6 py-5">
                     {options.length === 0 && !loading && (
-                        <div className="grid gap-6 md:grid-cols-[1.25fr_0.75fr]">
-                            <div>
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-sm font-black text-slate-800">
-                                            재배치 시작 일정 선택
-                                        </h3>
-                                        <p className="mt-1 text-[11px] text-slate-400">
-                                            선택한 일정부터 이후 일정 전체를
-                                            다시 배치합니다.
+                        <div>
+                            <div className="mb-5 grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+                                <button
+                                    type="button"
+                                    aria-pressed={scope === 'SINGLE_DAY'}
+                                    onClick={() => {
+                                        setScope('SINGLE_DAY')
+                                        setSelectedItemId(null)
+                                        resetPreview()
+                                        setError(null)
+                                    }}
+                                    className={`rounded-xl px-3 py-3 text-xs font-extrabold transition ${scope === 'SINGLE_DAY' ? 'bg-white text-brand shadow-sm' : 'text-slate-500'}`}
+                                >
+                                    선택한 하루만
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-pressed={scope === 'REMAINING_DAYS'}
+                                    onClick={() => {
+                                        setScope('REMAINING_DAYS')
+                                        setSelectedItemId(null)
+                                        resetPreview()
+                                        setError(null)
+                                    }}
+                                    className={`rounded-xl px-3 py-3 text-xs font-extrabold transition ${scope === 'REMAINING_DAYS' ? 'bg-white text-brand shadow-sm' : 'text-slate-500'}`}
+                                >
+                                    이후 일정 전체
+                                </button>
+                            </div>
+                            <div className="grid gap-6 md:grid-cols-[1.25fr_0.75fr]">
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-800">
+                                                {scope === 'SINGLE_DAY'
+                                                    ? '재배치할 Day 선택'
+                                                    : '재배치 시작 일정 선택'}
+                                            </h3>
+                                            <p className="mt-1 text-[11px] text-slate-400">
+                                                {scope === 'SINGLE_DAY'
+                                                    ? '선택한 Day 안에서만 장소 순서와 시간을 다시 계산합니다.'
+                                                    : '선택한 일정부터 이후 일정 전체를 다시 배치합니다.'}
+                                            </p>
+                                        </div>
+                                        <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-black text-brand">
+                                            {scope === 'SINGLE_DAY'
+                                                ? selectedDayRemainingItems.length >=
+                                                  2
+                                                    ? 'Day 선택됨'
+                                                    : '장소 2곳 필요'
+                                                : selectedItemId === null
+                                                  ? '선택 필요'
+                                                  : '시작점 선택됨'}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 space-y-3">
+                                        {displayDays.length === 0 ? (
+                                            <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-xs font-bold text-slate-400">
+                                                재배치할 수 있는 남은 일정이
+                                                없습니다.
+                                            </div>
+                                        ) : (
+                                            <section className="rounded-2xl border border-slate-200 p-3">
+                                                <Select
+                                                    aria-label="재배치 일자 선택"
+                                                    value={selectedDayValue}
+                                                    options={dayOptions}
+                                                    onChange={(value) => {
+                                                        setSelectedDayId(value)
+                                                        setSelectedItemId(null)
+                                                        resetPreview()
+                                                        setError(null)
+                                                    }}
+                                                    variant="form"
+                                                    className="w-full"
+                                                    menuClassName="font-semibold"
+                                                />
+                                                {selectedDisplayDay &&
+                                                    scope ===
+                                                        'REMAINING_DAYS' && (
+                                                        <div className="mp-scroll mt-3 grid max-h-[228px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                                                            {selectedDisplayDay.items.map(
+                                                                (item) => {
+                                                                    const itemId =
+                                                                        Number(
+                                                                            item.id,
+                                                                        )
+                                                                    const selectable =
+                                                                        isRemainingItem(
+                                                                            selectedDisplayDay.itineraryDate,
+                                                                            item,
+                                                                            openedAt,
+                                                                        )
+                                                                    const selected =
+                                                                        selectedItemId ===
+                                                                        itemId
+                                                                    return (
+                                                                        <button
+                                                                            key={
+                                                                                item.id
+                                                                            }
+                                                                            type="button"
+                                                                            disabled={
+                                                                                !selectable
+                                                                            }
+                                                                            onClick={() =>
+                                                                                selectStartingItem(
+                                                                                    itemId,
+                                                                                )
+                                                                            }
+                                                                            className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${!selectable ? 'cursor-not-allowed border-slate-100 bg-slate-100/80 opacity-55 grayscale' : selected ? 'border-brand bg-rose-50' : 'border-slate-200 hover:border-rose-200'}`}
+                                                                        >
+                                                                            <span
+                                                                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white'}`}
+                                                                            >
+                                                                                {selected && (
+                                                                                    <CheckIcon
+                                                                                        size={
+                                                                                            13
+                                                                                        }
+                                                                                    />
+                                                                                )}
+                                                                            </span>
+                                                                            <span className="min-w-0 flex-1">
+                                                                                <span className="block truncate text-xs font-extrabold text-slate-700">
+                                                                                    {item.placeName ??
+                                                                                        '이름 없는 일정'}
+                                                                                </span>
+                                                                                <span className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
+                                                                                    <Clock3Icon
+                                                                                        size={
+                                                                                            11
+                                                                                        }
+                                                                                    />
+                                                                                    {item.startTime ??
+                                                                                        '시간 미정'}
+                                                                                    {!selectable &&
+                                                                                        ' · 지난 일정'}
+                                                                                </span>
+                                                                            </span>
+                                                                        </button>
+                                                                    )
+                                                                },
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                {selectedDisplayDay &&
+                                                    scope === 'SINGLE_DAY' && (
+                                                        <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                                                            <p className="text-[11px] font-extrabold text-slate-700">
+                                                                남은 장소{' '}
+                                                                {
+                                                                    selectedDayRemainingItems.length
+                                                                }
+                                                                곳을 이 Day
+                                                                안에서만
+                                                                재배치합니다.
+                                                            </p>
+                                                            <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                                                                다른 Day의
+                                                                장소·순서·출발지는
+                                                                변경되지
+                                                                않습니다.
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                {selectedDisplayDay &&
+                                                    scope ===
+                                                        'REMAINING_DAYS' &&
+                                                    selectedDisplayDay.items
+                                                        .length > 6 && (
+                                                        <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">
+                                                            아래로 스크롤해
+                                                            나머지 일정을
+                                                            확인하세요.
+                                                        </p>
+                                                    )}
+                                            </section>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-800">
+                                        변경 사유
+                                    </h3>
+                                    <p className="mt-1 text-[11px] text-slate-400">
+                                        가장 중요한 변경 사유 하나를 선택해
+                                        주세요.
+                                    </p>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        {REPLAN_REASONS.map((reason) => {
+                                            const selected =
+                                                selectedReason === reason.key
+                                            return (
+                                                <button
+                                                    key={reason.key}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        selectReason(reason.key)
+                                                    }
+                                                    aria-pressed={selected}
+                                                    className={`flex min-h-16 flex-col justify-center rounded-xl border px-3 py-2.5 text-left transition ${selected ? 'border-brand bg-brand text-white shadow-[0_6px_16px_rgb(var(--rgb-brand-shadow)/0.2)]' : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50/40'}`}
+                                                >
+                                                    <span className="block text-xs font-extrabold leading-4">
+                                                        {reason.label}
+                                                    </span>
+                                                    <span
+                                                        className={`mt-1 block text-[9px] font-semibold leading-3.5 ${selected ? 'text-white/80' : 'text-slate-400'}`}
+                                                    >
+                                                        {reason.hint}
+                                                    </span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                    <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+                                        <AlertTriangleIcon
+                                            size={20}
+                                            className="text-amber-500"
+                                        />
+                                        <p className="mt-2 text-xs font-extrabold text-slate-700">
+                                            {scope === 'SINGLE_DAY'
+                                                ? '다른 Day는 그대로 유지됩니다.'
+                                                : '선택한 일정 이전은 그대로 유지됩니다.'}
+                                        </p>
+                                        <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                                            {scope === 'SINGLE_DAY'
+                                                ? '이미 지난 일정은 고정하고, 선택한 Day의 남은 장소만 다시 계산합니다.'
+                                                : '선택한 장소를 이후 시간대에 다시 넣을 수 있으며, 해당 일정부터 모든 후속 동선을 다시 계산합니다.'}
                                         </p>
                                     </div>
-                                    <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-black text-brand">
-                                        {selectedItemId === null
-                                            ? '선택 필요'
-                                            : '시작점 선택됨'}
-                                    </span>
-                                </div>
-
-                                <div className="mt-3 space-y-3">
-                                    {displayDays.length === 0 ? (
-                                        <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-xs font-bold text-slate-400">
-                                            재배치할 수 있는 남은 일정이
-                                            없습니다.
-                                        </div>
-                                    ) : (
-                                        <section className="rounded-2xl border border-slate-200 p-3">
-                                            <Select
-                                                aria-label="재배치 일자 선택"
-                                                value={selectedDayValue}
-                                                options={dayOptions}
-                                                onChange={(value) => {
-                                                    setSelectedDayId(value)
-                                                    setSelectedItemId(null)
-                                                    setError(null)
-                                                }}
-                                                variant="form"
-                                                className="w-full"
-                                                menuClassName="font-semibold"
-                                            />
-                                            {selectedDisplayDay && (
-                                                <div className="mp-scroll mt-3 grid max-h-[228px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                                                    {selectedDisplayDay.items.map(
-                                                        (item) => {
-                                                            const itemId =
-                                                                Number(item.id)
-                                                            const selectable =
-                                                                isRemainingItem(
-                                                                    selectedDisplayDay.itineraryDate,
-                                                                    item,
-                                                                    openedAt,
-                                                                )
-                                                            const selected =
-                                                                selectedItemId ===
-                                                                itemId
-                                                            return (
-                                                                <button
-                                                                    key={
-                                                                        item.id
-                                                                    }
-                                                                    type="button"
-                                                                    disabled={
-                                                                        !selectable
-                                                                    }
-                                                                    onClick={() =>
-                                                                        selectStartingItem(
-                                                                            itemId,
-                                                                        )
-                                                                    }
-                                                                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${!selectable ? 'cursor-not-allowed border-slate-100 bg-slate-100/80 opacity-55 grayscale' : selected ? 'border-brand bg-rose-50' : 'border-slate-200 hover:border-rose-200'}`}
-                                                                >
-                                                                    <span
-                                                                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${selected ? 'border-brand bg-brand text-white' : 'border-slate-300 bg-white'}`}
-                                                                    >
-                                                                        {selected && (
-                                                                            <CheckIcon
-                                                                                size={
-                                                                                    13
-                                                                                }
-                                                                            />
-                                                                        )}
-                                                                    </span>
-                                                                    <span className="min-w-0 flex-1">
-                                                                        <span className="block truncate text-xs font-extrabold text-slate-700">
-                                                                            {item.placeName ??
-                                                                                '이름 없는 일정'}
-                                                                        </span>
-                                                                        <span className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
-                                                                            <Clock3Icon
-                                                                                size={
-                                                                                    11
-                                                                                }
-                                                                            />
-                                                                            {item.startTime ??
-                                                                                '시간 미정'}
-                                                                            {!selectable &&
-                                                                                ' · 지난 일정'}
-                                                                        </span>
-                                                                    </span>
-                                                                </button>
-                                                            )
-                                                        },
-                                                    )}
-                                                </div>
-                                            )}
-                                            {selectedDisplayDay &&
-                                                selectedDisplayDay.items
-                                                    .length > 6 && (
-                                                    <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">
-                                                        아래로 스크롤해 나머지
-                                                        일정을 확인하세요.
-                                                    </p>
-                                                )}
-                                        </section>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 className="text-sm font-black text-slate-800">
-                                    변경 사유
-                                </h3>
-                                <p className="mt-1 text-[11px] text-slate-400">
-                                    가장 중요한 변경 사유 하나를 선택해 주세요.
-                                </p>
-                                <div className="mt-3 grid grid-cols-2 gap-2">
-                                    {REPLAN_REASONS.map((reason) => {
-                                        const selected =
-                                            selectedReason === reason.key
-                                        return (
-                                            <button
-                                                key={reason.key}
-                                                type="button"
-                                                onClick={() =>
-                                                    selectReason(reason.key)
-                                                }
-                                                aria-pressed={selected}
-                                                className={`flex min-h-16 flex-col justify-center rounded-xl border px-3 py-2.5 text-left transition ${selected ? 'border-brand bg-brand text-white shadow-[0_6px_16px_rgb(var(--rgb-brand-shadow)/0.2)]' : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50/40'}`}
-                                            >
-                                                <span className="block text-xs font-extrabold leading-4">
-                                                    {reason.label}
-                                                </span>
-                                                <span
-                                                    className={`mt-1 block text-[9px] font-semibold leading-3.5 ${selected ? 'text-white/80' : 'text-slate-400'}`}
-                                                >
-                                                    {reason.hint}
-                                                </span>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                                <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-                                    <AlertTriangleIcon
-                                        size={20}
-                                        className="text-amber-500"
-                                    />
-                                    <p className="mt-2 text-xs font-extrabold text-slate-700">
-                                        선택한 일정 이전은 그대로 유지됩니다.
-                                    </p>
-                                    <p className="mt-1 text-[10px] leading-4 text-slate-500">
-                                        선택한 장소를 이후 시간대에 다시 넣을 수
-                                        있으며, 해당 일정부터 모든 후속 동선을
-                                        다시 계산합니다.
-                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -581,7 +719,7 @@ export function AiItineraryReplanModal({
                                 loading ||
                                 showSuccess ||
                                 applying ||
-                                remainingItems.length === 0
+                                !canPreview
                             }
                             onClick={() =>
                                 selectedPlan ? void apply() : void preview()

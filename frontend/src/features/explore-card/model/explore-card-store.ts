@@ -29,6 +29,10 @@ type ExploreCardState = {
     removeComment: (cardId: number, commentId: number) => Promise<void>
 }
 
+let latestCardRequestId = 0
+let latestCommentRequestId = 0
+const bookmarkRequests = new Set<number>()
+
 function messageOf(error: unknown) {
     return error instanceof Error
         ? error.message
@@ -62,19 +66,24 @@ export const useExploreCardStore = create<ExploreCardState>((set, get) => ({
     error: null,
 
     loadCards: async (page, sort, query, travelStyle) => {
+        const requestId = ++latestCardRequestId
         set({ isLoading: true, error: null })
         try {
             const data = await fetchPublicCards(page, sort, query, travelStyle)
+            if (requestId !== latestCardRequestId) return
             set({ data, isLoading: false })
         } catch (error) {
+            if (requestId !== latestCardRequestId) return
             set({ error: messageOf(error), isLoading: false })
         }
     },
 
     toggleBookmark: async (cardId) => {
         const card = get().data?.content.find((item) => item.id === cardId)
-        if (!card || card.ownCard) return
+        if (!card || card.ownCard || bookmarkRequests.has(cardId)) return
 
+        bookmarkRequests.add(cardId)
+        const nextBookmarked = !card.bookmarked
         try {
             if (card.bookmarked) await removeBookmark(cardId)
             else await addBookmark(cardId)
@@ -87,10 +96,10 @@ export const useExploreCardStore = create<ExploreCardState>((set, get) => ({
                               item.id === cardId
                                   ? {
                                         ...item,
-                                        bookmarked: !item.bookmarked,
+                                        bookmarked: nextBookmarked,
                                         bookmarkCount:
                                             item.bookmarkCount +
-                                            (item.bookmarked ? -1 : 1),
+                                            (nextBookmarked ? 1 : -1),
                                     }
                                   : item,
                           ),
@@ -100,13 +109,17 @@ export const useExploreCardStore = create<ExploreCardState>((set, get) => ({
             }))
         } catch (error) {
             set({ error: messageOf(error) })
+        } finally {
+            bookmarkRequests.delete(cardId)
         }
     },
 
     loadComments: async (cardId) => {
+        const requestId = ++latestCommentRequestId
         set({ commentsLoading: true, error: null })
         try {
             const comments = await fetchCardComments(cardId)
+            if (requestId !== latestCommentRequestId) return
             set((state) => ({
                 commentsByCardId: {
                     ...state.commentsByCardId,
@@ -115,6 +128,7 @@ export const useExploreCardStore = create<ExploreCardState>((set, get) => ({
                 commentsLoading: false,
             }))
         } catch (error) {
+            if (requestId !== latestCommentRequestId) return
             set({ error: messageOf(error), commentsLoading: false })
         }
     },

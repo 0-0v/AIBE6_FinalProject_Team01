@@ -62,6 +62,15 @@ function redirectToLogin() {
     }
 }
 
+export function redirectToSuspendedLogin(noticeToken: string) {
+    clearSession()
+    const params = new URLSearchParams({
+        error: 'suspended_account',
+        suspensionToken: noticeToken,
+    })
+    window.location.assign(`/login?${params.toString()}`)
+}
+
 async function refreshAccessToken(): Promise<string | null> {
     const res = await fetch(`${BASE_URL}/api/auth/reissue`, {
         method: 'POST',
@@ -113,6 +122,15 @@ function withAccessToken(
     return { ...headers, Authorization: `Bearer ${token}` }
 }
 
+function isAccessTokenExpired(token: string): boolean {
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1])) as { exp?: number }
+        return typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()
+    } catch {
+        return true
+    }
+}
+
 export function getApiErrorMessage(
     error: unknown,
     fallbackMessage: string,
@@ -149,11 +167,34 @@ export function getApiErrorCode(error: unknown): string | null {
     return null
 }
 
+export function getApiRetryAfterSeconds(error: unknown): number | null {
+    if (
+        typeof error === 'object' &&
+        error !== null &&
+        'retryAfterSeconds' in error &&
+        typeof error.retryAfterSeconds === 'number'
+    ) {
+        return error.retryAfterSeconds
+    }
+    return null
+}
+
 async function request<T>(
     path: string,
     init?: RequestInit,
     retryOn401 = true,
 ): Promise<T> {
+    if (retryOn401 && accessToken && isAccessTokenExpired(accessToken)) {
+        try {
+            refreshPromise ??= refreshAccessToken().finally(() => {
+                refreshPromise = null
+            })
+            await refreshPromise
+        } catch {
+            redirectToLogin()
+            throw new Error('인증이 만료되어 다시 로그인해야 합니다.')
+        }
+    }
     const isFormData = init?.body instanceof FormData
     const res = await fetch(`${BASE_URL}${path}`, {
         ...init,
@@ -193,13 +234,24 @@ async function request<T>(
         const errorBody = await res.json().catch(() => ({}))
         const error = Object.assign(
             new Error(errorBody.message ?? res.statusText),
-            { status: res.status, data: errorBody },
+            {
+                status: res.status,
+                data: errorBody,
+                retryAfterSeconds: parseRetryAfter(res.headers),
+            },
         )
         throw error
     }
 
     if (res.status === 204) return undefined as T
     return res.json() as Promise<T>
+}
+
+function parseRetryAfter(headers: Headers): number | null {
+    const value = headers.get('Retry-After')
+    if (!value) return null
+    const seconds = Number(value)
+    return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null
 }
 
 export const apiClient = {

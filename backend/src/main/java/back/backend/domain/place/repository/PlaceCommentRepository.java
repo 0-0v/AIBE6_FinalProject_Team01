@@ -11,7 +11,11 @@ public interface PlaceCommentRepository extends JpaRepository<PlaceComment, Long
 
     List<PlaceComment> findAllByTripPlaceIdOrderByIdAsc(Long tripPlaceId);
 
-    Optional<PlaceComment> findByIdAndMemberId(Long id, Long memberId);
+    Optional<PlaceComment> findByIdAndTripPlaceIdAndMemberId(
+            Long id,
+            Long tripPlaceId,
+            Long memberId
+    );
 
     @Query("SELECT pc.tripPlaceId AS tripPlaceId, COUNT(pc) AS commentCount " +
            "FROM PlaceComment pc WHERE pc.tripPlaceId IN :tripPlaceIds " +

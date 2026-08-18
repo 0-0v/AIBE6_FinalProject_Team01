@@ -8,25 +8,24 @@ import { markTripPresence, useTripStore } from '@/features/manage-trip'
 import {
     type TripAwarenessEvent,
     type TripAwarenessPayload,
+    safeStompPublish,
     useTripAwarenessStore,
 } from '@/features/trip-awareness'
 import {
     ACCESS_TOKEN_CHANGED_EVENT,
     BASE_URL,
     getAccessToken,
+    getApiErrorStatus,
+    redirectToSuspendedLogin,
 } from '@/shared/api/client'
 import { useCurrentUserStore, useRealtimeStore } from '@/shared/model'
-
-export const REALTIME_EVENT_NAME = 'plamingo:realtime'
-
-export type RealtimeEvent = {
-    eventId: string
-    type: string
-    tripId: number | null
-    targetType: string | null
-    targetId: number | null
-    occurredAt: string
-}
+import {
+    REALTIME_EVENT_NAME,
+    isAccountSuspendedEvent,
+    parseRealtimeMessage,
+    type AccountSuspendedEvent,
+    type RealtimeEvent,
+} from '@/shared/lib'
 
 function websocketUrl() {
     return (
@@ -43,14 +42,22 @@ function parseActiveTripId(value: string | null) {
 
 export function RealtimeSync() {
     const handledEventIds = useRef(new Set<string>())
+    const activeClientRef = useRef<Client | null>(null)
     const [accessTokenVersion, setAccessTokenVersion] = useState(0)
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const currentUserId = currentUser?.id ?? null
     const activeTripId = useTripStore((state) => state.activeTripId)
     const rooms = useTripStore((state) => state.rooms)
-    const activeTripAccessible = rooms.some(
-        (room) => room.apiTripId === parseActiveTripId(activeTripId),
+    const loadedForMemberId = useTripStore(
+        (state) => state.loadedForMemberId,
     )
+    const tripStateReady =
+        currentUserId != null && loadedForMemberId === currentUserId
+    const activeTripAccessible =
+        tripStateReady &&
+        rooms.some(
+            (room) => room.apiTripId === parseActiveTripId(activeTripId),
+        )
 
     useEffect(() => {
         const handleAccessTokenChange = () =>
@@ -71,17 +78,33 @@ export function RealtimeSync() {
         if (currentUserId == null || tripId == null || !activeTripAccessible)
             return
 
-        const heartbeat = () => {
-            void markTripPresence(tripId).catch(() => undefined)
+        let stopped = false
+        let intervalId: number | null = null
+        const heartbeat = async () => {
+            if (stopped) return
+            try {
+                await markTripPresence(tripId)
+            } catch (error) {
+                const status = getApiErrorStatus(error)
+                if (status !== 403 && status !== 404) return
+                stopped = true
+                if (intervalId !== null) window.clearInterval(intervalId)
+                await useTripStore.getState().loadTrips(currentUserId)
+            }
         }
-        heartbeat()
-        const intervalId = window.setInterval(heartbeat, 25_000)
-        return () => window.clearInterval(intervalId)
+        void heartbeat()
+        intervalId = window.setInterval(() => void heartbeat(), 25_000)
+        return () => {
+            stopped = true
+            if (intervalId !== null) window.clearInterval(intervalId)
+        }
     }, [accessTokenVersion, activeTripAccessible, activeTripId, currentUserId])
 
     useEffect(() => {
         const token = getAccessToken()
-        const tripId = parseActiveTripId(activeTripId)
+        const tripId = activeTripAccessible
+            ? parseActiveTripId(activeTripId)
+            : null
         useTripAwarenessStore.getState().setTrip(tripId)
         if (currentUserId == null || !token) {
             useRealtimeStore.getState().setConnected(false)
@@ -90,7 +113,8 @@ export function RealtimeSync() {
         }
 
         const parseEvent = (message: IMessage) => {
-            const event = JSON.parse(message.body) as RealtimeEvent
+            const event = parseRealtimeMessage<RealtimeEvent>(message.body)
+            if (!event?.eventId) return null
             if (handledEventIds.current.has(event.eventId)) return null
             handledEventIds.current.add(event.eventId)
             window.setTimeout(
@@ -140,8 +164,23 @@ export function RealtimeSync() {
         }
 
         const handleTripAwareness = (message: IMessage) => {
-            const event = JSON.parse(message.body) as TripAwarenessEvent
-            useTripAwarenessStore.getState().receive(event)
+            const event = parseRealtimeMessage<TripAwarenessEvent>(message.body)
+            if (event) useTripAwarenessStore.getState().receive(event)
+        }
+
+        const handleAccountStatus = (message: IMessage) => {
+            const event = parseRealtimeMessage<AccountSuspendedEvent>(
+                message.body,
+            )
+            if (!isAccountSuspendedEvent(event, currentUserId)) return
+            client.deactivate().catch(() => undefined)
+            redirectToSuspendedLogin(event.noticeToken)
+        }
+
+        const markDisconnected = () => {
+            if (activeClientRef.current !== client) return
+            useRealtimeStore.getState().setConnected(false)
+            useTripAwarenessStore.getState().setPublisher(null)
         }
 
         const client = new Client({
@@ -153,10 +192,15 @@ export function RealtimeSync() {
             heartbeatIncoming: 10_000,
             heartbeatOutgoing: 10_000,
             onConnect: () => {
+                if (activeClientRef.current !== client) return
                 useRealtimeStore.getState().setConnected(true)
                 client.subscribe(
                     '/user/queue/notifications',
                     handleNotification,
+                )
+                client.subscribe(
+                    '/user/queue/account-status',
+                    handleAccountStatus,
                 )
                 client.subscribe('/topic/public-cards', handlePublicCardChange)
                 if (tripId != null) {
@@ -166,19 +210,23 @@ export function RealtimeSync() {
                         handleTripAwareness,
                     )
                     const publisher = (payload: TripAwarenessPayload) => {
-                        client.publish({
-                            destination: `/app/trip-awareness/${tripId}`,
-                            body: JSON.stringify(payload),
-                        })
+                        const published = safeStompPublish(
+                            client,
+                            `/app/trip-awareness/${tripId}`,
+                            JSON.stringify(payload),
+                        )
+                        if (!published) markDisconnected()
                     }
                     useTripAwarenessStore.getState().setPublisher(publisher)
                 }
             },
-            onDisconnect: () => useRealtimeStore.getState().setConnected(false),
-            onWebSocketClose: () =>
-                useRealtimeStore.getState().setConnected(false),
+            onDisconnect: markDisconnected,
+            onStompError: markDisconnected,
+            onWebSocketClose: markDisconnected,
+            onWebSocketError: markDisconnected,
         })
 
+        activeClientRef.current = client
         client.activate()
         const pruneIntervalId = window.setInterval(
             () => useTripAwarenessStore.getState().pruneExpired(),
@@ -186,11 +234,19 @@ export function RealtimeSync() {
         )
         return () => {
             window.clearInterval(pruneIntervalId)
-            useRealtimeStore.getState().setConnected(false)
-            useTripAwarenessStore.getState().setPublisher(null)
+            if (activeClientRef.current === client) {
+                activeClientRef.current = null
+                useRealtimeStore.getState().setConnected(false)
+                useTripAwarenessStore.getState().setPublisher(null)
+            }
             void client.deactivate()
         }
-    }, [activeTripId, currentUserId])
+    }, [
+        accessTokenVersion,
+        activeTripAccessible,
+        activeTripId,
+        currentUserId,
+    ])
 
     return null
 }

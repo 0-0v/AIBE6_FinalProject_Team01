@@ -222,6 +222,47 @@ class ItineraryControllerTest {
     }
 
     @Test
+    @DisplayName("t20 특정 Day 동선 미리보기 요청은 선택한 Day ID를 서비스에 전달한다")
+    void t20_previewRoutePlanForDayPassesDayIdToService() throws Exception {
+        given(itineraryService.previewRoutePlan(eq(1L), any())).willReturn(List.of());
+
+        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"dayId": 100, "travelPace": "NORMAL"}
+                                """))
+                .andExpect(status().isOk());
+
+        then(itineraryService).should().previewRoutePlan(
+                eq(1L),
+                argThat(settings -> settings != null
+                        && settings.dayId().equals(100L))
+        );
+    }
+
+    @Test
+    @DisplayName("t21 특정 Day 동선을 승인하면 해당 Day 적용 결과를 반환한다")
+    void t21_applyRoutePlanForDayReturnsUpdatedItinerary() throws Exception {
+        RoutePlanPreviewResponse preview = new RoutePlanPreviewResponse(
+                "Day 1 추천 동선",
+                0,
+                0,
+                List.of()
+        );
+        given(itineraryService.applyRoutePlanDay(
+                eq(1L),
+                eq(100L),
+                any(RoutePlanPreviewResponse.class)
+        )).willReturn(List.of(dayResponse));
+
+        mockMvc.perform(post("/api/trips/1/itinerary/route-plan/days/100/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(preview)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(100));
+    }
+
+    @Test
     @DisplayName("t12 AI 동선 미리보기를 조회하면 경로 옵션 목록을 반환한다")
     void t12_previewRoutePlanReturnsRouteOptions() throws Exception {
         given(itineraryService.previewRoutePlan(eq(1L), isNull())).willReturn(

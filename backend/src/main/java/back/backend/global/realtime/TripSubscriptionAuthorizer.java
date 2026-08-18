@@ -9,8 +9,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class TripSubscriptionAuthorizer {
 
-    private static final Pattern TRIP_TOPIC_PATTERN =
-            Pattern.compile("^/topic/(?:trips|trip-awareness)/(\\d+)$");
+    private static final Pattern TRIP_DESTINATION_PATTERN = Pattern.compile(
+            "^(?:/topic/(?:trips|trip-awareness)|/app/trip-awareness)/(\\d+)$"
+    );
 
     private final TripMemberRepository tripMemberRepository;
 
@@ -22,12 +23,13 @@ public class TripSubscriptionAuthorizer {
         if (destination == null) {
             return;
         }
-        boolean tripScopedTopic = destination.startsWith("/topic/trips/")
-                || destination.startsWith("/topic/trip-awareness/");
-        if (!tripScopedTopic) {
+        boolean tripScopedDestination = destination.startsWith("/topic/trips/")
+                || destination.startsWith("/topic/trip-awareness/")
+                || destination.startsWith("/app/trip-awareness/");
+        if (!tripScopedDestination) {
             return;
         }
-        Matcher matcher = TRIP_TOPIC_PATTERN.matcher(destination);
+        Matcher matcher = TRIP_DESTINATION_PATTERN.matcher(destination);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("잘못된 여행방 실시간 채널입니다.");
         }

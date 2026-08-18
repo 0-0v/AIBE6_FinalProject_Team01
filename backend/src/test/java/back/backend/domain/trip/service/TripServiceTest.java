@@ -60,6 +60,7 @@ class TripServiceTest {
     @Mock ItineraryDayRepository itineraryDayRepository;
     @Mock TravelRecordRepository travelRecordRepository;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock GuestTripAccessService guestTripAccessService;
     private TripService tripService;
     private final Clock clock = Clock.fixed(
             Instant.parse("2026-07-31T00:00:00Z"),
@@ -71,7 +72,7 @@ class TripServiceTest {
         tripService = new TripService(tripRepository, tripMemberRepository, memberRepository,
                 activityLogService, notificationService, planCardRepository,
                 tripPresenceService, tripAccessChecker, itineraryDayRepository,
-                travelRecordRepository, clock, eventPublisher);
+                travelRecordRepository, clock, eventPublisher, guestTripAccessService);
     }
 
     @Test
@@ -364,10 +365,41 @@ class TripServiceTest {
     void t16_markPresentTouchesPresenceAndPublishesRealtimeEvent() {
         when(tripAccessChecker.requireView(10L)).thenReturn(2L);
 
-        tripService.markPresent(10L);
+        tripService.markPresent(10L, null);
 
         verify(tripPresenceService).touch(10L, 2L);
         verify(eventPublisher).publishEvent(any(RealtimeEvent.class));
+    }
+
+    @Test
+    @DisplayName("t17 게스트가 접속 상태를 갱신하면 게스트 온라인 시각을 기록한다")
+    void t17_guestMarkPresentTouchesGuestPresence() {
+        when(tripAccessChecker.requireView(10L)).thenReturn(null);
+        when(guestTripAccessService.requireGuestSessionId(10L, "guest-token")).thenReturn(7L);
+
+        tripService.markPresent(10L, "guest-token");
+
+        verify(tripPresenceService).touchGuest(10L, 7L);
+        verify(eventPublisher).publishEvent(any(RealtimeEvent.class));
+    }
+
+    @Test
+    @DisplayName("t18 여행방 멤버 목록에는 활성 게스트와 온라인 상태를 포함한다")
+    void t18_getMembersIncludesActiveGuests() {
+        when(tripAccessChecker.requireView(10L)).thenReturn(1L);
+        when(tripMemberRepository.findMemberIdsByTripId(10L)).thenReturn(List.of());
+        when(memberRepository.findAllById(List.of())).thenReturn(List.of());
+        when(guestTripAccessService.getActiveGuestSessionIds(10L)).thenReturn(List.of(7L));
+        when(tripPresenceService.isGuestOnline(10L, 7L)).thenReturn(true);
+
+        var result = tripService.getMembers(10L);
+
+        assertThat(result).singleElement().satisfies(guest -> {
+            assertThat(guest.memberId()).isEqualTo(-7L);
+            assertThat(guest.nickname()).isEqualTo("게스트 1");
+            assertThat(guest.guest()).isTrue();
+            assertThat(guest.online()).isTrue();
+        });
     }
 
     private Trip trip(String title) {

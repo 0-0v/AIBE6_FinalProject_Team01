@@ -9,11 +9,14 @@ type Props = {
 
 export function InviteModal({ tripId, onClose }: Props) {
     const [code, setCode] = useState('')
+    const [inviteToken, setInviteToken] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [copied, setCopied] = useState<'code' | 'link' | null>(null)
     const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const link = code ? `${window.location.origin}/app/room/invite/${code}` : ''
+    const link = inviteToken
+        ? `${window.location.origin}/app/room/invite/${inviteToken}`
+        : ''
 
     useEffect(() => {
         return () => {
@@ -29,6 +32,7 @@ export function InviteModal({ tripId, onClose }: Props) {
         try {
             const invitation = await createTripInvitation(tripId)
             setCode(invitation.inviteCode)
+            setInviteToken(invitation.inviteToken)
         } catch (caught) {
             setError(
                 caught instanceof Error
@@ -84,6 +88,9 @@ export function InviteModal({ tripId, onClose }: Props) {
                 {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
                 {code && (
                     <>
+                        <p className="mb-2 text-xs font-semibold text-slate-400">
+                            코드는 발급 후 5분 동안 사용할 수 있습니다.
+                        </p>
                         <div className="mb-4 flex items-center gap-2">
                             <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-center">
                                 <span className="break-all font-mono text-sm font-bold tracking-widest text-slate-700">
@@ -105,6 +112,9 @@ export function InviteModal({ tripId, onClose }: Props) {
                         <label className="mb-1.5 block text-sm font-semibold">
                             초대 링크
                         </label>
+                        <p className="mb-2 text-xs font-semibold text-slate-400">
+                            링크는 발급 후 7일 동안 유지됩니다.
+                        </p>
                         <div className="mb-6 flex items-center gap-2">
                             <div className="flex flex-1 items-center gap-2 truncate rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
                                 <LinkIcon size={15} className="shrink-0" />

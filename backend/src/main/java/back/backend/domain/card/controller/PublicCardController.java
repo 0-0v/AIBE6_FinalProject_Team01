@@ -6,12 +6,16 @@ import back.backend.domain.card.service.PublicCardDetailService;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.util.List;
 import back.backend.domain.trip.entity.TravelStyle;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Validated
 @RequestMapping("/api/cards")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "여행 카드")
 public class PublicCardController {
@@ -34,8 +38,8 @@ public class PublicCardController {
     @GetMapping("/public")
     @io.swagger.v3.oas.annotations.Operation(summary = "공개 여행 카드 목록 조회")
     public ApiResponse<PublicCardPageResponse> getPublicCards(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "9") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "9") @Min(1) @Max(100) int size,
             @RequestParam(defaultValue = "LATEST") CardSort sort,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) TravelStyle travelStyle) {
@@ -45,8 +49,11 @@ public class PublicCardController {
     }
     @GetMapping("/bookmarks")
     @io.swagger.v3.oas.annotations.Operation(summary = "내 북마크 여행 카드 조회")
-    public ApiResponse<List<PublicCardResponse>> getBookmarks() {
-        return ApiResponse.success(service.getBookmarks(security.getCurrentMemberId()));
+    public ApiResponse<back.backend.global.response.PageResponse<PublicCardResponse>> getBookmarks(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return ApiResponse.success(service.getBookmarks(
+                security.getCurrentMemberId(), page, size));
     }
     @PostMapping("/{cardId}/bookmarks")
     @io.swagger.v3.oas.annotations.Operation(summary = "여행 카드 북마크 등록")
@@ -61,9 +68,12 @@ public class PublicCardController {
     }
     @GetMapping("/{cardId}/comments")
     @io.swagger.v3.oas.annotations.Operation(summary = "여행 카드 댓글 조회")
-    public ApiResponse<List<CardCommentResponse>> getComments(@PathVariable Long cardId) {
+    public ApiResponse<back.backend.global.response.PageResponse<CardCommentResponse>> getComments(
+            @PathVariable Long cardId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         Long memberId = security.getCurrentPrincipal().map(principal -> principal.getMemberId()).orElse(null);
-        return ApiResponse.success(service.getComments(cardId, memberId));
+        return ApiResponse.success(service.getComments(cardId, memberId, page, size));
     }
     @PostMapping("/{cardId}/comments")
     @io.swagger.v3.oas.annotations.Operation(summary = "여행 카드 댓글 등록")

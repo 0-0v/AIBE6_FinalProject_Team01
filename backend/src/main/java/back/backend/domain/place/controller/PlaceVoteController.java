@@ -1,6 +1,7 @@
 package back.backend.domain.place.controller;
 
 import back.backend.domain.place.dto.request.RespondPlaceVoteRequest;
+import back.backend.domain.place.dto.request.CreatePlaceVoteRequest;
 import back.backend.domain.place.dto.response.PlaceVoteSummaryResponse;
 import back.backend.domain.place.service.PlaceVoteService;
 import back.backend.global.response.ApiResponse;
@@ -39,6 +40,26 @@ public class PlaceVoteController {
             @PathVariable Long tripPlaceId
     ) {
         return ApiResponse.success(placeVoteService.startVote(tripId, tripPlaceId));
+    }
+
+    @PostMapping("/votes")
+    @io.swagger.v3.oas.annotations.Operation(summary = "찬반 또는 A/B 장소 투표 생성")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<PlaceVoteSummaryResponse> createVote(
+            @PathVariable Long tripId,
+            @RequestBody @Valid CreatePlaceVoteRequest request
+    ) {
+        return ApiResponse.success(placeVoteService.startVote(tripId, request));
+    }
+
+    @PutMapping("/votes/{voteRequestId}/me")
+    @io.swagger.v3.oas.annotations.Operation(summary = "투표 ID로 장소 투표 참여")
+    public ApiResponse<PlaceVoteSummaryResponse> respondByVoteId(
+            @PathVariable Long tripId,
+            @PathVariable Long voteRequestId,
+            @RequestBody @Valid RespondPlaceVoteRequest request
+    ) {
+        return ApiResponse.success(placeVoteService.respondByVoteId(tripId, voteRequestId, request));
     }
 
     @PutMapping("/{tripPlaceId}/votes/me")

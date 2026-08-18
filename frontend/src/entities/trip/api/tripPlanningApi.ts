@@ -40,7 +40,7 @@ export async function saveDateAvailability(
 
 export async function getDateProposal(tripId: number) {
     return (
-        await apiClient.get<ApiResponse<DateProposal>>(
+        await apiClient.get<ApiResponse<DateProposal | null>>(
             `/api/trips/${tripId}/date-proposal`,
         )
     ).data

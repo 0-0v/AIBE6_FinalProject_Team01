@@ -167,9 +167,9 @@ export function RoomListPanel({
                     </span>
                     <button
                         onClick={() => setCreateOpen(true)}
-                        className="flamingo-gradient flamingo-glow flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white transition hover:opacity-90 @min-[440px]:px-3.5 @min-[440px]:py-2.5 @min-[440px]:text-sm"
+                        className="flamingo-glow flex items-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-xs font-black text-[var(--color-on-brand)] transition hover:opacity-90 @min-[440px]:px-3.5 @min-[440px]:py-2.5 @min-[440px]:text-sm"
                     >
-                        <PlusIcon size={16} /> 새 여행방
+                        <PlusIcon size={16} strokeWidth={2.5} /> 새 여행방
                     </button>
                 </div>
             </header>

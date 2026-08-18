@@ -7,21 +7,19 @@ import {
     fromApiToPlace,
     getTripPlaceAccess,
     getTripPlaceVotes,
+    latestVoteByPlaceId,
     getTripPlaces,
     type Place,
 } from '@/entities/trip'
 import { useCommentStore } from '@/features/comment-place'
 import { useTripStore } from '@/features/manage-trip'
 import { getApiErrorMessage } from '@/shared/api/client'
+import { REALTIME_EVENT_NAME, type RealtimeEvent } from '@/shared/lib'
 import { useCurrentUserStore } from '@/shared/model'
 import {
     KanbanSchedulePanel,
     TimetableSchedulePanel,
 } from '@/widgets/trip-room'
-import {
-    REALTIME_EVENT_NAME,
-    type RealtimeEvent,
-} from '@/widgets/realtime-sync'
 
 export function ScheduleKanbanPage() {
     const { roomId } = useParams<{ roomId: string }>()
@@ -63,7 +61,9 @@ export function ScheduleKanbanPage() {
     // trips 미로드 상태에서 직접 접근한 경우 로드
     useEffect(() => {
         if (!isUserInitialized) return
-        if (currentUserId != null && rooms.length === 0) void loadTrips()
+        if (currentUserId != null && rooms.length === 0) {
+            void loadTrips(currentUserId)
+        }
     }, [currentUserId, isUserInitialized, rooms.length, loadTrips])
 
     // 장소 데이터 로드
@@ -78,18 +78,14 @@ export function ScheduleKanbanPage() {
             .then(([tripPlaces, voteSummaries, canEdit]) => {
                 setPlacesError(null)
                 setCanManage(canEdit)
-                const votesByPlaceId = new Map(
-                    voteSummaries.map((vote) => [vote.tripPlaceId, vote]),
+                const votesByPlaceId = latestVoteByPlaceId(
+                    voteSummaries.filter((vote) => vote.status === 'CLOSED'),
                 )
                 const cachedComments =
                     useCommentStore.getState().commentsByPlaceId
                 setPlaces(
                     tripPlaces
-                        .filter(
-                            (tp) =>
-                                votesByPlaceId.get(tp.tripPlaceId)
-                                    ?.placeStatus !== 'REJECTED',
-                        )
+                        .filter((tp) => tp.status !== 'REJECTED')
                         .map((tp) => {
                             const place = fromApiToPlace(
                                 tp,
@@ -115,7 +111,8 @@ export function ScheduleKanbanPage() {
         return () => controller.abort()
     }, [realtimeVersion, room?.id, tripId])
 
-    const canPlanWrite = canManage
+    const canPlanWrite =
+        canManage && room != null && room.lifecycleStatus !== 'COMPLETED'
 
     // 초기화 또는 trips 로딩 중
     if (!isUserInitialized || (isLoading && rooms.length === 0)) {

@@ -3,6 +3,7 @@ package back.backend.domain.place.service;
 import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.repository.PlaceRepository;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -56,13 +57,23 @@ class PlacePersistenceServiceTest {
     }
 
     @Test
-    @DisplayName("t1 장소가 이미 존재하면 새로 저장하지 않고 기존 장소를 반환한다")
-    void t1_existingPlaceIsReturnedWithoutInsert() {
-        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(place));
+    @DisplayName("t1 장소가 이미 존재하면 검증되지 않은 요청값으로 덮어쓰지 않는다")
+    void t1_existingPlaceIsNotOverwrittenByRequest() {
+        Place existing = Place.builder()
+                .googlePlaceId("ChIJxxx")
+                .name("이전 이름")
+                .latitude(new BigDecimal("33.0000000"))
+                .longitude(new BigDecimal("126.0000000"))
+                .googleContentFetchedAt(LocalDateTime.of(2026, 7, 1, 0, 0))
+                .build();
+        ReflectionTestUtils.setField(existing, "id", 20L);
+        given(placeRepository.findByGooglePlaceId("ChIJxxx")).willReturn(Optional.of(existing));
 
         Place result = placePersistenceService.findOrCreate(place);
 
-        assertThat(result).isSameAs(place);
+        assertThat(result).isSameAs(existing);
+        assertThat(result.getName()).isEqualTo("이전 이름");
+        assertThat(result.getLatitude()).isEqualByComparingTo("33.0000000");
         then(placeRepository).should(never()).saveAndFlush(any(Place.class));
     }
 

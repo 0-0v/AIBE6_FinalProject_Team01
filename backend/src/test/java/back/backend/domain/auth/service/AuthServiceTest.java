@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 import back.backend.domain.auth.dto.TokenResponse;
 import back.backend.domain.auth.dto.SignupRequest;
@@ -21,6 +22,7 @@ import back.backend.domain.member.repository.MemberRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.security.jwt.JwtProperties;
 import back.backend.global.security.jwt.JwtProvider;
+import back.backend.global.security.jwt.RefreshRotationResult;
 import back.backend.global.security.jwt.RefreshTokenRepository;
 import java.util.Optional;
 import java.time.LocalDateTime;
@@ -82,15 +84,16 @@ class AuthServiceTest {
     void t1_reissueReturnsNewTokensWhenRefreshTokenIsValid() {
         Member member = activeMember(1L);
         String refreshToken = jwtProvider.createRefreshToken(1L);
-        when(refreshTokenRepository.findByMemberId(1L)).thenReturn(Optional.of(refreshToken));
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(refreshTokenRepository.rotate(eq(1L), eq(refreshToken), any()))
+                .thenAnswer(invocation -> RefreshRotationResult.rotated(invocation.getArgument(2)));
 
         TokenResponse response = authService.reissue(refreshToken);
 
         assertThat(response.accessToken()).isNotBlank();
         assertThat(response.refreshToken()).isNotBlank();
         assertThat(jwtProvider.getMemberId(response.accessToken())).isEqualTo(1L);
-        verify(refreshTokenRepository).save(1L, response.refreshToken());
+        verify(refreshTokenRepository).rotate(eq(1L), eq(refreshToken), any());
     }
 
     @Test
@@ -117,24 +120,27 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("t5 Redis에 저장된 리프레시 토큰과 일치하지 않으면 재사용으로 간주해 세션을 폐기하고 예외가 발생한다")
-    void t5_reissueThrowsAndRevokesSessionWhenStoredTokenDoesNotMatch() {
+    @DisplayName("t5 유예 기간이 지난 리프레시 토큰 재사용이면 회전이 거부되어 예외가 발생한다")
+    void t5_reissueThrowsWhenRotationRejectsReusedToken() {
+        Member member = activeMember(1L);
         String refreshToken = jwtProvider.createRefreshToken(1L);
-        when(refreshTokenRepository.findByMemberId(1L)).thenReturn(Optional.of("다른-저장된-토큰"));
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(refreshTokenRepository.rotate(eq(1L), eq(refreshToken), any()))
+                .thenReturn(RefreshRotationResult.invalid());
 
         assertThatThrownBy(() -> authService.reissue(refreshToken))
                 .isInstanceOf(BusinessException.class);
-        verify(refreshTokenRepository).deleteByMemberId(1L);
     }
 
     @Test
-    @DisplayName("t6 Redis에 저장된 리프레시 토큰이 없으면 예외가 발생한다")
-    void t6_reissueThrowsWhenStoredTokenNotFound() {
+    @DisplayName("t6 존재하지 않는 회원의 리프레시 토큰이면 토큰 회전 없이 예외가 발생한다")
+    void t6_reissueThrowsWithoutRotatingWhenMemberNotFound() {
         String refreshToken = jwtProvider.createRefreshToken(1L);
-        when(refreshTokenRepository.findByMemberId(1L)).thenReturn(Optional.empty());
+        when(memberRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.reissue(refreshToken))
                 .isInstanceOf(BusinessException.class);
+        verify(refreshTokenRepository, never()).rotate(any(), any(), any());
     }
 
     @Test
@@ -143,7 +149,6 @@ class AuthServiceTest {
         Member member = activeMember(1L);
         ReflectionTestUtils.setField(member, "status", MemberStatus.WITHDRAWN);
         String refreshToken = jwtProvider.createRefreshToken(1L);
-        when(refreshTokenRepository.findByMemberId(1L)).thenReturn(Optional.of(refreshToken));
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
 
         assertThatThrownBy(() -> authService.reissue(refreshToken))
@@ -151,10 +156,14 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("t8 로그아웃하면 회원 식별자로 리프레시 토큰을 삭제한다")
-    void t8_logoutDeletesRefreshTokenByMemberId() {
+    @DisplayName("t8 로그아웃하면 모든 기존 토큰을 무효화하고 리프레시 토큰을 삭제한다")
+    void t8_logoutInvalidatesTokensAndDeletesRefreshToken() {
+        Member member = activeMember(1L);
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+
         authService.logout(1L);
 
+        assertThat(member.getTokenVersion()).isEqualTo(1L);
         verify(refreshTokenRepository).deleteByMemberId(1L);
     }
 
@@ -243,6 +252,7 @@ class AuthServiceTest {
         authService.resetPassword(new PasswordResetRequest("user@example.com", "NewPassword1!"));
 
         assertThat(member.getPasswordHash()).isEqualTo("new-hash");
+        assertThat(member.getTokenVersion()).isEqualTo(1L);
         verify(refreshTokenRepository).deleteByMemberId(13L);
         verify(emailVerificationService)
                 .consumeVerification("user@example.com", EmailVerificationPurpose.PASSWORD_RESET);
@@ -337,6 +347,36 @@ class AuthServiceTest {
         assertThat(response.accessToken()).isNotBlank();
         assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
         assertThat(member.getSuspensionReason()).isNull();
+    }
+
+    @Test
+    @DisplayName("t20 여러 탭이 거의 동시에 재발급을 요청해 유예 기간 내에 이미 회전된 토큰이 제시되면, "
+            + "탈취로 간주하지 않고 이미 발급된 최신 리프레시 토큰을 그대로 반환한다")
+    void t20_reissueReturnsAlreadyRotatedTokenForConcurrentTabRequest() {
+        Member member = activeMember(1L);
+        String staleRefreshToken = jwtProvider.createRefreshToken(1L);
+        when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+        when(refreshTokenRepository.rotate(eq(1L), eq(staleRefreshToken), any()))
+                .thenReturn(RefreshRotationResult.alreadyRotated("already-rotated-refresh-token"));
+
+        TokenResponse response = authService.reissue(staleRefreshToken);
+
+        assertThat(response.accessToken()).isNotBlank();
+        assertThat(response.refreshToken()).isEqualTo("already-rotated-refresh-token");
+    }
+
+    @Test
+    @DisplayName("t21 회원 토큰 버전과 다른 리프레시 토큰이면 재발급을 거부한다")
+    void t21_reissueRejectsStaleTokenVersion() {
+        Member member = activeMember(21L);
+        String staleRefreshToken = jwtProvider.createRefreshToken(21L, member.getTokenVersion());
+        member.invalidateTokens();
+        when(memberRepository.findById(21L)).thenReturn(Optional.of(member));
+
+        assertThatThrownBy(() -> authService.reissue(staleRefreshToken))
+                .isInstanceOf(BusinessException.class);
+
+        verify(refreshTokenRepository, never()).rotate(any(), any(), any());
     }
 
 }

@@ -19,6 +19,9 @@ import back.backend.global.realtime.RealtimeEvent;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GuestTripAccessService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final long GUEST_ACCESS_DAYS = 7;
 
     private final TripInvitationRepository invitationRepository;
     private final TripRepository tripRepository;
@@ -57,30 +61,36 @@ public class GuestTripAccessService {
 
     @Transactional
     public GuestAccessGrant accept(String inviteCode) {
-        return accept(inviteCode, null);
+        return accept(inviteCode, null, null);
     }
 
     @Transactional
-    public GuestAccessGrant accept(String inviteCode, String existingToken) {
+    public GuestAccessGrant accept(String inviteCode, String accessCode, String existingToken) {
         LocalDateTime now = LocalDateTime.now();
         TripInvitation invitation = invitationRepository.findByInviteCode(inviteCode)
-                .filter(value -> value.isUsable(now))
                 .orElseThrow(() -> new BusinessException(TripErrorCode.INVITATION_NOT_FOUND));
-        Trip trip = findActiveTrip(invitation.getTripId());
+        Trip trip = TripInvitationPolicy.requireOpen(findActiveTrip(invitation.getTripId()));
 
         GuestSession existingSession = findUsableSessionOrNull(existingToken, now);
-        if (existingSession != null) {
-            if (!tripGuestMemberRepository.existsByTripIdAndGuestSessionId(trip.getId(), existingSession.getId())) {
-                tripGuestMemberRepository.save(TripGuestMember.viewer(trip.getId(), existingSession.getId()));
-            }
+        if (existingSession != null && tripGuestMemberRepository.existsByTripIdAndGuestSessionId(
+                invitation.getTripId(), existingSession.getId())) {
             return new GuestAccessGrant(
                     toResponse(trip), existingToken, existingSession.getExpiresAt());
         }
 
+        if (!invitation.isAccessCodeUsable(accessCode, now)) {
+            throw new BusinessException(TripErrorCode.INVITATION_NOT_FOUND);
+        }
+        if (existingSession != null) {
+            existingSession.extendUntil(now.plusDays(GUEST_ACCESS_DAYS));
+            tripGuestMemberRepository.save(TripGuestMember.guest(trip.getId(), existingSession.getId()));
+            return new GuestAccessGrant(toResponse(trip), existingToken, existingSession.getExpiresAt());
+        }
+
         String token = generateToken();
         GuestSession session = guestSessionRepository.save(
-                GuestSession.create(tokenHasher.hash(token), invitation.getExpiresAt()));
-        tripGuestMemberRepository.save(TripGuestMember.viewer(trip.getId(), session.getId()));
+                GuestSession.create(tokenHasher.hash(token), now.plusDays(GUEST_ACCESS_DAYS)));
+        tripGuestMemberRepository.save(TripGuestMember.guest(trip.getId(), session.getId()));
 
         return new GuestAccessGrant(toResponse(trip), token, session.getExpiresAt());
     }
@@ -104,6 +114,39 @@ public class GuestTripAccessService {
                 .isPresent();
     }
 
+    public boolean hasInvitationGuestAccess(String inviteCode, String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        return invitationRepository.findByInviteCode(inviteCode)
+                .map(TripInvitation::getTripId)
+                .map(tripId -> canView(tripId, token))
+                .orElse(false);
+    }
+
+    public Long requireGuestSessionId(Long tripId, String token) {
+        GuestSession session = findUsableSession(token);
+        if (!tripGuestMemberRepository.existsByTripIdAndGuestSessionId(tripId, session.getId())) {
+            throw new BusinessException(TripErrorCode.GUEST_ACCESS_DENIED);
+        }
+        return session.getId();
+    }
+
+    public List<Long> getActiveGuestSessionIds(Long tripId) {
+        LocalDateTime now = LocalDateTime.now();
+        List<Long> sessionIds = tripGuestMemberRepository.findAllByTripIdOrderByJoinedAtAsc(tripId).stream()
+                .map(TripGuestMember::getGuestSessionId)
+                .distinct()
+                .toList();
+        Set<Long> usableSessionIds = guestSessionRepository.findAllById(sessionIds).stream()
+                .filter(session -> session.isUsable(now))
+                .map(GuestSession::getId)
+                .collect(Collectors.toSet());
+        return sessionIds.stream()
+                .filter(usableSessionIds::contains)
+                .toList();
+    }
+
     @Transactional
     public boolean claimIfPresent(Long memberId, String token) {
         if (token == null || token.isBlank()) {
@@ -119,21 +162,27 @@ public class GuestTripAccessService {
     public void claimInvitation(Long memberId, String inviteCode, String token) {
         LocalDateTime now = LocalDateTime.now();
         TripInvitation invitation = invitationRepository.findByInviteCode(inviteCode)
-                .filter(value -> value.isUsable(now))
                 .orElseThrow(() -> new BusinessException(TripErrorCode.INVITATION_NOT_FOUND));
-        Trip trip = findActiveTrip(invitation.getTripId());
-
-        if (!tripMemberRepository.existsByTripIdAndMemberId(trip.getId(), memberId)) {
-            tripMemberRepository.save(TripMember.viewer(trip.getId(), memberId));
-            eventPublisher.publishEvent(RealtimeEvent.tripMembers(trip.getId(), memberId));
+        GuestSession session = findUsableSessionOrNull(token, now);
+        boolean alreadyAcceptedAsGuest = session != null && tripGuestMemberRepository
+                .existsByTripIdAndGuestSessionId(invitation.getTripId(), session.getId());
+        if (!alreadyAcceptedAsGuest && !invitation.isLinkUsable(now)) {
+            throw new BusinessException(TripErrorCode.INVITATION_NOT_FOUND);
         }
+        Trip trip = TripInvitationPolicy.requireOpen(findActiveTrip(invitation.getTripId()));
+
+        if (tripMemberRepository.existsByTripIdAndMemberId(trip.getId(), memberId)) {
+            throw new BusinessException(TripErrorCode.INVITEE_ALREADY_MEMBER);
+        }
+        tripMemberRepository.save(TripMember.member(trip.getId(), memberId));
+        eventPublisher.publishEvent(RealtimeEvent.tripMembers(trip.getId(), memberId));
         claimIfPresent(memberId, token);
     }
 
     private boolean claim(Long memberId, GuestSession session) {
         for (TripGuestMember guestMember : tripGuestMemberRepository.findAllByGuestSessionId(session.getId())) {
             if (!tripMemberRepository.existsByTripIdAndMemberId(guestMember.getTripId(), memberId)) {
-                tripMemberRepository.save(TripMember.viewer(guestMember.getTripId(), memberId));
+                tripMemberRepository.save(TripMember.member(guestMember.getTripId(), memberId));
                 eventPublisher.publishEvent(RealtimeEvent.tripMembers(guestMember.getTripId(), memberId));
             }
         }

@@ -22,6 +22,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -44,6 +45,7 @@ public class SecurityConfig {
             "/api/auth/reissue",
             "/api/auth/signup",
             "/api/auth/login",
+            "/api/auth/oauth/exchange",
             "/api/auth/suspension-notices/**",
             "/api/auth/admin/login/**",
             "/api/auth/nickname-availability",
@@ -76,12 +78,20 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .maxAgeInSeconds(31_536_000)))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                         .accessDeniedHandler(jwtAccessDeniedHandler))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trip-invitations/*/preview").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/trip-invitations/*/guest-access").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/trip-invitations/*/accept").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/guest/trips/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/places/**").permitAll()
@@ -92,6 +102,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/activity-logs").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/travel-records").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/trips/*/members").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/trips/*/presence").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/photo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/places/photo/metadata").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cards/public").permitAll()
@@ -125,7 +136,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(properties.getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));
-        configuration.setExposedHeaders(List.of("Authorization", "Location"));
+        configuration.setExposedHeaders(List.of("Authorization", "Location", "Retry-After"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

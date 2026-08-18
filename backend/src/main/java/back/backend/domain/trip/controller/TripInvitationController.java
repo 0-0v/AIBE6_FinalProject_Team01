@@ -8,6 +8,7 @@ import back.backend.domain.trip.dto.TripEmailInvitationAcceptResponse;
 import back.backend.domain.trip.dto.ClaimTripInvitationRequest;
 import back.backend.domain.trip.dto.TripResponse;
 import back.backend.domain.trip.dto.GuestAccessGrant;
+import back.backend.domain.trip.dto.GuestTripInvitationAcceptRequest;
 import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.service.GuestTripAccessService;
 import back.backend.domain.trip.service.TripInvitationService;
@@ -92,13 +93,24 @@ public class TripInvitationController {
         return ApiResponse.success(invitationService.preview(inviteCode));
     }
 
+    @GetMapping("/trip-invitations/{inviteCode}/guest-access")
+    @Operation(summary = "초대 링크의 기존 게스트 접근 권한 확인")
+    public ApiResponse<Boolean> hasGuestAccess(
+            @PathVariable String inviteCode,
+            @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken
+    ) {
+        return ApiResponse.success(guestTripAccessService.hasInvitationGuestAccess(inviteCode, guestToken));
+    }
+
     @PostMapping("/trip-invitations/{inviteCode}/accept")
     @Operation(summary = "비로그인 초대 수락 및 게스트 조회 권한 발급")
     public ResponseEntity<ApiResponse<TripResponse>> accept(
             @PathVariable String inviteCode,
+            @RequestBody(required = false) GuestTripInvitationAcceptRequest request,
             @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken
     ) {
-        GuestAccessGrant grant = guestTripAccessService.accept(inviteCode, guestToken);
+        GuestAccessGrant grant = guestTripAccessService.accept(
+                inviteCode, request == null ? null : request.accessCode(), guestToken);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, guestAccessCookieProvider.create(grant.token()).toString())
                 .body(ApiResponse.success(grant.trip()));

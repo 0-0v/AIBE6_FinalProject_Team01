@@ -38,9 +38,9 @@ import { MapRouteLayer } from './map-route-layer'
 import { MapPinCommentBadge } from './map-pin-comment-badge'
 import { MapPinCommentSection } from './map-pin-comment-section'
 import type { TripMapViewport } from '@/features/trip-awareness'
+import { GoogleMapsProvider } from '@/app/providers/google-maps-provider'
 
 // POI 클릭 결과 세션 캐시 — 같은 장소 재클릭 시 API 호출 없음
-const resolvedPoiDetails = new Map<string, PlaceSearchResult>()
 const pendingPoiRequests = new Map<string, Promise<PlaceSearchResult>>()
 
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 }
@@ -115,31 +115,33 @@ export function MapCanvas({
     }
 
     return (
-        <GoogleMapCanvas
-            places={places}
-            initialLat={initialLat}
-            initialLng={initialLng}
-            selectedId={selectedId}
-            focusRequestVersion={focusRequestVersion}
-            onSelect={onSelect}
-            onDeselect={onDeselect}
-            days={days}
-            initialRouteDay={initialRouteDay}
-            initialFocusedSegmentIndex={initialFocusedSegmentIndex}
-            routeOverview={routeOverview}
-            outlinedPlaceIds={outlinedPlaceIds}
-            onAddFromPoi={onAddFromPoi}
-            existingGooglePlaceIds={existingGooglePlaceIds}
-            canWrite={canWrite}
-            hoveredPlaceId={hoveredPlaceId}
-            onHoverPlace={onHoverPlace}
-            onRouteDayChange={onRouteDayChange}
-            tripId={tripId}
-            mapPins={mapPins}
-            onMapPinCommentAdded={onMapPinCommentAdded}
-            viewportFocusRequest={viewportFocusRequest}
-            onViewportChange={onViewportChange}
-        />
+        <GoogleMapsProvider>
+            <GoogleMapCanvas
+                places={places}
+                initialLat={initialLat}
+                initialLng={initialLng}
+                selectedId={selectedId}
+                focusRequestVersion={focusRequestVersion}
+                onSelect={onSelect}
+                onDeselect={onDeselect}
+                days={days}
+                initialRouteDay={initialRouteDay}
+                initialFocusedSegmentIndex={initialFocusedSegmentIndex}
+                routeOverview={routeOverview}
+                outlinedPlaceIds={outlinedPlaceIds}
+                onAddFromPoi={onAddFromPoi}
+                existingGooglePlaceIds={existingGooglePlaceIds}
+                canWrite={canWrite}
+                hoveredPlaceId={hoveredPlaceId}
+                onHoverPlace={onHoverPlace}
+                onRouteDayChange={onRouteDayChange}
+                tripId={tripId}
+                mapPins={mapPins}
+                onMapPinCommentAdded={onMapPinCommentAdded}
+                viewportFocusRequest={viewportFocusRequest}
+                onViewportChange={onViewportChange}
+            />
+        </GoogleMapsProvider>
     )
 }
 
@@ -288,7 +290,6 @@ function GoogleMapCanvas({
 
         void request
             .then((fetched) => {
-                resolvedPoiDetails.set(placeId, fetched)
                 if (!cancelled) {
                     setPoiState((prev) =>
                         prev?.placeId === placeId
@@ -365,12 +366,11 @@ function GoogleMapCanvas({
         } = {},
     ) {
         const loadDetails = options.loadDetails ?? true
-        const cached = loadDetails ? resolvedPoiDetails.get(placeId) : undefined
         setPoiState({
             placeId,
             latLng,
-            loading: loadDetails && !cached,
-            result: cached ?? null,
+            loading: loadDetails,
+            result: null,
             fallbackPlaceName: options.fallbackPlaceName ?? null,
             error: null,
             saving: false,
@@ -679,7 +679,7 @@ function GoogleMapCanvas({
     }
 
     return (
-        <div className="relative h-full w-full">
+        <div className="trip-room-map-canvas relative h-full w-full">
             <GoogleMap
                 defaultCenter={center}
                 defaultZoom={initialZoom}
@@ -1019,6 +1019,11 @@ function GoogleMapCanvas({
                     )
                 })}
             </GoogleMap>
+
+            <div
+                aria-hidden="true"
+                className="trip-room-map-dark-overlay pointer-events-none absolute inset-0 z-[1]"
+            />
 
             {!routeOverview && (
                 <MapTypeToggle

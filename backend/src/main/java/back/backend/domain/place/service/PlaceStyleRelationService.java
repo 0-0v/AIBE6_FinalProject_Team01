@@ -66,17 +66,10 @@ public class PlaceStyleRelationService {
                 .orElse(0);
     }
 
-    public Map<Long, Double> resolveCompatibilities(
-            List<TripPlace> tripPlaces,
-            Set<TravelStyle> travelStyles
+    public Map<Long, Map<TravelStyle, Double>> resolveStyleVectors(
+            List<TripPlace> tripPlaces
     ) {
         if (tripPlaces == null || tripPlaces.isEmpty()) return Map.of();
-        if (travelStyles == null || travelStyles.isEmpty()) {
-            return tripPlaces.stream().collect(Collectors.toMap(
-                    TripPlace::getId,
-                    ignored -> 0.0
-            ));
-        }
         List<Long> placeIds = tripPlaces.stream()
                 .map(TripPlace::getPlace)
                 .map(Place::getId)
@@ -85,33 +78,27 @@ public class PlaceStyleRelationService {
                 .findAllByPlaceIdIn(placeIds)
                 .stream()
                 .collect(Collectors.groupingBy(tag -> tag.getPlace().getId()));
-        Map<Long, Double> result = new HashMap<>();
+        Map<Long, Map<TravelStyle, Double>> result = new HashMap<>();
         for (TripPlace tripPlace : tripPlaces) {
             List<PlaceStyleTag> tags = tagsByPlaceId.getOrDefault(
                     tripPlace.getPlace().getId(),
                     List.of()
             );
-            if (tags.isEmpty()) {
+            Map<TravelStyle, Double> vector = new EnumMap<>(TravelStyle.class);
+            if (!tags.isEmpty()) {
+                tags.forEach(tag -> vector.put(
+                        tag.getStyleType(),
+                        tag.scoreAsDouble()
+                ));
+            } else {
                 PlaceCategoryType categoryType = tripPlace.getCategory() == null
                         ? null : tripPlace.getCategory().getCategoryType();
-                result.put(
-                        tripPlace.getId(),
-                        calculateCompatibility(categoryType, travelStyles)
-                );
-                continue;
+                vector.putAll(SCORES.getOrDefault(categoryType, Map.of()));
             }
-            Map<TravelStyle, Double> scoresByStyle = new EnumMap<>(TravelStyle.class);
-            tags.forEach(tag -> scoresByStyle.put(
-                    tag.getStyleType(),
-                    tag.scoreAsDouble()
-            ));
-            result.put(
-                    tripPlace.getId(),
-                    travelStyles.stream()
-                            .mapToDouble(style -> scoresByStyle.getOrDefault(style, 0.1))
-                            .average()
-                            .orElse(0)
-            );
+            for (TravelStyle style : TravelStyle.values()) {
+                vector.putIfAbsent(style, 0.1);
+            }
+            result.put(tripPlace.getId(), Map.copyOf(vector));
         }
         return Map.copyOf(result);
     }

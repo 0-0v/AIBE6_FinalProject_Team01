@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import back.backend.global.config.FileStorageProperties;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.util.ImageTestFixtures;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +32,7 @@ class LocalProfileImageStorageTest {
     @DisplayName("t1 이미지 파일을 저장하면 접근 가능한 상대 경로 URL을 반환한다")
     void t1_storeSavesFileAndReturnsRelativeUrl() throws Exception {
         MockMultipartFile file =
-                new MockMultipartFile("file", "profile.png", "image/png", "image-content".getBytes());
+                new MockMultipartFile("file", "profile.png", "image/png", ImageTestFixtures.validPngBytes());
 
         String url = storage.store(1L, file);
 
@@ -64,6 +65,16 @@ class LocalProfileImageStorageTest {
     void t4_storeThrowsWhenFileTooLarge() {
         byte[] tooLarge = new byte[5 * 1024 * 1024 + 1];
         MockMultipartFile file = new MockMultipartFile("file", "profile.png", "image/png", tooLarge);
+
+        assertThatThrownBy(() -> storage.store(1L, file))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("t5 확장자와 Content-Type을 이미지로 위장해도 실제 내용이 이미지가 아니면 저장하지 않는다")
+    void t5_storeThrowsWhenContentTypeAndExtensionAreSpoofed() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "profile.png", "image/png", "<script>alert(1)</script>".getBytes());
 
         assertThatThrownBy(() -> storage.store(1L, file))
                 .isInstanceOf(BusinessException.class);

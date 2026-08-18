@@ -16,9 +16,14 @@ type TripState = {
     activeTripId: string | null
     isLoading: boolean
     isRefreshing: boolean
+    loadedForMemberId: number | null
     error: string | null
-    loadTrips: () => Promise<void>
-    loadInvitedTrip: (inviteCode: string) => Promise<boolean>
+    loadTrips: (memberId?: number) => Promise<void>
+    loadInvitedTrip: (
+        inviteToken: string,
+        accessCode?: string,
+        options?: { silent?: boolean },
+    ) => Promise<boolean>
     selectTrip: (tripId: string) => void
     resetTrips: () => void
 }
@@ -105,16 +110,40 @@ export const useTripStore = create<TripState>()(
             activeTripId: null,
             isLoading: false,
             isRefreshing: false,
+            loadedForMemberId: null,
             error: null,
-            loadTrips: async () => {
-                if (get().isRefreshing) return
+            loadTrips: async (memberId) => {
+                const currentState = get()
+                const targetMemberId = memberId ?? currentState.loadedForMemberId
+                if (targetMemberId == null) return
+
+                const memberChanged =
+                    currentState.loadedForMemberId !== targetMemberId
+                if (!memberChanged && currentState.isRefreshing) return
+
+                const preserveHydratedActiveTrip =
+                    currentState.loadedForMemberId == null &&
+                    currentState.rooms.length === 0 &&
+                    currentState.trips.length === 0
                 set({
+                    ...(memberChanged
+                        ? {
+                              trips: [],
+                              rooms: [],
+                              guestRoom: null,
+                              activeTripId: preserveHydratedActiveTrip
+                                  ? currentState.activeTripId
+                                  : null,
+                              loadedForMemberId: targetMemberId,
+                          }
+                        : {}),
                     isRefreshing: true,
-                    isLoading: get().rooms.length === 0,
+                    isLoading: memberChanged || currentState.rooms.length === 0,
                     error: null,
                 })
                 try {
                     const trips = await fetchTrips()
+                    if (get().loadedForMemberId !== targetMemberId) return
                     if (JSON.stringify(trips) === JSON.stringify(get().trips)) {
                         return
                     }
@@ -129,6 +158,7 @@ export const useTripStore = create<TripState>()(
                             : (rooms[0]?.id ?? null),
                     }))
                 } catch (error) {
+                    if (get().loadedForMemberId !== targetMemberId) return
                     set({
                         error:
                             error instanceof Error
@@ -136,22 +166,25 @@ export const useTripStore = create<TripState>()(
                                 : '여행방을 불러오지 못했습니다.',
                     })
                 } finally {
-                    set({ isLoading: false, isRefreshing: false })
+                    if (get().loadedForMemberId === targetMemberId) {
+                        set({ isLoading: false, isRefreshing: false })
+                    }
                 }
             },
-            loadInvitedTrip: async (inviteCode) => {
+            loadInvitedTrip: async (inviteToken, accessCode, options) => {
                 set({ guestRoom: null, isLoading: true, error: null })
                 try {
-                    const trip = await fetchInvitedTrip(inviteCode)
+                    const trip = await fetchInvitedTrip(inviteToken, accessCode)
                     set({ guestRoom: toRoom(trip), isLoading: false })
                     return true
                 } catch (error) {
                     set({
                         isLoading: false,
-                        error:
-                            error instanceof Error
-                                ? error.message
-                                : '초대 여행방을 불러오지 못했습니다.',
+                        error: options?.silent
+                            ? null
+                            : error instanceof Error
+                              ? error.message
+                              : '초대 여행방을 불러오지 못했습니다.',
                     })
                     return false
                 }
@@ -166,6 +199,7 @@ export const useTripStore = create<TripState>()(
                     error: null,
                     isLoading: false,
                     isRefreshing: false,
+                    loadedForMemberId: null,
                 }),
         }),
         {

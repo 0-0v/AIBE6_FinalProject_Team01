@@ -9,6 +9,7 @@ import {
     HomeIcon,
     LogOutIcon,
     MapIcon,
+    BookmarkIcon,
     NotebookTabsIcon,
     ShieldCheckIcon,
 } from 'lucide-react'
@@ -33,13 +34,14 @@ export function Sidebar() {
     const currentUserId = currentUser?.id ?? null
     const rooms = useTripStore((state) => state.rooms)
     const roomRoute = location.pathname.match(
-        /^\/app\/room\/(\d+)(?:\/(record|schedule))?$/,
+        /^\/app\/room\/(\d+)(?:\/(record|schedule|bookmark))?$/,
     )
     const selectedRoom = roomRoute
         ? rooms.find((room) => room.id === roomRoute[1])
         : undefined
     const selectedRoomId = selectedRoom?.id
     const recordActive = roomRoute?.[2] === 'record'
+    const bookmarkActive = roomRoute?.[2] === 'bookmark'
     const unreadCount = useNotificationStore((state) => state.unreadCount)
     const loadUnreadCount = useNotificationStore(
         (state) => state.loadUnreadCount,
@@ -75,7 +77,7 @@ export function Sidebar() {
 
     return (
         <aside
-            className={`relative z-40 flex shrink-0 flex-col overflow-visible border-r border-slate-100 bg-white py-7 shadow-[4px_0_12px_-4px_rgb(var(--rgb-app-ink)/0.08)] transition-[width] duration-300 ease-out ${
+            className={`relative z-50 flex shrink-0 flex-col overflow-visible border-r border-slate-100 bg-white py-7 shadow-[4px_0_12px_-4px_rgb(var(--rgb-app-ink)/0.08)] transition-[width] duration-300 ease-out ${
                 isExpanded ? 'w-[248px] px-5' : 'w-[86px] px-3'
             }`}
         >
@@ -137,7 +139,7 @@ export function Sidebar() {
                                             : 'w-12 justify-center self-center overflow-visible'
                                     } ${
                                         isActive
-                                            ? 'flamingo-gradient text-white shadow-[0_10px_22px_rgb(var(--rgb-brand)/0.24)]'
+                                            ? 'sidebar-active-background text-[var(--color-sidebar-active-text)] shadow-[0_10px_22px_rgb(var(--rgb-sidebar-active-shadow)/0.24)]'
                                             : 'text-slate-500 hover:bg-brand-50 hover:text-brand-700'
                                     }`
                                 }
@@ -154,7 +156,7 @@ export function Sidebar() {
                                 )}
                                 {badge > 0 ? (
                                     <span
-                                        className={`flex h-5 min-w-[20px] items-center justify-center rounded-full bg-orange-400 px-1 text-[10px] font-extrabold text-white ring-2 ring-white ${
+                                        className={`flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--color-notification-badge)] px-1 text-[10px] font-extrabold text-[var(--color-notification-badge-text)] ring-2 ring-white ${
                                             isExpanded
                                                 ? 'ml-auto'
                                                 : 'absolute -right-1 -top-1 z-10'
@@ -179,7 +181,7 @@ export function Sidebar() {
                                         end
                                         title="Plan"
                                         aria-label={`${selectedRoom.title} Plan`}
-                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${!recordActive ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'}`}
+                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${!recordActive && !bookmarkActive ? 'bg-brand-50 text-brand-700' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'}`}
                                     >
                                         <NotebookTabsIcon size={16} />
                                         {isExpanded && <span>Plan</span>}
@@ -192,6 +194,15 @@ export function Sidebar() {
                                     >
                                         <CameraIcon size={16} />
                                         {isExpanded && <span>Record</span>}
+                                    </NavLink>
+                                    <NavLink
+                                        to={`/app/room/${selectedRoomId}/bookmark`}
+                                        title="Bookmark"
+                                        aria-label={`${selectedRoom.title} Bookmark`}
+                                        className={`flex h-10 items-center rounded-xl text-xs font-extrabold transition ${isExpanded ? 'gap-2 px-3' : 'w-10 justify-center'} ${bookmarkActive ? 'bg-brand text-white' : 'text-slate-400 hover:bg-brand-50 hover:text-brand-700'}`}
+                                    >
+                                        <BookmarkIcon size={16} />
+                                        {isExpanded && <span>Bookmark</span>}
                                     </NavLink>
                                 </div>
                             )}

@@ -26,6 +26,16 @@ public class RedisValueService {
         redisTemplate.opsForValue().set(key, value, ttl);
     }
 
+    public boolean setIfAbsent(String key, String value, Duration ttl) {
+        validateKey(key);
+        Objects.requireNonNull(value, "value must not be null");
+        Objects.requireNonNull(ttl, "ttl must not be null");
+        if (ttl.isZero() || ttl.isNegative()) {
+            throw new IllegalArgumentException("ttl must be positive");
+        }
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, value, ttl));
+    }
+
     public Optional<String> get(String key) {
         validateKey(key);
         return Optional.ofNullable(redisTemplate.opsForValue().get(key));

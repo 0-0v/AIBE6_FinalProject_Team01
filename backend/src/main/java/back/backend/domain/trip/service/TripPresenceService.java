@@ -26,6 +26,14 @@ public class TripPresenceService {
                 && seenAt.isAfter(Instant.now(clock).minus(ONLINE_WINDOW));
     }
 
+    public void touchGuest(Long tripId, Long guestSessionId) {
+        lastSeen.put(new PresenceKey(tripId, -guestSessionId), Instant.now(clock));
+    }
+
+    public boolean isGuestOnline(Long tripId, Long guestSessionId) {
+        return isOnline(tripId, -guestSessionId);
+    }
+
     private record PresenceKey(Long tripId, Long memberId) {
     }
 }

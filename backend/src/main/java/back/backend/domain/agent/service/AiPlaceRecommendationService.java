@@ -6,6 +6,7 @@ import back.backend.domain.itinerary.entity.ItineraryDay;
 import back.backend.domain.itinerary.exception.ItineraryErrorCode;
 import back.backend.domain.itinerary.repository.ItineraryDayRepository;
 import back.backend.domain.place.dto.response.PlaceSearchResponse;
+import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.domain.place.service.PlaceSearchService;
 import back.backend.domain.place.service.PlaceStyleRelationService;
@@ -23,9 +24,12 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +44,7 @@ public class AiPlaceRecommendationService {
     private final TripPlaceRepository tripPlaceRepository;
     private final PlaceSearchService placeSearchService;
     private final PlaceStyleRelationService placeStyleRelationService;
+    private final AiPlaceRecommendationRanker recommendationRanker;
     private final Clock clock;
 
     public List<AiPlaceRecommendationResponse> recommend(
@@ -61,28 +66,27 @@ public class AiPlaceRecommendationService {
                 .map(item -> item.getTripPlaceId())
                 .filter(java.util.Objects::nonNull)
                 .toList();
-        int fromIndex = orderedTripPlaceIds.indexOf(request.fromTripPlaceId());
-        if (fromIndex < 0
-                || fromIndex + 1 >= orderedTripPlaceIds.size()
-                || !orderedTripPlaceIds.get(fromIndex + 1)
-                .equals(request.toTripPlaceId())) {
+        if (!isValidRouteBoundary(orderedTripPlaceIds, request)) {
             throw new BusinessException(
                     ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
             );
         }
-        List<Long> segmentTripPlaceIds = List.of(
-                request.fromTripPlaceId(),
-                request.toTripPlaceId()
-        );
-        var destinationItem = day.getItems().stream()
-                .filter(item -> request.toTripPlaceId().equals(
-                        item.getTripPlaceId()
-                ))
+        List<Long> segmentTripPlaceIds = Stream.of(
+                        request.fromTripPlaceId(),
+                        request.toTripPlaceId()
+                )
+                .filter(Objects::nonNull)
+                .toList();
+        Long timeBoundaryPlaceId = request.toTripPlaceId() != null
+                ? request.toTripPlaceId()
+                : request.fromTripPlaceId();
+        var timeBoundaryItem = day.getItems().stream()
+                .filter(item -> timeBoundaryPlaceId.equals(item.getTripPlaceId()))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(
                         ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
                 ));
-        if (isPastSegment(day.getItineraryDate(), destinationItem.getStartTime())) {
+        if (isPastSegment(day.getItineraryDate(), timeBoundaryItem.getStartTime())) {
             throw new BusinessException(
                     ItineraryErrorCode.ITINERARY_ROUTE_SEGMENT_PASSED
             );
@@ -112,35 +116,42 @@ public class AiPlaceRecommendationService {
                 query,
                 routePoints
         );
-        if (searched.isEmpty()
-                && request.prompt() != null
-                && !request.prompt().isBlank()) {
-            searched = searchAlongRoute(
-                    buildQuery(
-                            trip.getDestination(),
-                            request.category(),
-                            null
-                    ),
-                    routePoints
-            );
-        }
-
         List<back.backend.domain.place.entity.TripPlace> registeredPlaces =
                 tripPlaceRepository.findAllOrderedByTripId(tripId);
         Set<String> registeredGooglePlaceIds = registeredPlaces.stream()
                 .map(place -> place.getPlace().getGooglePlaceId())
                 .collect(Collectors.toSet());
-        List<Candidate> candidates = searched
+        List<PlaceSearchResponse> eligiblePlaces = searched
                 .stream()
+                .filter(place -> matchesRequestedCategory(
+                        place.recommendedCategoryType(),
+                        request.category()
+                ))
                 .filter(place -> !registeredGooglePlaceIds.contains(
                         place.googlePlaceId()
                 ))
+                .limit(15)
+                .toList();
+        Map<String, AiPlaceRecommendationRanker.Assessment> rankedAssessments =
+                recommendationRanker.rank(
+                        trip.getDestination(),
+                        request.category(),
+                        request.prompt(),
+                        eligiblePlaces
+                );
+        Map<String, AiPlaceRecommendationRanker.Assessment> aiAssessments =
+                rankedAssessments == null ? Map.of() : rankedAssessments;
+        List<Candidate> candidates = eligiblePlaces.stream()
                 .map(place -> new Candidate(
                         place,
                         routeDeviationMeters(place, routePoints),
                         placeStyleRelationService.calculateCompatibility(
                                 place.recommendedCategoryType(),
                                 trip.getTravelStyles()
+                        ),
+                        aiAssessments.getOrDefault(
+                                place.googlePlaceId(),
+                                new AiPlaceRecommendationRanker.Assessment(0.5, "")
                         )
                 ))
                 .sorted(Comparator
@@ -165,7 +176,49 @@ public class AiPlaceRecommendationService {
                 .toList();
     }
 
+    private boolean matchesRequestedCategory(
+            PlaceCategoryType actualCategory,
+            String requestedCategory
+    ) {
+        String normalized = requestedCategory.trim().toLowerCase(Locale.ROOT);
+        PlaceCategoryType expected = switch (normalized) {
+            case "restaurant", "food", "음식점" -> PlaceCategoryType.FOOD;
+            case "cafe", "카페" -> PlaceCategoryType.CAFE;
+            case "hotel", "lodging", "숙소" -> PlaceCategoryType.LODGING;
+            case "tourist attraction", "tourist attractions",
+                 "tourist_attraction", "명소" -> PlaceCategoryType.ATTRACTION;
+            case "shopping", "shopping mall", "shopping_mall", "쇼핑" ->
+                    PlaceCategoryType.SHOPPING;
+            default -> null;
+        };
+        return expected == null || expected == actualCategory;
+    }
+
+    private boolean isValidRouteBoundary(
+            List<Long> orderedTripPlaceIds,
+            AiPlaceRecommendationRequest request
+    ) {
+        Long fromId = request.fromTripPlaceId();
+        Long toId = request.toTripPlaceId();
+        if (orderedTripPlaceIds.isEmpty() || (fromId == null && toId == null)) {
+            return false;
+        }
+        if (fromId == null) {
+            return orderedTripPlaceIds.getFirst().equals(toId);
+        }
+        if (toId == null) {
+            return orderedTripPlaceIds.getLast().equals(fromId);
+        }
+        int fromIndex = orderedTripPlaceIds.indexOf(fromId);
+        return fromIndex >= 0
+                && fromIndex + 1 < orderedTripPlaceIds.size()
+                && orderedTripPlaceIds.get(fromIndex + 1).equals(toId);
+    }
+
     private String buildReason(Candidate candidate) {
+        if (!candidate.aiAssessment().reason().isBlank()) {
+            return candidate.aiAssessment().reason();
+        }
         if (candidate.styleCompatibility() >= 0.7) {
             return "기존 동선에서 가깝고 여행 스타일과도 잘 맞는 후보예요.";
         }
@@ -265,15 +318,17 @@ public class AiPlaceRecommendationService {
     private record Candidate(
             PlaceSearchResponse place,
             int routeDeviationMeters,
-            double styleCompatibility
+            double styleCompatibility,
+            AiPlaceRecommendationRanker.Assessment aiAssessment
     ) {
         private double rankingScore() {
             double routeScore = 1.0 / (1.0 + routeDeviationMeters / 1_000.0);
             double ratingScore = place.rating() == null
                     ? 0.5 : Math.min(1, place.rating() / 5.0);
-            return routeScore * 0.65
-                    + styleCompatibility * 0.25
-                    + ratingScore * 0.10;
+            return routeScore * 0.35
+                    + aiAssessment.score() * 0.30
+                    + styleCompatibility * 0.20
+                    + ratingScore * 0.15;
         }
     }
 }

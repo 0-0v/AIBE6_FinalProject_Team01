@@ -51,9 +51,13 @@ function normalizeItineraryDays(days: ItineraryDay[]): ItineraryDay[] {
     return days.map(normalizeItineraryDay)
 }
 
-export async function getItinerary(tripId: number): Promise<ItineraryDay[]> {
+export async function getItinerary(
+    tripId: number,
+    signal?: AbortSignal,
+): Promise<ItineraryDay[]> {
     const res = await apiClient.get<ApiResponse<ItineraryDay[]>>(
         `/api/trips/${tripId}/itinerary`,
+        { signal },
     )
     return normalizeItineraryDays(res.data)
 }
@@ -87,6 +91,7 @@ export type RoutePlanSettings = {
     dayStartTime?: string
     dayEndTime?: string
     travelPace?: string
+    dayId?: number
 }
 
 export async function previewItineraryRoutePlan(
@@ -106,6 +111,18 @@ export async function applyItineraryRoutePlan(
 ): Promise<ItineraryDay[]> {
     const res = await apiClient.post<ApiResponse<ItineraryDay[]>>(
         `/api/trips/${tripId}/itinerary/route-plan/apply`,
+        plan,
+    )
+    return normalizeItineraryDays(res.data)
+}
+
+export async function applyItineraryRoutePlanDay(
+    tripId: number,
+    dayId: number,
+    plan: RoutePlanPreview,
+): Promise<ItineraryDay[]> {
+    const res = await apiClient.post<ApiResponse<ItineraryDay[]>>(
+        `/api/trips/${tripId}/itinerary/route-plan/days/${dayId}/apply`,
         plan,
     )
     return normalizeItineraryDays(res.data)

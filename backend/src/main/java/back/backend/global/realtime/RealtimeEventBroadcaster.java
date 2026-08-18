@@ -9,9 +9,13 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class RealtimeEventBroadcaster {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final RevokedWebSocketMemberRegistry revokedMemberRegistry;
 
-    public RealtimeEventBroadcaster(SimpMessagingTemplate messagingTemplate) {
+    public RealtimeEventBroadcaster(
+            SimpMessagingTemplate messagingTemplate,
+            RevokedWebSocketMemberRegistry revokedMemberRegistry) {
         this.messagingTemplate = messagingTemplate;
+        this.revokedMemberRegistry = revokedMemberRegistry;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -29,5 +33,15 @@ public class RealtimeEventBroadcaster {
                     event
             );
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void broadcastAccountSuspension(AccountSuspendedEvent event) {
+        revokedMemberRegistry.revoke(event.memberId());
+        messagingTemplate.convertAndSendToUser(
+                event.memberId().toString(),
+                "/queue/account-status",
+                event
+        );
     }
 }

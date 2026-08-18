@@ -84,6 +84,9 @@ public class Member {
     @Column(name = "personal_info_deleted_at")
     private LocalDateTime personalInfoDeletedAt;
 
+    @Column(name = "token_version", nullable = false)
+    private long tokenVersion;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -200,6 +203,10 @@ public class Member {
         return personalInfoDeletedAt;
     }
 
+    public long getTokenVersion() {
+        return tokenVersion;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -242,6 +249,7 @@ public class Member {
         this.providerId = email;
         this.nickname = Objects.requireNonNull(nickname, "nickname must not be null");
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
+        invalidateTokens();
     }
 
     public void suspend(
@@ -267,6 +275,7 @@ public class Member {
         this.suspensionReason = normalizedReason;
         this.suspendedAt = normalizedSuspendedAt;
         this.suspendedUntil = suspendedUntil;
+        invalidateTokens();
     }
 
     public void releaseSuspension() {
@@ -303,6 +312,7 @@ public class Member {
             throw new IllegalStateException("로컬 회원만 비밀번호를 변경할 수 있습니다.");
         }
         this.passwordHash = Objects.requireNonNull(passwordHash, "passwordHash must not be null");
+        invalidateTokens();
     }
 
     public void withdraw(LocalDateTime withdrawnAt, LocalDateTime personalInfoExpiresAt) {
@@ -317,6 +327,11 @@ public class Member {
         this.withdrawnAt = Objects.requireNonNull(withdrawnAt, "withdrawnAt must not be null");
         this.personalInfoExpiresAt =
                 Objects.requireNonNull(personalInfoExpiresAt, "personalInfoExpiresAt must not be null");
+        invalidateTokens();
+    }
+
+    public void invalidateTokens() {
+        tokenVersion++;
     }
 
     public String anonymizePersonalInfo(LocalDateTime deletedAt) {

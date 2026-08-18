@@ -2,18 +2,14 @@ package back.backend.domain.trip.infrastructure;
 
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.global.exception.BusinessException;
-import java.util.Locale;
-import java.util.Map;
+import back.backend.global.util.ImageContentInspector;
+import back.backend.global.util.ImageContentInspector.ImageFormat;
+import java.io.IOException;
 import org.springframework.web.multipart.MultipartFile;
 
 final class TripCoverImageValidator {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024L;
-    private static final Map<String, String> EXTENSIONS_BY_CONTENT_TYPE = Map.of(
-            "image/jpeg", "jpg",
-            "image/png", "png",
-            "image/webp", "webp"
-    );
 
     private TripCoverImageValidator() {
     }
@@ -25,14 +21,23 @@ final class TripCoverImageValidator {
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new BusinessException(TripErrorCode.COVER_IMAGE_TOO_LARGE);
         }
-        String contentType = file.getContentType();
-        String extension = contentType == null
-                ? null
-                : EXTENSIONS_BY_CONTENT_TYPE.get(contentType.toLowerCase(Locale.ROOT));
-        if (extension == null) {
+
+        byte[] content;
+        try {
+            content = file.getBytes();
+        } catch (IOException exception) {
+            throw new BusinessException(TripErrorCode.COVER_IMAGE_STORAGE_FAILED);
+        }
+
+        // 확장자와 Content-Type 헤더는 클라이언트가 조작할 수 있으므로 신뢰하지 않고,
+        // 파일의 실제 매직 바이트로 형식을 판별한다.
+        ImageFormat format = ImageContentInspector.detectFormat(content)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.INVALID_COVER_IMAGE_TYPE));
+        if (!ImageContentInspector.isDecodableRasterImage(content)) {
             throw new BusinessException(TripErrorCode.INVALID_COVER_IMAGE_TYPE);
         }
-        return new ValidatedImage(contentType, extension);
+
+        return new ValidatedImage(format.contentType(), format.extension());
     }
 
     record ValidatedImage(String contentType, String extension) {

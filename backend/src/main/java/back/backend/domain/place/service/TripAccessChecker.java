@@ -1,6 +1,9 @@
 package back.backend.domain.place.service;
 
 import back.backend.domain.trip.repository.TripMemberRepository;
+import back.backend.domain.trip.repository.TripRepository;
+import back.backend.domain.trip.entity.TripStatus;
+import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.security.SecurityContextAccessor;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Component;
 public class TripAccessChecker {
 
     private final TripMemberRepository tripMemberRepository;
+    private final TripRepository tripRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final GuestTripAccessService guestTripAccessService;
     private final HttpServletRequest request;
@@ -39,11 +43,26 @@ public class TripAccessChecker {
     }
 
     public Long requireEdit(Long tripId) {
+        Long memberId = requireRecordEdit(tripId);
+        TripStatus status = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(TripErrorCode.TRIP_NOT_FOUND))
+                .getStatus();
+        if (status == TripStatus.COMPLETED || status == TripStatus.CANCELLED) {
+            throw new BusinessException(TripErrorCode.TRIP_ALREADY_FINISHED);
+        }
+        return memberId;
+    }
+
+    public Long requireRecordEdit(Long tripId) {
         Long memberId = securityContextAccessor.getCurrentMemberId();
         if (!tripMemberRepository.existsByTripIdAndMemberId(tripId, memberId)) {
             throw new BusinessException(CommonErrorCode.FORBIDDEN);
         }
         return memberId;
+    }
+
+    public Long requireMember(Long tripId) {
+        return requireRecordEdit(tripId);
     }
 
     private String guestToken() {

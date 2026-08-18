@@ -1,7 +1,9 @@
 package back.backend.domain.place.service;
 
 import back.backend.domain.place.entity.Place;
+import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
+import back.backend.domain.place.entity.PlaceMarkerIcon;
 import back.backend.domain.place.entity.PlaceStyleTag;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.repository.PlaceStyleTagRepository;
@@ -80,26 +82,55 @@ class PlaceStyleRelationServiceTest {
     }
 
     @Test
-    @DisplayName("t4 여러 일정 장소의 스타일 관계를 한 번에 조회해 점수 맵을 만든다")
-    void t4_resolveCompatibilitiesLoadsRelationsInBulk() {
-        Place firstPlace = Place.builder().name("첫 장소").build();
-        ReflectionTestUtils.setField(firstPlace, "id", 1L);
-        TripPlace first = org.mockito.Mockito.mock(TripPlace.class);
-        given(first.getId()).willReturn(11L);
-        given(first.getPlace()).willReturn(firstPlace);
+    @DisplayName("t5 전체 여행 스타일에 대한 장소 점수 벡터를 만든다")
+    void t5_resolveStyleVectorsBuildsFullDimensionVector() {
+        Place place = Place.builder().name("카페").build();
+        ReflectionTestUtils.setField(place, "id", 21L);
+        TripPlace tripPlace = org.mockito.Mockito.mock(TripPlace.class);
+        given(tripPlace.getId()).willReturn(31L);
+        given(tripPlace.getPlace()).willReturn(place);
         PlaceStyleTag tag = PlaceStyleTag.create(
-                firstPlace,
-                TravelStyle.FOOD,
-                0.91,
-                "CATEGORY_RULE"
+                place,
+                TravelStyle.SNS_HOT_PLACE,
+                0.80,
+                "USER_ACTIVITY"
         );
-        given(repository.findAllByPlaceIdIn(List.of(1L))).willReturn(List.of(tag));
+        given(repository.findAllByPlaceIdIn(List.of(21L))).willReturn(List.of(tag));
 
-        Map<Long, Double> scores = service.resolveCompatibilities(
-                List.of(first),
-                Set.of(TravelStyle.FOOD)
+        Map<Long, Map<TravelStyle, Double>> vectors = service.resolveStyleVectors(
+                List.of(tripPlace)
         );
 
-        assertThat(scores).containsEntry(11L, 0.91);
+        Map<TravelStyle, Double> vector = vectors.get(31L);
+        assertThat(vector.get(TravelStyle.SNS_HOT_PLACE)).isEqualTo(0.80);
+        assertThat(vector.get(TravelStyle.FOOD)).isEqualTo(0.1);
+        assertThat(vector).hasSize(TravelStyle.values().length);
+    }
+
+    @Test
+    @DisplayName("t6 저장된 스타일 태그가 없으면 카테고리 기본값으로 벡터를 채운다")
+    void t6_resolveStyleVectorsFallsBackToCategoryDefaults() {
+        Place place = Place.builder().name("음식점").build();
+        ReflectionTestUtils.setField(place, "id", 22L);
+        PlaceCategory category = PlaceCategory.builder()
+                .name("음식점")
+                .tripId(1L)
+                .categoryType(PlaceCategoryType.FOOD)
+                .markerColor("#f97316")
+                .markerIcon(PlaceMarkerIcon.LANDMARK)
+                .build();
+        TripPlace tripPlace = org.mockito.Mockito.mock(TripPlace.class);
+        given(tripPlace.getId()).willReturn(32L);
+        given(tripPlace.getPlace()).willReturn(place);
+        given(tripPlace.getCategory()).willReturn(category);
+        given(repository.findAllByPlaceIdIn(List.of(22L))).willReturn(List.of());
+
+        Map<Long, Map<TravelStyle, Double>> vectors = service.resolveStyleVectors(
+                List.of(tripPlace)
+        );
+
+        assertThat(vectors.get(32L).get(TravelStyle.FOOD)).isEqualTo(0.95);
+        assertThat(vectors.get(32L).get(TravelStyle.SNS_HOT_PLACE)).isEqualTo(0.55);
+        assertThat(vectors.get(32L).get(TravelStyle.SHOPPING)).isEqualTo(0.1);
     }
 }

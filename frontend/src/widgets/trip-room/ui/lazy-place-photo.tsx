@@ -5,8 +5,6 @@ import { ExternalLinkIcon, ImageOffIcon } from 'lucide-react'
 import { getPlacePhotoMetadata, type PlacePhotoMetadata } from '@/entities/trip'
 import { resolveGooglePlacePhotoUrl } from '@/shared/api/client'
 
-// 완료된 메타데이터 결과를 세션 내내 보관 — 같은 장소를 다시 선택해도 재요청하지 않는다.
-const resolvedPhotoMetadata = new Map<string, PlacePhotoMetadata>()
 // 진행 중인 요청을 공유해 동시 중복 요청을 방지한다.
 const pendingPhotoMetadataRequests = new Map<
     string,
@@ -69,15 +67,6 @@ export function LazyPlacePhoto({
             }
         }
 
-        // 이미 완료된 결과가 있으면 API 호출 없이 바로 적용
-        const resolved = resolvedPhotoMetadata.get(googlePlaceId)
-        if (resolved) {
-            applyMetadata(resolved)
-            return () => {
-                cancelled = true
-            }
-        }
-
         // 진행 중인 요청이 있으면 그 결과를 공유, 없으면 새로 요청
         const pending = pendingPhotoMetadataRequests.get(googlePlaceId)
         const request = pending ?? getPlacePhotoMetadata(googlePlaceId)
@@ -97,7 +86,6 @@ export function LazyPlacePhoto({
 
         void request
             .then((nextMetadata) => {
-                resolvedPhotoMetadata.set(googlePlaceId, nextMetadata)
                 applyMetadata(nextMetadata)
             })
             .catch(() => {

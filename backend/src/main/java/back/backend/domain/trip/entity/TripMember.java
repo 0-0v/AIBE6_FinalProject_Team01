@@ -2,8 +2,6 @@ package back.backend.domain.trip.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,34 +22,24 @@ public class TripMember {
     @Column(name = "member_id", nullable = false)
     private Long memberId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private TripMemberRole role;
-
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt;
 
     protected TripMember() {
     }
 
-    private TripMember(Long tripId, Long memberId, TripMemberRole role) {
+    private TripMember(Long tripId, Long memberId) {
         this.tripId = tripId;
         this.memberId = memberId;
-        this.role = role;
         this.joinedAt = LocalDateTime.now();
     }
 
-    public static TripMember owner(Long tripId, Long memberId) {
-        return new TripMember(tripId, memberId, TripMemberRole.OWNER);
-    }
-
-    public static TripMember viewer(Long tripId, Long memberId) {
-        return new TripMember(tripId, memberId, TripMemberRole.VIEWER);
+    public static TripMember member(Long tripId, Long memberId) {
+        return new TripMember(tripId, memberId);
     }
 
     public Long getId() { return id; }
     public Long getTripId() { return tripId; }
     public Long getMemberId() { return memberId; }
-    public TripMemberRole getRole() { return role; }
     public LocalDateTime getJoinedAt() { return joinedAt; }
 }

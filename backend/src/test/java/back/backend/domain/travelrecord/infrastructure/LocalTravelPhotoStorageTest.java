@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import back.backend.domain.travelrecord.exception.TravelRecordErrorCode;
 import back.backend.global.config.FileStorageProperties;
 import back.backend.global.exception.BusinessException;
+import back.backend.global.util.ImageTestFixtures;
 import java.nio.file.Path;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -28,7 +29,7 @@ class LocalTravelPhotoStorageTest {
     @DisplayName("t1 이미지 파일을 저장하면 여행방별 공개 경로를 반환한다")
     void t1_storeImageReturnsTripScopedUrl() {
         MockMultipartFile file = new MockMultipartFile(
-                "file", "record.png", "image/png", "image-content".getBytes());
+                "file", "record.png", "image/png", ImageTestFixtures.validPngBytes());
 
         String imageUrl = storage.store(7L, 3L, file);
 
@@ -42,6 +43,18 @@ class LocalTravelPhotoStorageTest {
     void t2_storeNonImageThrowsException() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "record.txt", "text/plain", "text".getBytes());
+
+        assertThatThrownBy(() -> storage.store(7L, 3L, file))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(TravelRecordErrorCode.INVALID_PHOTO_TYPE);
+    }
+
+    @Test
+    @DisplayName("t3 확장자와 Content-Type을 이미지로 위장해도 실제 내용이 이미지가 아니면 저장하지 않는다")
+    void t3_storeThrowsWhenContentTypeAndExtensionAreSpoofed() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "record.png", "image/png", "<script>alert(1)</script>".getBytes());
 
         assertThatThrownBy(() -> storage.store(7L, 3L, file))
                 .isInstanceOf(BusinessException.class)

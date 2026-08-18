@@ -8,6 +8,9 @@ export function useNotificationFeed() {
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const notifications = useNotificationStore((state) => state.notifications)
     const unreadCount = useNotificationStore((state) => state.unreadCount)
+    const page = useNotificationStore((state) => state.page)
+    const totalPages = useNotificationStore((state) => state.totalPages)
+    const totalElements = useNotificationStore((state) => state.totalElements)
     const isLoading = useNotificationStore((state) => state.isLoading)
     const error = useNotificationStore((state) => state.error)
     const loadNotifications = useNotificationStore(
@@ -34,6 +37,9 @@ export function useNotificationFeed() {
         currentUser,
         notifications,
         unreadCount,
+        page,
+        totalPages,
+        totalElements,
         isLoading,
         error,
         loadNotifications,

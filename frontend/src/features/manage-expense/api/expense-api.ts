@@ -50,16 +50,20 @@ export type ExpenseCreateBody = {
 }
 export type ExpenseUpdateBody = ExpenseCreateBody
 
-export async function fetchExpenseData(tripId: number) {
+export async function fetchExpenseData(tripId: number, signal?: AbortSignal) {
+    const options = { signal }
     const [expenses, context, settlement] = await Promise.all([
         apiClient.get<ApiResponse<ExpenseResponse[]>>(
             `/api/trips/${tripId}/expenses`,
+            options,
         ),
         apiClient.get<ApiResponse<ExpenseContext>>(
             `/api/trips/${tripId}/expenses/context`,
+            options,
         ),
         apiClient.get<ApiResponse<SettlementSummary>>(
             `/api/trips/${tripId}/expenses/settlement`,
+            options,
         ),
     ])
     return {

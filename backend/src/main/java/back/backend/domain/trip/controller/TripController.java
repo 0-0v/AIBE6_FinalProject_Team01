@@ -9,6 +9,7 @@ import back.backend.domain.trip.dto.TripVisibilitySettingsResponse;
 import back.backend.domain.trip.service.TripCompletionConfirmationService;
 import back.backend.domain.trip.service.TripService;
 import back.backend.domain.trip.service.TripPlanningService;
+import back.backend.domain.trip.service.GuestAccessCookieProvider;
 import back.backend.domain.trip.dto.DateAvailabilityRequest;
 import back.backend.domain.trip.dto.DateAvailabilityResponse;
 import back.backend.domain.trip.dto.DateProposalRequest;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -82,8 +84,11 @@ public class TripController {
 
     @PostMapping("/{tripId}/presence")
     @Operation(summary = "여행방 접속 상태 갱신")
-    public ApiResponse<Void> markPresent(@PathVariable Long tripId) {
-        tripService.markPresent(tripId);
+    public ApiResponse<Void> markPresent(
+            @PathVariable Long tripId,
+            @CookieValue(name = GuestAccessCookieProvider.COOKIE_NAME, required = false) String guestToken
+    ) {
+        tripService.markPresent(tripId, guestToken);
         return ApiResponse.ok();
     }
 

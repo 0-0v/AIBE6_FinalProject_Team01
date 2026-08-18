@@ -64,7 +64,8 @@ public class PlaceCommentService {
     public void deleteComment(Long tripId, Long tripPlaceId, Long commentId) {
         Long memberId = accessChecker.requireEdit(tripId);
         var tripPlace = verifyTripPlace(tripPlaceId, tripId);
-        PlaceComment comment = commentRepository.findByIdAndMemberId(commentId, memberId)
+        PlaceComment comment = commentRepository
+                .findByIdAndTripPlaceIdAndMemberId(commentId, tripPlaceId, memberId)
                 .orElseThrow(() -> new BusinessException(PlaceErrorCode.PLACE_COMMENT_NOT_FOUND));
         commentRepository.delete(comment);
         collaborationEventService.record(

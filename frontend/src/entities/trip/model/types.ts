@@ -1,12 +1,9 @@
 import type { PlaceMarkerIcon } from './place-marker-icon'
 
-export type Role = 'OWNER' | 'EDITOR' | 'VIEWER'
-
 export type Member = {
     id: string
     name: string
     avatarColor: string
-    role: Role
 }
 
 export type PlaceCategory =
@@ -40,15 +37,30 @@ export type PlaceStatus = 'saved' | 'hold' | 'rejected'
 
 export type PlaceVoteSummary = {
     voteRequestId: number
+    tripPlaceId: number
+    secondaryTripPlaceId: number | null
+    type: 'PLACE_APPROVAL' | 'PLACE_BATTLE'
+    creatorComment: string | null
+    primaryPlace: PlaceVoteOption
+    secondaryPlace: PlaceVoteOption | null
+    comparisonSummary: string | null
     status: 'OPEN' | 'CLOSED'
     agreeCount: number
     disagreeCount: number
     responseCount: number
     requiredResponseCount: number
     totalMemberCount: number
-    myChoice: 'AGREE' | 'DISAGREE' | null
-    placeStatus: 'SAVED' | 'HOLD' | 'REJECTED'
+    myChoice: 'AGREE' | 'DISAGREE' | 'OPTION_A' | 'OPTION_B' | null
+    result: 'SELECTED' | 'NOT_SELECTED' | 'TIE' | null
+    winnerTripPlaceId: number | null
     expiresAt: string
+}
+
+export type PlaceVoteOption = {
+    tripPlaceId: number
+    name: string
+    address: string | null
+    aiDescription: string | null
 }
 
 export type Comment = {

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import back.backend.domain.place.service.MapPinCommentService;
+import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import java.util.List;
@@ -33,6 +34,9 @@ class MapPinSecurityIntegrationTest {
 
     @MockitoBean
     private MapPinCommentService mapPinCommentService;
+
+    @MockitoBean
+    private TripAccessChecker tripAccessChecker;
 
     @Test
     @DisplayName("t1 인증 정보 없이 지도 핀 목록을 조회하면 200을 반환한다")

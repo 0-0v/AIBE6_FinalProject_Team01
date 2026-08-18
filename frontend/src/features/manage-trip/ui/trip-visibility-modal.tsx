@@ -24,7 +24,7 @@ export function TripVisibilityModal({
     onChanged,
 }: Props) {
     const [visibility, setVisibility] = useState<Visibility | null>(
-        required ? null : trip.visibility,
+        required ? 'PRIVATE' : trip.visibility,
     )
     const [step, setStep] = useState<'settings' | 'scope'>('settings')
     const [tags, setTags] = useState<string[]>([])

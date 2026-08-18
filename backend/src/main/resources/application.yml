@@ -1,6 +1,10 @@
 spring:
   application:
     name: backend
+  data:
+    web:
+      pageable:
+        max-page-size: 100
   profiles:
     default: local
   jpa:
@@ -31,6 +35,9 @@ spring:
           auth: true
           starttls:
             enable: true
+          connectiontimeout: ${SMTP_CONNECTION_TIMEOUT_MS:5000}
+          timeout: ${SMTP_READ_TIMEOUT_MS:10000}
+          writetimeout: ${SMTP_WRITE_TIMEOUT_MS:10000}
 
 server:
   forward-headers-strategy: framework
@@ -45,6 +52,7 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+    supported-submit-methods: []
 
 app:
   member:
@@ -67,20 +75,28 @@ app:
       enabled: ${TEST_ACCOUNTS_ENABLED:true}
     jwt:
       secret: ${JWT_SECRET}
-      access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:3600000}
+      access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:900000}
       refresh-token-expiration-ms: ${JWT_REFRESH_TOKEN_EXPIRATION_MS:1209600000}
     oauth2-token:
       encryption-key: ${OAUTH_TOKEN_ENCRYPTION_KEY:}
       retention: ${OAUTH_TOKEN_RETENTION:3650d}
       kakao-admin-key: ${KAKAO_ADMIN_KEY:}
+      connect-timeout: ${OAUTH_UNLINK_CONNECT_TIMEOUT:3s}
+      read-timeout: ${OAUTH_UNLINK_READ_TIMEOUT:5s}
     email:
       from: ${BREVO_FROM_EMAIL:}
       code-expiration: ${EMAIL_VERIFICATION_CODE_EXPIRATION:5m}
+      resend-cooldown: ${EMAIL_VERIFICATION_RESEND_COOLDOWN:5m}
       verified-expiration: ${EMAIL_VERIFICATION_VERIFIED_EXPIRATION:10m}
       admin-otp-expiration: ${ADMIN_OTP_EXPIRATION:5m}
       admin-otp-resend-interval: ${ADMIN_OTP_RESEND_INTERVAL:60s}
       admin-login-attempt-window: ${ADMIN_LOGIN_ATTEMPT_WINDOW:10m}
       admin-login-max-attempts: ${ADMIN_LOGIN_MAX_ATTEMPTS:5}
+    login-attempt:
+      window: ${LOGIN_ATTEMPT_WINDOW:10m}
+      identifier-max-failures: ${LOGIN_IDENTIFIER_MAX_FAILURES:5}
+      ip-max-failures: ${LOGIN_IP_MAX_FAILURES:30}
+      trusted-proxies: ${LOGIN_TRUSTED_PROXIES:127.0.0.1,::1}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
@@ -92,6 +108,9 @@ app:
       connect-timeout: ${GOOGLE_MAPS_CONNECT_TIMEOUT:3s}
       read-timeout: ${GOOGLE_MAPS_READ_TIMEOUT:5s}
       photo-read-timeout: ${GOOGLE_MAPS_PHOTO_READ_TIMEOUT:30s}
+      places-requests-per-minute: ${GOOGLE_MAPS_PLACES_REQUESTS_PER_MINUTE:300}
+      routes-requests-per-minute: ${GOOGLE_MAPS_ROUTES_REQUESTS_PER_MINUTE:300}
+      public-photo-requests-per-minute: ${GOOGLE_MAPS_PUBLIC_PHOTO_REQUESTS_PER_MINUTE:60}
     openai:
       api-key: ${OPENAI_API_KEY:}
       base-url: ${OPENAI_API_BASE_URL:https://api.openai.com}

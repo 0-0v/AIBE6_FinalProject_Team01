@@ -14,18 +14,30 @@ public enum AuthErrorCode implements ErrorCode {
     SUSPENDED_ACCOUNT(HttpStatus.FORBIDDEN, "AUTH_403_SUSPENDED", "관리자에 의해 이용이 정지된 계정입니다."),
     SUSPENSION_NOTICE_INVALID(HttpStatus.BAD_REQUEST, "AUTH_400_SUSPENSION_NOTICE", "정지 안내 정보가 만료되었거나 유효하지 않습니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_401_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다."),
+    LOGIN_RATE_LIMITED(
+            HttpStatus.TOO_MANY_REQUESTS,
+            "AUTH_429_LOGIN",
+            "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요."),
     ADMIN_OTP_REQUIRED(HttpStatus.FORBIDDEN, "AUTH_403_ADMIN_OTP", "관리자 전용 OTP 로그인이 필요합니다."),
     ADMIN_OTP_INVALID(HttpStatus.BAD_REQUEST, "AUTH_400_ADMIN_OTP", "OTP가 올바르지 않거나 만료되었습니다."),
     ADMIN_OTP_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "AUTH_429_ADMIN_OTP", "OTP를 너무 자주 요청했습니다. 잠시 후 다시 시도해 주세요."),
     INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "AUTH_400_CODE", "인증번호가 올바르지 않거나 만료되었습니다."),
+    EMAIL_VERIFICATION_RATE_LIMITED(
+            HttpStatus.TOO_MANY_REQUESTS,
+            "AUTH_429_EMAIL_VERIFICATION",
+            "인증번호가 전송되었습니다."),
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "AUTH_400_NOT_VERIFIED", "이메일 인증이 필요합니다."),
     EMAIL_SEND_FAILED(HttpStatus.BAD_GATEWAY, "AUTH_502_EMAIL", "인증 메일을 발송하지 못했습니다. 잠시 후 다시 시도해 주세요."),
     SOCIAL_ACCOUNT_PASSWORD_RESET(
             HttpStatus.BAD_REQUEST,
             "AUTH_400_SOCIAL_ACCOUNT",
             "소셜로그인으로 가입된 계정입니다."),
-    LOCAL_ACCOUNT_NOT_FOUND(HttpStatus.BAD_REQUEST, "AUTH_400_LOCAL_ACCOUNT", "비밀번호를 재설정할 수 없는 계정입니다."),
-    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_400_SAME_PASSWORD", "이전에 사용하던 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+    LOCAL_ACCOUNT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "AUTH_404_LOCAL_ACCOUNT",
+            "입력한 정보와 일치하는 Plamingo 계정이 없습니다."),
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "AUTH_400_SAME_PASSWORD", "이전에 사용하던 비밀번호와 동일한 비밀번호는 사용할 수 없습니다."),
+    OAUTH_LOGIN_CODE_INVALID(HttpStatus.BAD_REQUEST, "AUTH_400_OAUTH_CODE", "소셜 로그인 코드가 만료되었거나 유효하지 않습니다.");
 
     private final HttpStatus status;
     private final String code;

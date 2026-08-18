@@ -23,7 +23,7 @@ export type OpenPlaceVote = {
     categoryName: string
     responseCount: number
     requiredResponseCount: number
-    myChoice: 'AGREE' | 'DISAGREE' | null
+    myChoice: 'AGREE' | 'DISAGREE' | 'OPTION_A' | 'OPTION_B' | null
 }
 
 export function useDashboardData({
@@ -37,6 +37,11 @@ export function useDashboardData({
     const currentUserId = currentUser?.id ?? null
     const isInitialized = useCurrentUserStore((state) => state.isInitialized)
     const loadTrips = useTripStore((state) => state.loadTrips)
+    const loadedForMemberId = useTripStore(
+        (state) => state.loadedForMemberId,
+    )
+    const tripDataReady =
+        currentUserId != null && loadedForMemberId === currentUserId
     const resetTrips = useTripStore((state) => state.resetTrips)
     const loadActivityLogs = useActivityLogStore(
         (state) => state.loadActivityLogs,
@@ -65,7 +70,7 @@ export function useDashboardData({
 
     useEffect(() => {
         if (!isInitialized) return
-        if (currentUserId != null) void loadTrips()
+        if (currentUserId != null) void loadTrips(currentUserId)
         else {
             resetTrips()
             resetActivityLogs()
@@ -73,13 +78,13 @@ export function useDashboardData({
     }, [currentUserId, isInitialized, loadTrips, resetActivityLogs, resetTrips])
 
     useEffect(() => {
-        if (currentUserId != null && activeTripApiId)
+        if (tripDataReady && activeTripApiId)
             void loadActivityLogs(activeTripApiId)
         else resetActivityLogs()
-    }, [activeTripApiId, currentUserId, loadActivityLogs, resetActivityLogs])
+    }, [activeTripApiId, loadActivityLogs, resetActivityLogs, tripDataReady])
 
     useEffect(() => {
-        if (currentUserId == null || !activeTripApiId) {
+        if (!tripDataReady || !activeTripApiId) {
             Promise.resolve().then(() => {
                 setPendingVoteCount(0)
                 setOpenPlaceVotes([])
@@ -93,7 +98,7 @@ export function useDashboardData({
         Promise.all([
             getTripPlaces(activeTripApiId, controller.signal),
             getTripPlaceVotes(activeTripApiId, controller.signal),
-            fetchExpenseData(activeTripApiId),
+            fetchExpenseData(activeTripApiId, controller.signal),
         ])
             .then(([places, votes, expenseData]) => {
                 if (controller.signal.aborted) return
@@ -141,25 +146,23 @@ export function useDashboardData({
                 }
             })
         return () => controller.abort()
-    }, [activeTrip, activeTripApiId, currentUserId, voteRevision])
+    }, [activeTrip, activeTripApiId, tripDataReady, voteRevision])
 
     useEffect(() => {
-        if (currentUserId == null || !activeTripApiId) {
+        if (!tripDataReady || !activeTripApiId) {
             Promise.resolve().then(() => setItineraryDays([]))
             return
         }
-        let cancelled = false
-        void getItinerary(activeTripApiId)
+        const controller = new AbortController()
+        void getItinerary(activeTripApiId, controller.signal)
             .then((days) => {
-                if (!cancelled) setItineraryDays(days)
+                if (!controller.signal.aborted) setItineraryDays(days)
             })
             .catch(() => {
-                if (!cancelled) setItineraryDays([])
+                if (!controller.signal.aborted) setItineraryDays([])
             })
-        return () => {
-            cancelled = true
-        }
-    }, [activeTripApiId, currentUserId])
+        return () => controller.abort()
+    }, [activeTripApiId, tripDataReady])
 
     useEffect(() => {
         if (currentUserId == null) {

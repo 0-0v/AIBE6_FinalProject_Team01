@@ -1,5 +1,10 @@
 package back.backend.global.security.oauth2;
 
+import back.backend.domain.auth.service.OAuthLoginCodeService;
+import back.backend.domain.member.entity.Member;
+import back.backend.domain.member.repository.MemberRepository;
+import back.backend.global.exception.BusinessException;
+import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.config.FrontendProperties;
 import back.backend.global.security.MemberPrincipal;
 import back.backend.global.security.jwt.JwtProvider;
@@ -24,19 +29,25 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final RefreshTokenCookieProvider refreshTokenCookieProvider;
     private final FrontendProperties frontendProperties;
     private final OAuth2TokenCaptureService oAuth2TokenCaptureService;
+    private final OAuthLoginCodeService oAuthLoginCodeService;
+    private final MemberRepository memberRepository;
 
     public OAuth2LoginSuccessHandler(
             JwtProvider jwtProvider,
             RefreshTokenRepository refreshTokenRepository,
             RefreshTokenCookieProvider refreshTokenCookieProvider,
             FrontendProperties frontendProperties,
-            OAuth2TokenCaptureService oAuth2TokenCaptureService
+            OAuth2TokenCaptureService oAuth2TokenCaptureService,
+            OAuthLoginCodeService oAuthLoginCodeService,
+            MemberRepository memberRepository
     ) {
         this.jwtProvider = jwtProvider;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenCookieProvider = refreshTokenCookieProvider;
         this.frontendProperties = frontendProperties;
         this.oAuth2TokenCaptureService = oAuth2TokenCaptureService;
+        this.oAuthLoginCodeService = oAuthLoginCodeService;
+        this.memberRepository = memberRepository;
     }
 
     @Override
@@ -46,15 +57,21 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication
     ) throws IOException {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        Member member = memberRepository.findById(principal.getMemberId())
+                .orElseThrow(() -> new BusinessException(
+                        CommonErrorCode.UNAUTHORIZED, "인증된 회원을 찾을 수 없습니다."));
         oAuth2TokenCaptureService.capture(authentication, principal.getMemberId());
-        String accessToken = jwtProvider.createAccessToken(principal.getMemberId(), principal.getUsername());
-        String refreshToken = jwtProvider.createRefreshToken(principal.getMemberId());
+        String accessToken = jwtProvider.createAccessToken(
+                principal.getMemberId(), principal.getUsername(), member.getTokenVersion());
+        String refreshToken = jwtProvider.createRefreshToken(
+                principal.getMemberId(), member.getTokenVersion());
         refreshTokenRepository.save(principal.getMemberId(), refreshToken);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.create(refreshToken).toString());
 
+        String code = oAuthLoginCodeService.issue(accessToken);
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendProperties.getFrontendBaseUrl())
                 .path(CALLBACK_PATH)
-                .queryParam("accessToken", accessToken)
+                .queryParam("code", code)
                 .build()
                 .toUriString();
 

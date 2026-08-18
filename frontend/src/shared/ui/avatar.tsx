@@ -30,7 +30,7 @@ export function Avatar({
         >
             <UserIcon
                 size={size * 0.5}
-                color={DESIGN_COLORS.app.avatarIcon}
+                color="var(--color-app-avatar-icon)"
                 aria-hidden="true"
             />
             {imageUrl && (

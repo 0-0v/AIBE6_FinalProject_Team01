@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 export type TripAwarenessWorkspace =
-    'places' | 'itinerary' | 'schedule' | 'record'
+    'places' | 'votes' | 'itinerary' | 'schedule' | 'record'
 
 export type TripMapViewport = {
     lat: number

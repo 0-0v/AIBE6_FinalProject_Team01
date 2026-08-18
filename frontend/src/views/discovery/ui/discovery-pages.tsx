@@ -31,10 +31,7 @@ import {
     type PublicCardDetail,
     useExploreCardStore,
 } from '@/features/explore-card'
-import {
-    REALTIME_EVENT_NAME,
-    type RealtimeEvent,
-} from '@/widgets/realtime-sync'
+import { REALTIME_EVENT_NAME, type RealtimeEvent } from '@/shared/lib'
 import { CreateTripModal } from '@/features/manage-trip'
 import { resolveMediaUrl } from '@/shared/api/client'
 import { KanbanMapPanel } from '@/widgets/trip-room'
@@ -399,16 +396,18 @@ export function Explore() {
     )
 }
 
-function TravelCard({
+export function TravelCard({
     card,
     onBookmark,
     onCopy,
     onOpen,
+    onShare,
 }: {
     card: PublicCard
     onBookmark: () => void
     onCopy: () => void
     onOpen: () => void
+    onShare?: () => void
 }) {
     return (
         <article
@@ -418,24 +417,24 @@ function TravelCard({
             onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') onOpen()
             }}
-            className="relative flex aspect-[4/3] h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[28px] shadow-[0_8px_24px_rgb(var(--rgb-app-navy)/0.10)] ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgb(var(--rgb-app-navy)/0.16)]"
+            className="relative flex aspect-[4/3] h-full min-w-0 cursor-pointer flex-col border-0 shadow-none outline-none ring-0 transition hover:-translate-y-0.5 focus:outline-none focus-visible:outline-none"
         >
             <img
                 src={resolveMediaUrl(card.coverImageUrl) ?? DEFAULT_COVER_IMAGE}
                 onError={fallbackToDefaultCoverImage}
                 alt=""
-                className="absolute inset-0 h-full w-full object-cover"
+                className="absolute inset-0 h-full w-full rounded-[28px] object-cover"
             />
             {card.ownCard && (
                 <span
                     title="내가 참여한 여행 카드"
-                    className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-brand px-3 py-2 text-[11px] font-black tracking-[0.08em] text-white shadow-[0_6px_16px_rgb(var(--rgb-app-navy)/0.28)]"
+                    className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3 py-2 text-[11px] font-extrabold text-brand-700 shadow-sm backdrop-blur-sm"
                 >
                     <BadgeCheckIcon size={14} />
-                    MY
+                    내 여행 카드
                 </span>
             )}
-            <div className="absolute inset-x-0 bottom-0 z-10 flex h-[176px] flex-col justify-end gap-2 bg-gradient-to-t from-white via-white/85 to-white/0 px-4 pb-4 pt-16 text-slate-900">
+            <div className="absolute -inset-x-px -bottom-px z-10 flex h-[177px] flex-col justify-end gap-2 rounded-b-[28px] bg-gradient-to-t from-white via-white/85 to-white/0 px-[17px] pb-[17px] pt-16 text-slate-900">
                 <div className="min-w-0 shrink-0">
                     <h2 className="truncate text-lg font-black tracking-[-0.03em]">
                         {card.title}
@@ -466,39 +465,60 @@ function TravelCard({
                     ))}
                 </div>
                 <div className="flex shrink-0 items-center justify-between gap-3 pt-1 text-xs">
-                    <button
-                        type="button"
-                        disabled={card.ownCard}
-                        onClick={(event) => {
-                            event.stopPropagation()
-                            onBookmark()
-                        }}
-                        className="flex items-center gap-1.5 font-extrabold text-brand-700 disabled:cursor-default"
-                        aria-label={
-                            card.ownCard
-                                ? `여행자 PICK ${card.bookmarkCount}개`
-                                : card.bookmarked
-                                  ? '여행자 PICK 취소'
-                                  : '여행자 PICK'
-                        }
-                    >
-                        <BookmarkIcon
-                            size={15}
-                            fill={card.bookmarked ? 'currentColor' : 'none'}
-                        />
-                        여행자 PICK {card.bookmarkCount}
-                    </button>
-                    {!card.ownCard && (
+                    {card.ownCard ? (
+                        <span
+                            className="flex items-center gap-1.5 font-extrabold text-brand-700"
+                            aria-label={`${card.bookmarkCount}명이 여행자 PICK으로 저장함`}
+                        >
+                            <BookmarkIcon size={15} fill="currentColor" />
+                            {card.bookmarkCount}명이 PICK
+                        </span>
+                    ) : (
                         <button
                             type="button"
                             onClick={(event) => {
                                 event.stopPropagation()
-                                onCopy()
+                                onBookmark()
                             }}
-                            className="flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-brand px-3.5 py-2 font-extrabold text-white transition hover:bg-brand-700"
+                            className="flex items-center gap-1.5 font-extrabold text-brand-700"
+                            aria-label={
+                                card.bookmarked
+                                    ? '여행자 PICK 취소'
+                                    : '여행자 PICK'
+                            }
                         >
-                            <CalendarPlusIcon size={15} /> 일정 담기
+                            <BookmarkIcon
+                                size={15}
+                                fill={card.bookmarked ? 'currentColor' : 'none'}
+                            />
+                            여행자 PICK {card.bookmarkCount}
                         </button>
+                    )}
+                    {!card.ownCard && (
+                        <div className="flex gap-1.5">
+                            {onShare && (
+                                <button
+                                    type="button"
+                                    onClick={(event) => {
+                                        event.stopPropagation()
+                                        onShare()
+                                    }}
+                                    className="rounded-full border border-brand-100 bg-white px-3 py-2 font-extrabold text-brand-700"
+                                >
+                                    공유
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={(event) => {
+                                    event.stopPropagation()
+                                    onCopy()
+                                }}
+                                className="flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-brand px-3.5 py-2 font-extrabold text-white transition hover:bg-brand-700"
+                            >
+                                <CalendarPlusIcon size={15} /> 일정 담기
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

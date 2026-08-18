@@ -45,8 +45,20 @@ class TripSubscriptionAuthorizerTest {
     }
 
     @Test
-    @DisplayName("t4 잘못된 여행방 채널 주소는 구독할 수 없다")
-    void t4_malformedTripTopicCannotBeSubscribed() {
+    @DisplayName("t4 여행방 멤버가 아니면 여행방 실시간 메시지를 전송할 수 없다")
+    void t4_nonMemberCannotSendTripAwarenessMessage() {
+        TripMemberRepository repository = mock(TripMemberRepository.class);
+        when(repository.existsByTripIdAndMemberId(10L, 7L)).thenReturn(false);
+        TripSubscriptionAuthorizer authorizer = new TripSubscriptionAuthorizer(repository);
+
+        assertThatThrownBy(() ->
+                authorizer.authorize("/app/trip-awareness/10", () -> "7"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("t5 잘못된 여행방 채널 주소는 구독할 수 없다")
+    void t5_malformedTripTopicCannotBeSubscribed() {
         TripSubscriptionAuthorizer authorizer =
                 new TripSubscriptionAuthorizer(mock(TripMemberRepository.class));
 

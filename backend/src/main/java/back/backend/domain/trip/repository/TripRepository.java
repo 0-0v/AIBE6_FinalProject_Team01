@@ -16,6 +16,8 @@ import org.springframework.data.domain.Pageable;
 
 public interface TripRepository extends JpaRepository<Trip, Long> {
 
+    Optional<Trip> findByTitleAndOwnerId(String title, Long ownerId);
+
     @Query("""
             select distinct t from Trip t
             join TripMember tm on tm.tripId = t.id

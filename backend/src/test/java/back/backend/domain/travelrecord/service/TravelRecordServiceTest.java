@@ -60,7 +60,7 @@ class TravelRecordServiceTest {
                 1L, "후쿠오카", null, Set.of(), "후쿠오카",
                 LocalDate.of(2026, 7, 23), LocalDate.of(2026, 7, 28)
         );
-        given(accessChecker.requireEdit(1L)).willReturn(1L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(1L);
         given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
 
         TravelRecordCreateRequest request = new TravelRecordCreateRequest(
@@ -81,7 +81,7 @@ class TravelRecordServiceTest {
                 1L, "후쿠오카", null, Set.of(), "후쿠오카",
                 LocalDate.of(2026, 7, 23), LocalDate.of(2026, 7, 28)
         );
-        given(accessChecker.requireEdit(1L)).willReturn(1L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(1L);
         given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
 
         TravelRecordCreateRequest request = new TravelRecordCreateRequest(
@@ -105,7 +105,7 @@ class TravelRecordServiceTest {
         Place place = mock(Place.class);
         TripPlace tripPlace = mock(TripPlace.class);
         TravelRecord savedRecord = mock(TravelRecord.class);
-        given(accessChecker.requireEdit(1L)).willReturn(1L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(1L);
         given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
         given(tripPlaceRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(java.util.Optional.of(tripPlace));
@@ -146,7 +146,7 @@ class TravelRecordServiceTest {
         );
         Place place = mock(Place.class);
         TripPlace tripPlace = mock(TripPlace.class);
-        given(accessChecker.requireEdit(1L)).willReturn(1L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(1L);
         given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
         given(tripPlaceRepository.findByIdAndTripId(10L, 1L))
                 .willReturn(java.util.Optional.of(tripPlace));
@@ -170,7 +170,7 @@ class TravelRecordServiceTest {
                 LocalDate.of(2026, 7, 23), LocalDate.of(2026, 7, 28)
         );
         TravelRecord record = mock(TravelRecord.class);
-        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(2L);
         given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
         given(recordRepository.findByIdAndTripId(30L, 1L)).willReturn(java.util.Optional.of(record));
         given(record.getRecordedBy()).willReturn(1L);
@@ -188,7 +188,7 @@ class TravelRecordServiceTest {
     @DisplayName("t6 여행방 편집 멤버는 공동 기록을 삭제할 수 있다")
     void t6_deleteSharedRecordRemovesRecordAndPhotos() {
         TravelRecord record = mock(TravelRecord.class);
-        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(2L);
         given(recordRepository.findByIdAndTripId(30L, 1L)).willReturn(java.util.Optional.of(record));
 
         service.delete(1L, 30L);
@@ -205,7 +205,7 @@ class TravelRecordServiceTest {
                 LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2)
         );
         TravelRecord record = mock(TravelRecord.class);
-        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(2L);
         given(tripRepository.findById(1L)).willReturn(java.util.Optional.of(trip));
         given(recordRepository.findByIdAndTripId(30L, 1L)).willReturn(java.util.Optional.of(record));
         given(record.getRecordedBy()).willReturn(1L);

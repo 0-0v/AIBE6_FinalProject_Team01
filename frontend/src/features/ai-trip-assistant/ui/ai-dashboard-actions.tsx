@@ -13,7 +13,7 @@ import type { ItineraryDay } from '@/entities/trip'
 import { PLACE_SEARCH_CATEGORIES } from '@/features/search-place'
 import { getApiErrorMessage } from '@/shared/api/client'
 import { globalModal } from '@/shared/model'
-import { Select } from '@/shared/ui'
+import { AnalysisStatusAnimation, Select } from '@/shared/ui'
 import { recommendPlacesAlongRoute } from '../api/ai-trip-api'
 import type { AiPlaceRecommendation } from '../model/types'
 import { AiBrandMark } from './ai-brand-mark'
@@ -33,8 +33,8 @@ type Props = {
             dayId: number
             dayNumber: number
             itineraryDate: string
-            from: ItineraryDay['items'][number]
-            to: ItineraryDay['items'][number]
+            from: ItineraryDay['items'][number] | null
+            to: ItineraryDay['items'][number] | null
         },
     ) => ReactNode
 }
@@ -111,27 +111,46 @@ export function AiDashboardActions({
                     item.tripPlaceId !== null,
             )
             .sort((first, second) => first.sortOrder - second.sortOrder)
-        return orderedItems
-            .slice(0, -1)
-            .map((from, index) => {
-                const to = orderedItems[index + 1]
-                return {
-                    key: `${day.id}:${from.tripPlaceId}:${to.tripPlaceId}`,
-                    dayId: Number(day.id),
-                    dayNumber: day.dayNumber,
-                    itineraryDate: day.itineraryDate,
-                    segmentNumber: index + 1,
-                    from,
-                    to,
-                }
-            })
-            .filter((segment) =>
-                isUpcomingSegment(
-                    segment.itineraryDate,
-                    segment.to.startTime,
-                    recommendationReferenceTime,
-                ),
-            )
+        if (orderedItems.length === 0) return []
+        const betweenSegments = orderedItems.slice(0, -1).map((from, index) => {
+            const to = orderedItems[index + 1]
+            return {
+                key: `${day.id}:${from.tripPlaceId}:${to.tripPlaceId}`,
+                dayId: Number(day.id),
+                dayNumber: day.dayNumber,
+                itineraryDate: day.itineraryDate,
+                segmentNumber: index + 1,
+                from,
+                to,
+            }
+        })
+        return [
+            {
+                key: `${day.id}:before:${orderedItems[0].tripPlaceId}`,
+                dayId: Number(day.id),
+                dayNumber: day.dayNumber,
+                itineraryDate: day.itineraryDate,
+                segmentNumber: 0,
+                from: null,
+                to: orderedItems[0],
+            },
+            ...betweenSegments,
+            {
+                key: `${day.id}:${orderedItems.at(-1)!.tripPlaceId}:after`,
+                dayId: Number(day.id),
+                dayNumber: day.dayNumber,
+                itineraryDate: day.itineraryDate,
+                segmentNumber: orderedItems.length,
+                from: orderedItems.at(-1)!,
+                to: null,
+            },
+        ].filter((segment) =>
+            isUpcomingSegment(
+                segment.itineraryDate,
+                (segment.to ?? segment.from)?.startTime ?? null,
+                recommendationReferenceTime,
+            ),
+        )
     })
     const routeDays = Array.from(
         new Map(
@@ -197,8 +216,12 @@ export function AiDashboardActions({
         try {
             const recommendations = await recommendPlacesAlongRoute(tripId, {
                 dayId: selectedSegment.dayId,
-                fromTripPlaceId: Number(selectedSegment.from.tripPlaceId),
-                toTripPlaceId: Number(selectedSegment.to.tripPlaceId),
+                fromTripPlaceId: selectedSegment.from
+                    ? Number(selectedSegment.from.tripPlaceId)
+                    : null,
+                toTripPlaceId: selectedSegment.to
+                    ? Number(selectedSegment.to.tripPlaceId)
+                    : null,
                 category: categorySearchQueries[category] ?? category,
                 prompt,
                 limit: 5,
@@ -252,7 +275,7 @@ export function AiDashboardActions({
                 <button
                     type="button"
                     onClick={openPlaceRecommendation}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-brand-surface-strong)] px-3 py-2 text-xs font-extrabold text-[var(--color-brand-700)] transition hover:bg-rose-100"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--background-trip-selector)] px-3 py-2 text-xs font-extrabold text-[var(--color-trip-selector)] transition hover:brightness-95"
                 >
                     <MapPinnedIcon size={15} />
                     AI 장소 추천
@@ -260,7 +283,7 @@ export function AiDashboardActions({
                 <button
                     type="button"
                     onClick={openItineraryReplan}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-slate-800"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--background-strong-action)] px-3 py-2 text-xs font-extrabold text-[var(--color-strong-action-text)] transition hover:brightness-110"
                 >
                     <RouteIcon size={15} />
                     AI 일정 재배치
@@ -281,11 +304,11 @@ export function AiDashboardActions({
                                         PLAMINGO AI
                                     </span>
                                     <h2 className="mt-2 text-xl font-black tracking-tight text-slate-900">
-                                        동선 사이 장소 추천
+                                        동선 주변 장소 추천
                                     </h2>
                                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                                        선택한 Day의 기존 동선에서 크게 벗어나지
-                                        않는 실제 장소만 추천해요.
+                                        첫 장소 이전·장소 사이·마지막 장소
+                                        이후의 실제 장소를 추천해요.
                                     </p>
                                 </div>
                             </div>
@@ -298,6 +321,18 @@ export function AiDashboardActions({
                                 <XIcon size={18} />
                             </button>
                         </header>
+
+                        {loading && (
+                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/85 text-center backdrop-blur-sm">
+                                <AnalysisStatusAnimation phase="loading" />
+                                <p className="text-sm font-extrabold text-slate-700">
+                                    동선과 취향을 분석하고 있어요
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                    조건에 맞는 장소를 찾는 중입니다.
+                                </p>
+                            </div>
+                        )}
 
                         {recommendations.length > 0 ? (
                             <AiPlaceRecommendationResults
@@ -380,8 +415,8 @@ export function AiDashboardActions({
                                                                 }}
                                                                 className={`w-full rounded-2xl border p-3 text-left transition ${
                                                                     isSelected
-                                                                        ? 'border-brand bg-rose-50 shadow-[0_6px_18px_rgb(var(--rgb-brand-shadow)/0.12)]'
-                                                                        : 'border-slate-200 bg-white hover:border-rose-200'
+                                                                        ? 'border-brand bg-brand-50 shadow-[0_6px_18px_rgb(var(--rgb-brand-shadow)/0.12)]'
+                                                                        : 'border-slate-200 bg-white hover:border-brand-200'
                                                                 }`}
                                                             >
                                                                 <div className="flex items-center gap-2">
@@ -399,8 +434,8 @@ export function AiDashboardActions({
                                                                     <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-700">
                                                                         {segment
                                                                             .from
-                                                                            .placeName ??
-                                                                            '출발 장소'}
+                                                                            ?.placeName ??
+                                                                            '첫 장소 이전'}
                                                                     </span>
                                                                     <ArrowRightIcon
                                                                         className="shrink-0 text-brand"
@@ -411,8 +446,8 @@ export function AiDashboardActions({
                                                                     <span className="min-w-0 flex-1 truncate text-xs font-extrabold text-slate-700">
                                                                         {segment
                                                                             .to
-                                                                            .placeName ??
-                                                                            '도착 장소'}
+                                                                            ?.placeName ??
+                                                                            '마지막 장소 이후'}
                                                                     </span>
                                                                 </div>
                                                                 <div className="mt-2 flex items-center gap-1 pl-8 text-[10px] font-medium text-slate-400">
@@ -436,11 +471,11 @@ export function AiDashboardActions({
                                                                     ·{' '}
                                                                     {segment
                                                                         .from
-                                                                        .startTime ??
+                                                                        ?.startTime ??
                                                                         '시간 미정'}{' '}
                                                                     →{' '}
                                                                     {segment.to
-                                                                        .startTime ??
+                                                                        ?.startTime ??
                                                                         '시간 미정'}
                                                                 </div>
                                                             </button>
@@ -487,7 +522,7 @@ export function AiDashboardActions({
                                                 className={`rounded-full px-3 py-2 text-xs font-bold transition ${
                                                     category === item.key
                                                         ? 'bg-brand text-white shadow-[0_6px_16px_rgb(var(--rgb-brand-shadow)/0.25)]'
-                                                        : 'border border-slate-200 bg-white text-slate-500 hover:border-rose-200 hover:bg-rose-50'
+                                                        : 'border border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:bg-brand-50'
                                                 }`}
                                             >
                                                 {item.label}

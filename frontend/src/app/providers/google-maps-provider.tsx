@@ -2,6 +2,9 @@
 
 import type { PropsWithChildren } from 'react'
 import { APIProvider } from '@vis.gl/react-google-maps'
+import { preventGoogleMapsFontLoading } from './prevent-google-maps-fonts'
+
+preventGoogleMapsFontLoading()
 
 export function GoogleMapsProvider({ children }: PropsWithChildren) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY

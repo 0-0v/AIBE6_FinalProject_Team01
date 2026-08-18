@@ -78,6 +78,7 @@ public class MapPinCommentService {
                 .lng(request.lng())
                 .placeName(placeName)
                 .createdAt(LocalDateTime.now())
+                .googleContentFetchedAt(LocalDateTime.now())
                 .build());
         MapPinComment comment = commentRepository.save(MapPinComment.builder()
                 .mapPinId(pin.getId())

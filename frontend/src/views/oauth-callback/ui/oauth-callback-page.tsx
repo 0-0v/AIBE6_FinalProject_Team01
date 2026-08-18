@@ -1,13 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { exchangeOAuthLoginCode } from '@/features/local-auth'
 import { setAccessToken } from '@/shared/api/client'
-import { fetchCurrentUser } from '@/shared/api/current-user'
 import { setLastLoginProvider } from '@/shared/lib'
-import { useCurrentUserStore } from '@/shared/model'
 
 export function OAuthCallback() {
     const navigate = useNavigate()
-    const setCurrentUser = useCurrentUserStore((state) => state.setCurrentUser)
     const handledRef = useRef(false)
 
     useEffect(() => {
@@ -17,21 +15,22 @@ export function OAuthCallback() {
         handledRef.current = true
 
         const params = new URLSearchParams(window.location.search)
-        const accessToken = params.get('accessToken')
+        const code = params.get('code')
 
-        if (!accessToken) {
+        // 콜백 URL의 코드는 1회용이며 브라우저 방문 기록에 남는 것을 최소화하기 위해
+        // 사용 여부와 관계없이 즉시 쿼리 파라미터를 제거한다.
+        window.history.replaceState(null, '', window.location.pathname)
+
+        if (!code) {
             navigate('/login', { replace: true })
             return
         }
 
-        setAccessToken(accessToken)
-
-        fetchCurrentUser(accessToken)
+        exchangeOAuthLoginCode(code)
             .then((user) => {
                 if (!user) {
                     throw new Error('사용자 정보를 불러오지 못했습니다.')
                 }
-                setCurrentUser(user)
                 if (user.provider === 'GOOGLE' || user.provider === 'KAKAO') {
                     setLastLoginProvider(user.provider)
                 }
@@ -49,7 +48,7 @@ export function OAuthCallback() {
                     replace: true,
                 })
             })
-    }, [navigate, setCurrentUser])
+    }, [navigate])
 
     return null
 }

@@ -3,12 +3,16 @@ import {
     PencilIcon,
     AlertTriangleIcon,
     CameraIcon,
+    ChevronLeftIcon,
     ChevronRightIcon,
+    PaletteIcon,
+    SearchIcon,
     XIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Avatar, DEFAULT_AVATAR_COLOR } from '@/shared/ui'
+import { Avatar, DEFAULT_AVATAR_COLOR, ThemePicker } from '@/shared/ui'
 import { useCurrentUserStore } from '@/shared/model'
+import { useAppTheme } from '@/shared/lib'
 import { resolveMediaUrl } from '@/shared/api/client'
 import {
     checkNicknameAvailability,
@@ -16,6 +20,15 @@ import {
     withdrawAccount,
 } from '@/features/manage-profile'
 import { useTripStore } from '@/features/manage-trip'
+import {
+    fetchBookmarkedCards,
+    fetchTripSharedBookmarks,
+    removeBookmark,
+    shareBookmarkToTrip,
+    unshareBookmarkFromTrip,
+    type PublicCard,
+    TravelCard,
+} from '@/features/explore-card'
 
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
 const ALLOWED_PROFILE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp']
@@ -43,6 +56,7 @@ export function MyPage() {
     const navigate = useNavigate()
     const currentUser = useCurrentUserStore((state) => state.currentUser)
     const currentUserId = currentUser?.id ?? null
+    const { theme, setTheme, colorMode, setColorMode } = useAppTheme()
     const {
         changeNickname,
         changeProfileImage,
@@ -64,15 +78,151 @@ export function MyPage() {
     const [checkedNickname, setCheckedNickname] = useState('')
     const [isCheckingNickname, setIsCheckingNickname] = useState(false)
     const [imageError, setImageError] = useState('')
+    const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false)
     const [isWithdrawing, setIsWithdrawing] = useState(false)
     const [withdrawError, setWithdrawError] = useState('')
     const [withdrawReason, setWithdrawReason] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const bookmarkRailRef = useRef<HTMLDivElement>(null)
+    const [bookmarks, setBookmarks] = useState<PublicCard[]>([])
+    const [bookmarkQuery, setBookmarkQuery] = useState('')
+    const [bookmarksLoading, setBookmarksLoading] = useState(true)
+    const [shareCard, setShareCard] = useState<PublicCard | null>(null)
+    const [sharingTripId, setSharingTripId] = useState<number | null>(null)
+    const [sharedTripIds, setSharedTripIds] = useState<Set<number>>(new Set())
+    const [shareStatusLoading, setShareStatusLoading] = useState(false)
+    const [shareError, setShareError] = useState('')
+    const [canScrollBookmarksLeft, setCanScrollBookmarksLeft] = useState(false)
+    const [canScrollBookmarksRight, setCanScrollBookmarksRight] =
+        useState(false)
 
     useEffect(() => {
-        if (currentUserId != null) void loadTrips()
+        if (currentUserId == null) return
+        void loadTrips(currentUserId)
+        void fetchBookmarkedCards()
+            .then(setBookmarks)
+            .finally(() => setBookmarksLoading(false))
     }, [currentUserId, loadTrips])
+
+    useEffect(() => {
+        if (!shareCard || trips.length === 0) return
+
+        let cancelled = false
+        void Promise.all(
+            trips.map(async (trip) => {
+                const shared = await fetchTripSharedBookmarks(trip.id)
+                return shared.some(
+                    (item) => item.card.id === shareCard.id && item.sharedByMe,
+                )
+                    ? trip.id
+                    : null
+            }),
+        )
+            .then((tripIds) => {
+                if (!cancelled) {
+                    setSharedTripIds(
+                        new Set(
+                            tripIds.filter((id): id is number => id != null),
+                        ),
+                    )
+                }
+            })
+            .catch(() => {
+                if (!cancelled) setShareError('공유 상태를 확인하지 못했어요.')
+            })
+            .finally(() => {
+                if (!cancelled) setShareStatusLoading(false)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [shareCard, trips])
+
+    const filteredBookmarks = bookmarks.filter((card) => {
+        const query = bookmarkQuery.trim().toLowerCase()
+        return (
+            !query ||
+            [card.title, card.destination, ...card.tags]
+                .filter(Boolean)
+                .some((value) => value!.toLowerCase().includes(query))
+        )
+    })
+
+    function updateBookmarkScrollButtons() {
+        const rail = bookmarkRailRef.current
+        if (!rail) return
+        const maxScrollLeft = rail.scrollWidth - rail.clientWidth
+        setCanScrollBookmarksLeft(rail.scrollLeft > 1)
+        setCanScrollBookmarksRight(rail.scrollLeft < maxScrollLeft - 1)
+    }
+
+    useEffect(() => {
+        const rail = bookmarkRailRef.current
+        if (!rail) return
+        const handleWheel = (event: WheelEvent) => {
+            if (rail.scrollWidth <= rail.clientWidth) return
+            const movement =
+                Math.abs(event.deltaX) > Math.abs(event.deltaY)
+                    ? event.deltaX
+                    : event.deltaY
+            const atStart = movement < 0 && rail.scrollLeft <= 0
+            const atEnd =
+                movement > 0 &&
+                rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1
+            if (atStart || atEnd) return
+            event.preventDefault()
+            rail.scrollBy({ left: movement, behavior: 'auto' })
+        }
+        const observer = new ResizeObserver(updateBookmarkScrollButtons)
+        observer.observe(rail)
+        rail.addEventListener('wheel', handleWheel, { passive: false })
+        requestAnimationFrame(updateBookmarkScrollButtons)
+        return () => {
+            observer.disconnect()
+            rail.removeEventListener('wheel', handleWheel)
+        }
+    }, [filteredBookmarks.length])
+
+    async function shareToTrip(tripId: number) {
+        if (!shareCard || sharingTripId != null) return
+        setSharingTripId(tripId)
+        setShareError('')
+        try {
+            if (sharedTripIds.has(tripId)) {
+                await unshareBookmarkFromTrip(tripId, shareCard.id)
+                setSharedTripIds((current) => {
+                    const next = new Set(current)
+                    next.delete(tripId)
+                    return next
+                })
+            } else {
+                await shareBookmarkToTrip(tripId, shareCard.id)
+                setSharedTripIds((current) => new Set(current).add(tripId))
+            }
+        } catch (err) {
+            setShareError(
+                err instanceof Error
+                    ? err.message
+                    : '북마크 공유에 실패했어요.',
+            )
+        } finally {
+            setSharingTripId(null)
+        }
+    }
+
+    function openShareModal(card: PublicCard) {
+        setSharedTripIds(new Set())
+        setShareError('')
+        setShareStatusLoading(trips.length > 0)
+        setShareCard(card)
+    }
+
+    async function removeSavedBookmark(cardId: number) {
+        await removeBookmark(cardId)
+        setBookmarks((current) => current.filter((card) => card.id !== cardId))
+    }
 
     async function saveNickname() {
         const v = draft.trim()
@@ -317,67 +467,204 @@ export function MyPage() {
                     </div>
                 </section>
 
-                {/* Trips with public toggle */}
-                <section className="mb-8">
-                    <h2 className="mb-3 text-lg font-bold">
-                        내가 참여 중인 여행방
-                    </h2>
-                    <div className="divide-y divide-slate-100 overflow-hidden rounded-[22px] border border-slate-100 bg-white shadow-sm">
-                        {isLoading && (
-                            <p className="px-5 py-8 text-center text-sm font-medium text-slate-400">
-                                여행방을 불러오는 중입니다.
-                            </p>
-                        )}
-                        {!isLoading && tripError && (
-                            <div className="px-5 py-8 text-center">
-                                <p className="text-sm font-medium text-red-500">
-                                    {tripError}
+                <section className="mb-8 rounded-[22px] border border-slate-100 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-brand-50)] text-[var(--color-brand)]">
+                                <PaletteIcon size={20} />
+                            </span>
+                            <div className="min-w-0">
+                                <h2 className="font-bold text-[var(--color-app-ink)]">
+                                    테마 설정
+                                </h2>
+                                <p className="mt-0.5 text-sm text-[var(--color-app-text-secondary)]">
+                                    화면 모드와 포인트 색상을 변경할 수 있어요.
                                 </p>
-                                <button
-                                    type="button"
-                                    onClick={() => void loadTrips()}
-                                    className="mt-3 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
-                                >
-                                    다시 시도
-                                </button>
                             </div>
-                        )}
-                        {!isLoading && !tripError && trips.length === 0 && (
-                            <p className="px-5 py-8 text-center text-sm font-medium text-slate-400">
-                                참여 중인 여행방이 없습니다.
-                            </p>
-                        )}
-                        {!isLoading &&
-                            !tripError &&
-                            trips.map((trip) => (
-                                <div
-                                    key={trip.id}
-                                    className="flex items-center gap-3 px-5 py-4"
-                                >
-                                    <div className="flex-1">
-                                        <div className="font-medium">
-                                            {trip.title}
-                                        </div>
-                                        <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                                            {trip.ownerId === currentUser?.id
-                                                ? '방장'
-                                                : '참여 멤버'}
-                                        </span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            navigate(`/app/room/${trip.id}`)
-                                        }
-                                        className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold text-brand-700 hover:bg-brand-50"
-                                    >
-                                        여행방 열기
-                                        <ChevronRightIcon size={14} />
-                                    </button>
-                                </div>
-                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsThemeModalOpen(true)}
+                            className="shrink-0 rounded-xl border border-[var(--color-app-border)] px-4 py-2.5 text-sm font-bold text-[var(--color-app-text)] transition hover:border-[var(--color-brand-200)] hover:bg-[var(--color-brand-50)] hover:text-[var(--color-brand-700)]"
+                        >
+                            변경
+                        </button>
                     </div>
                 </section>
+
+                {/* Bookmarks */}
+                <section className="mb-8">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <h2 className="text-lg font-bold">여행자 PICK</h2>
+                        <label className="flex w-56 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <SearchIcon size={14} className="text-slate-400" />
+                            <input
+                                value={bookmarkQuery}
+                                onChange={(event) =>
+                                    setBookmarkQuery(event.target.value)
+                                }
+                                placeholder="북마크 검색"
+                                className="min-w-0 flex-1 text-xs outline-none"
+                            />
+                        </label>
+                    </div>
+                    <div className="relative">
+                        <div
+                            ref={bookmarkRailRef}
+                            onScroll={updateBookmarkScrollButtons}
+                            className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2"
+                        >
+                            {filteredBookmarks.map((card) => (
+                                <div
+                                    key={card.id}
+                                    className="w-[calc((100%-2rem)/3)] min-w-0 shrink-0 snap-start"
+                                >
+                                    <TravelCard
+                                        card={card}
+                                        onBookmark={() =>
+                                            void removeSavedBookmark(card.id)
+                                        }
+                                        onCopy={() =>
+                                            navigate(`/app/explore/${card.id}`)
+                                        }
+                                        onOpen={() =>
+                                            navigate(`/app/explore/${card.id}`)
+                                        }
+                                        onShare={() => openShareModal(card)}
+                                        flat
+                                    />
+                                </div>
+                            ))}
+                            {!bookmarksLoading &&
+                                filteredBookmarks.length === 0 && (
+                                    <p className="w-full rounded-[22px] border border-slate-100 bg-white py-16 text-center text-sm text-slate-400">
+                                        저장한 북마크가 없습니다.
+                                    </p>
+                                )}
+                        </div>
+                        {(canScrollBookmarksLeft ||
+                            canScrollBookmarksRight) && (
+                            <>
+                                {canScrollBookmarksLeft && (
+                                    <button
+                                        type="button"
+                                        aria-label="이전 북마크"
+                                        onClick={() =>
+                                            bookmarkRailRef.current?.scrollBy({
+                                                left: -bookmarkRailRef.current
+                                                    .clientWidth,
+                                                behavior: 'smooth',
+                                            })
+                                        }
+                                        className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white p-2 shadow-md"
+                                    >
+                                        <ChevronLeftIcon size={18} />
+                                    </button>
+                                )}
+                                {canScrollBookmarksRight && (
+                                    <button
+                                        type="button"
+                                        aria-label="다음 북마크"
+                                        onClick={() =>
+                                            bookmarkRailRef.current?.scrollBy({
+                                                left: bookmarkRailRef.current
+                                                    .clientWidth,
+                                                behavior: 'smooth',
+                                            })
+                                        }
+                                        className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white p-2 shadow-md"
+                                    >
+                                        <ChevronRightIcon size={18} />
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </section>
+
+                {shareCard && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
+                        onMouseDown={(event) =>
+                            event.target === event.currentTarget &&
+                            setShareCard(null)
+                        }
+                    >
+                        <section className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl">
+                            <div className="flex justify-between gap-4">
+                                <div className="min-w-0">
+                                    <h2 className="font-extrabold">
+                                        여행방에 공유
+                                    </h2>
+                                    <p className="mt-1 truncate text-xs text-slate-500">
+                                        {shareCard.title}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    aria-label="공유 창 닫기"
+                                    onClick={() => setShareCard(null)}
+                                >
+                                    <XIcon size={18} />
+                                </button>
+                            </div>
+                            <p className="mt-3 rounded-xl bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700">
+                                이미 공유한 여행방은 ‘공유 해제’를 눌러 취소할
+                                수 있어요.
+                            </p>
+                            {shareError && (
+                                <p className="mt-2 text-xs font-semibold text-red-500">
+                                    {shareError}
+                                </p>
+                            )}
+                            <div className="mt-4 space-y-2">
+                                {isLoading || shareStatusLoading ? (
+                                    <p className="py-6 text-center text-sm text-slate-400">
+                                        공유 상태를 확인하는 중...
+                                    </p>
+                                ) : tripError ? (
+                                    <p className="text-sm text-red-500">
+                                        {tripError}
+                                    </p>
+                                ) : trips.length === 0 ? (
+                                    <p className="py-6 text-center text-sm text-slate-400">
+                                        참여 중인 여행방이 없습니다.
+                                    </p>
+                                ) : (
+                                    trips.map((trip) => {
+                                        const alreadyShared = sharedTripIds.has(
+                                            trip.id,
+                                        )
+                                        return (
+                                            <button
+                                                key={trip.id}
+                                                type="button"
+                                                disabled={sharingTripId != null}
+                                                onClick={() =>
+                                                    void shareToTrip(trip.id)
+                                                }
+                                                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-bold transition ${alreadyShared ? 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-red-100 hover:bg-red-50 hover:text-red-600' : 'border-slate-100 hover:bg-brand-50'} disabled:cursor-wait disabled:opacity-60`}
+                                            >
+                                                <span className="truncate">
+                                                    {trip.title}
+                                                </span>
+                                                <span className="shrink-0 text-xs">
+                                                    {sharingTripId === trip.id
+                                                        ? alreadyShared
+                                                            ? '해제 중...'
+                                                            : '공유 중...'
+                                                        : alreadyShared
+                                                          ? '공유 해제'
+                                                          : '공유하기'}
+                                                </span>
+                                            </button>
+                                        )
+                                    })
+                                )}
+                            </div>
+                        </section>
+                    </div>
+                )}
 
                 {/* Danger zone */}
                 <section className="rounded-[22px] border border-red-100 bg-red-50/50 p-6">
@@ -418,6 +705,51 @@ export function MyPage() {
                     </div>
                 </section>
             </div>
+            {isThemeModalOpen && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-5 py-8"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="theme-modal-title"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) {
+                            setIsThemeModalOpen(false)
+                        }
+                    }}
+                >
+                    <div className="relative w-full max-w-[600px] rounded-[28px] bg-[var(--color-app-surface)] px-7 py-8 shadow-2xl sm:px-9">
+                        <button
+                            type="button"
+                            onClick={() => setIsThemeModalOpen(false)}
+                            aria-label="테마 설정 팝업 닫기"
+                            className="absolute right-5 top-5 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        >
+                            <XIcon size={20} />
+                        </button>
+                        <h2
+                            id="theme-modal-title"
+                            className="pr-10 text-xl font-extrabold text-[var(--color-app-ink)]"
+                        >
+                            테마 설정
+                        </h2>
+                        <div className="mt-6">
+                            <ThemePicker
+                                value={theme}
+                                onChange={setTheme}
+                                colorMode={colorMode}
+                                onColorModeChange={setColorMode}
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsThemeModalOpen(false)}
+                            className="mt-8 w-full rounded-xl bg-[var(--color-brand)] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[var(--color-brand-700)]"
+                        >
+                            적용 완료
+                        </button>
+                    </div>
+                </div>
+            )}
             {isWithdrawModalOpen && (
                 <div
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 px-5 py-8"
