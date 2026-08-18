@@ -450,8 +450,8 @@ public class ItineraryRoutePlanner {
     }
 
     /**
-     * 카테고리 우선순위로 장소를 Day 클러스터로 분리한다.
-     * 우선 카테고리 장소들이 앞쪽 Day에 배정되고, Day 내부는 NN 정렬.
+     * 스타일 우선순위를 유지하되 같은 유형이 한 Day에 몰리지 않게 분산한다.
+     * 같은 조건에서는 Day별 장소 수와 이동 거리를 차례로 비교한다.
      */
     private List<List<TripPlace>> clusterByStylePriority(
             List<TripPlace> places,
@@ -463,26 +463,40 @@ public class ItineraryRoutePlanner {
         Map<PlaceCategoryType, Integer> scoreMap = new HashMap<>();
         for (int i = 0; i < priority.size(); i++) scoreMap.put(priority.get(i), i);
 
-        Map<Integer, List<TripPlace>> buckets = new LinkedHashMap<>();
-        for (TripPlace place : places) {
-            int score = scoreMap.getOrDefault(
-                    place.getCategory().getCategoryType(), priority.size());
-            buckets.computeIfAbsent(score, k -> new ArrayList<>()).add(place);
-        }
-
         int maxPerDay = (int) Math.ceil((double) places.size() / dayCount * 1.5);
-        List<List<TripPlace>> clusters = new ArrayList<>();
-        for (int i = 0; i < dayCount; i++) clusters.add(new ArrayList<>());
+        List<List<TripPlace>> clusters = emptyClusters(dayCount);
+        List<TripPlace> assignmentOrder = places.stream()
+                .sorted(Comparator
+                        .comparingInt((TripPlace place) -> scoreMap.getOrDefault(
+                                place.getCategory().getCategoryType(), priority.size()))
+                        .thenComparing(TripPlace::getId))
+                .toList();
 
-        int dayIdx = 0;
-        for (int bucket = 0; bucket <= priority.size(); bucket++) {
-            List<TripPlace> bucketPlaces = buckets.getOrDefault(bucket, List.of());
-            for (TripPlace place : bucketPlaces) {
-                while (dayIdx < dayCount - 1 && clusters.get(dayIdx).size() >= maxPerDay) {
-                    dayIdx++;
+        for (TripPlace place : assignmentOrder) {
+            int targetIndex = -1;
+            int fewestSameGroup = Integer.MAX_VALUE;
+            int smallestClusterSize = Integer.MAX_VALUE;
+            double nearestClusterDistance = Double.MAX_VALUE;
+            for (int index = 0; index < clusters.size(); index++) {
+                List<TripPlace> cluster = clusters.get(index);
+                if (cluster.size() >= maxPerDay) continue;
+
+                int sameGroupCount = countSameCategoryGroup(place, cluster);
+                double clusterDistance = averageDistanceMeters(place, cluster);
+                if (sameGroupCount < fewestSameGroup
+                        || (sameGroupCount == fewestSameGroup
+                        && cluster.size() < smallestClusterSize)
+                        || (sameGroupCount == fewestSameGroup
+                        && cluster.size() == smallestClusterSize
+                        && clusterDistance < nearestClusterDistance)) {
+                    targetIndex = index;
+                    fewestSameGroup = sameGroupCount;
+                    smallestClusterSize = cluster.size();
+                    nearestClusterDistance = clusterDistance;
                 }
-                clusters.get(dayIdx).add(place);
             }
+            if (targetIndex < 0) targetIndex = indexOfSmallestCluster(clusters);
+            clusters.get(targetIndex).add(place);
         }
 
         return clusters.stream()
@@ -539,6 +553,35 @@ public class ItineraryRoutePlanner {
                         ? cluster
                         : new ArrayList<>(orderByNearestNeighbor(cluster, 0)))
                 .collect(Collectors.toList());
+    }
+
+    private int countSameCategoryGroup(
+            TripPlace place,
+            List<TripPlace> cluster
+    ) {
+        String categoryGroup = categoryGroup(place);
+        return (int) cluster.stream()
+                .filter(candidate -> categoryGroup(candidate).equals(categoryGroup))
+                .count();
+    }
+
+    private String categoryGroup(TripPlace place) {
+        PlaceCategoryType type = place.getCategory().getCategoryType();
+        return switch (type) {
+            case FOOD, CAFE, BAR -> "MEAL";
+            default -> type.name();
+        };
+    }
+
+    private double averageDistanceMeters(
+            TripPlace place,
+            List<TripPlace> cluster
+    ) {
+        if (cluster.isEmpty()) return 0.0;
+        return cluster.stream()
+                .mapToDouble(candidate -> distanceMeters(place, candidate))
+                .average()
+                .orElse(0.0);
     }
 
     /**

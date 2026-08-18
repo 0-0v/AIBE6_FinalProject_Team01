@@ -102,8 +102,8 @@ class ItineraryRoutePlannerTest {
     }
 
     @Test
-    @DisplayName("t3 FOOD 스타일은 음식점·카페 장소를 동선 앞쪽에 배치한다")
-    void t3_foodStylePrioritizesFoodAndCafePlaces() {
+    @DisplayName("t3 FOOD 스타일도 음식 장소와 일반 장소를 Day별로 분산한다")
+    void t3_foodStyleDistributesMealAndGeneralPlacesAcrossDays() {
         List<TripPlace> places = List.of(
                 tripPlace(10L, "명소A", PlaceCategoryType.ATTRACTION, 33.4500, 126.5000),
                 tripPlace(11L, "음식점B", PlaceCategoryType.FOOD, 33.4600, 126.5100),
@@ -122,15 +122,14 @@ class ItineraryRoutePlannerTest {
                 .filter(option -> option.routeLabel().startsWith("맛집"))
                 .findFirst()
                 .orElseThrow();
-        List<String> firstDayCategories = foodOption.plan().days()
-                .getFirst()
-                .items()
-                .stream()
-                .map(item -> item.categoryName())
-                .toList();
-
-        assertThat(firstDayCategories)
-                .contains("음식점", "카페");
+        assertThat(foodOption.plan().days()).allSatisfy(day -> {
+            List<String> categories = day.items().stream()
+                    .map(item -> item.categoryName())
+                    .toList();
+            assertThat(categories).anyMatch(category ->
+                    category.equals("음식점") || category.equals("카페"));
+            assertThat(categories).contains("명소");
+        });
     }
 
     @Test
