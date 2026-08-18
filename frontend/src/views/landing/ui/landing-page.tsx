@@ -1,7 +1,5 @@
 'use client'
 
-/* eslint-disable react/no-unescaped-entities */
-
 import React, { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ConfettiButton } from '@/shared/ui/confetti-button'
@@ -28,7 +26,6 @@ export function Landing() {
     const {
         scrolled,
         showNav,
-        revealed,
         isMobile,
         reduced,
         ctaHover,
@@ -1140,7 +1137,7 @@ export function Landing() {
                         >
                             투표 한 번이면
                             <br />
-                            다수결 끝! 싸울 일 없어요.
+                            싸울 일 없이 결정 끝.
                         </h2>
                         <p
                             style={{
@@ -1169,7 +1166,7 @@ export function Landing() {
                         style={{
                             position: 'relative',
                             width: '100%',
-                            maxWidth: 400,
+                            maxWidth: 560,
                         }}
                     >
                         <div
@@ -1182,157 +1179,19 @@ export function Landing() {
                                 position: 'relative',
                             }}
                         >
-                            <div
+                            <img
+                                src="/assets/landing-vote-preview.png"
+                                alt="한큐 우메다 본점의 AI 장소 정보와 찬반 투표가 표시된 실제 서비스 화면"
                                 style={{
-                                    background: 'var(--color-landing-canvas)',
+                                    display: 'block',
+                                    width: '100%',
+                                    height: 'auto',
                                     border: '3px solid var(--color-landing-ink)',
                                     borderRadius: 22,
-                                    padding: 22,
                                     boxShadow:
                                         '5px 5px 0 var(--color-landing-ink)',
-                                    position: 'relative',
                                 }}
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        gap: 14,
-                                        marginBottom: 16,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            width: 60,
-                                            height: 60,
-                                            borderRadius: 12,
-                                            background:
-                                                'linear-gradient(135deg,var(--color-landing-lavender),var(--color-landing-pink))',
-                                            flexShrink: 0,
-                                        }}
-                                    />
-                                    <div>
-                                        <div
-                                            style={{
-                                                fontWeight: 800,
-                                                fontSize: 15,
-                                                marginBottom: 4,
-                                            }}
-                                        >
-                                            교토 후시미이나리 신사
-                                        </div>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                marginLeft: -2,
-                                            }}
-                                        >
-                                            {[
-                                                'var(--color-landing-pink)',
-                                                'var(--color-landing-lavender)',
-                                                'var(--color-landing-coral)',
-                                            ].map((bg, i) => (
-                                                <div
-                                                    key={i}
-                                                    style={{
-                                                        width: 22,
-                                                        height: 22,
-                                                        borderRadius: '50%',
-                                                        background: bg,
-                                                        border: '2px solid var(--color-app-surface)',
-                                                        marginLeft:
-                                                            i > 0 ? -8 : 0,
-                                                        boxShadow:
-                                                            '0 2px 6px rgb(var(--rgb-landing-deep)/0.12)',
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        gap: 8,
-                                        marginBottom: 14,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            flex: 1,
-                                            textAlign: 'center',
-                                            background:
-                                                'var(--color-landing-rose-soft)',
-                                            color: 'var(--color-landing-rose)',
-                                            fontWeight: 700,
-                                            fontSize: 13,
-                                            padding: '9px 0',
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        찬성 · 3
-                                    </div>
-                                    <div
-                                        style={{
-                                            flex: 1,
-                                            textAlign: 'center',
-                                            background:
-                                                'var(--color-landing-rose-muted)',
-                                            color: 'var(--color-category-bar)',
-                                            fontWeight: 700,
-                                            fontSize: 13,
-                                            padding: '9px 0',
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        반대 · 1
-                                    </div>
-                                </div>
-                                <div
-                                    style={{
-                                        borderTop:
-                                            '1.5px solid var(--color-landing-surface-muted)',
-                                        paddingTop: 12,
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        color: 'var(--color-landing-body)',
-                                    }}
-                                >
-                                    💬 "아침 일찍 가면 사람 없대!"
-                                </div>
-                                {/* 스탬프 */}
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        right: -18,
-                                        top: -18,
-                                        ...revealCard(
-                                            'vote',
-                                            420,
-                                            'scale(0.3) rotate(-30deg)',
-                                            'scale(1) rotate(-8deg)',
-                                        ),
-                                    }}
-                                >
-                                    <svg
-                                        width="64"
-                                        height="64"
-                                        viewBox="0 0 64 64"
-                                    >
-                                        <circle
-                                            cx="32"
-                                            cy="32"
-                                            r="30"
-                                            fill="var(--color-app-surface)"
-                                            stroke="var(--color-landing-coral)"
-                                            strokeWidth="2.5"
-                                        />
-                                        <path
-                                            d="M32 44s-14-8.5-14-18a8 8 0 0 1 14-5 8 8 0 0 1 14 5c0 9.5-14 18-14 18z"
-                                            fill="var(--color-landing-coral)"
-                                        />
-                                    </svg>
-                                </div>
-                            </div>
+                            />
                         </div>
                     </div>
                 </div>
@@ -1403,7 +1262,7 @@ export function Landing() {
                         style={{
                             position: 'relative',
                             width: '100%',
-                            maxWidth: 440,
+                            maxWidth: 560,
                         }}
                     >
                         <div
@@ -1415,157 +1274,19 @@ export function Landing() {
                                 ...sceneParallax('ai-section', 30),
                             }}
                         >
-                            <div
+                            <img
+                                src="/assets/landing-route-preview.png"
+                                alt="오사카 여행 장소를 이동 거리와 방문 시간에 맞춰 배치한 실제 동선 추천 화면"
                                 style={{
-                                    background: 'var(--color-landing-canvas)',
+                                    display: 'block',
+                                    width: '100%',
+                                    height: 'auto',
                                     border: '3px solid var(--color-landing-ink)',
                                     borderRadius: 22,
-                                    padding: 20,
                                     boxShadow:
                                         '5px 5px 0 var(--color-landing-ink)',
                                 }}
-                            >
-                                <svg
-                                    width="100%"
-                                    height="140"
-                                    viewBox="0 0 380 140"
-                                    style={{
-                                        display: 'block',
-                                        marginBottom: 14,
-                                    }}
-                                >
-                                    <rect
-                                        width="380"
-                                        height="140"
-                                        rx="14"
-                                        fill="var(--color-landing-lavender-soft)"
-                                    />
-                                    <path
-                                        d="M40 100 C 90 40, 160 120, 220 60 S 320 30, 340 50"
-                                        stroke="var(--color-landing-purple)"
-                                        strokeWidth="3"
-                                        strokeDasharray="500"
-                                        strokeDashoffset={
-                                            revealed.ai || reduced ? 0 : 500
-                                        }
-                                        strokeLinecap="round"
-                                        fill="none"
-                                        style={{
-                                            transition:
-                                                'stroke-dashoffset 1.7s cubic-bezier(.22,1,.36,1) 300ms',
-                                        }}
-                                    />
-                                    <circle
-                                        cx="40"
-                                        cy="100"
-                                        r="7"
-                                        fill="var(--color-landing-coral)"
-                                    />
-                                    <circle
-                                        cx="220"
-                                        cy="60"
-                                        r="6"
-                                        fill="var(--color-landing-coral)"
-                                    />
-                                    <circle
-                                        cx="340"
-                                        cy="50"
-                                        r="7"
-                                        fill="var(--color-landing-coral)"
-                                    />
-                                </svg>
-                                <div style={{ display: 'flex', gap: 10 }}>
-                                    {[
-                                        {
-                                            day: 'DAY 1',
-                                            items: [
-                                                '10:00 아라시야마 대나무숲',
-                                                '13:00 카페 & 강변산책',
-                                            ],
-                                        },
-                                        {
-                                            day: 'DAY 2',
-                                            items: [
-                                                '09:30 후시미이나리',
-                                                '15:00 기온 거리',
-                                            ],
-                                        },
-                                    ].map(({ day, items }) => (
-                                        <div
-                                            key={day}
-                                            style={{
-                                                flex: 1,
-                                                background:
-                                                    'var(--color-landing-surface-muted)',
-                                                borderRadius: 12,
-                                                padding: 12,
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    fontSize: 11,
-                                                    fontWeight: 800,
-                                                    color: 'var(--color-landing-muted)',
-                                                    marginBottom: 8,
-                                                }}
-                                            >
-                                                {day}
-                                            </div>
-                                            {items.map((item) => (
-                                                <div
-                                                    key={item}
-                                                    style={{
-                                                        fontSize: 12.5,
-                                                        fontWeight: 700,
-                                                        marginBottom: 6,
-                                                    }}
-                                                >
-                                                    {item}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ))}
-                                </div>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        gap: 8,
-                                        marginTop: 14,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            flex: 1,
-                                            textAlign: 'center',
-                                            background:
-                                                'var(--color-app-surface)',
-                                            border: '1.5px solid var(--color-landing-surface-muted)',
-                                            color: 'var(--color-landing-body)',
-                                            fontWeight: 700,
-                                            fontSize: 13,
-                                            padding: '9px 0',
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        수정하기
-                                    </div>
-                                    <div
-                                        style={{
-                                            flex: 1,
-                                            textAlign: 'center',
-                                            background:
-                                                'var(--color-landing-coral)',
-                                            color: 'var(--color-landing-cream)',
-                                            fontWeight: 700,
-                                            fontSize: 13,
-                                            padding: '9px 0',
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        이 일정 승인
-                                    </div>
-                                </div>
-                            </div>
+                            />
                         </div>
                     </div>
                 </div>
@@ -1748,49 +1469,19 @@ export function Landing() {
                             <br />
                             더치페이 계산기 그만.
                         </h2>
-                        <div
+                        <img
+                            src="/assets/landing-expense-preview.png"
+                            alt="오사카 숙박비를 여행 멤버별로 나누고 정산 상태를 확인하는 실제 서비스 화면"
                             style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 16,
-                                background: 'var(--color-landing-canvas)',
+                                display: 'block',
+                                width: 'min(100%, 440px)',
+                                height: 'auto',
+                                margin: '0 auto',
                                 border: '3px solid var(--color-landing-ink)',
-                                borderRadius: 20,
-                                padding: '16px 22px',
+                                borderRadius: 22,
                                 boxShadow: '5px 5px 0 var(--color-landing-ink)',
                             }}
-                        >
-                            <svg width="30" height="30" viewBox="0 0 24 24">
-                                <rect
-                                    x="4"
-                                    y="2"
-                                    width="16"
-                                    height="20"
-                                    rx="2"
-                                    fill="var(--color-landing-lavender-soft)"
-                                />
-                                <path
-                                    d="M8 8h8M8 12h8M8 16h5"
-                                    stroke="var(--color-landing-purple)"
-                                    strokeWidth="1.6"
-                                    strokeLinecap="round"
-                                />
-                            </svg>
-                            <div style={{ textAlign: 'left' }}>
-                                <div
-                                    style={{
-                                        fontSize: 13,
-                                        fontWeight: 700,
-                                        color: 'var(--color-landing-muted)',
-                                    }}
-                                >
-                                    교토 3박 4일 정산
-                                </div>
-                                <div style={{ fontSize: 15, fontWeight: 800 }}>
-                                    1인당 128,000원 · N빵 완료
-                                </div>
-                            </div>
-                        </div>
+                        />
                     </div>
                 </div>
                 <div
