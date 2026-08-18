@@ -28,7 +28,7 @@ test('t2 이동수단과 시간 및 거리를 한 문장으로 표시한다', ()
     )
 })
 
-test('t3 기존 지하철 선호는 철도 우선 선택지로 표시한다', () => {
+test('t3 기존 지하철 선호는 철도 선택지로 표시한다', () => {
     assert.equal(
         resolveSelectableTransportMode({
             transportMode: '지하철',
@@ -38,17 +38,17 @@ test('t3 기존 지하철 선호는 철도 우선 선택지로 표시한다', ()
     )
 })
 
-test('t4 숨겨진 자동값은 실제 이동수단에 맞는 선택지로 표시한다', () => {
+test('t4 수동 선호가 없으면 실제 계산 결과와 관계없이 자동 추천으로 표시한다', () => {
     assert.equal(
         resolveSelectableTransportMode({
             transportMode: '버스',
             transportModePreference: null,
         }),
-        'BUS',
+        'AUTO',
     )
 })
 
-test('t5 기존 지하철 선호는 철도 우선과 같은 선택으로 처리한다', () => {
+test('t5 기존 지하철 선호는 철도와 같은 선택으로 처리한다', () => {
     assert.equal(
         isSelectedTransportMode(
             {

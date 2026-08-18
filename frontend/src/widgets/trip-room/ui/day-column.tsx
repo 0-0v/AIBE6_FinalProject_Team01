@@ -510,14 +510,17 @@ function TransportConnector({
                         <div className="flex flex-wrap gap-1.5 px-1 pb-1 pt-0.5">
                             {TRANSPORT_MODE_OPTIONS.map((option) => {
                                 const Icon = option.icon
-                                const selected = option.value === currentPreference
+                                const selected =
+                                    option.value === currentPreference
                                 return (
                                     <button
                                         key={option.value}
                                         type="button"
                                         disabled={updating}
                                         aria-pressed={selected}
-                                        onClick={() => void applyMode(option.value)}
+                                        onClick={() =>
+                                            void applyMode(option.value)
+                                        }
                                         className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition ${
                                             selected
                                                 ? 'border-brand bg-brand text-white'

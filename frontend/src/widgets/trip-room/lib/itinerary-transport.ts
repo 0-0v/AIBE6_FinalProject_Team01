@@ -8,16 +8,10 @@ type TransportSummary = {
 }
 
 export type SelectableItineraryTransportMode =
-    | 'AUTO'
-    | 'WALKING'
-    | 'DRIVING'
-    | 'TAXI'
-    | 'TRANSIT'
-    | 'BUS'
-    | 'RAIL'
+    'AUTO' | 'WALKING' | 'DRIVING' | 'TAXI' | 'TRANSIT' | 'BUS' | 'RAIL'
 
 export function resolveSelectableTransportMode(
-    item: Pick<ItineraryItem, 'transportMode' | 'transportModePreference'>,
+    item: Pick<ItineraryItem, 'transportModePreference'>,
 ): SelectableItineraryTransportMode {
     const preference = item.transportModePreference
     if (preference == null || preference === 'AUTO') return 'AUTO'
@@ -35,7 +29,7 @@ export function resolveSelectableTransportMode(
 }
 
 export function isSelectedTransportMode(
-    item: Pick<ItineraryItem, 'transportMode' | 'transportModePreference'>,
+    item: Pick<ItineraryItem, 'transportModePreference'>,
     mode: SelectableItineraryTransportMode,
 ): boolean {
     return resolveSelectableTransportMode(item) === mode
