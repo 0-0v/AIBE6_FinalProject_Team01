@@ -53,6 +53,17 @@ public interface PlaceVoteRequestRepository extends JpaRepository<PlaceVoteReque
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT request FROM PlaceVoteRequest request
+            WHERE request.tripPlaceId = :tripPlaceId
+               OR request.secondaryTripPlaceId = :tripPlaceId
+               OR request.winnerTripPlaceId = :tripPlaceId
+            """)
+    List<PlaceVoteRequest> findAllByTripPlaceIdForUpdate(
+            @Param("tripPlaceId") Long tripPlaceId
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT request FROM PlaceVoteRequest request
             WHERE request.status = back.backend.domain.place.entity.PlaceVoteStatus.OPEN
               AND (
                   request.tripPlaceId IN (
