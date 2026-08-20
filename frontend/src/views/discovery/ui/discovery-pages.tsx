@@ -26,6 +26,7 @@ import { createPortal } from 'react-dom'
 import {
     copyCardItinerary,
     fetchPublicCardDetail,
+    filterPublicRecordsForDay,
     type CardSort,
     type PublicCard,
     type PublicCardDetail,
@@ -823,20 +824,8 @@ function PublicRecordDetail({
         detail.itinerary.find((day) => String(day.id) === selectedDayId) ??
         detail.itinerary[0] ??
         null
-    const selectedTripPlaceIds = new Set(
-        selectedDay?.items
-            .map((item) => item.tripPlaceId)
-            .filter((id): id is string => Boolean(id)) ?? [],
-    )
     const records = selectedDay
-        ? detail.records.filter((record) => {
-              const matchesDate =
-                  record.visitedAt.slice(0, 10) === selectedDay.itineraryDate
-              const matchesPlace =
-                  record.tripPlaceId !== null &&
-                  selectedTripPlaceIds.has(String(record.tripPlaceId))
-              return matchesDate || matchesPlace
-          })
+        ? filterPublicRecordsForDay(detail.records, selectedDay)
         : detail.records
     const displayedDays = selectedDay ? [selectedDay] : []
     const photoCount = detail.records.reduce(
