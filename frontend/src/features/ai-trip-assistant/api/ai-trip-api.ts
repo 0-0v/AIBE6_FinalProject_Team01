@@ -37,7 +37,9 @@ export async function recommendPlacesAlongRoute(
     if (!getAccessToken()) {
         const restoredToken = await restoreSession()
         if (!restoredToken) {
-            throw new Error('로그인 세션을 확인할 수 없습니다. 다시 로그인해 주세요.')
+            throw new Error(
+                '로그인 세션을 확인할 수 없습니다. 다시 로그인해 주세요.',
+            )
         }
     }
     const response = await apiClient.post<ApiResponse<AiPlaceRecommendation[]>>(

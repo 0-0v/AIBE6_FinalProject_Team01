@@ -18,7 +18,10 @@ export function useTripMembers(tripId: number) {
         const controller = new AbortController()
         requestRef.current = controller
         try {
-            const nextMembers = await fetchTripMembers(tripId, controller.signal)
+            const nextMembers = await fetchTripMembers(
+                tripId,
+                controller.signal,
+            )
             if (!controller.signal.aborted) {
                 setMembers(nextMembers)
                 setError(null)
@@ -49,7 +52,10 @@ export function useTripMembers(tripId: number) {
         return () => {
             window.clearInterval(intervalId)
             requestRef.current?.abort()
-            window.removeEventListener(REALTIME_EVENT_NAME, handleRealtimeChange)
+            window.removeEventListener(
+                REALTIME_EVENT_NAME,
+                handleRealtimeChange,
+            )
             document.removeEventListener(
                 'visibilitychange',
                 handleVisibilityChange,

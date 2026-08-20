@@ -114,7 +114,8 @@ export const useTripStore = create<TripState>()(
             error: null,
             loadTrips: async (memberId) => {
                 const currentState = get()
-                const targetMemberId = memberId ?? currentState.loadedForMemberId
+                const targetMemberId =
+                    memberId ?? currentState.loadedForMemberId
                 if (targetMemberId == null) return
 
                 const memberChanged =

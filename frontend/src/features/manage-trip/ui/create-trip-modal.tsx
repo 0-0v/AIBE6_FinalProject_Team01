@@ -125,10 +125,8 @@ export function CreateTripModal({
                         destination: destinationResult.name,
                         destinationLat: destinationResult.lat,
                         destinationLng: destinationResult.lng,
-                        destinationEnglishName:
-                            destinationResult.englishName,
-                        destinationCountryCode:
-                            destinationResult.countryCode,
+                        destinationEnglishName: destinationResult.englishName,
+                        destinationCountryCode: destinationResult.countryCode,
                         startDate: startDate || null,
                         endDate: endDate || null,
                     })

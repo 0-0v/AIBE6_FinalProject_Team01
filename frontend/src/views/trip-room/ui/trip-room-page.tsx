@@ -223,9 +223,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const [placesError, setPlacesError] = useState<string | null>(null)
     const [canManagePlaces, setCanManagePlaces] = useState(false)
     const canPlanWrite =
-        !inviteCode &&
-        canManagePlaces &&
-        room?.lifecycleStatus !== 'COMPLETED'
+        !inviteCode && canManagePlaces && room?.lifecycleStatus !== 'COMPLETED'
     const [inviteCodeInput, setInviteCodeInput] = useState('')
     const [verifiedInviteCode, setVerifiedInviteCode] = useState<string | null>(
         null,
@@ -448,8 +446,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
         if (!tripId) return
         let active = true
         const shouldInitialize =
-            canPlanWrite &&
-            !initializedItineraryTripsRef.current.has(tripId)
+            canPlanWrite && !initializedItineraryTripsRef.current.has(tripId)
         if (shouldInitialize) {
             initializedItineraryTripsRef.current.add(tripId)
         }
@@ -861,9 +858,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                             pendingAiAction?.routeContext?.segmentIndex ?? null
                         }
                         onAddFromPoi={
-                            canPlanWrite
-                                ? handleAddFromPoi
-                                : undefined
+                            canPlanWrite ? handleAddFromPoi : undefined
                         }
                         existingGooglePlaceIds={existingGooglePlaceIds}
                         canWrite={canPlanWrite}
