@@ -389,4 +389,59 @@ class PlaceSearchServiceTest {
                         .isEqualTo(PlaceErrorCode.PLACE_SEARCH_EXTERNAL_API_ERROR));
         server.verify();
     }
+
+    @Test
+    @DisplayName("t16 검색 결과는 정확히 일치하는 장소를 우선하고 최대 15개를 반환한다")
+    void t16_searchPrioritizesExactMatchAndLimitsResults() {
+        StringBuilder places = new StringBuilder();
+        for (int index = 1; index <= 16; index++) {
+            if (!places.isEmpty()) places.append(',');
+            String name = index == 16 ? "도톤보리" : "도톤보리 주변 " + index;
+            places.append("""
+                    {
+                      "id":"place-%d",
+                      "displayName":{"text":"%s"},
+                      "formattedAddress":"오사카",
+                      "location":{"latitude":34.6687,"longitude":135.5013},
+                      "primaryType":"tourist_attraction",
+                      "types":["tourist_attraction"]
+                    }
+                    """.formatted(index, name));
+        }
+        String responseJson = "{\"places\":[" + places + "]}";
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
+
+        List<PlaceSearchResponse> result = service.search("도톤보리");
+
+        assertThat(result).hasSize(15);
+        assertThat(result.getFirst().name()).isEqualTo("도톤보리");
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("t17 전체 카테고리 검색은 위치 편향 반경 밖의 관련 장소도 결과에서 제거하지 않는다")
+    void t17_allCategorySearchKeepsRelevantResultsOutsideBiasRadius() {
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"maxResultCount\":20")))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [{
+                            "id":"dotenbori",
+                            "displayName":{"text":"도톤보리"},
+                            "formattedAddress":"일본 오사카",
+                            "location":{"latitude":34.6687,"longitude":135.5013},
+                            "primaryType":"tourist_attraction",
+                            "types":["tourist_attraction"]
+                          }]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<PlaceSearchResponse> result = service.search(
+                "도톤보리", "오사카", null, 35.6812, 139.7671);
+
+        assertThat(result).extracting(PlaceSearchResponse::name)
+                .containsExactly("도톤보리");
+        server.verify();
+    }
 }

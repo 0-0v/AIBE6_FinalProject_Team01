@@ -74,6 +74,10 @@ type Props = {
     mapPins?: MapPinSummaryResponse[]
     onMapPinCommentAdded?: (pin: MapPinSummaryResponse) => void
     viewportFocusRequest?: (TripMapViewport & { version: number }) | null
+    searchPlaceFocusRequest?: {
+        result: PlaceSearchResult
+        version: number
+    } | null
     onViewportChange?: (viewport: TripMapViewport) => void
 }
 
@@ -100,6 +104,7 @@ export function MapCanvas({
     mapPins = [],
     onMapPinCommentAdded,
     viewportFocusRequest,
+    searchPlaceFocusRequest,
     onViewportChange,
 }: Props) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -139,6 +144,7 @@ export function MapCanvas({
                 mapPins={mapPins}
                 onMapPinCommentAdded={onMapPinCommentAdded}
                 viewportFocusRequest={viewportFocusRequest}
+                searchPlaceFocusRequest={searchPlaceFocusRequest}
                 onViewportChange={onViewportChange}
             />
         </GoogleMapsProvider>
@@ -168,6 +174,7 @@ function GoogleMapCanvas({
     mapPins = [],
     onMapPinCommentAdded,
     viewportFocusRequest,
+    searchPlaceFocusRequest,
     onViewportChange,
 }: Pick<
     Props,
@@ -193,6 +200,7 @@ function GoogleMapCanvas({
     | 'mapPins'
     | 'onMapPinCommentAdded'
     | 'viewportFocusRequest'
+    | 'searchPlaceFocusRequest'
     | 'onViewportChange'
 >) {
     const isLoaded = useApiIsLoaded()
@@ -236,6 +244,21 @@ function GoogleMapCanvas({
     }
     const [pinCommentsState, setPinCommentsState] =
         useState<PinCommentsState | null>(null)
+    const openFocusedSearchPlace = React.useCallback(
+        (result: PlaceSearchResult) => {
+            setPoiState({
+                placeId: result.googlePlaceId,
+                latLng: { lat: result.latitude, lng: result.longitude },
+                loading: false,
+                result,
+                fallbackPlaceName: result.name,
+                error: null,
+                saving: false,
+            })
+            setPinCommentsState(null)
+        },
+        [],
+    )
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [selectedRouteDay, setSelectedRouteDay] = useState<number | null>(
         initialRouteDay ?? null,
@@ -739,6 +762,10 @@ function GoogleMapCanvas({
                     focusRequestVersion={focusRequestVersion}
                 />
                 <ViewportFocusController request={viewportFocusRequest} />
+                <SearchPlaceFocusController
+                    request={searchPlaceFocusRequest}
+                    onFocus={openFocusedSearchPlace}
+                />
                 <RouteFocusController
                     points={
                         focusedSegmentIndex == null ? selectedRoutePoints : []
@@ -1144,6 +1171,24 @@ function ViewportFocusController({
             zoom: request.zoom,
         })
     }, [map, request])
+
+    return null
+}
+
+function SearchPlaceFocusController({
+    request,
+    onFocus,
+}: {
+    request?: { result: PlaceSearchResult; version: number } | null
+    onFocus: (result: PlaceSearchResult) => void
+}) {
+    const handledVersion = useRef<number | null>(null)
+
+    useEffect(() => {
+        if (!request || handledVersion.current === request.version) return
+        handledVersion.current = request.version
+        onFocus(request.result)
+    }, [onFocus, request])
 
     return null
 }

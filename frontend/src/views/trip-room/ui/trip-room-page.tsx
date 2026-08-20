@@ -199,6 +199,22 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const [viewportFocusRequest, setViewportFocusRequest] = useState<
         (TripMapViewport & { version: number }) | null
     >(null)
+    const [searchPlaceFocusRequest, setSearchPlaceFocusRequest] = useState<{
+        result: PlaceSearchResult
+        version: number
+    } | null>(null)
+    const focusSearchResult = useCallback((result: PlaceSearchResult) => {
+        const version = Date.now()
+        setSelectedId(null)
+        setMapCollapsed(false)
+        setViewportFocusRequest({
+            lat: result.latitude,
+            lng: result.longitude,
+            zoom: 16,
+            version,
+        })
+        setSearchPlaceFocusRequest({ result, version })
+    }, [])
     const [aiOpen, setAiOpen] = useState(false)
     const [pendingAiAction, setPendingAiAction] =
         useState<PendingAiTripAction | null>(null)
@@ -537,7 +553,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 })
             }
         },
-        [currentUser?.id, mapPlaces, selectPlaceFromCard],
+        [
+            currentUser?.id,
+            mapPlaces,
+            selectPlaceFromCard,
+            setMapCollapsed,
+            setViewportFocusRequest,
+        ],
     )
 
     const updatePlace = useCallback(
@@ -829,6 +851,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         mapPins={mapPins}
                         onMapPinCommentAdded={handleMapPinCommentAdded}
                         viewportFocusRequest={viewportFocusRequest}
+                        searchPlaceFocusRequest={searchPlaceFocusRequest}
                         onViewportChange={setMapViewport}
                         days={itineraryDays}
                         initialRouteDay={
@@ -993,6 +1016,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     places={displayedPlaces}
                                     selectedId={selectedId}
                                     onSelectPlace={selectPlaceFromCard}
+                                    onFocusSearchResult={focusSearchResult}
                                     onDeselectPlace={deselectPlace}
                                     hoveredPlaceId={hoveredPlaceId}
                                     onHoverPlace={setHoveredPlaceId}
@@ -1054,6 +1078,14 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     isLoading={isLoading}
                                     error={error}
                                     onRetry={loadTrips}
+                                    openCreateInitially={
+                                        searchParams.get('create') === 'true'
+                                    }
+                                    onCreateModalClose={() =>
+                                        navigate('/app/room', {
+                                            replace: true,
+                                        })
+                                    }
                                     onSelectRoom={(id) => {
                                         selectTrip(id)
                                         navigate(`/app/room/${id}`)

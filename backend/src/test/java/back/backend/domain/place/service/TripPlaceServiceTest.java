@@ -9,11 +9,13 @@ import back.backend.domain.place.entity.Place;
 import back.backend.domain.place.entity.PlaceCategory;
 import back.backend.domain.place.entity.PlaceCategoryType;
 import back.backend.domain.place.entity.PlaceMarkerIcon;
+import back.backend.domain.place.entity.PlaceVoteRequest;
 import back.backend.domain.place.entity.TripPlace;
 import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceCommentRepository;
 import back.backend.domain.place.repository.PlaceRepository;
+import back.backend.domain.place.repository.PlaceVoteRequestRepository;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
 import back.backend.global.exception.BusinessException;
@@ -65,6 +67,9 @@ class TripPlaceServiceTest {
 
     @Mock
     private PlaceCommentRepository placeCommentRepository;
+
+    @Mock
+    private PlaceVoteRequestRepository placeVoteRequestRepository;
 
     @Mock
     private CollaborationEventService collaborationEventService;
@@ -411,6 +416,21 @@ class TripPlaceServiceTest {
 
         then(placePersistenceService).shouldHaveNoInteractions();
         then(tripPlaceRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("t16 투표가 참조하는 장소를 삭제하면 관련 투표를 먼저 삭제한다")
+    void t16_deletingVotedPlaceRemovesRelatedVotesFirst() {
+        PlaceVoteRequest voteRequest = org.mockito.Mockito.mock(PlaceVoteRequest.class);
+        given(tripPlaceRepository.findByIdAndTripId(10L, 1L))
+                .willReturn(Optional.of(savedTripPlace));
+        given(placeVoteRequestRepository.findAllByTripPlaceIdForUpdate(10L))
+                .willReturn(List.of(voteRequest));
+
+        tripPlaceService.deletePlace(1L, 10L);
+
+        then(placeVoteRequestRepository).should().deleteAllInBatch(List.of(voteRequest));
+        then(tripPlaceRepository).should().delete(savedTripPlace);
     }
 
 }

@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import back.backend.domain.collaboration.service.CollaborationEventService;
+import back.backend.domain.expense.dto.ExpenseCreateRequest;
 import back.backend.domain.expense.dto.ExpenseUpdateRequest;
 import back.backend.domain.expense.entity.Expense;
 import back.backend.domain.expense.entity.ExpenseParticipant;
@@ -17,6 +20,7 @@ import back.backend.domain.expense.repository.ExpenseRepository;
 import back.backend.domain.member.repository.MemberRepository;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.entity.Trip;
+import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.exception.TripErrorCode;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.trip.repository.TripRepository;
@@ -72,7 +76,7 @@ class ExpenseServiceTest {
     void t1_participantCanCompleteOwnShare() {
         Expense expense = expense(10L, 1L, 2L);
         ExpenseParticipant participant = participant(10L, 3L, ParticipantSettlementStatus.PENDING);
-        given(accessChecker.requireEdit(1L)).willReturn(3L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(3L);
         given(tripRepository.findById(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(Trip.class)));
         given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
         given(participantRepository.findByExpenseIdAndMemberId(10L, 3L)).willReturn(Optional.of(participant));
@@ -91,7 +95,7 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("t2 다른 사람은 타인의 정산 몫을 완료 처리할 수 없다")
     void t2_memberCannotCompleteAnotherMembersShare() {
-        given(accessChecker.requireEdit(1L)).willReturn(4L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(4L);
 
         assertThatThrownBy(() -> expenseService.completeParticipant(1L, 10L, 3L))
                 .isInstanceOf(BusinessException.class)
@@ -103,7 +107,7 @@ class ExpenseServiceTest {
     @DisplayName("t3 결제자는 자신의 몫을 정산 완료 처리할 수 없다")
     void t3_payerCannotCompleteOwnPayerShare() {
         Expense expense = expense(10L, 1L, 2L);
-        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(2L);
         given(tripRepository.findById(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(Trip.class)));
         given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
 
@@ -143,7 +147,7 @@ class ExpenseServiceTest {
         Trip trip = org.mockito.Mockito.mock(Trip.class);
         given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
         given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 5));
-        given(accessChecker.requireEdit(1L)).willReturn(2L);
+        given(accessChecker.requireRecordEdit(1L)).willReturn(2L);
         given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
         given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
         given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(2L, 3L));
@@ -171,5 +175,33 @@ class ExpenseServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode())
                                 .isEqualTo(TripErrorCode.TRIP_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("t7 완료된 여행방에서도 멤버는 회고용 지출을 등록할 수 있다")
+    void t7_memberCanCreateExpenseForCompletedTrip() {
+        Trip trip = org.mockito.Mockito.mock(Trip.class);
+        given(trip.getStatus()).willReturn(TripStatus.COMPLETED);
+        given(trip.getStartDate()).willReturn(LocalDate.of(2026, 8, 1));
+        given(trip.getEndDate()).willReturn(LocalDate.of(2026, 8, 5));
+        given(trip.getCurrency()).willReturn("KRW");
+        given(accessChecker.requireRecordEdit(1L)).willReturn(2L);
+        given(tripRepository.findById(1L)).willReturn(Optional.of(trip));
+        given(tripMemberRepository.findMemberIdsByTripId(1L)).willReturn(List.of(2L, 3L));
+        given(expenseRepository.save(org.mockito.ArgumentMatchers.any(Expense.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+        given(participantRepository.saveAll(anyList()))
+                .willAnswer(invocation -> invocation.getArgument(0));
+        given(memberRepository.findAllById(anyList())).willReturn(List.of());
+        var request = new ExpenseCreateRequest(
+                "저녁 식사", "FOOD", new BigDecimal("40000"), LocalDate.of(2026, 8, 3),
+                2L, SplitType.EQUAL, List.of(2L, 3L), null, null);
+
+        var result = expenseService.create(1L, request);
+
+        assertThat(trip.getStatus()).isEqualTo(TripStatus.COMPLETED);
+        assertThat(result.totalAmount()).isEqualByComparingTo("40000.00");
+        verify(accessChecker).requireRecordEdit(1L);
+        verify(accessChecker, never()).requireEdit(1L);
     }
 }

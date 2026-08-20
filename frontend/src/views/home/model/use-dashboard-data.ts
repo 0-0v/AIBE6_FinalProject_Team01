@@ -95,14 +95,19 @@ export function useDashboardData({
             return
         }
         const controller = new AbortController()
+        const isCompletedTrip = activeTrip?.status === 'COMPLETED'
         Promise.all([
             getTripPlaces(activeTripApiId, controller.signal),
-            getTripPlaceVotes(activeTripApiId, controller.signal),
+            isCompletedTrip
+                ? Promise.resolve([])
+                : getTripPlaceVotes(activeTripApiId, controller.signal),
             fetchExpenseData(activeTripApiId, controller.signal),
         ])
             .then(([places, votes, expenseData]) => {
                 if (controller.signal.aborted) return
-                const openVotes = votes.filter((vote) => vote.status === 'OPEN')
+                const openVotes = isCompletedTrip
+                    ? []
+                    : votes.filter((vote) => vote.status === 'OPEN')
                 const pendingVotes = openVotes.filter(
                     (vote) => vote.myChoice === null,
                 )
