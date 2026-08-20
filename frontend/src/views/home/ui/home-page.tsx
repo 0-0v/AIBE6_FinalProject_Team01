@@ -192,8 +192,11 @@ export function Home() {
 
     const selectedItineraryDay =
         itineraryDays.find((day) => day.itineraryDate === selectedDate) ?? null
-    const insightSlideCount = 3
-    const visibleInsightSlide = insightSlide % insightSlideCount
+    const isCompletedTrip = activeTripData?.status === 'COMPLETED'
+    const insightSlideOffset = isCompletedTrip ? 1 : 0
+    const insightSlideCount = isCompletedTrip ? 2 : 3
+    const visibleInsightSlide =
+        (insightSlide % insightSlideCount) + insightSlideOffset
     const settlementSlideIndex = 2
     const bookmarkPageSize = 4
     const bookmarkPageCount = Math.max(
@@ -1090,7 +1093,8 @@ export function Home() {
                                                         role="tab"
                                                         aria-selected={
                                                             visibleInsightSlide ===
-                                                            index
+                                                            index +
+                                                                insightSlideOffset
                                                         }
                                                         aria-label={`${index + 1}번 슬라이드 보기`}
                                                         onClick={() =>
@@ -1100,7 +1104,8 @@ export function Home() {
                                                         }
                                                         className={`h-2 rounded-full transition-all ${
                                                             visibleInsightSlide ===
-                                                            index
+                                                            index +
+                                                                insightSlideOffset
                                                                 ? 'w-5 bg-[var(--color-carousel-active)]'
                                                                 : 'w-2 bg-[var(--color-carousel-inactive)] hover:brightness-95'
                                                         }`}
