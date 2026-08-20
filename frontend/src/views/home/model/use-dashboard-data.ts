@@ -37,9 +37,7 @@ export function useDashboardData({
     const currentUserId = currentUser?.id ?? null
     const isInitialized = useCurrentUserStore((state) => state.isInitialized)
     const loadTrips = useTripStore((state) => state.loadTrips)
-    const loadedForMemberId = useTripStore(
-        (state) => state.loadedForMemberId,
-    )
+    const loadedForMemberId = useTripStore((state) => state.loadedForMemberId)
     const tripDataReady =
         currentUserId != null && loadedForMemberId === currentUserId
     const resetTrips = useTripStore((state) => state.resetTrips)

@@ -31,9 +31,7 @@ export function isTripRealtimeEvent(
     ...types: string[]
 ) {
     return (
-        event != null &&
-        event.tripId === tripId &&
-        types.includes(event.type)
+        event != null && event.tripId === tripId && types.includes(event.type)
     )
 }
 

@@ -46,7 +46,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const requestId = ++notificationRequestId
         set({
             isLoading:
-                get().notifications.length === 0 || requestedPage !== get().page,
+                get().notifications.length === 0 ||
+                requestedPage !== get().page,
             error: null,
         })
         try {

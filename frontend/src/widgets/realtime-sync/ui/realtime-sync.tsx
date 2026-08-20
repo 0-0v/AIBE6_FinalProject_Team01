@@ -48,16 +48,12 @@ export function RealtimeSync() {
     const currentUserId = currentUser?.id ?? null
     const activeTripId = useTripStore((state) => state.activeTripId)
     const rooms = useTripStore((state) => state.rooms)
-    const loadedForMemberId = useTripStore(
-        (state) => state.loadedForMemberId,
-    )
+    const loadedForMemberId = useTripStore((state) => state.loadedForMemberId)
     const tripStateReady =
         currentUserId != null && loadedForMemberId === currentUserId
     const activeTripAccessible =
         tripStateReady &&
-        rooms.some(
-            (room) => room.apiTripId === parseActiveTripId(activeTripId),
-        )
+        rooms.some((room) => room.apiTripId === parseActiveTripId(activeTripId))
 
     useEffect(() => {
         const handleAccessTokenChange = () =>
@@ -241,12 +237,7 @@ export function RealtimeSync() {
             }
             void client.deactivate()
         }
-    }, [
-        accessTokenVersion,
-        activeTripAccessible,
-        activeTripId,
-        currentUserId,
-    ])
+    }, [accessTokenVersion, activeTripAccessible, activeTripId, currentUserId])
 
     return null
 }
