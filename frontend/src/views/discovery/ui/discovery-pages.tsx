@@ -27,6 +27,7 @@ import {
     copyCardItinerary,
     fetchPublicCardDetail,
     filterPublicRecordsForDay,
+    mergePublicRecordsWithItinerary,
     type CardSort,
     type PublicCard,
     type PublicCardDetail,
@@ -827,6 +828,13 @@ function PublicRecordDetail({
     const records = selectedDay
         ? filterPublicRecordsForDay(detail.records, selectedDay)
         : detail.records
+    const timelineEntries = selectedDay
+        ? mergePublicRecordsWithItinerary(detail.records, selectedDay)
+        : records.map((record) => ({
+              kind: 'record' as const,
+              itineraryItem: null,
+              record,
+          }))
     const displayedDays = selectedDay ? [selectedDay] : []
     const photoCount = detail.records.reduce(
         (total, record) => total + record.imageUrls.length,
@@ -949,65 +957,135 @@ function PublicRecordDetail({
                                 </span>
                             </h2>
                             <span className="text-xs font-bold text-slate-400">
-                                {records.length}개 기록
+                                {selectedDay
+                                    ? `${selectedDay.items.length}곳 중 ${records.length}곳 기록`
+                                    : `${records.length}개 기록`}
                             </span>
                         </div>
 
-                        {records.length === 0 ? (
+                        {timelineEntries.length === 0 ? (
                             <div className="mt-6 rounded-[22px] border border-dashed border-slate-200 py-20 text-center text-sm font-semibold text-slate-400">
-                                이 날짜에 공개된 기록이 없습니다.
+                                이 날짜에 등록된 일정이 없습니다.
                             </div>
                         ) : (
                             <ol className="mt-6 space-y-7">
-                                {records.map((record, index) => (
+                                {timelineEntries.map((entry, index) => (
                                     <li
-                                        key={record.id}
+                                        key={
+                                            entry.kind === 'record'
+                                                ? `record-${entry.record.id}`
+                                                : `itinerary-${entry.itineraryItem.id}`
+                                        }
                                         className="relative pl-10"
                                     >
-                                        <span className="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-brand text-xs font-black text-white">
+                                        <span
+                                            className={`absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
+                                                entry.kind === 'record'
+                                                    ? 'bg-brand text-white'
+                                                    : 'border-2 border-dashed border-slate-300 bg-white text-slate-400'
+                                            }`}
+                                        >
                                             {index + 1}
                                         </span>
-                                        {index < records.length - 1 && (
+                                        {index < timelineEntries.length - 1 && (
                                             <span className="absolute bottom-[-1.75rem] left-[15px] top-9 border-l-2 border-dotted border-brand-100" />
                                         )}
-                                        <article className="rounded-[22px] border border-slate-100 bg-white p-5 shadow-[0_10px_28px_rgb(var(--rgb-app-ink)/0.07)]">
-                                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <h3 className="text-lg font-black text-slate-900">
-                                                            {record.placeName}
-                                                        </h3>
-                                                        {record.categoryName && (
-                                                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+                                        {entry.kind === 'itinerary' ? (
+                                            <article className="rounded-[22px] border border-dashed border-slate-300 bg-white p-5">
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <h3 className="text-lg font-black text-slate-900">
+                                                                {entry
+                                                                    .itineraryItem
+                                                                    .placeName ??
+                                                                    '장소 미정'}
+                                                            </h3>
+                                                            {entry.itineraryItem
+                                                                .categoryName && (
+                                                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+                                                                    {
+                                                                        entry
+                                                                            .itineraryItem
+                                                                            .categoryName
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {entry.itineraryItem
+                                                            .placeAddress && (
+                                                            <p className="mt-1 text-xs font-semibold text-slate-400">
                                                                 {
-                                                                    record.categoryName
+                                                                    entry
+                                                                        .itineraryItem
+                                                                        .placeAddress
                                                                 }
-                                                            </span>
+                                                            </p>
                                                         )}
                                                     </div>
-                                                    <p className="mt-1 text-xs font-semibold text-slate-400">
-                                                        {[
-                                                            record.categoryName,
-                                                            record.address,
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ')}
-                                                    </p>
+                                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+                                                        일정 장소
+                                                    </span>
                                                 </div>
-                                                <span className="text-xs font-bold text-slate-400">
-                                                    {record.recordedByNickname}
-                                                </span>
-                                            </div>
-                                            {record.memo && (
-                                                <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-                                                    {record.memo}
+                                                <p className="mt-5 text-sm font-semibold text-slate-400">
+                                                    작성된 여행 기록이 없습니다.
                                                 </p>
-                                            )}
-                                            <RecordPhotoGrid
-                                                imageUrls={record.imageUrls}
-                                                placeName={record.placeName}
-                                            />
-                                        </article>
+                                            </article>
+                                        ) : (
+                                            <article className="rounded-[22px] border border-slate-100 bg-white p-5 shadow-[0_10px_28px_rgb(var(--rgb-app-ink)/0.07)]">
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <h3 className="text-lg font-black text-slate-900">
+                                                                {
+                                                                    entry.record
+                                                                        .placeName
+                                                                }
+                                                            </h3>
+                                                            {entry.record
+                                                                .categoryName && (
+                                                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+                                                                    {
+                                                                        entry
+                                                                            .record
+                                                                            .categoryName
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="mt-1 text-xs font-semibold text-slate-400">
+                                                            {[
+                                                                entry.record
+                                                                    .categoryName,
+                                                                entry.record
+                                                                    .address,
+                                                            ]
+                                                                .filter(Boolean)
+                                                                .join(' · ')}
+                                                        </p>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-400">
+                                                        {
+                                                            entry.record
+                                                                .recordedByNickname
+                                                        }
+                                                    </span>
+                                                </div>
+                                                {entry.record.memo && (
+                                                    <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-slate-600">
+                                                        {entry.record.memo}
+                                                    </p>
+                                                )}
+                                                <RecordPhotoGrid
+                                                    imageUrls={
+                                                        entry.record.imageUrls
+                                                    }
+                                                    placeName={
+                                                        entry.record.placeName
+                                                    }
+                                                />
+                                            </article>
+                                        )}
                                     </li>
                                 ))}
                             </ol>
