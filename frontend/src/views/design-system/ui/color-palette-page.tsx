@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { CheckIcon, CopyIcon, ExternalLinkIcon, RotateCcwIcon } from 'lucide-react'
+import {
+    CheckIcon,
+    CopyIcon,
+    ExternalLinkIcon,
+    RotateCcwIcon,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const DASHBOARD_TOKENS = [
@@ -363,16 +368,14 @@ export function ColorPalettePage() {
                                     </div>
                                 </div>
                                 <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-bold text-[var(--color-app-text-muted)]">
-                                    {[18, 19, 20, 21, 22, 23, 24].map(
-                                        (day) => (
-                                            <span
-                                                key={day}
-                                                className={`flex size-7 items-center justify-center rounded-full ${day === 21 ? 'bg-[var(--color-app-ticket-accent)] text-white' : ''}`}
-                                            >
-                                                {day}
-                                            </span>
-                                        ),
-                                    )}
+                                    {[18, 19, 20, 21, 22, 23, 24].map((day) => (
+                                        <span
+                                            key={day}
+                                            className={`flex size-7 items-center justify-center rounded-full ${day === 21 ? 'bg-[var(--color-app-ticket-accent)] text-white' : ''}`}
+                                        >
+                                            {day}
+                                        </span>
+                                    ))}
                                 </div>
                             </aside>
                         </div>

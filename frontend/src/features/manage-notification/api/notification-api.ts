@@ -36,9 +36,7 @@ function authorizationHeaders(): HeadersInit {
     return { Authorization: `Bearer ${accessToken}` }
 }
 
-export async function fetchNotifications(
-    page = 0,
-): Promise<NotificationPage> {
+export async function fetchNotifications(page = 0): Promise<NotificationPage> {
     const response = await apiClient.get<ApiResponse<NotificationPage>>(
         `/api/notifications?page=${page}&size=${NOTIFICATION_PAGE_SIZE}`,
         {

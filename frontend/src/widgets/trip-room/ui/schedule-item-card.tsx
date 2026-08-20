@@ -248,11 +248,10 @@ export function ScheduleItemCard({
                                     style={
                                         item.startTime || item.endTime
                                             ? {
-                                                  backgroundColor:
-                                                      hexWithAlpha(
-                                                          dayColor,
-                                                          '18',
-                                                      ),
+                                                  backgroundColor: hexWithAlpha(
+                                                      dayColor,
+                                                      '18',
+                                                  ),
                                                   color: dayColor,
                                               }
                                             : undefined

@@ -113,7 +113,9 @@ function getUnscheduledRoutablePlaceCount(
         days.flatMap((day) =>
             day.items
                 .map((item) => item.tripPlaceId)
-                .filter((tripPlaceId): tripPlaceId is string => tripPlaceId != null),
+                .filter(
+                    (tripPlaceId): tripPlaceId is string => tripPlaceId != null,
+                ),
         ),
     )
     return places.filter(
@@ -165,7 +167,8 @@ export function AiRouteSettingsModal({
         () =>
             days.filter(
                 (day) =>
-                    getRoutablePlaceCount(day) + unscheduledRoutablePlaceCount >=
+                    getRoutablePlaceCount(day) +
+                        unscheduledRoutablePlaceCount >=
                     2,
             ),
         [days, unscheduledRoutablePlaceCount],
@@ -478,7 +481,9 @@ export function AiRouteSettingsModal({
                                             <div className="mp-scroll grid max-h-[420px] grid-cols-2 items-start gap-2 overflow-y-auto pr-1">
                                                 {days.map((day) => {
                                                     const placeCount =
-                                                        getRoutablePlaceCount(day)
+                                                        getRoutablePlaceCount(
+                                                            day,
+                                                        )
                                                     const disabled =
                                                         placeCount +
                                                             unscheduledRoutablePlaceCount <
@@ -513,9 +518,7 @@ export function AiRouteSettingsModal({
                                                                     }
                                                                 </span>
                                                                 <span className="ml-1.5 text-[10px] text-slate-400">
-                                                                    {
-                                                                        placeCount
-                                                                    }
+                                                                    {placeCount}
                                                                     곳
                                                                 </span>
                                                                 <p className="text-[10px] text-slate-400">
@@ -618,8 +621,8 @@ export function AiRouteSettingsModal({
                                                     className="min-w-0"
                                                 />
                                                 <p className="mt-1.5 text-[10px] text-slate-300">
-                                                    선택한 출발지가 모든
-                                                    일정에 기본으로 적용됩니다.
+                                                    선택한 출발지가 모든 일정에
+                                                    기본으로 적용됩니다.
                                                 </p>
                                             </div>
 
@@ -647,9 +650,7 @@ export function AiRouteSettingsModal({
                                                             (dayId) => {
                                                                 const day =
                                                                     days.find(
-                                                                        (
-                                                                            d,
-                                                                        ) =>
+                                                                        (d) =>
                                                                             d.id ===
                                                                             dayId,
                                                                     )

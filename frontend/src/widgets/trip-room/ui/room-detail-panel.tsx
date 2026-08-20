@@ -689,12 +689,16 @@ export function RoomDetailPanel({
                 <div className="m-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-slate-50/70">
                     {guestView ? (
                         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                            <CalendarDaysIcon className="mb-3 text-brand-300" size={32} />
+                            <CalendarDaysIcon
+                                className="mb-3 text-brand-300"
+                                size={32}
+                            />
                             <h3 className="text-base font-extrabold text-slate-800">
                                 로그인 후 여행 일정에 참여할 수 있어요
                             </h3>
                             <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                                게스트는 여행방을 둘러볼 수 있으며, 가능한 날짜 선택과 투표는 로그인 후 이용할 수 있습니다.
+                                게스트는 여행방을 둘러볼 수 있으며, 가능한 날짜
+                                선택과 투표는 로그인 후 이용할 수 있습니다.
                             </p>
                             {onJoin && (
                                 <button
@@ -714,9 +718,9 @@ export function RoomDetailPanel({
                             onCollaborationChanged={refreshCollaborationData}
                             onTripDatesChanged={() => {
                                 onDeselectPlace?.()
-                                void Promise.resolve(onTripDatesChanged?.()).then(
-                                    () => setPlanTab('schedule'),
-                                )
+                                void Promise.resolve(
+                                    onTripDatesChanged?.(),
+                                ).then(() => setPlanTab('schedule'))
                             }}
                             realtimeVersion={realtimeVersion}
                         />
@@ -790,11 +794,11 @@ export function RoomDetailPanel({
             {inviteOpen &&
                 room.apiTripId &&
                 room.lifecycleStatus !== 'COMPLETED' && (
-                <InviteModal
-                    tripId={room.apiTripId}
-                    onClose={() => setInviteOpen(false)}
-                />
-            )}
+                    <InviteModal
+                        tripId={room.apiTripId}
+                        onClose={() => setInviteOpen(false)}
+                    />
+                )}
         </div>
     )
 }
