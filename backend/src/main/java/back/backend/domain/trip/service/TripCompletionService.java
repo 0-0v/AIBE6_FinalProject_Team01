@@ -7,6 +7,8 @@ import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.collaboration.notification.dto.NotificationCreateCommand;
 import back.backend.domain.collaboration.notification.entity.NotificationType;
 import back.backend.domain.collaboration.notification.service.NotificationService;
+import back.backend.domain.place.entity.PlaceVoteRequest;
+import back.backend.domain.place.repository.PlaceVoteRequestRepository;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TripStatus;
 import back.backend.domain.trip.repository.TripMemberRepository;
@@ -32,19 +34,22 @@ public class TripCompletionService {
     private final PlanCardRepository planCardRepository;
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
+    private final PlaceVoteRequestRepository placeVoteRequestRepository;
 
     public TripCompletionService(
             TripRepository tripRepository,
             TripMemberRepository tripMemberRepository,
             PlanCardRepository planCardRepository,
             ActivityLogService activityLogService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            PlaceVoteRequestRepository placeVoteRequestRepository
     ) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.planCardRepository = planCardRepository;
         this.activityLogService = activityLogService;
         this.notificationService = notificationService;
+        this.placeVoteRequestRepository = placeVoteRequestRepository;
     }
 
     @Transactional
@@ -57,6 +62,7 @@ public class TripCompletionService {
 
     private void complete(Trip trip, LocalDate today) {
         trip.completeAutomatically(today);
+        removeOpenVotes(trip.getId());
         if (!planCardRepository.existsByTripId(trip.getId())) {
             PlanCard card = planCardRepository.save(PlanCard.create(
                     trip.getId(),
@@ -66,6 +72,14 @@ public class TripCompletionService {
             ));
         }
         recordCompletion(trip);
+    }
+
+    private void removeOpenVotes(Long tripId) {
+        List<PlaceVoteRequest> openVotes =
+                placeVoteRequestRepository.findAllOpenByTripIdForUpdate(tripId);
+        if (!openVotes.isEmpty()) {
+            placeVoteRequestRepository.deleteAllInBatch(openVotes);
+        }
     }
 
     private void recordCompletion(Trip trip) {

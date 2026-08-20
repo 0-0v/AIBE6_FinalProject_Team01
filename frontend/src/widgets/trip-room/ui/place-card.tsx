@@ -15,7 +15,7 @@ type Props = {
     selected: boolean
     canWrite: boolean
     onSelect: () => void
-    onDelete: () => void
+    onDelete: () => void | Promise<void>
     onOpenComments: () => void
     categories: PlaceCategoryInfo[]
     categoriesLoading: boolean
@@ -36,6 +36,7 @@ export function PlaceCard({
 }: Props) {
     const cardRef = useRef<HTMLElement>(null)
     const [changingCategory, setChangingCategory] = useState(false)
+    const [deleting, setDeleting] = useState(false)
     const { adderName, adderColor } = useAdderDisplay(place, addedByNickname)
     useEffect(() => {
         if (selected)
@@ -139,11 +140,17 @@ export function PlaceCard({
                 </button>
                 {canWrite && (
                     <button
+                        type="button"
+                        disabled={deleting}
                         onClick={(e) => {
                             e.stopPropagation()
-                            onDelete()
+                            if (deleting) return
+                            setDeleting(true)
+                            void Promise.resolve(onDelete()).finally(() =>
+                                setDeleting(false),
+                            )
                         }}
-                        className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                        className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:cursor-wait disabled:opacity-40"
                         aria-label="장소 삭제"
                     >
                         <Trash2Icon size={15} />

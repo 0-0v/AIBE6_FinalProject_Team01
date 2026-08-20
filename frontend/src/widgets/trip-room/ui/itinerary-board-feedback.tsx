@@ -27,7 +27,7 @@ export function ItineraryBoardFeedback({
 
     return (
         <div
-            className="absolute bottom-4 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xl"
+            className="absolute left-1/2 top-4 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xl"
             role="status"
             aria-live="polite"
         >

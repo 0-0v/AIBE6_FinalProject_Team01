@@ -12,6 +12,7 @@ import back.backend.domain.place.entity.TripPlaceStatus;
 import back.backend.domain.place.exception.PlaceErrorCode;
 import back.backend.domain.place.repository.PlaceCommentRepository;
 import back.backend.domain.place.repository.PlaceRepository;
+import back.backend.domain.place.repository.PlaceVoteRequestRepository;
 import back.backend.domain.place.repository.PlaceCommentRepository.CommentCountProjection;
 import back.backend.domain.trip.repository.TripMemberRepository;
 import back.backend.domain.place.repository.TripPlaceRepository;
@@ -38,6 +39,7 @@ public class TripPlaceService {
     private final ItineraryDayRepository itineraryDayRepository;
     private final TripMemberRepository tripMemberRepository;
     private final PlaceCommentRepository placeCommentRepository;
+    private final PlaceVoteRequestRepository placeVoteRequestRepository;
     private final SecurityContextAccessor securityContextAccessor;
     private final TripAccessChecker accessChecker;
     private final PlaceCategoryService categoryService;
@@ -195,6 +197,11 @@ public class TripPlaceService {
         String placeName = tripPlace.getPlace().getName();
         itineraryDayRepository.findAllByTripIdAndDepartureTripPlaceId(tripId, tripPlaceId)
                 .forEach(day -> day.clearDeparture());
+        var relatedVotes = placeVoteRequestRepository
+                .findAllByTripPlaceIdForUpdate(tripPlaceId);
+        if (!relatedVotes.isEmpty()) {
+            placeVoteRequestRepository.deleteAllInBatch(relatedVotes);
+        }
         tripPlaceRepository.delete(tripPlace);
         collaborationEventService.record(
                 tripId,

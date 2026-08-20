@@ -12,6 +12,8 @@ import back.backend.domain.card.repository.PlanCardTagRepository;
 import back.backend.domain.card.repository.TripTagRepository;
 import back.backend.domain.collaboration.activitylog.service.ActivityLogService;
 import back.backend.domain.collaboration.notification.service.NotificationService;
+import back.backend.domain.place.entity.PlaceVoteRequest;
+import back.backend.domain.place.repository.PlaceVoteRequestRepository;
 import back.backend.domain.trip.entity.CompanionType;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.entity.Trip;
@@ -39,6 +41,7 @@ class TripCompletionServiceTest {
     @Mock PlanCardTagRepository planCardTagRepository;
     @Mock ActivityLogService activityLogService;
     @Mock NotificationService notificationService;
+    @Mock PlaceVoteRequestRepository placeVoteRequestRepository;
     private TripCompletionService tripCompletionService;
 
     @BeforeEach
@@ -48,7 +51,8 @@ class TripCompletionServiceTest {
                 tripMemberRepository,
                 planCardRepository,
                 activityLogService,
-                notificationService
+                notificationService,
+                placeVoteRequestRepository
         );
     }
 
@@ -69,6 +73,9 @@ class TripCompletionServiceTest {
         when(tripRepository.findAllByStatusInAndEndDateBefore(any(), any()))
                 .thenReturn(List.of(trip));
         when(planCardRepository.existsByTripId(10L)).thenReturn(false);
+        PlaceVoteRequest openVote = org.mockito.Mockito.mock(PlaceVoteRequest.class);
+        when(placeVoteRequestRepository.findAllOpenByTripIdForUpdate(10L))
+                .thenReturn(List.of(openVote));
         when(planCardRepository.save(any())).thenAnswer(invocation -> {
             PlanCard card = invocation.getArgument(0);
             ReflectionTestUtils.setField(card, "id", 20L);
@@ -80,5 +87,6 @@ class TripCompletionServiceTest {
         assertThat(trip.getStatus()).isEqualTo(TripStatus.COMPLETED);
         verify(activityLogService).create(any());
         verify(notificationService).create(any());
+        verify(placeVoteRequestRepository).deleteAllInBatch(List.of(openVote));
     }
 }

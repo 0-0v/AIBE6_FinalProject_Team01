@@ -44,6 +44,17 @@ export function Landing() {
         navigate(currentUser ? '/app' : '/login')
     }, [currentUser, isInitialized, navigate])
 
+    const startCreatingTrip = useCallback(() => {
+        if (!isInitialized) return
+        const createTripPath = '/app/room?create=true'
+        if (currentUser) {
+            navigate(createTripPath)
+            return
+        }
+        sessionStorage.setItem('postLoginReturnPath', createTripPath)
+        navigate('/login')
+    }, [currentUser, isInitialized, navigate])
+
     const gazeRotate =
         isMobile || reduced ? 0 : Math.max(-3, Math.min(3, smx * 6))
     const heroFlamingoStyle: React.CSSProperties = {
@@ -275,9 +286,10 @@ export function Landing() {
                             animation: fadeUpIn(300),
                         }}
                     >
-                        <a
-                            href="#place-section"
-                            onClick={scrollTo('place-section')}
+                        <button
+                            type="button"
+                            onClick={startCreatingTrip}
+                            disabled={!isInitialized}
                             onMouseEnter={() => setCtaHover(true)}
                             onMouseLeave={() => setCtaHover(false)}
                             className="pl-cta-btn"
@@ -294,10 +306,13 @@ export function Landing() {
                                     'transform 0.2s ease, box-shadow 0.2s ease',
                                 textDecoration: 'none',
                                 display: 'inline-block',
+                                border: 'none',
+                                cursor: isInitialized ? 'pointer' : 'wait',
+                                fontFamily: 'var(--font-landing)',
                             }}
                         >
                             바로 여행방 만들기
-                        </a>
+                        </button>
                         <a
                             href="#ai-section"
                             onClick={scrollTo('ai-section')}
@@ -1627,7 +1642,7 @@ export function Landing() {
                             여행은 이미 시작됐어요.
                         </h2>
                         <ConfettiButton
-                            onClick={startService}
+                            onClick={startCreatingTrip}
                             className="pl-cta-btn"
                             style={{
                                 display: 'inline-block',

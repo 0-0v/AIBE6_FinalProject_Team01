@@ -29,6 +29,7 @@ import { resolveGooglePlacePhotoUrl } from '@/shared/api/client'
 
 type Props = {
     onAdd: (r: PlaceSearchResult) => Promise<void>
+    onFocus?: (result: PlaceSearchResult) => void
     location?: string
     latitude?: number
     longitude?: number
@@ -38,6 +39,7 @@ type Props = {
 
 export function PlaceSearch({
     onAdd,
+    onFocus,
     location,
     latitude,
     longitude,
@@ -372,7 +374,12 @@ export function PlaceSearch({
                                     >
                                         <Tooltip.Root>
                                             <Tooltip.Trigger asChild>
-                                                <div className="flex min-w-0 flex-1 cursor-default items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onFocus?.(r)}
+                                                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                                    aria-label={`${r.name} 지도에서 보기`}
+                                                >
                                                     <span
                                                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
                                                         style={{
@@ -426,7 +433,7 @@ export function PlaceSearch({
                                                             </p>
                                                         )}
                                                     </div>
-                                                </div>
+                                                </button>
                                             </Tooltip.Trigger>
                                             <Tooltip.Portal>
                                                 <Tooltip.Content

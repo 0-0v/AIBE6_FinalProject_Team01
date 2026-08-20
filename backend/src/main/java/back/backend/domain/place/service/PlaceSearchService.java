@@ -13,7 +13,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.LinkedHashMap;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +33,7 @@ public class PlaceSearchService {
 
     private static final String GOOGLE_PLACES_BASE_URL = "https://places.googleapis.com/v1";
     private static final double ROOM_SEARCH_RADIUS_METERS = 50_000.0;
+    private static final int MAX_SEARCH_RESULTS = 15;
     private static final String FIELD_MASK =
             "places.id,places.displayName,places.formattedAddress,places.location," +
             "places.primaryType,places.types," +
@@ -113,6 +116,7 @@ public class PlaceSearchService {
         Map<String, Object> requestBody = new LinkedHashMap<>();
         requestBody.put("textQuery", fullQuery);
         requestBody.put("languageCode", "ko");
+        requestBody.put("maxResultCount", 20);
         if (StringUtils.hasText(includedType)) {
             requestBody.put("includedType", includedType);
             requestBody.put("strictTypeFiltering", true);
@@ -123,14 +127,17 @@ public class PlaceSearchService {
                     latitude, longitude, ROOM_SEARCH_RADIUS_METERS));
         }
         List<PlaceSearchResponse> results = callGooglePlacesApi(requestBody);
-        if (!hasRoomCenter) {
-            return results;
+        if (hasRoomCenter && StringUtils.hasText(includedType)) {
+            List<PlaceSearchResponse> nearbyResults = results.stream()
+                    .filter(place -> GeoDistanceCalculator.distanceMeters(
+                            latitude, longitude, place.latitude(), place.longitude())
+                            <= ROOM_SEARCH_RADIUS_METERS)
+                    .toList();
+            return rankSearchResults(nearbyResults, normalizedQuery);
         }
-        return results.stream()
-                .filter(place -> GeoDistanceCalculator.distanceMeters(
-                        latitude, longitude, place.latitude(), place.longitude())
-                        <= ROOM_SEARCH_RADIUS_METERS)
-                .toList();
+        // locationBias는 검색 순위를 보정할 뿐 결과를 자르는 경계가 아니다.
+        // 전체 카테고리에서 장소명을 정확히 입력한 경우 중심에서 멀더라도 관련 결과를 보여준다.
+        return rankSearchResults(results, normalizedQuery);
     }
 
     public List<PlaceSearchResponse> searchNearby(
@@ -143,11 +150,37 @@ public class PlaceSearchService {
             throw new BusinessException(PlaceErrorCode.PLACE_SEARCH_QUERY_REQUIRED);
         }
         double safeRadius = Math.max(500, Math.min(radiusMeters, 20_000));
-        return callGooglePlacesApi(Map.of(
+        List<PlaceSearchResponse> results = callGooglePlacesApi(Map.of(
                 "textQuery", query,
                 "languageCode", "ko",
                 "locationBias", createLocationCircle(latitude, longitude, safeRadius)
         ));
+        return rankSearchResults(results, query.trim());
+    }
+
+    private List<PlaceSearchResponse> rankSearchResults(
+            List<PlaceSearchResponse> results,
+            String query
+    ) {
+        String normalizedQuery = normalizeSearchText(query);
+        return results.stream()
+                .sorted(Comparator.comparingInt(result ->
+                        searchMatchRank(normalizeSearchText(result.name()), normalizedQuery)))
+                .limit(MAX_SEARCH_RESULTS)
+                .toList();
+    }
+
+    private int searchMatchRank(String name, String query) {
+        if (name.equals(query)) return 0;
+        if (name.startsWith(query)) return 1;
+        if (name.contains(query)) return 2;
+        return 3;
+    }
+
+    private String normalizeSearchText(String value) {
+        if (!StringUtils.hasText(value)) return "";
+        return value.replaceAll("\\s+", "")
+                .toLowerCase(Locale.ROOT);
     }
 
     private Map<String, Object> createLocationCircle(
