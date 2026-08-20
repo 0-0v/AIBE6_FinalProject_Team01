@@ -2,6 +2,7 @@ package back.backend.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import back.backend.domain.trip.entity.Trip;
@@ -59,6 +60,20 @@ class CompletedTripWriteInterceptorTest {
         MockHttpServletRequest request = request("POST", "/api/trips/10/bookmarks/3", 10L);
 
         assertThat(interceptor.preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
+    }
+
+    @Test
+    @DisplayName("t4 완료된 여행방의 지출 등록과 정산 변경 요청은 허용한다")
+    void t4_completedTripAllowsExpenseWrite() {
+        MockHttpServletRequest createRequest = request("POST", "/api/trips/10/expenses", 10L);
+        MockHttpServletRequest settleRequest = request(
+                "PATCH", "/api/trips/10/expenses/3/participants/2/complete", 10L);
+
+        assertThat(interceptor.preHandle(
+                createRequest, new MockHttpServletResponse(), new Object())).isTrue();
+        assertThat(interceptor.preHandle(
+                settleRequest, new MockHttpServletResponse(), new Object())).isTrue();
+        verifyNoInteractions(tripRepository);
     }
 
     private MockHttpServletRequest request(String method, String uri, Long tripId) {

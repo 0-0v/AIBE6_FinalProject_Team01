@@ -14,7 +14,7 @@ import org.springframework.web.servlet.HandlerMapping;
 public class CompletedTripWriteInterceptor implements HandlerInterceptor {
 
     private static final Set<String> BLOCKED_FEATURES = Set.of(
-            "places", "categories", "map-pins", "itinerary", "expenses",
+            "places", "categories", "map-pins", "itinerary",
             "ai", "date-availability", "date-proposal"
     );
 
