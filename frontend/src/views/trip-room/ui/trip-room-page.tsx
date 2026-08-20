@@ -1071,6 +1071,14 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     isLoading={isLoading}
                                     error={error}
                                     onRetry={loadTrips}
+                                    openCreateInitially={
+                                        searchParams.get('create') === 'true'
+                                    }
+                                    onCreateModalClose={() =>
+                                        navigate('/app/room', {
+                                            replace: true,
+                                        })
+                                    }
                                     onSelectRoom={(id) => {
                                         selectTrip(id)
                                         navigate(`/app/room/${id}`)

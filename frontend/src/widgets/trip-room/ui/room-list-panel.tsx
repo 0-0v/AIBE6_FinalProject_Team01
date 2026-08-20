@@ -26,6 +26,8 @@ type Props = {
     error: string | null
     onRetry: () => void | Promise<void>
     onSelectRoom: (roomId: string) => void
+    openCreateInitially?: boolean
+    onCreateModalClose?: () => void
 }
 
 export function RoomListPanel({
@@ -34,8 +36,10 @@ export function RoomListPanel({
     error,
     onRetry,
     onSelectRoom,
+    openCreateInitially = false,
+    onCreateModalClose,
 }: Props) {
-    const [createOpen, setCreateOpen] = useState(false)
+    const [createOpen, setCreateOpen] = useState(openCreateInitially)
     const [page, setPage] = useState(0)
     const [filter, setFilter] = useState<TripFilter>('all')
     const [selectedYear, setSelectedYear] = useState<number | null>(null)
@@ -319,7 +323,10 @@ export function RoomListPanel({
 
             {createOpen && (
                 <CreateTripModal
-                    onClose={() => setCreateOpen(false)}
+                    onClose={() => {
+                        setCreateOpen(false)
+                        onCreateModalClose?.()
+                    }}
                     onCreated={async (tripId) => {
                         setCreateOpen(false)
                         await onRetry()
