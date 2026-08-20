@@ -116,6 +116,7 @@ type Props = {
     places: Place[]
     selectedId: string | null
     onSelectPlace: (id: string) => void
+    onFocusSearchResult?: (result: PlaceSearchResult) => void
     onDeselectPlace?: () => void
     onBack: () => void
     onManage: () => void
@@ -158,6 +159,7 @@ export function RoomDetailPanel({
     places,
     selectedId,
     onSelectPlace,
+    onFocusSearchResult,
     onDeselectPlace,
     onBack,
     onManage,
@@ -588,6 +590,7 @@ export function RoomDetailPanel({
                         {canPlanWrite && (
                             <PlaceSearch
                                 onAdd={handleAdd}
+                                onFocus={onFocusSearchResult}
                                 location={room.location || undefined}
                                 latitude={placeSearchCenter.latitude}
                                 longitude={placeSearchCenter.longitude}

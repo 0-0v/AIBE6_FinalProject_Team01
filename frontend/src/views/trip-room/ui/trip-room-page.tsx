@@ -199,6 +199,16 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const [viewportFocusRequest, setViewportFocusRequest] = useState<
         (TripMapViewport & { version: number }) | null
     >(null)
+    const focusSearchResult = useCallback((result: PlaceSearchResult) => {
+        setSelectedId(null)
+        setMapCollapsed(false)
+        setViewportFocusRequest({
+            lat: result.latitude,
+            lng: result.longitude,
+            zoom: 16,
+            version: Date.now(),
+        })
+    }, [])
     const [aiOpen, setAiOpen] = useState(false)
     const [pendingAiAction, setPendingAiAction] =
         useState<PendingAiTripAction | null>(null)
@@ -537,7 +547,13 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                 })
             }
         },
-        [currentUser?.id, mapPlaces, selectPlaceFromCard],
+        [
+            currentUser?.id,
+            mapPlaces,
+            selectPlaceFromCard,
+            setMapCollapsed,
+            setViewportFocusRequest,
+        ],
     )
 
     const updatePlace = useCallback(
@@ -993,6 +1009,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                                     places={displayedPlaces}
                                     selectedId={selectedId}
                                     onSelectPlace={selectPlaceFromCard}
+                                    onFocusSearchResult={focusSearchResult}
                                     onDeselectPlace={deselectPlace}
                                     hoveredPlaceId={hoveredPlaceId}
                                     onHoverPlace={setHoveredPlaceId}
