@@ -418,4 +418,30 @@ class PlaceSearchServiceTest {
         assertThat(result.getFirst().name()).isEqualTo("도톤보리");
         server.verify();
     }
+
+    @Test
+    @DisplayName("t17 전체 카테고리 검색은 위치 편향 반경 밖의 관련 장소도 결과에서 제거하지 않는다")
+    void t17_allCategorySearchKeepsRelevantResultsOutsideBiasRadius() {
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("/places:searchText")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"maxResultCount\":20")))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [{
+                            "id":"dotenbori",
+                            "displayName":{"text":"도톤보리"},
+                            "formattedAddress":"일본 오사카",
+                            "location":{"latitude":34.6687,"longitude":135.5013},
+                            "primaryType":"tourist_attraction",
+                            "types":["tourist_attraction"]
+                          }]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<PlaceSearchResponse> result = service.search(
+                "도톤보리", "오사카", null, 35.6812, 139.7671);
+
+        assertThat(result).extracting(PlaceSearchResponse::name)
+                .containsExactly("도톤보리");
+        server.verify();
+    }
 }

@@ -116,6 +116,7 @@ public class PlaceSearchService {
         Map<String, Object> requestBody = new LinkedHashMap<>();
         requestBody.put("textQuery", fullQuery);
         requestBody.put("languageCode", "ko");
+        requestBody.put("maxResultCount", 20);
         if (StringUtils.hasText(includedType)) {
             requestBody.put("includedType", includedType);
             requestBody.put("strictTypeFiltering", true);
@@ -126,15 +127,17 @@ public class PlaceSearchService {
                     latitude, longitude, ROOM_SEARCH_RADIUS_METERS));
         }
         List<PlaceSearchResponse> results = callGooglePlacesApi(requestBody);
-        if (!hasRoomCenter) {
-            return rankSearchResults(results, normalizedQuery);
+        if (hasRoomCenter && StringUtils.hasText(includedType)) {
+            List<PlaceSearchResponse> nearbyResults = results.stream()
+                    .filter(place -> GeoDistanceCalculator.distanceMeters(
+                            latitude, longitude, place.latitude(), place.longitude())
+                            <= ROOM_SEARCH_RADIUS_METERS)
+                    .toList();
+            return rankSearchResults(nearbyResults, normalizedQuery);
         }
-        List<PlaceSearchResponse> nearbyResults = results.stream()
-                .filter(place -> GeoDistanceCalculator.distanceMeters(
-                        latitude, longitude, place.latitude(), place.longitude())
-                        <= ROOM_SEARCH_RADIUS_METERS)
-                .toList();
-        return rankSearchResults(nearbyResults, normalizedQuery);
+        // locationBias는 검색 순위를 보정할 뿐 결과를 자르는 경계가 아니다.
+        // 전체 카테고리에서 장소명을 정확히 입력한 경우 중심에서 멀더라도 관련 결과를 보여준다.
+        return rankSearchResults(results, normalizedQuery);
     }
 
     public List<PlaceSearchResponse> searchNearby(
