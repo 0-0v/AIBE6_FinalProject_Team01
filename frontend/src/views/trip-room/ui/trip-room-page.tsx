@@ -199,15 +199,21 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
     const [viewportFocusRequest, setViewportFocusRequest] = useState<
         (TripMapViewport & { version: number }) | null
     >(null)
+    const [searchPlaceFocusRequest, setSearchPlaceFocusRequest] = useState<{
+        result: PlaceSearchResult
+        version: number
+    } | null>(null)
     const focusSearchResult = useCallback((result: PlaceSearchResult) => {
+        const version = Date.now()
         setSelectedId(null)
         setMapCollapsed(false)
         setViewportFocusRequest({
             lat: result.latitude,
             lng: result.longitude,
             zoom: 16,
-            version: Date.now(),
+            version,
         })
+        setSearchPlaceFocusRequest({ result, version })
     }, [])
     const [aiOpen, setAiOpen] = useState(false)
     const [pendingAiAction, setPendingAiAction] =
@@ -845,6 +851,7 @@ export function TripRoom({ mode = 'plan' }: { mode?: TripRoomMode }) {
                         mapPins={mapPins}
                         onMapPinCommentAdded={handleMapPinCommentAdded}
                         viewportFocusRequest={viewportFocusRequest}
+                        searchPlaceFocusRequest={searchPlaceFocusRequest}
                         onViewportChange={setMapViewport}
                         days={itineraryDays}
                         initialRouteDay={
