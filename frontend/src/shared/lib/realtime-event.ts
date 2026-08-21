@@ -35,6 +35,14 @@ export function isTripRealtimeEvent(
     )
 }
 
+export function shouldRefreshTripList(event: RealtimeEvent) {
+    return event.type === 'TRIP_MEMBERS_CHANGED' || event.targetType === 'TRIP'
+}
+
+export function shouldDispatchNotificationToTrip(event: RealtimeEvent) {
+    return event.type === 'NOTIFICATION_CHANGED' && event.tripId != null
+}
+
 export function isAccountSuspendedEvent(
     event: Partial<AccountSuspendedEvent> | null | undefined,
     currentUserId: number,

@@ -27,6 +27,7 @@ import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
+import back.backend.global.transaction.TransactionalReadExecutor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class AiItineraryReplanService {
 
     private final TripAccessChecker accessChecker;
@@ -57,35 +57,18 @@ public class AiItineraryReplanService {
     private final AiReplanCutoffPolicy cutoffPolicy;
     private final CollaborationEventService collaborationEventService;
     private final PlaceSearchService placeSearchService;
+    private final TransactionalReadExecutor transactionalReadExecutor;
 
     public List<RoutePlanOption> preview(
             Long tripId,
             AiItineraryReplanRequest request
     ) {
-        accessChecker.requireEdit(tripId);
-        var trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
         LocalDateTime referenceTime = LocalDateTime.now();
-        validateTripPeriod(
-                trip.getStartDate(),
-                trip.getEndDate(),
-                referenceTime.toLocalDate()
-        );
-
-        List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId)
-                .stream()
-                .sorted(Comparator.comparing(ItineraryDay::getItineraryDate))
-                .toList();
-        if (days.isEmpty()) {
-            throw new BusinessException(
-                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
-            );
-        }
-
-        Map<Long, TripPlace> tripPlaceById = tripPlaceRepository
-                .findAllOrderedByTripId(tripId)
-                .stream()
-                .collect(Collectors.toMap(TripPlace::getId, place -> place));
+        ReplanData data = transactionalReadExecutor.execute(() ->
+                loadReplanData(tripId, referenceTime));
+        Trip trip = data.trip();
+        List<ItineraryDay> days = data.days();
+        Map<Long, TripPlace> tripPlaceById = data.tripPlaceById();
         if (request.effectiveScope() == AiReplanScope.SINGLE_DAY) {
             return previewSingleDay(
                     trip,
@@ -224,6 +207,34 @@ public class AiItineraryReplanService {
                         )
                 ))
                 .toList();
+    }
+
+    private ReplanData loadReplanData(Long tripId, LocalDateTime referenceTime) {
+        accessChecker.requireEdit(tripId);
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.NOT_FOUND));
+        validateTripPeriod(
+                trip.getStartDate(),
+                trip.getEndDate(),
+                referenceTime.toLocalDate()
+        );
+
+        List<ItineraryDay> days = dayRepository.findAllWithItemsByTripId(tripId)
+                .stream()
+                .sorted(Comparator.comparing(ItineraryDay::getItineraryDate))
+                .toList();
+        if (days.isEmpty()) {
+            throw new BusinessException(
+                    ItineraryErrorCode.ITINERARY_INVALID_ROUTE_PLAN
+            );
+        }
+
+        Map<Long, TripPlace> tripPlaceById = tripPlaceRepository
+                .findAllOrderedByTripId(tripId)
+                .stream()
+                .collect(Collectors.toMap(TripPlace::getId, place -> place));
+        trip.getTravelStyles().size();
+        return new ReplanData(trip, List.copyOf(days), Map.copyOf(tripPlaceById));
     }
 
     private List<RoutePlanOption> previewSingleDay(
@@ -750,6 +761,13 @@ public class AiItineraryReplanService {
             Long dayId,
             LocalTime startTime,
             String reason
+    ) {
+    }
+
+    private record ReplanData(
+            Trip trip,
+            List<ItineraryDay> days,
+            Map<Long, TripPlace> tripPlaceById
     ) {
     }
 }

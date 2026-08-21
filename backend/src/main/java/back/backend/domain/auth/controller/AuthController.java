@@ -21,6 +21,7 @@ import back.backend.domain.auth.service.EmailVerificationService;
 import back.backend.domain.auth.service.LoginAttemptService;
 import back.backend.domain.auth.service.OAuthLoginCodeService;
 import back.backend.domain.auth.service.SuspensionNoticeService;
+import back.backend.global.exception.BusinessException;
 import back.backend.global.response.ApiResponse;
 import back.backend.global.security.SecurityContextAccessor;
 import back.backend.global.security.jwt.RefreshTokenCookieProvider;
@@ -28,6 +29,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -175,7 +177,17 @@ public class AuthController {
         if (refreshToken == null || refreshToken.isBlank()) {
             return ResponseEntity.noContent().build();
         }
-        TokenResponse tokens = authService.reissue(refreshToken);
+        TokenResponse tokens;
+        try {
+            tokens = authService.reissue(refreshToken);
+        } catch (BusinessException exception) {
+            if (exception.getErrorCode().getStatus() == HttpStatus.UNAUTHORIZED) {
+                response.addHeader(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieProvider.expire().toString());
+            }
+            throw exception;
+        }
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieProvider.create(tokens.refreshToken()).toString());
         return ResponseEntity.ok(ApiResponse.success(AccessTokenResponse.from(tokens)));
     }

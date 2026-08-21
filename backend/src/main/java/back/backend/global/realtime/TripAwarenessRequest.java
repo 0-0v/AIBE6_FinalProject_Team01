@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
 
 public record TripAwarenessRequest(
         @NotBlank
-        @Pattern(regexp = "places|itinerary|schedule|record")
+        @Pattern(regexp = "places|votes|itinerary|schedule|record")
         String workspace,
         @Min(1) Integer selectedDay,
         @Size(max = 255) String selectedPlaceId,

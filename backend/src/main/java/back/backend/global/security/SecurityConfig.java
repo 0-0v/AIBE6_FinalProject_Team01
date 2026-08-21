@@ -52,6 +52,7 @@ public class SecurityConfig {
             "/api/auth/email-verifications/**",
             "/api/auth/password-reset",
             "/api/inquiries",
+            "/ws",
             "/ws/**",
             "/uploads/**"
     };

@@ -90,6 +90,9 @@ public class RefreshTokenRepository {
         if ("REUSE_DETECTED".equals(result)) {
             return RefreshRotationResult.invalid();
         }
+        if (result == null || result.isBlank()) {
+            return RefreshRotationResult.invalid();
+        }
         return RefreshRotationResult.alreadyRotated(result);
     }
 

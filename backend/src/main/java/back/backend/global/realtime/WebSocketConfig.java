@@ -14,7 +14,9 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
-import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -22,6 +24,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private static final Logger log = LoggerFactory.getLogger(WebSocketConfig.class);
 
     private final JwtProvider jwtProvider;
     private final MemberRepository memberRepository;
@@ -61,19 +65,26 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registration.interceptors(new ChannelInterceptor() {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
-                StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
-                if (accessor.getCommand() == StompCommand.CONNECT) {
-                    accessor.setUser(authenticate(accessor.getFirstNativeHeader("Authorization")));
+                StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(
+                        message, StompHeaderAccessor.class);
+                if (accessor == null) {
+                    return message;
                 }
-                if (accessor.getCommand() == StompCommand.SUBSCRIBE
-                        || accessor.getCommand() == StompCommand.SEND) {
-                    authorizeActiveMember(accessor.getUser());
-                    authorizeSubscription(accessor);
+                try {
+                    if (accessor.getCommand() == StompCommand.CONNECT) {
+                        accessor.setUser(authenticate(accessor.getFirstNativeHeader("Authorization")));
+                    }
+                    if (accessor.getCommand() == StompCommand.SUBSCRIBE
+                            || accessor.getCommand() == StompCommand.SEND) {
+                        authorizeActiveMember(accessor.getUser());
+                        authorizeSubscription(accessor);
+                    }
+                } catch (RuntimeException exception) {
+                    log.warn("STOMP message rejected: command={}, destination={}, reason={}",
+                            accessor.getCommand(), accessor.getDestination(), exception.getMessage());
+                    throw exception;
                 }
-                return MessageBuilder.createMessage(
-                        message.getPayload(),
-                        accessor.getMessageHeaders()
-                );
+                return message;
             }
         });
     }

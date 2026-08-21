@@ -22,11 +22,13 @@ import back.backend.domain.place.service.PlaceSearchService;
 import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.repository.TripRepository;
+import back.backend.global.transaction.TransactionalReadExecutor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -55,6 +57,8 @@ class AiItineraryReplanServiceTest {
     @Mock AiReplanCutoffPolicy cutoffPolicy;
     @Mock CollaborationEventService collaborationEventService;
     @Mock PlaceSearchService placeSearchService;
+    @Spy TransactionalReadExecutor transactionalReadExecutor =
+            new TransactionalReadExecutor();
     @InjectMocks AiItineraryReplanService replanService;
 
     @Test

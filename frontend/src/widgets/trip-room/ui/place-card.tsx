@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircleIcon, Trash2Icon, TrophyIcon } from 'lucide-react'
+import {
+    CircleMinusIcon,
+    MessageCircleIcon,
+    ScaleIcon,
+    Trash2Icon,
+    TrophyIcon,
+} from 'lucide-react'
 import {
     CategoryIcon,
+    closedVoteOutcomeForPlace,
     type Place,
     type PlaceCategoryInfo,
 } from '@/entities/trip'
@@ -45,9 +52,10 @@ export function PlaceCard({
                 block: 'nearest',
             })
     }, [selected])
-    const selectedByVote =
-        place.voteSummary?.status === 'CLOSED' &&
-        place.voteSummary.winnerTripPlaceId === Number(place.id)
+    const voteOutcome = closedVoteOutcomeForPlace(
+        place.voteSummary,
+        Number(place.id),
+    )
     return (
         <article
             ref={cardRef}
@@ -111,9 +119,19 @@ export function PlaceCard({
                         <h4 className="truncate text-sm font-extrabold text-slate-900">
                             {place.name}
                         </h4>
-                        {selectedByVote && (
+                        {voteOutcome === 'SELECTED' && (
                             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-extrabold text-amber-700">
                                 <TrophyIcon size={11} /> 투표 선정
+                            </span>
+                        )}
+                        {voteOutcome === 'NOT_SELECTED' && (
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-50 px-2 py-1 text-[10px] font-extrabold text-rose-600">
+                                <CircleMinusIcon size={11} /> 투표 미선정
+                            </span>
+                        )}
+                        {voteOutcome === 'TIE' && (
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-extrabold text-slate-600">
+                                <ScaleIcon size={11} /> 투표 동률
                             </span>
                         )}
                     </div>

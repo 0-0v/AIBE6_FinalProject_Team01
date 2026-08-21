@@ -23,6 +23,8 @@ import {
     REALTIME_EVENT_NAME,
     isAccountSuspendedEvent,
     parseRealtimeMessage,
+    shouldDispatchNotificationToTrip,
+    shouldRefreshTripList,
     type AccountSuspendedEvent,
     type RealtimeEvent,
 } from '@/shared/lib'
@@ -48,9 +50,14 @@ export function RealtimeSync() {
     const currentUserId = currentUser?.id ?? null
     const activeTripId = useTripStore((state) => state.activeTripId)
     const rooms = useTripStore((state) => state.rooms)
-    const loadedForMemberId = useTripStore((state) => state.loadedForMemberId)
+    const loadedForMemberId = useTripStore(
+        (state) => state.loadedForMemberId,
+    )
+    const tripsLoading = useTripStore((state) => state.isLoading)
     const tripStateReady =
-        currentUserId != null && loadedForMemberId === currentUserId
+        currentUserId != null &&
+        loadedForMemberId === currentUserId &&
+        !tripsLoading
     const activeTripAccessible =
         tripStateReady &&
         rooms.some((room) => room.apiTripId === parseActiveTripId(activeTripId))
@@ -94,7 +101,12 @@ export function RealtimeSync() {
             stopped = true
             if (intervalId !== null) window.clearInterval(intervalId)
         }
-    }, [accessTokenVersion, activeTripAccessible, activeTripId, currentUserId])
+    }, [
+        accessTokenVersion,
+        activeTripAccessible,
+        activeTripId,
+        currentUserId,
+    ])
 
     useEffect(() => {
         const token = getAccessToken()
@@ -102,7 +114,7 @@ export function RealtimeSync() {
             ? parseActiveTripId(activeTripId)
             : null
         useTripAwarenessStore.getState().setTrip(tripId)
-        if (currentUserId == null || !token) {
+        if (currentUserId == null || !token || !tripStateReady) {
             useRealtimeStore.getState().setConnected(false)
             useTripAwarenessStore.getState().setPublisher(null)
             return
@@ -121,18 +133,23 @@ export function RealtimeSync() {
         }
 
         const handleNotification = (message: IMessage) => {
-            if (!parseEvent(message)) return
-            void useNotificationStore.getState().loadNotifications()
-        }
-
-        const handleTripChange = (message: IMessage) => {
             const event = parseEvent(message)
             if (!event) return
-            if (
-                event.type === 'TRIP_MEMBERS_CHANGED' ||
-                event.targetType === 'TRIP'
-            ) {
-                void useTripStore.getState().loadTrips()
+            void useNotificationStore.getState().loadNotifications()
+            if (shouldDispatchNotificationToTrip(event)) {
+                window.dispatchEvent(
+                    new CustomEvent<RealtimeEvent>(REALTIME_EVENT_NAME, {
+                        detail: event,
+                    }),
+                )
+            }
+        }
+
+        const handleTripChange = async (message: IMessage) => {
+            const event = parseEvent(message)
+            if (!event) return
+            if (shouldRefreshTripList(event)) {
+                await useTripStore.getState().loadTrips()
             }
 
             const activityState = useActivityLogStore.getState()
@@ -223,12 +240,15 @@ export function RealtimeSync() {
         })
 
         activeClientRef.current = client
-        client.activate()
+        const activationTimerId = window.setTimeout(() => {
+            if (activeClientRef.current === client) client.activate()
+        }, 0)
         const pruneIntervalId = window.setInterval(
             () => useTripAwarenessStore.getState().pruneExpired(),
             5_000,
         )
         return () => {
+            window.clearTimeout(activationTimerId)
             window.clearInterval(pruneIntervalId)
             if (activeClientRef.current === client) {
                 activeClientRef.current = null
@@ -237,7 +257,13 @@ export function RealtimeSync() {
             }
             void client.deactivate()
         }
-    }, [accessTokenVersion, activeTripAccessible, activeTripId, currentUserId])
+    }, [
+        accessTokenVersion,
+        activeTripAccessible,
+        activeTripId,
+        currentUserId,
+        tripStateReady,
+    ])
 
     return null
 }

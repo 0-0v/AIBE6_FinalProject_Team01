@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -279,25 +279,37 @@ export function RoomDetailPanel({
         requestDiscardDateChanges(onBack)
     }
 
-    async function openCommentSheet(placeId: string) {
+    const refreshCommentSheet = useCallback(
+        async (placeId: string) => {
+            try {
+                const comments = (
+                    await getPlaceComments(tripId, Number(placeId))
+                ).map(mapApiComment)
+                setComments(placeId, comments)
+                onUpdatePlace(placeId, (place) => ({
+                    ...place,
+                    comments,
+                    commentCount: comments.length,
+                }))
+            } catch (error) {
+                setCommentError(
+                    getApiErrorMessage(error, '댓글을 불러오지 못했습니다.'),
+                )
+            }
+        },
+        [onUpdatePlace, setComments, tripId],
+    )
+
+    function openCommentSheet(placeId: string) {
         setCommentError(null)
         setCommentPlaceId(placeId)
-        try {
-            const comments = (
-                await getPlaceComments(tripId, Number(placeId))
-            ).map(mapApiComment)
-            setComments(placeId, comments)
-            onUpdatePlace(placeId, (place) => ({
-                ...place,
-                comments,
-                commentCount: comments.length,
-            }))
-        } catch (error) {
-            setCommentError(
-                getApiErrorMessage(error, '댓글을 불러오지 못했습니다.'),
-            )
-        }
+        void refreshCommentSheet(placeId)
     }
+
+    useEffect(() => {
+        if (realtimeVersion === 0 || commentPlaceId === null) return
+        void Promise.resolve(commentPlaceId).then(refreshCommentSheet)
+    }, [commentPlaceId, realtimeVersion, refreshCommentSheet])
 
     async function handleAddComment(placeId: string, text: string) {
         setCommentError(null)
@@ -612,6 +624,14 @@ export function RoomDetailPanel({
                                 {placeError ?? categoryError ?? loadError}
                             </p>
                         )}
+                        <div className="flex items-center justify-between px-4 py-3">
+                            <span className="text-xs font-bold text-slate-500">
+                                총 등록 장소
+                            </span>
+                            <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-extrabold text-brand-700">
+                                {places.length}개
+                            </span>
+                        </div>
                     </div>
                     <div className="mp-scroll grid flex-1 auto-rows-max grid-cols-1 gap-2.5 overflow-y-auto px-4 py-3 @min-[760px]:grid-cols-2">
                         {places.length === 0 ? (

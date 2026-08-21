@@ -114,4 +114,20 @@ class RefreshTokenRepositoryTest {
         assertThat(result.isValid()).isFalse();
         assertThat(result.refreshToken()).isNull();
     }
+
+    @Test
+    @DisplayName("t7 Redis 회전 결과가 없으면 유효한 토큰으로 오인하지 않는다")
+    @SuppressWarnings("unchecked")
+    void t7_rotateReturnsInvalidWhenRedisReturnsNull() {
+        when(redisTemplate.execute(
+                        any(RedisScript.class),
+                        eq(List.of("refresh-token:1", "refresh-token-grace:1")),
+                        eq("old-token"), eq("new-token"), any(), any()))
+                .thenReturn(null);
+
+        RefreshRotationResult result = refreshTokenRepository.rotate(1L, "old-token", "new-token");
+
+        assertThat(result.isValid()).isFalse();
+        assertThat(result.refreshToken()).isNull();
+    }
 }
