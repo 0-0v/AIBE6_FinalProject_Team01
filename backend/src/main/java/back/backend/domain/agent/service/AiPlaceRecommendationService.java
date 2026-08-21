@@ -15,9 +15,9 @@ import back.backend.domain.trip.repository.TripRepository;
 import back.backend.global.exception.BusinessException;
 import back.backend.global.exception.CommonErrorCode;
 import back.backend.global.util.GeoDistanceCalculator;
+import back.backend.global.transaction.TransactionalReadExecutor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.time.Clock;
@@ -33,7 +33,6 @@ import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class AiPlaceRecommendationService {
 
     private static final double DEFAULT_SEARCH_RADIUS_METERS = 5_000;
@@ -46,8 +45,79 @@ public class AiPlaceRecommendationService {
     private final PlaceStyleRelationService placeStyleRelationService;
     private final AiPlaceRecommendationRanker recommendationRanker;
     private final Clock clock;
+    private final TransactionalReadExecutor transactionalReadExecutor;
 
     public List<AiPlaceRecommendationResponse> recommend(
+            Long tripId,
+            AiPlaceRecommendationRequest request
+    ) {
+        RecommendationData data = transactionalReadExecutor.execute(() ->
+                loadRecommendationData(tripId, request));
+        String query = buildQuery(
+                data.destination(),
+                request.category(),
+                request.prompt()
+        );
+        List<PlaceSearchResponse> searched = searchAlongRoute(
+                query,
+                data.routePoints()
+        );
+        List<PlaceSearchResponse> eligiblePlaces = searched
+                .stream()
+                .filter(place -> matchesRequestedCategory(
+                        place.recommendedCategoryType(),
+                        request.category()
+                ))
+                .filter(place -> !data.registeredGooglePlaceIds().contains(
+                        place.googlePlaceId()
+                ))
+                .limit(15)
+                .toList();
+        Map<String, AiPlaceRecommendationRanker.Assessment> rankedAssessments =
+                recommendationRanker.rank(
+                        data.destination(),
+                        request.category(),
+                        request.prompt(),
+                        eligiblePlaces
+                );
+        Map<String, AiPlaceRecommendationRanker.Assessment> aiAssessments =
+                rankedAssessments == null ? Map.of() : rankedAssessments;
+        List<Candidate> candidates = eligiblePlaces.stream()
+                .map(place -> new Candidate(
+                        place,
+                        routeDeviationMeters(place, data.routePoints()),
+                        placeStyleRelationService.calculateCompatibility(
+                                place.recommendedCategoryType(),
+                                data.travelStyles()
+                        ),
+                        aiAssessments.getOrDefault(
+                                place.googlePlaceId(),
+                                new AiPlaceRecommendationRanker.Assessment(0.5, "")
+                        )
+                ))
+                .sorted(Comparator
+                        .comparingDouble(Candidate::rankingScore)
+                        .reversed()
+                        .thenComparing(
+                                candidate -> candidate.place().rating(),
+                                Comparator.nullsLast(Comparator.reverseOrder())
+                        ))
+                .limit(15)
+                .toList();
+
+        int limit = request.resolvedLimit();
+        return candidates.stream()
+                .limit(limit)
+                .map(candidate -> new AiPlaceRecommendationResponse(
+                        candidate.place(),
+                        buildReason(candidate),
+                        candidate.routeDeviationMeters(),
+                        candidate.styleCompatibility()
+                ))
+                .toList();
+    }
+
+    private RecommendationData loadRecommendationData(
             Long tripId,
             AiPlaceRecommendationRequest request
     ) {
@@ -107,73 +177,17 @@ public class AiPlaceRecommendationService {
                 .filter(java.util.Objects::nonNull)
                 .toList();
 
-        String query = buildQuery(
-                trip.getDestination(),
-                request.category(),
-                request.prompt()
-        );
-        List<PlaceSearchResponse> searched = searchAlongRoute(
-                query,
-                routePoints
-        );
         List<back.backend.domain.place.entity.TripPlace> registeredPlaces =
                 tripPlaceRepository.findAllOrderedByTripId(tripId);
         Set<String> registeredGooglePlaceIds = registeredPlaces.stream()
                 .map(place -> place.getPlace().getGooglePlaceId())
                 .collect(Collectors.toSet());
-        List<PlaceSearchResponse> eligiblePlaces = searched
-                .stream()
-                .filter(place -> matchesRequestedCategory(
-                        place.recommendedCategoryType(),
-                        request.category()
-                ))
-                .filter(place -> !registeredGooglePlaceIds.contains(
-                        place.googlePlaceId()
-                ))
-                .limit(15)
-                .toList();
-        Map<String, AiPlaceRecommendationRanker.Assessment> rankedAssessments =
-                recommendationRanker.rank(
-                        trip.getDestination(),
-                        request.category(),
-                        request.prompt(),
-                        eligiblePlaces
-                );
-        Map<String, AiPlaceRecommendationRanker.Assessment> aiAssessments =
-                rankedAssessments == null ? Map.of() : rankedAssessments;
-        List<Candidate> candidates = eligiblePlaces.stream()
-                .map(place -> new Candidate(
-                        place,
-                        routeDeviationMeters(place, routePoints),
-                        placeStyleRelationService.calculateCompatibility(
-                                place.recommendedCategoryType(),
-                                trip.getTravelStyles()
-                        ),
-                        aiAssessments.getOrDefault(
-                                place.googlePlaceId(),
-                                new AiPlaceRecommendationRanker.Assessment(0.5, "")
-                        )
-                ))
-                .sorted(Comparator
-                        .comparingDouble(Candidate::rankingScore)
-                        .reversed()
-                        .thenComparing(
-                                candidate -> candidate.place().rating(),
-                                Comparator.nullsLast(Comparator.reverseOrder())
-                        ))
-                .limit(15)
-                .toList();
-
-        int limit = request.resolvedLimit();
-        return candidates.stream()
-                .limit(limit)
-                .map(candidate -> new AiPlaceRecommendationResponse(
-                        candidate.place(),
-                        buildReason(candidate),
-                        candidate.routeDeviationMeters(),
-                        candidate.styleCompatibility()
-                ))
-                .toList();
+        return new RecommendationData(
+                trip.getDestination(),
+                Set.copyOf(trip.getTravelStyles()),
+                List.copyOf(routePoints),
+                Set.copyOf(registeredGooglePlaceIds)
+        );
     }
 
     private boolean matchesRequestedCategory(
@@ -330,5 +344,13 @@ public class AiPlaceRecommendationService {
                     + styleCompatibility * 0.20
                     + ratingScore * 0.15;
         }
+    }
+
+    private record RecommendationData(
+            String destination,
+            Set<back.backend.domain.trip.entity.TravelStyle> travelStyles,
+            List<double[]> routePoints,
+            Set<String> registeredGooglePlaceIds
+    ) {
     }
 }

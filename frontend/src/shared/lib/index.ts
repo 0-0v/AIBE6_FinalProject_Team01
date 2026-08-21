@@ -17,6 +17,8 @@ export {
     isAccountSuspendedEvent,
     isTripRealtimeEvent,
     parseRealtimeMessage,
+    shouldDispatchNotificationToTrip,
+    shouldRefreshTripList,
     type AccountSuspendedEvent,
     type RealtimeEvent,
 } from './realtime-event'

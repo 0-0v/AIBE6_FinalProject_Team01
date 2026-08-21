@@ -15,6 +15,7 @@ import back.backend.domain.place.service.TripAccessChecker;
 import back.backend.domain.trip.entity.Trip;
 import back.backend.domain.trip.entity.TravelStyle;
 import back.backend.domain.trip.repository.TripRepository;
+import back.backend.global.transaction.TransactionalReadExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,8 @@ class AiPlaceRecommendationServiceTest {
                 placeSearchService,
                 placeStyleRelationService,
                 recommendationRanker,
-                clock
+                clock,
+                new TransactionalReadExecutor()
         );
     }
 

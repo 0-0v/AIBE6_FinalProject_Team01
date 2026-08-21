@@ -144,6 +144,7 @@ class WebSocketConfigTest {
         if (destination != null) accessor.setDestination(destination);
         if (principal != null) accessor.setUser(principal);
         if (token != null) accessor.setNativeHeader("Authorization", "Bearer " + token);
+        accessor.setLeaveMutable(true);
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 
