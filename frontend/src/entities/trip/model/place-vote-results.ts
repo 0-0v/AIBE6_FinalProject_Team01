@@ -9,6 +9,19 @@ export type ClosedVotePlaceResult = {
     outcome: ClosedVoteOutcome
 }
 
+export function closedVoteOutcomeForPlace(
+    vote: PlaceVoteSummary | undefined,
+    tripPlaceId: number,
+): ClosedVoteOutcome | null {
+    if (vote?.status !== 'CLOSED') return null
+    const belongsToVote =
+        vote.primaryPlace.tripPlaceId === tripPlaceId ||
+        vote.secondaryPlace?.tripPlaceId === tripPlaceId
+    if (!belongsToVote) return null
+    if (vote.result === 'TIE') return 'TIE'
+    return vote.winnerTripPlaceId === tripPlaceId ? 'SELECTED' : 'NOT_SELECTED'
+}
+
 export function latestVoteByPlaceId(votes: PlaceVoteSummary[]) {
     const latest = new Map<number, PlaceVoteSummary>()
     ;[...votes]
@@ -41,12 +54,7 @@ export function buildClosedVotePlaceResults(
             return {
                 vote,
                 place,
-                outcome:
-                    vote.result === 'TIE'
-                        ? ('TIE' as const)
-                        : vote.winnerTripPlaceId === tripPlaceId
-                          ? ('SELECTED' as const)
-                          : ('NOT_SELECTED' as const),
+                outcome: closedVoteOutcomeForPlace(vote, tripPlaceId)!,
             }
         })
         .filter((entry) => filter === 'ALL' || entry.outcome === filter)

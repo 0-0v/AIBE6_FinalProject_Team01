@@ -60,6 +60,13 @@ class PlaceVoteServiceTest {
         assertThat(result.secondaryPlace().name()).isEqualTo("맥파이");
         assertThat(first.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
         assertThat(second.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
+        assertThat(first.getAddedBy()).isEqualTo(11L);
+        assertThat(second.getAddedBy()).isEqualTo(11L);
+        then(collaborationEventService).should().record(
+                org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq("PLACE_VOTE_STARTED"),
+                org.mockito.ArgumentMatchers.eq("PLACE_VOTE"), org.mockito.ArgumentMatchers.eq(100L),
+                any(), any(), any(), any());
     }
 
     @Test
@@ -78,6 +85,8 @@ class PlaceVoteServiceTest {
         assertThat(result.winnerTripPlaceId()).isEqualTo(10L);
         assertThat(first.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
         assertThat(second.getStatus()).isEqualTo(TripPlaceStatus.SAVED);
+        assertThat(first.getAddedBy()).isEqualTo(11L);
+        assertThat(second.getAddedBy()).isEqualTo(11L);
     }
 
     @Test
@@ -141,8 +150,8 @@ class PlaceVoteServiceTest {
                 any(), any(), any(), any());
     }
 
-    private TripPlace place(Long id, String name) { TripPlace p = TripPlace.builder().tripId(1L).place(Place.builder().name(name).address("서울").placeType("restaurant").build()).status(TripPlaceStatus.SAVED).build(); ReflectionTestUtils.setField(p, "id", id); return p; }
-    private TripPlace tripPlace(Long id, Place place) { TripPlace p = TripPlace.builder().tripId(1L).place(place).status(TripPlaceStatus.SAVED).build(); ReflectionTestUtils.setField(p, "id", id); return p; }
+    private TripPlace place(Long id, String name) { TripPlace p = TripPlace.builder().tripId(1L).place(Place.builder().name(name).address("서울").placeType("restaurant").build()).addedBy(11L).status(TripPlaceStatus.SAVED).build(); ReflectionTestUtils.setField(p, "id", id); return p; }
+    private TripPlace tripPlace(Long id, Place place) { TripPlace p = TripPlace.builder().tripId(1L).place(place).addedBy(11L).status(TripPlaceStatus.SAVED).build(); ReflectionTestUtils.setField(p, "id", id); return p; }
     private PlaceVoteRequest vote(PlaceVoteType type, Long secondary) { PlaceVoteRequest v = PlaceVoteRequest.builder().tripPlaceId(10L).secondaryTripPlaceId(secondary).voteType(type).status(PlaceVoteStatus.OPEN).requiredResponseCount(2).totalMemberCount(2).createdAt(java.time.LocalDateTime.now()).expiresAt(java.time.LocalDateTime.now().plusHours(1)).build(); ReflectionTestUtils.setField(v, "id", 100L); return v; }
     private PlaceVoteResponse response(Long memberId, PlaceVoteChoice choice) { return PlaceVoteResponse.builder().voteRequestId(100L).memberId(memberId).choice(choice).createdAt(java.time.LocalDateTime.now()).updatedAt(java.time.LocalDateTime.now()).build(); }
 }

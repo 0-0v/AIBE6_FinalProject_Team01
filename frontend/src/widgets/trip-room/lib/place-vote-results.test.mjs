@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildClosedVotePlaceResults } from '../../../entities/trip/model/place-vote-results.ts'
+import {
+    buildClosedVotePlaceResults,
+    closedVoteOutcomeForPlace,
+} from '../../../entities/trip/model/place-vote-results.ts'
 
 const battleVote = {
     voteRequestId: 1,
@@ -56,4 +59,9 @@ test('재투표 결과는 장소별 가장 최근에 종료된 결과만 노출�
 
     assert.equal(placeA.length, 1)
     assert.equal(placeA[0].outcome, 'NOT_SELECTED')
+})
+
+test('장소 카드는 사용자별 투표 참여 여부와 관계없이 같은 결과를 표시한다', () => {
+    assert.equal(closedVoteOutcomeForPlace(battleVote, 1), 'SELECTED')
+    assert.equal(closedVoteOutcomeForPlace(battleVote, 2), 'NOT_SELECTED')
 })

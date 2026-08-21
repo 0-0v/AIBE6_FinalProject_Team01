@@ -278,7 +278,7 @@ function DrumColumn({
                                 selectIndex(index)
                             }}
                             className={cn(
-                                'flex h-10 w-full snap-start items-center justify-center text-sm font-bold transition-colors',
+                                'flex h-10 w-full snap-center items-center justify-center text-sm font-bold transition-colors',
                                 selectedIndex === index
                                     ? 'text-white'
                                     : 'text-slate-400 hover:text-slate-700',
