@@ -1598,6 +1598,30 @@ class ItineraryServiceTest {
         ).doesNotThrowAnyException();
     }
 
+    @Test
+    @DisplayName("t50 일정 장소 추가 트랜잭션에서는 외부 이동시간 계산을 실행하지 않는다")
+    void t50_addItemDefersTravelCalculationUntilAfterCommit() {
+        ItineraryItem existingItem = ItineraryItem.create(day, 301L, 0);
+        ReflectionTestUtils.setField(existingItem, "id", 201L);
+        given(dayRepository.findByIdAndTripId(DAY_ID, TRIP_ID)).willReturn(Optional.of(day));
+        given(tripPlaceRepository.findByIdAndTripId(TRIP_PLACE_ID, TRIP_ID))
+                .willReturn(Optional.of(savedTripPlace));
+        given(itemRepository.existsByItineraryDayTripIdAndTripPlaceId(TRIP_ID, TRIP_PLACE_ID))
+                .willReturn(false);
+        given(itemRepository.findAllByItineraryDayOrderBySortOrderAsc(day))
+                .willReturn(List.of(existingItem));
+        given(itemRepository.save(any(ItineraryItem.class))).willAnswer(inv -> inv.getArgument(0));
+        given(dayRepository.findAllWithItemsByTripId(TRIP_ID)).willReturn(List.of(day));
+
+        itineraryService.addItem(
+                TRIP_ID,
+                DAY_ID,
+                new AddItineraryItemRequest(TRIP_PLACE_ID, 0)
+        );
+
+        then(travelEstimator).shouldHaveNoInteractions();
+    }
+
     private RoutePlanItemResponse routePlanItem(Long tripPlaceId, String name) {
         return new RoutePlanItemResponse(
                 tripPlaceId,
