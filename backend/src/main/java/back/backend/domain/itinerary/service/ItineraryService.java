@@ -187,9 +187,22 @@ public class ItineraryService {
         Set<Integer> affected = new HashSet<>();
         if (p > 0) affected.add(p - 1);
         affected.add(p);
-        recalculateItemsAt(existingItems, affected);
-        // 첫 번째 위치에 삽입되면 departure → 첫 아이템 구간도 재계산
-        if (p == 0) recalculateDepartureTravelIfNeeded(day, existingItems);
+        List<ItineraryTravelRecalculationRequested.Segment> affectedSegments = affected.stream()
+                .filter(index -> index >= 0 && index < existingItems.size())
+                .map(index -> new ItineraryTravelRecalculationRequested.Segment(
+                        existingItems.get(index).getId(),
+                        existingItems.get(index).getTripPlaceId(),
+                        index + 1 < existingItems.size()
+                                ? existingItems.get(index + 1).getTripPlaceId()
+                                : null
+                ))
+                .toList();
+        eventPublisher.publishEvent(new ItineraryTravelRecalculationRequested(
+                tripId,
+                dayId,
+                affectedSegments,
+                p == 0 && day.hasDeparture() ? existingItems.getFirst().getId() : null
+        ));
 
         publishChanged(tripId, item.getId());
         return getDayResponseById(tripId, dayId);
